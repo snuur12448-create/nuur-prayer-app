@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Platform } from "react-native";
+import { Platform, useColorScheme } from "react-native";
 import {
   calculatePrayerTimes,
   PrayerTimesResult,
@@ -60,6 +60,7 @@ interface AppContextType {
   setThemeName: (name: ThemeName) => void;
   displayMode: DisplayMode;
   setDisplayMode: (mode: DisplayMode) => void;
+  effectiveDisplayMode: "dark" | "light";
   themeColors: ThemeColors;
   notificationsEnabled: boolean;
   toggleNotifications: () => Promise<void>;
@@ -141,6 +142,7 @@ async function nominatimCity(lat: number, lng: number): Promise<string | null> {
 const PRAYER_KEYS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const systemColorScheme = useColorScheme();
   const [location, setLocation] = useState<LocationData | null>(null);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimesResult | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -186,8 +188,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { adhanModeRef.current = adhanMode; }, [adhanMode]);
   useEffect(() => { prayerTimesRef.current = prayerTimes; }, [prayerTimes]);
 
+  const effectiveDisplayMode: "dark" | "light" =
+    displayMode === "auto"
+      ? (systemColorScheme === "light" ? "light" : "dark")
+      : displayMode;
+
   const themeColors =
-    displayMode === "dark"
+    effectiveDisplayMode === "dark"
       ? THEMES[themeName].colors
       : THEMES[themeName].lightColors;
 
@@ -287,7 +294,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(STORAGE_KEYS.ADHAN_MODE),
         ]);
       if (theme && theme in THEMES) setThemeNameState(theme as ThemeName);
-      if (mode === "dark" || mode === "light") setDisplayModeState(mode);
+      if (mode === "auto" || mode === "dark" || mode === "light") setDisplayModeState(mode);
       if (notifs === "true") setNotificationsEnabled(true);
       if (method) setCalcMethodState(method as CalcMethodId);
       if (madhabVal === "Hanafi" || madhabVal === "Shafi") setMadhabState(madhabVal);
@@ -516,6 +523,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setThemeName,
         displayMode,
         setDisplayMode,
+        effectiveDisplayMode,
         themeColors,
         notificationsEnabled,
         toggleNotifications,

@@ -18,7 +18,7 @@ export type ThemeColors = {
 };
 
 export type ThemeName = "emerald" | "midnight" | "amber" | "violet" | "rose";
-export type DisplayMode = "dark" | "light";
+export type DisplayMode = "auto" | "dark" | "light";
 
 export type ThemeDefinition = {
   name: ThemeName;
@@ -237,4 +237,4 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
 };
 
 export const DEFAULT_THEME: ThemeName = "emerald";
-export const DEFAULT_DISPLAY_MODE: DisplayMode = "dark";
+export const DEFAULT_DISPLAY_MODE: DisplayMode = "auto";

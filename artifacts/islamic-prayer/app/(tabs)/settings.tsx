@@ -82,11 +82,11 @@ function SegmentControl<T extends string>({
 }
 
 function ThemeSwatch({
-  name, isActive, displayMode, onPress,
-}: { name: ThemeName; isActive: boolean; displayMode: DisplayMode; onPress: () => void }) {
+  name, isActive, effectiveDisplayMode, onPress,
+}: { name: ThemeName; isActive: boolean; effectiveDisplayMode: "dark" | "light"; onPress: () => void }) {
   const theme = THEMES[name];
   const [accent, bg] = theme.swatch;
-  const activeBg = displayMode === "light" ? theme.lightColors.background : bg;
+  const activeBg = effectiveDisplayMode === "light" ? theme.lightColors.background : bg;
 
   return (
     <Pressable onPress={onPress} style={styles.swatchWrapper}>
@@ -302,7 +302,7 @@ export default function SettingsScreen() {
   const {
     themeColors: colors,
     themeName, setThemeName,
-    displayMode, setDisplayMode,
+    displayMode, setDisplayMode, effectiveDisplayMode,
     calcMethod, setCalcMethod,
     madhab, setMadhab,
     highLatRule, setHighLatRule,
@@ -341,7 +341,11 @@ export default function SettingsScreen() {
               <Text style={[styles.rowLabel, { color: colors.text }]}>Display Mode</Text>
             </View>
             <SegmentControl<DisplayMode>
-              options={[{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }]}
+              options={[
+                { value: "auto", label: "Auto" },
+                { value: "light", label: "Light" },
+                { value: "dark", label: "Dark" },
+              ]}
               value={displayMode}
               onChange={setDisplayMode}
               colors={colors}
@@ -358,7 +362,7 @@ export default function SettingsScreen() {
             <View style={styles.swatchRow}>
               {THEME_ORDER.map((name) => (
                 <ThemeSwatch key={name} name={name} isActive={themeName === name}
-                  displayMode={displayMode} onPress={() => setThemeName(name)} />
+                  effectiveDisplayMode={effectiveDisplayMode} onPress={() => setThemeName(name)} />
               ))}
             </View>
           </View>
