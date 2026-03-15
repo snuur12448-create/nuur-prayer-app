@@ -540,7 +540,7 @@ export default function QiblaScreen() {
 
         {/* Distance info */}
         {distance !== null && (
-          <Text style={styles.distanceText}>
+          <Text style={[styles.distanceText, { color: colors.textSecondary }]}>
             {distance.toLocaleString()} km to Kaaba
           </Text>
         )}
@@ -572,7 +572,7 @@ export default function QiblaScreen() {
           {showCompassStatus && !needsPermission && (
             <View style={styles.noCompassOverlay}>
               <ActivityIndicator color={colors.tint} />
-              <Text style={styles.noCompassText}>Detecting compass…</Text>
+              <Text style={[styles.noCompassText, { color: "rgba(255,255,255,0.7)" }]}>Detecting compass…</Text>
             </View>
           )}
 
@@ -580,7 +580,7 @@ export default function QiblaScreen() {
           {needsPermission && (
             <View style={styles.noCompassOverlay}>
               <Feather name="rotate-cw" size={28} color={colors.tint} />
-              <Text style={styles.noCompassText}>Compass permission needed</Text>
+              <Text style={[styles.noCompassText, { color: "rgba(255,255,255,0.7)" }]}>Compass permission needed</Text>
               <Pressable style={[styles.permBtn, { borderColor: colors.tint, backgroundColor: `${colors.tint}22` }]} onPress={startCompass}>
                 <Text style={[styles.permBtnText, { color: colors.tint }]}>Enable Compass</Text>
               </Pressable>
@@ -609,22 +609,22 @@ export default function QiblaScreen() {
         {/* Heading display */}
         {hasCompass && (
           <View style={styles.headingRow}>
-            <View style={styles.headingCard}>
-              <Text style={styles.headingValue}>{Math.round(compassHeading)}°</Text>
-              <Text style={styles.headingLabel}>Device Heading</Text>
+            <View style={[styles.headingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.headingValue, { color: colors.text }]}>{Math.round(compassHeading)}°</Text>
+              <Text style={[styles.headingLabel, { color: colors.textSecondary }]}>Device Heading</Text>
             </View>
             {qiblaAngle !== null && (
-              <View style={styles.headingCard}>
+              <View style={[styles.headingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Text style={[styles.headingValue, { color: aligned ? colors.tint : colors.gold }]}>
                   {Math.round(Math.abs(((compassHeading - qiblaAngle + 180 + 360) % 360) - 180))}°
                 </Text>
-                <Text style={styles.headingLabel}>Off Qibla</Text>
+                <Text style={[styles.headingLabel, { color: colors.textSecondary }]}>Off Qibla</Text>
               </View>
             )}
             {distance !== null && (
-              <View style={styles.headingCard}>
-                <Text style={styles.headingValue}>{distance.toLocaleString()}</Text>
-                <Text style={styles.headingLabel}>km to Kaaba</Text>
+              <View style={[styles.headingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.headingValue, { color: colors.text }]}>{distance.toLocaleString()}</Text>
+                <Text style={[styles.headingLabel, { color: colors.textSecondary }]}>km to Kaaba</Text>
               </View>
             )}
           </View>
