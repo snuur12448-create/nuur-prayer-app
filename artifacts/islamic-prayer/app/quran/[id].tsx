@@ -8,6 +8,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -64,7 +65,10 @@ export default function QuranDetailScreen() {
   const [playingVerse, setPlayingVerse] = useState<number | null>(null);
   const [playState, setPlayState] = useState<PlayState>("idle");
   const [showReciterModal, setShowReciterModal] = useState(false);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [reciterListAtBottom, setReciterListAtBottom] = useState(false);
   const soundRef = useRef<any>(null);
+  const previewAudioRef = useRef<any>(null);
   // Preloaded next audio (web only)
   const preloadRef = useRef<{ verseNum: number; audio: HTMLAudioElement } | null>(null);
   const isMountedRef = useRef(true);
@@ -115,8 +119,16 @@ export default function QuranDetailScreen() {
   }, [surahNumber]);
 
   useEffect(() => {
-    return () => { stopAudio(); };
+    return () => { stopAudio(); stopPreview(); };
   }, []);
+
+  useEffect(() => {
+    if (showReciterModal) {
+      setReciterListAtBottom(false);
+    } else {
+      stopPreview();
+    }
+  }, [showReciterModal]);
 
   const stopAudio = useCallback(async () => {
     if (soundRef.current) {
@@ -147,6 +159,54 @@ export default function QuranDetailScreen() {
       setPlayState("idle");
     }
   }, []);
+
+  /** Stop any active reciter preview */
+  const stopPreview = useCallback(() => {
+    if (previewAudioRef.current) {
+      try {
+        if (Platform.OS === "web") {
+          previewAudioRef.current.pause();
+          previewAudioRef.current.src = "";
+        } else {
+          previewAudioRef.current.stopAsync?.();
+          previewAudioRef.current.unloadAsync?.();
+        }
+      } catch {}
+      previewAudioRef.current = null;
+    }
+    setPreviewingId(null);
+  }, []);
+
+  /** Play a short sample of a reciter (Surah 1, Verse 1) */
+  const togglePreview = useCallback((reciter: Reciter) => {
+    if (previewingId === reciter.id) {
+      stopPreview();
+      return;
+    }
+    stopPreview();
+    const url = getVerseAudioUrl(reciter, 1, 1, 1);
+    setPreviewingId(reciter.id);
+    if (Platform.OS === "web") {
+      const audio = new Audio(url);
+      audio.onended = () => setPreviewingId(null);
+      audio.onerror = () => setPreviewingId(null);
+      previewAudioRef.current = audio;
+      audio.play().catch(() => setPreviewingId(null));
+    } else {
+      (async () => {
+        try {
+          const { Sound } = await import("expo-av");
+          const { sound } = await Sound.createAsync({ uri: url }, { shouldPlay: true });
+          previewAudioRef.current = sound;
+          sound.setOnPlaybackStatusUpdate((status: any) => {
+            if (status.didJustFinish) setPreviewingId(null);
+          });
+        } catch {
+          setPreviewingId(null);
+        }
+      })();
+    }
+  }, [previewingId, stopPreview]);
 
   /** Preload the audio for the next verse (web only) */
   const preloadNext = useCallback((verse: Verse, currentVerses: Verse[]) => {
@@ -524,48 +584,125 @@ export default function QuranDetailScreen() {
       )}
 
       {/* Reciter Modal */}
-      <Modal visible={showReciterModal} transparent animationType="slide" onRequestClose={() => setShowReciterModal(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowReciterModal(false)}>
+      <Modal
+        visible={showReciterModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          stopPreview();
+          setShowReciterModal(false);
+        }}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => {
+            stopPreview();
+            setShowReciterModal(false);
+          }}
+        >
           <Pressable>
             <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
               <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
               <Text style={[styles.modalTitle, { color: colors.text }]}>Choose Reciter</Text>
               <Text style={[styles.modalSub, { color: colors.textSecondary }]}>
-                All audio streams live — internet required
+                Tap a name to select · tap play to sample
               </Text>
-              {RECITERS.map((reciter) => {
-                const isSelected = selectedReciter.id === reciter.id;
-                return (
-                  <TouchableOpacity
-                    key={reciter.id}
+
+              {/* Scrollable list with fade hint */}
+              <View style={styles.reciterScrollWrap}>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  style={styles.reciterScrollView}
+                  onScroll={({ nativeEvent }) => {
+                    const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+                    setReciterListAtBottom(layoutMeasurement.height + contentOffset.y >= contentSize.height - 8);
+                  }}
+                  scrollEventThrottle={16}
+                >
+                  {RECITERS.map((reciter) => {
+                    const isSelected = selectedReciter.id === reciter.id;
+                    const isPreviewing = previewingId === reciter.id;
+                    return (
+                      <TouchableOpacity
+                        key={reciter.id}
+                        style={[
+                          styles.reciterRow,
+                          {
+                            backgroundColor: isSelected ? colors.tint + "20" : "transparent",
+                            borderColor: isSelected ? colors.tint + "40" : colors.border,
+                          },
+                        ]}
+                        onPress={() => {
+                          setSelectedReciter(reciter);
+                          stopAudio();
+                          stopPreview();
+                          setShowReciterModal(false);
+                        }}
+                      >
+                        <View style={styles.reciterInfo}>
+                          <View
+                            style={[
+                              styles.reciterIcon,
+                              { backgroundColor: isSelected ? colors.tint : colors.tint + "28" },
+                            ]}
+                          >
+                            <Feather name="mic" size={14} color={isSelected ? "#fff" : colors.tint} />
+                          </View>
+                          <View style={styles.reciterDetails}>
+                            <Text style={[styles.reciterName, { color: colors.text }]}>{reciter.name}</Text>
+                            <Text style={[styles.reciterArabic, { color: colors.textSecondary }]}>
+                              {reciter.arabicName}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.reciterRowRight}>
+                          <TouchableOpacity
+                            style={[
+                              styles.previewBtn,
+                              {
+                                backgroundColor: isPreviewing ? colors.tint + "30" : "rgba(255,255,255,0.07)",
+                                borderColor: isPreviewing ? colors.tint : colors.border,
+                              },
+                            ]}
+                            onPress={() => togglePreview(reciter)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Feather
+                              name={isPreviewing ? "square" : "play"}
+                              size={11}
+                              color={isPreviewing ? colors.tint : colors.text}
+                            />
+                          </TouchableOpacity>
+                          {isSelected ? (
+                            <Feather name="check" size={16} color={colors.tint} />
+                          ) : (
+                            <View style={{ width: 16 }} />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                {/* Scroll-more fade hint */}
+                {!reciterListAtBottom && (
+                  <View
                     style={[
-                      styles.reciterRow,
-                      {
-                        backgroundColor: isSelected ? colors.tint + "20" : "transparent",
-                        borderColor: isSelected ? colors.tint + "40" : colors.border,
-                      },
+                      styles.scrollFadeHint,
+                      { backgroundColor: "transparent" },
                     ]}
-                    onPress={() => {
-                      setSelectedReciter(reciter);
-                      stopAudio();
-                      setShowReciterModal(false);
-                    }}
+                    pointerEvents="none"
                   >
-                    <View style={styles.reciterInfo}>
-                      <View style={[styles.reciterIcon, { backgroundColor: isSelected ? colors.tint : "rgba(255,255,255,0.08)" }]}>
-                        <Feather name="mic" size={14} color={isSelected ? "#fff" : colors.textSecondary} />
-                      </View>
-                      <View style={styles.reciterDetails}>
-                        <Text style={[styles.reciterName, { color: colors.text }]}>{reciter.name}</Text>
-                        <Text style={[styles.reciterArabic, { color: colors.textSecondary }]}>
-                          {reciter.arabicName}
-                        </Text>
-                      </View>
+                    <View style={[styles.scrollFadeGradient, { backgroundColor: colors.surface }]} />
+                    <View style={[styles.scrollFadeChip, { backgroundColor: colors.border }]}>
+                      <Feather name="chevron-down" size={12} color={colors.textSecondary} />
+                      <Text style={[styles.scrollFadeText, { color: colors.textSecondary }]}>
+                        more
+                      </Text>
                     </View>
-                    {isSelected && <Feather name="check" size={16} color={colors.tint} />}
-                  </TouchableOpacity>
-                );
-              })}
+                  </View>
+                )}
+              </View>
             </View>
           </Pressable>
         </Pressable>
@@ -696,4 +833,41 @@ const styles = StyleSheet.create({
   reciterDetails: { gap: 2 },
   reciterName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   reciterArabic: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  reciterRowRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  previewBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reciterScrollWrap: { position: "relative", maxHeight: 360 },
+  reciterScrollView: { flexGrow: 0 },
+  scrollFadeHint: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    paddingBottom: 4,
+  },
+  scrollFadeGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 48,
+    opacity: 0.92,
+  },
+  scrollFadeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    opacity: 0.85,
+  },
+  scrollFadeText: { fontSize: 11, fontFamily: "Inter_500Medium" },
 });
