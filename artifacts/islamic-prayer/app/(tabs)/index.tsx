@@ -362,25 +362,25 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   section: {
-    padding: 16,
-    paddingTop: 20,
+    padding: 14,
+    paddingTop: 14,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "Inter_600SemiBold",
     letterSpacing: 1,
     textTransform: "uppercase",
-    marginBottom: 12,
-    marginLeft: 4,
+    marginBottom: 10,
+    marginLeft: 2,
   },
   prayerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
+    marginBottom: 6,
     borderWidth: 1,
   },
   prayerLeft: {
@@ -394,10 +394,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   prayerName: {
-    fontSize: 16,
+    fontSize: 15,
   },
   prayerArabicSmall: {
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 1,
   },
   prayerRight: {

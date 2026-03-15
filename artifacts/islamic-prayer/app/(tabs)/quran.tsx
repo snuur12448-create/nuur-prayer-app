@@ -79,9 +79,15 @@ export default function QuranScreen() {
               </Text>
             </View>
           </View>
-          <Text style={[styles.versesCount, { color: colors.textSecondary }]}>
-            {item.verses} verses
-          </Text>
+          <View style={styles.statsRow}>
+            <Text style={[styles.statText, { color: colors.textSecondary }]}>
+              {item.verses} verses
+            </Text>
+            <View style={[styles.dot, { backgroundColor: colors.border }]} />
+            <Text style={[styles.statText, { color: colors.textSecondary }]}>
+              Juz {item.juz}
+            </Text>
+          </View>
         </View>
         <TouchableOpacity
           onPress={() => toggleBookmark(item.number)}
@@ -89,7 +95,7 @@ export default function QuranScreen() {
           style={styles.bookmarkBtn}
         >
           <Feather
-            name={isBookmarked ? "bookmark" : "bookmark"}
+            name="bookmark"
             size={18}
             color={isBookmarked ? colors.gold : colors.textSecondary}
           />
@@ -103,14 +109,12 @@ export default function QuranScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 16, backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={styles.headerTitleRow}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>القرآن الكريم</Text>
           <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>The Holy Quran</Text>
         </View>
 
-        {/* Search */}
         <View style={[styles.searchContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <Feather name="search" size={16} color={colors.textSecondary} />
           <TextInput
@@ -127,7 +131,6 @@ export default function QuranScreen() {
           )}
         </View>
 
-        {/* Filter tabs */}
         <View style={styles.filterRow}>
           {(["all", "bookmarked"] as const).map((f) => (
             <Pressable
@@ -171,17 +174,13 @@ export default function QuranScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
-  headerTitleRow: {
-    marginBottom: 12,
-  },
+  headerTitleRow: { marginBottom: 12 },
   headerTitle: {
     fontSize: 28,
     fontFamily: "Inter_700Bold",
@@ -281,9 +280,20 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "Inter_600SemiBold",
   },
-  versesCount: {
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+  },
+  statText: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
+  },
+  dot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
   },
   bookmarkBtn: {
     width: 30,

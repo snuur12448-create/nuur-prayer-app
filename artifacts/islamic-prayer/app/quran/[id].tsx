@@ -29,17 +29,14 @@ interface Verse {
   number: number;
   text: string;
   translation: string;
+  transliteration: string;
   numberInQuran: number;
 }
 
 type PlayState = "idle" | "loading" | "playing" | "paused";
 
-/** Strip Bismillah prefix from verse 1 of surahs other than Al-Fatihah (1) and At-Tawbah (9).
- *  The quran-uthmani API edition prepends Bismillah (4 Arabic words) to the first verse. */
 function stripBismillah(text: string, surahNum: number, verseNum: number): string {
   if (surahNum === 1 || surahNum === 9 || verseNum !== 1) return text;
-  // Bismillah is exactly the first 4 Arabic words: بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
-  // Split on whitespace and drop the first 4 tokens
   const words = text.trim().split(/\s+/);
   if (words.length > 4) {
     const rest = words.slice(4).join(" ").trim();
@@ -61,6 +58,7 @@ export default function QuranDetailScreen() {
   const { bookmarkedSurahs, toggleBookmark } = useAppContext();
 
   const [showTranslation, setShowTranslation] = useState(true);
+  const [showTransliteration, setShowTransliteration] = useState(false);
   const [copiedVerse, setCopiedVerse] = useState<number | null>(null);
   const [verses, setVerses] = useState<Verse[] | null>(null);
   const [loadingVerses, setLoadingVerses] = useState(false);
@@ -72,12 +70,14 @@ export default function QuranDetailScreen() {
   const [playState, setPlayState] = useState<PlayState>("idle");
   const [showReciterModal, setShowReciterModal] = useState(false);
   const soundRef = useRef<any>(null);
+  // Preloaded next audio (web only)
+  const preloadRef = useRef<{ verseNum: number; audio: HTMLAudioElement } | null>(null);
   const isMountedRef = useRef(true);
 
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
   const isBookmarked = bookmarkedSurahs.includes(surahNumber);
 
-  // Fetch verses from Al-Quran Cloud API
+  // Fetch verses with Arabic + translation + transliteration
   useEffect(() => {
     isMountedRef.current = true;
     setVerses(null);
@@ -87,7 +87,7 @@ export default function QuranDetailScreen() {
 
     const controller = new AbortController();
     fetch(
-      `https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,en.sahih`,
+      `https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,en.sahih,en.transliteration`,
       { signal: controller.signal }
     )
       .then((r) => r.json())
@@ -95,12 +95,14 @@ export default function QuranDetailScreen() {
         if (!isMountedRef.current) return;
         const arabicAyahs = json?.data?.[0]?.ayahs as any[];
         const englishAyahs = json?.data?.[1]?.ayahs as any[];
+        const translitAyahs = json?.data?.[2]?.ayahs as any[];
         if (!arabicAyahs || !englishAyahs) throw new Error("Bad response");
         const mapped: Verse[] = arabicAyahs.map((a: any, i: number) => ({
           number: a.numberInSurah,
           numberInQuran: a.number,
           text: stripBismillah(a.text, surahNumber, a.numberInSurah),
           translation: englishAyahs[i]?.text ?? "",
+          transliteration: translitAyahs?.[i]?.text ?? "",
         }));
         setVerses(mapped);
         setLoadingVerses(false);
@@ -118,9 +120,7 @@ export default function QuranDetailScreen() {
   }, [surahNumber]);
 
   useEffect(() => {
-    return () => {
-      stopAudio();
-    };
+    return () => { stopAudio(); };
   }, []);
 
   const stopAudio = useCallback(async () => {
@@ -128,6 +128,9 @@ export default function QuranDetailScreen() {
       try {
         if (Platform.OS === "web") {
           const audio = soundRef.current as HTMLAudioElement;
+          audio.onended = null;
+          audio.oncanplaythrough = null;
+          audio.onerror = null;
           audio.pause();
           audio.src = "";
         } else {
@@ -137,26 +140,53 @@ export default function QuranDetailScreen() {
       } catch {}
       soundRef.current = null;
     }
+    // Clear preload
+    if (preloadRef.current) {
+      try {
+        preloadRef.current.audio.src = "";
+      } catch {}
+      preloadRef.current = null;
+    }
     if (isMountedRef.current) {
       setPlayingVerse(null);
       setPlayState("idle");
     }
   }, []);
 
+  /** Preload the audio for the next verse (web only) */
+  const preloadNext = useCallback((verse: Verse, currentVerses: Verse[]) => {
+    if (Platform.OS !== "web") return;
+    const next = currentVerses.find((v) => v.number === verse.number + 1);
+    if (!next) return;
+    const url = getVerseAudioUrl(selectedReciter, surahNumber, next.number, next.numberInQuran);
+    const audio = new Audio(url);
+    audio.preload = "auto";
+    // Start loading but don't play
+    preloadRef.current = { verseNum: next.number, audio };
+  }, [selectedReciter, surahNumber]);
+
   const playVerse = useCallback(
-    async (verse: Verse) => {
+    async (verse: Verse, currentVerses?: Verse[]) => {
+      const versesToUse = currentVerses || verses;
+
+      // Stop existing
       if (soundRef.current) {
         try {
           if (Platform.OS === "web") {
-            (soundRef.current as HTMLAudioElement).pause();
-            soundRef.current = null;
+            const audio = soundRef.current as HTMLAudioElement;
+            audio.onended = null;
+            audio.oncanplaythrough = null;
+            audio.onerror = null;
+            audio.pause();
+            audio.src = "";
           } else {
             await soundRef.current.stopAsync?.();
             await soundRef.current.unloadAsync?.();
-            soundRef.current = null;
           }
         } catch {}
+        soundRef.current = null;
       }
+
       if (!isMountedRef.current) return;
       setPlayingVerse(verse.number);
       setPlayState("loading");
@@ -166,10 +196,10 @@ export default function QuranDetailScreen() {
       const onEnded = () => {
         if (!isMountedRef.current) return;
         soundRef.current = null;
-        if (verses) {
-          const next = verses.find((v) => v.number === verse.number + 1);
+        if (versesToUse) {
+          const next = versesToUse.find((v) => v.number === verse.number + 1);
           if (next) {
-            playVerse(next);
+            playVerse(next, versesToUse);
           } else {
             setPlayingVerse(null);
             setPlayState("idle");
@@ -182,15 +212,49 @@ export default function QuranDetailScreen() {
 
       if (Platform.OS === "web") {
         try {
-          const audio = new Audio(url);
+          let audio: HTMLAudioElement;
+
+          // Check if we have a preloaded audio element for this verse
+          if (preloadRef.current && preloadRef.current.verseNum === verse.number) {
+            audio = preloadRef.current.audio;
+            preloadRef.current = null;
+            // Already loaded/loading — check readyState
+            if (audio.readyState >= 3) {
+              setPlayState("playing");
+            }
+          } else {
+            preloadRef.current = null;
+            audio = new Audio(url);
+            audio.preload = "auto";
+          }
+
           soundRef.current = audio;
-          audio.oncanplaythrough = () => {
-            if (isMountedRef.current) setPlayState("playing");
-            audio.play().catch(() => { if (isMountedRef.current) setPlayState("idle"); });
+
+          audio.onerror = () => {
+            if (isMountedRef.current) setPlayState("idle");
           };
-          audio.onerror = () => { if (isMountedRef.current) setPlayState("idle"); };
+
           audio.onended = onEnded;
-        } catch { if (isMountedRef.current) setPlayState("idle"); }
+
+          const startPlay = () => {
+            if (isMountedRef.current) setPlayState("playing");
+            audio.play().catch(() => {
+              if (isMountedRef.current) setPlayState("idle");
+            });
+            // Preload the verse after next immediately
+            if (versesToUse) preloadNext(verse, versesToUse);
+          };
+
+          if (audio.readyState >= 3) {
+            startPlay();
+          } else {
+            audio.oncanplaythrough = startPlay;
+            // Force load
+            if (audio.readyState === 0) audio.load();
+          }
+        } catch {
+          if (isMountedRef.current) setPlayState("idle");
+        }
       } else {
         try {
           const { Audio } = await import("expo-av");
@@ -205,10 +269,12 @@ export default function QuranDetailScreen() {
               onEnded();
             }
           });
-        } catch { if (isMountedRef.current) setPlayState("idle"); }
+        } catch {
+          if (isMountedRef.current) setPlayState("idle");
+        }
       }
     },
-    [selectedReciter, surahNumber, verses]
+    [selectedReciter, surahNumber, verses, preloadNext]
   );
 
   const togglePlayPause = useCallback(
@@ -237,7 +303,7 @@ export default function QuranDetailScreen() {
     if (playState === "playing" || playState === "loading") {
       await stopAudio();
     } else {
-      await playVerse(verses[0]);
+      await playVerse(verses[0], verses);
     }
   }, [verses, playState, playVerse, stopAudio]);
 
@@ -262,7 +328,7 @@ export default function QuranDetailScreen() {
   if (!surah) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.text }]}>Surah not found</Text>
+        <Text style={[styles.errorTitle, { color: colors.text }]}>Surah not found</Text>
       </View>
     );
   }
@@ -295,8 +361,8 @@ export default function QuranDetailScreen() {
           </View>
           <View style={styles.metaDivider} />
           <View style={styles.metaItem}>
-            <Text style={styles.metaValue}>{surah.englishMeaning}</Text>
-            <Text style={styles.metaLabel}>Meaning</Text>
+            <Text style={styles.metaValue}>Juz {surah.juz}</Text>
+            <Text style={styles.metaLabel}>Location</Text>
           </View>
         </View>
       </View>
@@ -326,6 +392,19 @@ export default function QuranDetailScreen() {
               </Text>
             </TouchableOpacity>
           )}
+          {/* Transliteration toggle */}
+          <TouchableOpacity
+            style={[styles.toggleChip, {
+              backgroundColor: showTransliteration ? colors.gold + "20" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"),
+              borderColor: showTransliteration ? colors.gold + "60" : colors.border,
+            }]}
+            onPress={() => setShowTransliteration((v) => !v)}
+          >
+            <Text style={[styles.toggleChipText, { color: showTransliteration ? colors.gold : colors.textSecondary }]}>
+              A-B-C
+            </Text>
+          </TouchableOpacity>
+          {/* Translation toggle */}
           <Pressable
             style={[styles.toggle, { backgroundColor: showTranslation ? colors.tint : colors.border }]}
             onPress={() => setShowTranslation((v) => !v)}
@@ -431,6 +510,13 @@ export default function QuranDetailScreen() {
                 </View>
 
                 <Text style={[styles.arabicVerse, { color: colors.text }]}>{verse.text}</Text>
+
+                {showTransliteration && verse.transliteration ? (
+                  <Text style={[styles.transliterationVerse, { color: colors.gold, borderTopColor: colors.border }]}>
+                    {verse.transliteration}
+                  </Text>
+                ) : null}
+
                 {showTranslation && (
                   <Text style={[styles.translationVerse, { color: colors.textSecondary, borderTopColor: colors.border }]}>
                     {verse.translation}
@@ -442,7 +528,7 @@ export default function QuranDetailScreen() {
         />
       )}
 
-      {/* Reciter Selection Modal */}
+      {/* Reciter Modal */}
       <Modal visible={showReciterModal} transparent animationType="slide" onRequestClose={() => setShowReciterModal(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowReciterModal(false)}>
           <Pressable>
@@ -452,7 +538,6 @@ export default function QuranDetailScreen() {
               <Text style={[styles.modalSub, { color: colors.textSecondary }]}>
                 All audio streams live — internet required
               </Text>
-
               {RECITERS.map((reciter) => {
                 const isSelected = selectedReciter.id === reciter.id;
                 return (
@@ -530,19 +615,30 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     flex: 1,
-    maxWidth: 200,
+    maxWidth: 180,
   },
   reciterBtnText: { fontSize: 13, fontFamily: "Inter_500Medium", flex: 1 },
-  controlsRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  controlsRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   playAllBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 10,
   },
   playAllText: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  toggleChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  toggleChipText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.5,
+  },
   toggle: { width: 44, height: 24, borderRadius: 12, padding: 2 },
   toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff" },
   toggleLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
@@ -563,29 +659,46 @@ const styles = StyleSheet.create({
   verseHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   verseHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
   playBtn: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", borderWidth: 1 },
-  copyBtn: { borderRadius: 8, padding: 6 },
-  verseNumberBadge: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  verseNumber: { fontSize: 13, fontFamily: "Inter_700Bold" },
-  arabicVerse: { fontSize: 22, textAlign: "right", lineHeight: 38, letterSpacing: 0.3, writingDirection: "rtl", marginBottom: 10 },
-  translationVerse: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22, borderTopWidth: 1, paddingTop: 10 },
-  errorText: { fontSize: 16, textAlign: "center", marginTop: 100 },
+  copyBtn: { width: 26, height: 26, borderRadius: 6, alignItems: "center", justifyContent: "center" },
+  verseNumberBadge: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  verseNumber: { fontSize: 12, fontFamily: "Inter_700Bold" },
+  arabicVerse: { fontSize: 22, textAlign: "right", lineHeight: 40, letterSpacing: 0.3, writingDirection: "rtl" },
+  transliterationVerse: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    fontStyle: "italic",
+    lineHeight: 22,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  translationVerse: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 22,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    color: "rgba(0,0,0,0.5)",
+  },
+  errorText: { fontSize: 16, fontFamily: "Inter_400Regular", textAlign: "center", margin: 20 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
-  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingBottom: 40, paddingTop: 12 },
-  modalHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 16 },
-  modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold", marginBottom: 4 },
-  modalSub: { fontSize: 13, fontFamily: "Inter_400Regular", marginBottom: 16 },
+  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingTop: 12, gap: 4 },
+  modalHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 12 },
+  modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold", marginBottom: 2 },
+  modalSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 12 },
   reciterRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     padding: 12,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  reciterInfo: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
-  reciterIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  reciterDetails: { flex: 1 },
+  reciterInfo: { flexDirection: "row", alignItems: "center", gap: 12 },
+  reciterIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  reciterDetails: { gap: 2 },
   reciterName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  reciterArabic: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  reciterArabic: { fontSize: 12, fontFamily: "Inter_400Regular" },
 });

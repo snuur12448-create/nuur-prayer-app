@@ -15,7 +15,9 @@ interface AppContextType {
   prayerTimes: PrayerTimesResult | null;
   locationError: string | null;
   isLoadingLocation: boolean;
+  usingDefaultLocation: boolean;
   refreshPrayerTimes: () => void;
+  requestLocation: () => Promise<void>;
   bookmarkedSurahs: number[];
   toggleBookmark: (surahNumber: number) => void;
 }
@@ -31,11 +33,19 @@ function getTimezoneOffset(): number {
   return -new Date().getTimezoneOffset() / 60;
 }
 
+const DEFAULT_LOCATION: LocationData = {
+  latitude: 21.4225,
+  longitude: 39.8262,
+  city: "Makkah",
+  timezone: 3,
+};
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useState<LocationData | null>(null);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimesResult | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [usingDefaultLocation, setUsingDefaultLocation] = useState(false);
   const [bookmarkedSurahs, setBookmarkedSurahs] = useState<number[]>([]);
 
   useEffect(() => {
@@ -60,53 +70,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const initLocation = async () => {
+  const applyLocation = useCallback((loc: LocationData) => {
+    setLocation(loc);
+    const times = calculatePrayerTimes(loc.latitude, loc.longitude, loc.timezone);
+    setPrayerTimes(times);
+  }, []);
+
+  const requestLocation = useCallback(async () => {
     setIsLoadingLocation(true);
     setLocationError(null);
-
-    const defaultLocation: LocationData = {
-      latitude: 21.4225,
-      longitude: 39.8262,
-      city: "Makkah",
-      timezone: 3,
-    };
-
-    try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION);
-      if (stored) {
-        const cachedLocation: LocationData = JSON.parse(stored);
-        setLocation(cachedLocation);
-        const times = calculatePrayerTimes(
-          cachedLocation.latitude,
-          cachedLocation.longitude,
-          getTimezoneOffset()
-        );
-        setPrayerTimes(times);
-      } else {
-        setLocation(defaultLocation);
-        const times = calculatePrayerTimes(
-          defaultLocation.latitude,
-          defaultLocation.longitude,
-          defaultLocation.timezone
-        );
-        setPrayerTimes(times);
-      }
-    } catch {
-      setLocation(defaultLocation);
-      const times = calculatePrayerTimes(
-        defaultLocation.latitude,
-        defaultLocation.longitude,
-        defaultLocation.timezone
-      );
-      setPrayerTimes(times);
-    }
-
-    setIsLoadingLocation(false);
-
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         setLocationError("Location permission denied. Using Makkah as default.");
+        setUsingDefaultLocation(true);
+        applyLocation(DEFAULT_LOCATION);
+        setIsLoadingLocation(false);
         return;
       }
 
@@ -133,20 +112,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         timezone: tz,
       };
 
-      setLocation(locationData);
+      setUsingDefaultLocation(false);
+      applyLocation(locationData);
       await AsyncStorage.setItem(STORAGE_KEYS.LOCATION, JSON.stringify(locationData));
-
-      const times = calculatePrayerTimes(
-        locationData.latitude,
-        locationData.longitude,
-        tz
-      );
-      setPrayerTimes(times);
-    } catch (err) {
-      setLocationError("Could not determine location.");
+    } catch {
+      setLocationError("Could not determine location. Using Makkah as default.");
+      setUsingDefaultLocation(true);
+      applyLocation(DEFAULT_LOCATION);
     } finally {
       setIsLoadingLocation(false);
     }
+  }, [applyLocation]);
+
+  const initLocation = async () => {
+    setIsLoadingLocation(true);
+    setLocationError(null);
+
+    // Show default immediately while we try to get real location
+    applyLocation(DEFAULT_LOCATION);
+    setUsingDefaultLocation(true);
+    setIsLoadingLocation(false);
+
+    // Try to load cached location
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION);
+      if (stored) {
+        const cachedLocation: LocationData = JSON.parse(stored);
+        applyLocation(cachedLocation);
+        setUsingDefaultLocation(false);
+      }
+    } catch {}
+
+    // Always attempt to get fresh location
+    await requestLocation();
   };
 
   const refreshPrayerTimes = useCallback(() => {
@@ -167,7 +165,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         prayerTimes,
         locationError,
         isLoadingLocation,
+        usingDefaultLocation,
         refreshPrayerTimes,
+        requestLocation,
         bookmarkedSurahs,
         toggleBookmark,
       }}

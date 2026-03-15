@@ -27,6 +27,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "hands.and.sparkles", selected: "hands.and.sparkles.fill" }} />
         <Label>Duas</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="tasbeeh">
+        <Icon sf={{ default: "circle.dotted", selected: "circle.dotted" }} />
+        <Label>Tasbeeh</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -111,6 +115,18 @@ function ClassicTabLayout() {
               <SymbolView name="hands.and.sparkles.fill" tintColor={color} size={24} />
             ) : (
               <Feather name="heart" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="tasbeeh"
+        options={{
+          title: "Tasbeeh",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="circle.dotted" tintColor={color} size={24} />
+            ) : (
+              <MaterialCommunityIcons name="circle-multiple-outline" size={22} color={color} />
             ),
         }}
       />
