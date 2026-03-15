@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Clipboard,
   FlatList,
@@ -195,10 +195,18 @@ export default function DuaScreen() {
   const [expandedDua, setExpandedDua] = useState<string | null>(null);
   const [copiedDua, setCopiedDua] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 250);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchQuery]);
 
   const selectedCategory = ALL_DUA_CATEGORIES.find((c) => c.id === selectedCategoryId) ?? ALL_DUA_CATEGORIES[0];
 
-  const searchResults = useMemo(() => searchDuas(searchQuery), [searchQuery]);
+  const searchResults = useMemo(() => searchDuas(debouncedQuery), [debouncedQuery]);
   const isSearching = searchQuery.trim().length > 0;
 
   const copyDua = useCallback((item: DuaItem) => {
@@ -274,7 +282,7 @@ export default function DuaScreen() {
             autoCorrect={false}
           />
           {isSearching && (
-            <TouchableOpacity onPress={() => { setSearchQuery(""); setExpandedDua(null); }} hitSlop={8}>
+            <TouchableOpacity onPress={() => { setSearchQuery(""); setDebouncedQuery(""); setExpandedDua(null); }} hitSlop={8}>
               <Feather name="x" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
