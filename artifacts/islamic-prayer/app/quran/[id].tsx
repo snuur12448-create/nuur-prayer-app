@@ -50,6 +50,7 @@ export default function QuranDetailScreen() {
   const [showTranslation, setShowTranslation] = useState(true);
   const [showTransliteration, setShowTransliteration] = useState(false);
   const [copiedVerse, setCopiedVerse] = useState<number | null>(null);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [verses, setVerses] = useState<Verse[] | null>(null);
   const [loadingVerses, setLoadingVerses] = useState(false);
   const [versesError, setVersesError] = useState(false);
@@ -287,11 +288,7 @@ export default function QuranDetailScreen() {
               backgroundColor: playbackRate !== 1.0 ? colors.tint + "20" : colors.surfaceElevated,
               borderColor: playbackRate !== 1.0 ? colors.tint + "60" : colors.border,
             }]}
-            onPress={() => {
-              const speeds = [0.75, 1.0, 1.5, 2.0];
-              const next = speeds[(speeds.indexOf(playbackRate) + 1) % speeds.length];
-              setPlaybackRate(next);
-            }}
+            onPress={() => setShowSpeedMenu(true)}
           >
             <Text style={[styles.toggleChipText, { color: playbackRate !== 1.0 ? colors.tint : colors.textSecondary }]}>
               {playbackRate === 0.75 ? "¾×" : playbackRate === 1.0 ? "1×" : `${playbackRate}×`}
@@ -564,6 +561,53 @@ export default function QuranDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ── Speed picker modal ──────────────────────────────────────────── */}
+      <Modal
+        visible={showSpeedMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSpeedMenu(false)}
+      >
+        <Pressable style={styles.speedBackdrop} onPress={() => setShowSpeedMenu(false)}>
+          <Pressable>
+            <View style={[styles.speedCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={[styles.speedHandle, { backgroundColor: colors.border }]} />
+              <Text style={[styles.speedTitle, { color: colors.textSecondary }]}>Playback Speed</Text>
+              <View style={styles.speedGrid}>
+                {([0.75, 1.0, 1.5, 2.0] as const).map((speed) => {
+                  const active = playbackRate === speed;
+                  const label = speed === 0.75 ? "¾×" : speed === 1.0 ? "1×" : `${speed}×`;
+                  const sublabel = speed === 0.75 ? "Slow" : speed === 1.0 ? "Normal" : speed === 1.5 ? "Fast" : "Fastest";
+                  return (
+                    <Pressable
+                      key={speed}
+                      onPress={() => { setPlaybackRate(speed); setShowSpeedMenu(false); }}
+                      style={[
+                        styles.speedOption,
+                        {
+                          backgroundColor: active ? colors.tint + "20" : colors.surfaceElevated,
+                          borderColor: active ? colors.tint : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.speedOptionValue, { color: active ? colors.tint : colors.text }]}>
+                        {label}
+                      </Text>
+                      <Text style={[styles.speedOptionSub, { color: active ? colors.tint + "BB" : colors.textSecondary }]}>
+                        {sublabel}
+                      </Text>
+                      {active && (
+                        <View style={[styles.speedActiveDot, { backgroundColor: colors.tint }]} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -735,4 +779,59 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   scrollFadeText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+
+  /* Speed picker */
+  speedBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  speedCard: {
+    width: 280,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    alignItems: "center",
+  },
+  speedHandle: { width: 36, height: 4, borderRadius: 2, marginBottom: 14 },
+  speedTitle: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: 16,
+  },
+  speedGrid: {
+    flexDirection: "row",
+    gap: 10,
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  speedOption: {
+    width: 110,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    gap: 4,
+    position: "relative",
+  },
+  speedOptionValue: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+  },
+  speedOptionSub: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
+  speedActiveDot: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
 });
