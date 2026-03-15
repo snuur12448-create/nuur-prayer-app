@@ -10,10 +10,9 @@ import {
   TouchableOpacity,
   Vibration,
   View,
-  useColorScheme,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Colors from "@/constants/colors";
+import { useAppContext } from "@/context/AppContext";
 
 interface DhikrPreset {
   id: string;
@@ -84,9 +83,7 @@ const DHIKR_PRESETS: DhikrPreset[] = [
 ];
 
 export default function TasbeehScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const colors = isDark ? Colors.dark : Colors.light;
+  const { themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
 

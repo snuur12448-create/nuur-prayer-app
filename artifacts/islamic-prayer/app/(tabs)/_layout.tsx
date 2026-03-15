@@ -6,7 +6,7 @@ import { SymbolView } from "expo-symbols";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
-import Colors from "@/constants/colors";
+import { useAppContext } from "@/context/AppContext";
 
 function NativeTabLayout() {
   return (
@@ -40,7 +40,7 @@ function ClassicTabLayout() {
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
-  const colors = isDark ? Colors.dark : Colors.light;
+  const { themeColors: colors } = useAppContext();
 
   return (
     <Tabs

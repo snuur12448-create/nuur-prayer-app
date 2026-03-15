@@ -12,10 +12,8 @@ import {
   Text,
   TouchableOpacity,
   View,
-  useColorScheme,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Colors from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
 import { SURAHS } from "@/utils/islamicData";
 import {
@@ -50,12 +48,9 @@ export default function QuranDetailScreen() {
   const surahNumber = parseInt(id || "1", 10);
   const surah = SURAHS.find((s) => s.number === surahNumber);
 
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const colors = isDark ? Colors.dark : Colors.light;
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { bookmarkedSurahs, toggleBookmark } = useAppContext();
+  const { bookmarkedSurahs, toggleBookmark, themeColors: colors } = useAppContext();
 
   const [showTranslation, setShowTranslation] = useState(true);
   const [showTransliteration, setShowTransliteration] = useState(false);

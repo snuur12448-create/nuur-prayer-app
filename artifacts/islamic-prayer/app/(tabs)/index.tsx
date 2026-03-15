@@ -10,10 +10,9 @@ import {
   StyleSheet,
   Text,
   View,
-  useColorScheme,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Colors from "@/constants/colors";
+import { ThemePicker } from "@/components/ThemePicker";
 import { useAppContext } from "@/context/AppContext";
 import { getIslamicDate, getTodaysReminder } from "@/utils/islamicData";
 import { getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
@@ -21,13 +20,10 @@ import { getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 
 export default function PrayerScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const colors = isDark ? Colors.dark : Colors.light;
+  const { prayerTimes, location, isLoadingLocation, locationError, refreshPrayerTimes, themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-
-  const { prayerTimes, location, isLoadingLocation, locationError, refreshPrayerTimes } = useAppContext();
+  const [showThemePicker, setShowThemePicker] = useState(false);
   const [nextPrayer, setNextPrayer] = useState<PrayerTime | null>(null);
   const [timeUntil, setTimeUntil] = useState<string>("");
   const [progress, setProgress] = useState(0);
@@ -124,8 +120,17 @@ export default function PrayerScreen() {
                 {islamicDate.day} {islamicDate.month} {islamicDate.year} AH
               </Text>
             </View>
-            <View style={styles.timeContainer}>
-              <Text style={styles.currentTime}>{formatCurrentTime()}</Text>
+            <View style={styles.headerRight}>
+              <View style={styles.timeContainer}>
+                <Text style={styles.currentTime}>{formatCurrentTime()}</Text>
+              </View>
+              <Pressable
+                onPress={() => setShowThemePicker(true)}
+                style={styles.paletteBtn}
+                hitSlop={10}
+              >
+                <MaterialCommunityIcons name="palette-outline" size={20} color="rgba(255,255,255,0.7)" />
+              </Pressable>
             </View>
           </View>
 
@@ -248,6 +253,7 @@ export default function PrayerScreen() {
           </Text>
         </View>
       </ScrollView>
+      <ThemePicker visible={showThemePicker} onClose={() => setShowThemePicker(false)} />
     </View>
   );
 }
@@ -276,8 +282,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   timeContainer: {
     alignItems: "flex-end",
+  },
+  paletteBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   currentTime: {
     color: "#fff",

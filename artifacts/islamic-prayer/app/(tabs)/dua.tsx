@@ -9,16 +9,13 @@ import {
   Text,
   TouchableOpacity,
   View,
-  useColorScheme,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Colors from "@/constants/colors";
+import { useAppContext } from "@/context/AppContext";
 import { DUA_CATEGORIES, DuaCategory, Dua, ISLAMIC_REMINDERS } from "@/utils/islamicData";
 
 export default function DuaScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const colors = isDark ? Colors.dark : Colors.light;
+  const { themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
 

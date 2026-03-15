@@ -10,11 +10,9 @@ import {
   StyleSheet,
   Text,
   View,
-  useColorScheme,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, G, Line, Path, RadialGradient, Stop, Text as SvgText } from "react-native-svg";
-import Colors from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
 import { calculateQiblaDirection, getDistanceToKaaba } from "@/utils/qibla";
 
@@ -65,7 +63,7 @@ function IslamicGeometricPattern({ size, color }: { size: number; color: string 
   );
 }
 
-function CompassFace({ isDark }: { isDark: boolean }) {
+function CompassFace({ tintColor = "#2ECC71" }: { tintColor?: string }) {
   const ticks = Array.from({ length: 72 }, (_, i) => i * 5);
   const cardinalAngles = [
     { label: "N", angle: 0, color: "#FF4040", size: 16, weight: "bold" as const },
@@ -79,18 +77,18 @@ function CompassFace({ isDark }: { isDark: boolean }) {
     <Svg width={COMPASS_SIZE} height={COMPASS_SIZE}>
       <Defs>
         <RadialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
-          <Stop offset="0%" stopColor="#1B5E3E" stopOpacity="1" />
-          <Stop offset="70%" stopColor="#0D3D24" stopOpacity="1" />
-          <Stop offset="100%" stopColor="#071A10" stopOpacity="1" />
+          <Stop offset="0%" stopColor={tintColor} stopOpacity="0.25" />
+          <Stop offset="60%" stopColor={tintColor} stopOpacity="0.08" />
+          <Stop offset="100%" stopColor="#000" stopOpacity="0.6" />
         </RadialGradient>
         <RadialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
-          <Stop offset="0%" stopColor="#2ECC71" stopOpacity="0.1" />
-          <Stop offset="100%" stopColor="#2ECC71" stopOpacity="0" />
+          <Stop offset="0%" stopColor={tintColor} stopOpacity="0.12" />
+          <Stop offset="100%" stopColor={tintColor} stopOpacity="0" />
         </RadialGradient>
       </Defs>
 
       {/* Outer ring background */}
-      <Circle cx={CX} cy={CX} r={OUTER_R} fill={isDark ? "#111" : "#1a1a1a"} />
+      <Circle cx={CX} cy={CX} r={OUTER_R} fill="#111" />
       {/* Outer ring border */}
       <Circle cx={CX} cy={CX} r={OUTER_R} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={2} />
 
@@ -199,12 +197,9 @@ function QiblaNeedle({ size, aligned }: { size: number; aligned: boolean }) {
 }
 
 export default function QiblaScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const colors = isDark ? Colors.dark : Colors.light;
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { location, isLoadingLocation, usingDefaultLocation, requestLocation } = useAppContext();
+  const { location, isLoadingLocation, usingDefaultLocation, requestLocation, themeColors: colors } = useAppContext();
 
   const [qiblaAngle, setQiblaAngle] = useState<number | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
@@ -354,23 +349,23 @@ export default function QiblaScreen() {
   const alignedText = aligned && qiblaAngle !== null;
 
   return (
-    <View style={[styles.container, { backgroundColor: "#0A0A0A" }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPad + 14 }]}>
+      <View style={[styles.header, { paddingTop: topPad + 14, borderBottomColor: colors.border }]}>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.headerTitle}>Qibla Direction</Text>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Qibla Direction</Text>
             {qiblaAngle !== null && (
-              <Text style={styles.headerAngle}>{Math.round(qiblaAngle)}° from North</Text>
+              <Text style={[styles.headerAngle, { color: colors.gold }]}>{Math.round(qiblaAngle)}° from North</Text>
             )}
           </View>
           <View style={styles.headerRight}>
             {isLoadingLocation ? (
-              <ActivityIndicator size="small" color="#2ECC71" />
+              <ActivityIndicator size="small" color={colors.tint} />
             ) : (
-              <Pressable style={styles.locationBtn} onPress={requestLocation}>
-                <Feather name="crosshair" size={14} color="#2ECC71" />
-                <Text style={styles.locationBtnText}>
+              <Pressable style={[styles.locationBtn, { borderColor: `${colors.tint}55`, backgroundColor: `${colors.tint}15` }]} onPress={requestLocation}>
+                <Feather name="crosshair" size={14} color={colors.tint} />
+                <Text style={[styles.locationBtnText, { color: colors.tint }]}>
                   {usingDefaultLocation ? "Detect" : location?.city ?? "Locate"}
                 </Text>
               </Pressable>
@@ -394,12 +389,12 @@ export default function QiblaScreen() {
           <Animated.View
             style={[styles.absoluteFill, { transform: [{ rotate: compassRotate }] }]}
           >
-            <CompassFace isDark={isDark} />
+            <CompassFace tintColor={colors.tint} />
           </Animated.View>
 
           {/* Islamic pattern on compass face (static decoration) */}
           <View style={[styles.absoluteFill, styles.patternWrap]} pointerEvents="none">
-            <IslamicGeometricPattern size={FACE_R * 2} color="#2ECC71" />
+            <IslamicGeometricPattern size={FACE_R * 2} color={colors.tint} />
           </View>
 
           {/* Qibla needle (rotates to point toward Mecca) */}
@@ -414,7 +409,7 @@ export default function QiblaScreen() {
           {/* No compass message */}
           {showCompassStatus && !needsPermission && (
             <View style={styles.noCompassOverlay}>
-              <ActivityIndicator color="#2ECC71" />
+              <ActivityIndicator color={colors.tint} />
               <Text style={styles.noCompassText}>Detecting compass…</Text>
             </View>
           )}
@@ -422,10 +417,10 @@ export default function QiblaScreen() {
           {/* Permission needed */}
           {needsPermission && (
             <View style={styles.noCompassOverlay}>
-              <Feather name="rotate-cw" size={28} color="#2ECC71" />
+              <Feather name="rotate-cw" size={28} color={colors.tint} />
               <Text style={styles.noCompassText}>Compass permission needed</Text>
-              <Pressable style={styles.permBtn} onPress={startCompass}>
-                <Text style={styles.permBtnText}>Enable Compass</Text>
+              <Pressable style={[styles.permBtn, { borderColor: colors.tint, backgroundColor: `${colors.tint}22` }]} onPress={startCompass}>
+                <Text style={[styles.permBtnText, { color: colors.tint }]}>Enable Compass</Text>
               </Pressable>
             </View>
           )}
@@ -434,18 +429,18 @@ export default function QiblaScreen() {
         {/* Status text */}
         <View style={styles.statusArea}>
           {alignedText ? (
-            <View style={styles.alignedCard}>
-              <Text style={styles.alignedEmoji}>✓</Text>
-              <Text style={styles.alignedText}>You're facing Mecca</Text>
+            <View style={[styles.alignedCard, { borderColor: `${colors.tint}80`, backgroundColor: `${colors.tint}22` }]}>
+              <Text style={[styles.alignedEmoji, { color: colors.tint }]}>✓</Text>
+              <Text style={[styles.alignedText, { color: colors.tint }]}>You're facing Mecca</Text>
             </View>
           ) : qiblaAngle !== null ? (
-            <Text style={styles.statusText}>
+            <Text style={[styles.statusText, { color: colors.textSecondary }]}>
               {hasCompass
                 ? "Rotate until the arrow points up"
                 : `Qibla is ${Math.round(qiblaAngle)}° from North`}
             </Text>
           ) : (
-            <Text style={styles.statusText}>Locating…</Text>
+            <Text style={[styles.statusText, { color: colors.textSecondary }]}>Locating…</Text>
           )}
         </View>
 
@@ -458,7 +453,7 @@ export default function QiblaScreen() {
             </View>
             {qiblaAngle !== null && (
               <View style={styles.headingCard}>
-                <Text style={[styles.headingValue, { color: aligned ? "#2ECC71" : "#D4A017" }]}>
+                <Text style={[styles.headingValue, { color: aligned ? colors.tint : colors.gold }]}>
                   {Math.round(Math.abs(((compassHeading - qiblaAngle + 180 + 360) % 360) - 180))}°
                 </Text>
                 <Text style={styles.headingLabel}>Off Qibla</Text>

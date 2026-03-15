@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { calculatePrayerTimes, PrayerTimesResult } from "@/utils/prayerTimes";
+import { DEFAULT_THEME, THEMES, ThemeColors, ThemeName } from "@/constants/themes";
 
 interface LocationData {
   latitude: number;
@@ -20,6 +21,9 @@ interface AppContextType {
   requestLocation: () => Promise<void>;
   bookmarkedSurahs: number[];
   toggleBookmark: (surahNumber: number) => void;
+  themeName: ThemeName;
+  setThemeName: (name: ThemeName) => void;
+  themeColors: ThemeColors;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -27,6 +31,7 @@ const AppContext = createContext<AppContextType | null>(null);
 const STORAGE_KEYS = {
   LOCATION: "location_data",
   BOOKMARKS: "bookmarked_surahs",
+  THEME: "app_theme",
 };
 
 function getTimezoneOffset(): number {
@@ -47,10 +52,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [usingDefaultLocation, setUsingDefaultLocation] = useState(false);
   const [bookmarkedSurahs, setBookmarkedSurahs] = useState<number[]>([]);
+  const [themeName, setThemeNameState] = useState<ThemeName>(DEFAULT_THEME);
+
+  const themeColors = THEMES[themeName].colors;
 
   useEffect(() => {
     loadBookmarks();
+    loadTheme();
     initLocation();
+  }, []);
+
+  const loadTheme = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.THEME);
+      if (stored && stored in THEMES) {
+        setThemeNameState(stored as ThemeName);
+      }
+    } catch {}
+  };
+
+  const setThemeName = useCallback(async (name: ThemeName) => {
+    setThemeNameState(name);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.THEME, name);
+    } catch {}
   }, []);
 
   const loadBookmarks = async () => {
@@ -127,13 +152,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const initLocation = async () => {
     setIsLoadingLocation(true);
     setLocationError(null);
-
-    // Show default immediately while we try to get real location
     applyLocation(DEFAULT_LOCATION);
     setUsingDefaultLocation(true);
     setIsLoadingLocation(false);
 
-    // Try to load cached location
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION);
       if (stored) {
@@ -143,7 +165,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {}
 
-    // Always attempt to get fresh location
     await requestLocation();
   };
 
@@ -170,6 +191,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         requestLocation,
         bookmarkedSurahs,
         toggleBookmark,
+        themeName,
+        setThemeName,
+        themeColors,
       }}
     >
       {children}

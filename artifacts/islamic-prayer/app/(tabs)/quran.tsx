@@ -9,21 +9,16 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useColorScheme,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import Colors from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
 import { SURAHS, Surah } from "@/utils/islamicData";
 
 export default function QuranScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const colors = isDark ? Colors.dark : Colors.light;
+  const { bookmarkedSurahs, toggleBookmark, themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { bookmarkedSurahs, toggleBookmark } = useAppContext();
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "bookmarked">("all");
