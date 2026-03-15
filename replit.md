@@ -104,6 +104,8 @@ Comprehensive Islamic prayer mobile app — **Nuur / نور** — built with Exp
 - **Quran Reader** (tab: Quran): Browse 114 surahs, search by name/meaning/Arabic. 8 reciters (Arabic + English translation). Verse-by-verse audio with preload. Transliteration. Bookmarks via AsyncStorage.
 - **Qibla Compass** (tab: Qibla): SVG compass showing Qibla direction (bearing to Makkah). Animated needle. Distance to Kaaba in km.
 - **Duas & Adhkar** (tab: Dua): 5 categories (Morning, Evening, After Prayer, Daily Supplications, Protection). Arabic, transliteration, translation, source.
+- **Prayer Tracker** (tab: Tracker): Track 5 daily prayers for any date — past, present or future. Week strip (7-day) with per-prayer dot indicators. Navigate any day with ◄ ► arrows and "Today" shortcut. Shows both Gregorian date and Islamic (Hijri) date. Actual adhan prayer times displayed per row. Checkboxes with colour-coded animated toggle (indigo=Fajr, amber=Dhuhr, green=Asr, orange=Maghrib, violet=Isha). Stats: day streak, week total, daily 0–5 progress bar. Persisted to AsyncStorage under `nuur_prayer_tracker`.
+- **99 Names of Allah** (tab: Names): All 99 Asmaul Husna in a searchable grid. Each card: number badge, large Arabic text, transliteration, English meaning. Tap any name to open a detail sheet with: large Arabic (52px), transliteration, phonetic pronunciation guide, meaning, and full description. Search by number, transliteration or meaning. Data in `utils/namesData.ts`.
 - **Tasbeeh Counter** (tab: Tasbeeh): Tap counter with haptic feedback, preset dhikr, and reset.
 - **Settings** (tab: Settings): All customisation in one place — see below.
 

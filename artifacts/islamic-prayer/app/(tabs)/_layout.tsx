@@ -19,6 +19,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "book", selected: "book.fill" }} />
         <Label>Quran</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="tracker">
+        <Icon sf={{ default: "checkmark.circle", selected: "checkmark.circle.fill" }} />
+        <Label>Tracker</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="qibla">
         <Icon sf={{ default: "location.north.line", selected: "location.north.line.fill" }} />
         <Label>Qibla</Label>
@@ -26,6 +30,10 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="dua">
         <Icon sf={{ default: "hands.and.sparkles", selected: "hands.and.sparkles.fill" }} />
         <Label>Duas</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="names">
+        <Icon sf={{ default: "star.circle", selected: "star.circle.fill" }} />
+        <Label>Names</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="tasbeeh">
         <Icon sf={{ default: "circle.dotted", selected: "circle.dotted" }} />
@@ -99,6 +107,18 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
+        name="tracker"
+        options={{
+          title: "Tracker",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="checkmark.circle.fill" tintColor={color} size={24} />
+            ) : (
+              <Feather name="check-circle" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
         name="qibla"
         options={{
           title: "Qibla",
@@ -119,6 +139,18 @@ function ClassicTabLayout() {
               <SymbolView name="hands.and.sparkles.fill" tintColor={color} size={24} />
             ) : (
               <Feather name="heart" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="names"
+        options={{
+          title: "Names",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="star.circle.fill" tintColor={color} size={24} />
+            ) : (
+              <MaterialCommunityIcons name="star-circle-outline" size={22} color={color} />
             ),
         }}
       />
