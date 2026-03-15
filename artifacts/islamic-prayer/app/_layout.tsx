@@ -15,6 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider } from "@/context/AppContext";
+import { QuranPlayerProvider } from "@/context/QuranPlayerContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -52,7 +53,9 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <AppProvider>
-                <RootLayoutNav />
+                <QuranPlayerProvider>
+                  <RootLayoutNav />
+                </QuranPlayerProvider>
               </AppProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>

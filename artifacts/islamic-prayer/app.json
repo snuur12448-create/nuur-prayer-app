@@ -17,11 +17,17 @@
       "supportsTablet": false,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "We need your location to calculate accurate prayer times for your area.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to calculate accurate prayer times for your area."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to calculate accurate prayer times for your area.",
+        "UIBackgroundModes": ["audio"]
       }
     },
     "android": {
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "WAKE_LOCK"
+      ]
     },
     "web": {
       "favicon": "./assets/images/icon.png"

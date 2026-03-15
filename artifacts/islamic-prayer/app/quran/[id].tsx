@@ -16,13 +16,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import { useQuranPlayer } from "@/context/QuranPlayerContext";
 import { SURAHS } from "@/utils/islamicData";
-import {
-  DEFAULT_RECITER,
-  getVerseAudioUrl,
-  RECITERS,
-  Reciter,
-} from "@/utils/audioData";
+import { RECITERS, getVerseAudioUrl, Reciter } from "@/utils/audioData";
 
 interface Verse {
   number: number;
@@ -31,8 +27,6 @@ interface Verse {
   transliteration: string;
   numberInQuran: number;
 }
-
-type PlayState = "idle" | "loading" | "playing" | "paused";
 
 function stripBismillah(text: string, surahNum: number, verseNum: number): string {
   if (surahNum === 1 || surahNum === 9 || verseNum !== 1) return text;
@@ -60,19 +54,23 @@ export default function QuranDetailScreen() {
   const [loadingVerses, setLoadingVerses] = useState(false);
   const [versesError, setVersesError] = useState(false);
 
-  // Audio state
-  const [selectedReciter, setSelectedReciter] = useState<Reciter>(DEFAULT_RECITER);
-  const [playingVerse, setPlayingVerse] = useState<number | null>(null);
-  const [playState, setPlayState] = useState<PlayState>("idle");
+  // Audio — lifted to global QuranPlayerContext so playback outlives navigation
+  const {
+    playState,
+    playingVerse,
+    playbackRate,
+    selectedReciter,
+    playVerse: ctxPlayVerse,
+    stopAudio,
+    togglePlayPause: ctxTogglePlayPause,
+    setSelectedReciter,
+    setPlaybackRate,
+  } = useQuranPlayer();
+
   const [showReciterModal, setShowReciterModal] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const [reciterListAtBottom, setReciterListAtBottom] = useState(false);
-  const [playbackRate, setPlaybackRate] = useState<number>(1.0);
-  const playbackRateRef = useRef<number>(1.0);
-  const soundRef = useRef<any>(null);
   const previewAudioRef = useRef<any>(null);
-  // Preloaded next audio (web only)
-  const preloadRef = useRef<{ verseNum: number; audio: HTMLAudioElement } | null>(null);
   const isMountedRef = useRef(true);
 
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
@@ -84,7 +82,7 @@ export default function QuranDetailScreen() {
     setVerses(null);
     setVersesError(false);
     setLoadingVerses(true);
-    stopAudio();
+    stopAudio(); // switching surah: stop previous surah's audio
 
     const controller = new AbortController();
     fetch(
@@ -121,7 +119,8 @@ export default function QuranDetailScreen() {
   }, [surahNumber]);
 
   useEffect(() => {
-    return () => { stopAudio(); stopPreview(); };
+    // Only stop the reciter preview on unmount — main audio continues in the background
+    return () => { stopPreview(); };
   }, []);
 
   useEffect(() => {
@@ -131,51 +130,6 @@ export default function QuranDetailScreen() {
       stopPreview();
     }
   }, [showReciterModal]);
-
-  // Keep ref in sync so async callbacks always see the latest rate
-  useEffect(() => {
-    playbackRateRef.current = playbackRate;
-  }, [playbackRate]);
-
-  // Live-update rate on currently playing audio
-  useEffect(() => {
-    if (!soundRef.current) return;
-    if (Platform.OS === "web") {
-      try { (soundRef.current as HTMLAudioElement).playbackRate = playbackRate; } catch {}
-    } else {
-      soundRef.current.setRateAsync?.(playbackRate, true).catch(() => {});
-    }
-  }, [playbackRate]);
-
-  const stopAudio = useCallback(async () => {
-    if (soundRef.current) {
-      try {
-        if (Platform.OS === "web") {
-          const audio = soundRef.current as HTMLAudioElement;
-          audio.onended = null;
-          audio.oncanplaythrough = null;
-          audio.onerror = null;
-          audio.pause();
-          audio.src = "";
-        } else {
-          await soundRef.current.stopAsync?.();
-          await soundRef.current.unloadAsync?.();
-        }
-      } catch {}
-      soundRef.current = null;
-    }
-    // Clear preload
-    if (preloadRef.current) {
-      try {
-        preloadRef.current.audio.src = "";
-      } catch {}
-      preloadRef.current = null;
-    }
-    if (isMountedRef.current) {
-      setPlayingVerse(null);
-      setPlayState("idle");
-    }
-  }, []);
 
   /** Stop any active reciter preview */
   const stopPreview = useCallback(() => {
@@ -225,162 +179,22 @@ export default function QuranDetailScreen() {
     }
   }, [previewingId, stopPreview]);
 
-  /** Preload the audio for the next verse and the one after (web only) */
-  const preloadNext = useCallback((verse: Verse, currentVerses: Verse[]) => {
-    if (Platform.OS !== "web") return;
-    const next = currentVerses.find((v) => v.number === verse.number + 1);
-    if (!next) return;
-
-    // Only replace the preload slot if it's not already the right verse
-    if (preloadRef.current?.verseNum !== next.number) {
-      try { preloadRef.current?.audio.src && (preloadRef.current.audio.src = ""); } catch {}
-      const urlNext = getVerseAudioUrl(selectedReciter, surahNumber, next.number, next.numberInQuran);
-      const audioNext = new Audio(urlNext);
-      audioNext.preload = "auto";
-      audioNext.load(); // aggressively start fetching
-      preloadRef.current = { verseNum: next.number, audio: audioNext };
-    }
-
-    // Also kick off N+2 in a throwaway element so the browser caches it
-    const afterNext = currentVerses.find((v) => v.number === next.number + 1);
-    if (afterNext) {
-      const url2 = getVerseAudioUrl(selectedReciter, surahNumber, afterNext.number, afterNext.numberInQuran);
-      const a2 = new Audio(url2);
-      a2.preload = "auto";
-      a2.load();
-      // We don't store this one — the browser's HTTP cache retains it,
-      // so when we create a new Audio(url2) at transition time it starts instantly
-    }
-  }, [selectedReciter, surahNumber]);
-
-  const playVerse = useCallback(
-    async (verse: Verse, currentVerses?: Verse[], isAutoAdvance = false) => {
-      const versesToUse = currentVerses || verses;
-
-      // Stop existing audio (manual play only — auto-advance reuses the preloaded element)
-      if (!isAutoAdvance && soundRef.current) {
-        try {
-          if (Platform.OS === "web") {
-            const audio = soundRef.current as HTMLAudioElement;
-            audio.onended = null;
-            audio.oncanplaythrough = null;
-            audio.onerror = null;
-            audio.pause();
-            audio.src = "";
-          } else {
-            await soundRef.current.stopAsync?.();
-            await soundRef.current.unloadAsync?.();
-          }
-        } catch {}
-        soundRef.current = null;
-      }
-
-      if (!isMountedRef.current) return;
-      setPlayingVerse(verse.number);
-      // Don't flash "loading" on auto-advance — go straight to playing
-      if (!isAutoAdvance) setPlayState("loading");
-
-      const url = getVerseAudioUrl(selectedReciter, surahNumber, verse.number, verse.numberInQuran);
-
-      const onEnded = () => {
-        if (!isMountedRef.current) return;
-        soundRef.current = null;
-        if (versesToUse) {
-          const next = versesToUse.find((v) => v.number === verse.number + 1);
-          if (next) {
-            playVerse(next, versesToUse, true); // auto-advance — seamless
-          } else {
-            setPlayingVerse(null);
-            setPlayState("idle");
-          }
-        } else {
-          setPlayingVerse(null);
-          setPlayState("idle");
-        }
-      };
-
-      if (Platform.OS === "web") {
-        try {
-          let audio: HTMLAudioElement;
-
-          // Use preloaded element if available — it's already been buffering
-          if (preloadRef.current?.verseNum === verse.number) {
-            audio = preloadRef.current.audio;
-            preloadRef.current = null;
-          } else {
-            preloadRef.current = null;
-            audio = new Audio(url);
-            audio.preload = "auto";
-            audio.load();
-          }
-
-          soundRef.current = audio;
-          audio.onerror = () => { if (isMountedRef.current) setPlayState("idle"); };
-          audio.onended = onEnded;
-          audio.playbackRate = playbackRateRef.current;
-
-          // Play immediately — no canplaythrough gate
-          // Preloaded audio starts near-instantly; fresh audio buffers in background
-          setPlayState("playing");
-          audio.play().catch(() => { if (isMountedRef.current) setPlayState("idle"); });
-
-          // Kick off preload for N+1 (and N+2 inside preloadNext)
-          if (versesToUse) preloadNext(verse, versesToUse);
-        } catch {
-          if (isMountedRef.current) setPlayState("idle");
-        }
-      } else {
-        try {
-          const { Audio } = await import("expo-av");
-          await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-          const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
-          soundRef.current = sound;
-          try { await sound.setRateAsync(playbackRateRef.current, true); } catch {}
-          if (isMountedRef.current) setPlayState("playing");
-          sound.setOnPlaybackStatusUpdate((status: any) => {
-            if (!isMountedRef.current) return;
-            if (status.didJustFinish) {
-              soundRef.current = null;
-              onEnded();
-            }
-          });
-        } catch {
-          if (isMountedRef.current) setPlayState("idle");
-        }
-      }
-    },
-    [selectedReciter, surahNumber, verses, preloadNext]
-  );
-
   const togglePlayPause = useCallback(
     async (verse: Verse) => {
-      if (playingVerse === verse.number && playState === "playing") {
-        try {
-          if (Platform.OS === "web") (soundRef.current as HTMLAudioElement)?.pause();
-          else await soundRef.current?.pauseAsync();
-          setPlayState("paused");
-        } catch {}
-      } else if (playingVerse === verse.number && playState === "paused") {
-        try {
-          if (Platform.OS === "web") await (soundRef.current as HTMLAudioElement)?.play();
-          else await soundRef.current?.playAsync();
-          setPlayState("playing");
-        } catch {}
-      } else {
-        await playVerse(verse);
-      }
+      if (!surah) return;
+      await ctxTogglePlayPause(verse, surahNumber, surah.name, surah.englishName, verses ?? []);
     },
-    [playingVerse, playState, playVerse]
+    [ctxTogglePlayPause, surah, surahNumber, verses]
   );
 
   const playAllVerses = useCallback(async () => {
-    if (!verses) return;
+    if (!verses || !surah) return;
     if (playState === "playing" || playState === "loading") {
       await stopAudio();
     } else {
-      await playVerse(verses[0], verses);
+      await ctxPlayVerse(verses[0], surahNumber, surah.name, surah.englishName, verses);
     }
-  }, [verses, playState, playVerse, stopAudio]);
+  }, [verses, surah, surahNumber, playState, ctxPlayVerse, stopAudio]);
 
   const copyVerse = (verse: Verse) => {
     const text = `${verse.text}\n\n${verse.translation}\n— ${surah?.englishName} ${surahNumber}:${verse.number}`;
@@ -413,7 +227,7 @@ export default function QuranDetailScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 16, backgroundColor: colors.prayerCard }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => { stopAudio(); router.back(); }} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Feather name="arrow-left" size={22} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
@@ -571,7 +385,7 @@ export default function QuranDetailScreen() {
                       style={[
                         styles.playBtn,
                         {
-                          backgroundColor: isActive ? colors.tint : "rgba(255,255,255,0.08)",
+                          backgroundColor: isActive ? colors.tint : colors.surfaceElevated,
                           borderColor: isActive ? colors.tint : colors.border,
                         },
                       ]}
@@ -703,7 +517,7 @@ export default function QuranDetailScreen() {
                             style={[
                               styles.previewBtn,
                               {
-                                backgroundColor: isPreviewing ? colors.tint + "30" : "rgba(255,255,255,0.07)",
+                                backgroundColor: isPreviewing ? colors.tint + "30" : colors.surfaceElevated,
                                 borderColor: isPreviewing ? colors.tint : colors.border,
                               },
                             ]}
