@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { Animated, Platform, StyleSheet, Text, View } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
 
 interface Props {
   onComplete: () => void;
@@ -17,6 +18,12 @@ export function NuurSplash({ onComplete }: Props) {
   const glowScale = useRef(new Animated.Value(1)).current;
   const glowOpacity = useRef(new Animated.Value(0.55)).current;
   const textFade = useRef(new Animated.Value(0)).current;
+
+  // Hide the native OS splash screen now that our custom splash is painted —
+  // this prevents any blank-frame flash between the two.
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
   useEffect(() => {
     Animated.parallel([

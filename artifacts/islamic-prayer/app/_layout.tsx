@@ -60,15 +60,17 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+
+  // Two-gate system: splash hides only when BOTH the animation AND fonts are done.
+  const [animDone, setAnimDone] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
+  const fontsReady = fontsLoaded || !!fontError;
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
+    if (animDone && fontsReady) {
+      setSplashDone(true);
     }
-  }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && !fontError) return null;
+  }, [animDone, fontsReady]);
 
   return (
     <SafeAreaProvider>
@@ -78,10 +80,12 @@ export default function RootLayout() {
             <KeyboardProvider>
               <AppProvider>
                 <QuranPlayerProvider>
+                  {/* Main app — always rendered so contexts warm up during splash */}
                   <RootLayoutNav />
                   <AdhanGate />
+                  {/* Custom splash overlay — covers app until animation + fonts ready */}
                   {!splashDone && (
-                    <NuurSplash onComplete={() => setSplashDone(true)} />
+                    <NuurSplash onComplete={() => setAnimDone(true)} />
                   )}
                 </QuranPlayerProvider>
               </AppProvider>
