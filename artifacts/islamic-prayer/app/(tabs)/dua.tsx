@@ -91,29 +91,47 @@ function HadithCard({ hadith, colors }: { hadith: Hadith; colors: any }) {
 
 interface DuaCardProps {
   item: DuaItem & { categoryName?: string };
-  isExpanded: boolean;
-  isCopied: boolean;
   colors: any;
   accentColor?: string;
   showCategory?: boolean;
-  onToggle: () => void;
-  onCopy: () => void;
+  onCopyDua: (item: DuaItem) => void;
+  collapseKey: string;
 }
 
 const DuaCard = React.memo(function DuaCard({
   item,
-  isExpanded,
-  isCopied,
   colors,
   accentColor,
   showCategory,
-  onToggle,
-  onCopy,
+  onCopyDua,
+  collapseKey,
 }: DuaCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const prevKey = useRef(collapseKey);
+  if (prevKey.current !== collapseKey) {
+    prevKey.current = collapseKey;
+    if (expanded) setExpanded(false);
+  }
+
+  const handleToggle = useCallback(() => {
+    setExpanded((v) => !v);
+  }, []);
+
+  const handleCopy = useCallback(() => {
+    onCopyDua(item);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [item, onCopyDua]);
+
   return (
     <Pressable
-      style={[styles.duaCard, { backgroundColor: colors.surface, borderColor: isExpanded ? (accentColor ?? colors.tint) + "55" : colors.border }]}
-      onPress={onToggle}
+      style={[
+        styles.duaCard,
+        { backgroundColor: colors.surface, borderColor: expanded ? (accentColor ?? colors.tint) + "55" : colors.border },
+      ]}
+      onPress={handleToggle}
     >
       {accentColor && <View style={[styles.duaAccentBar, { backgroundColor: accentColor }]} />}
       <View style={styles.duaInner}>
@@ -132,13 +150,13 @@ const DuaCard = React.memo(function DuaCard({
                 <Text style={[styles.repeatText, { color: accentColor ?? colors.tint }]}>{(item as any).repeat}</Text>
               </View>
             )}
-            <Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textSecondary} />
+            <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textSecondary} />
           </View>
         </View>
 
         <Text style={[styles.arabicText, { color: colors.text }]}>{item.arabic}</Text>
 
-        {isExpanded && (
+        {expanded && (
           <View style={styles.expandedContent}>
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
@@ -169,13 +187,13 @@ const DuaCard = React.memo(function DuaCard({
                 </View>
               )}
               <TouchableOpacity
-                onPress={onCopy}
-                style={[styles.copyBtn, { backgroundColor: isCopied ? colors.gold + "20" : colors.surfaceElevated }]}
+                onPress={handleCopy}
+                style={[styles.copyBtn, { backgroundColor: copied ? colors.gold + "20" : colors.surfaceElevated }]}
                 hitSlop={8}
               >
-                <Feather name={isCopied ? "check" : "copy"} size={13} color={isCopied ? colors.gold : colors.textSecondary} />
-                <Text style={[styles.copyText, { color: isCopied ? colors.gold : colors.textSecondary }]}>
-                  {isCopied ? "Copied!" : "Copy"}
+                <Feather name={copied ? "check" : "copy"} size={13} color={copied ? colors.gold : colors.textSecondary} />
+                <Text style={[styles.copyText, { color: copied ? colors.gold : colors.textSecondary }]}>
+                  {copied ? "Copied!" : "Copy"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -192,8 +210,6 @@ export default function DuaScreen() {
   const isWeb = Platform.OS === "web";
 
   const [selectedCategoryId, setSelectedCategoryId] = useState(ALL_DUA_CATEGORIES[0].id);
-  const [expandedDua, setExpandedDua] = useState<string | null>(null);
-  const [copiedDua, setCopiedDua] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -204,10 +220,16 @@ export default function DuaScreen() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [searchQuery]);
 
-  const selectedCategory = ALL_DUA_CATEGORIES.find((c) => c.id === selectedCategoryId) ?? ALL_DUA_CATEGORIES[0];
+  const selectedCategory = useMemo(
+    () => ALL_DUA_CATEGORIES.find((c) => c.id === selectedCategoryId) ?? ALL_DUA_CATEGORIES[0],
+    [selectedCategoryId]
+  );
 
-  const searchResults = useMemo(() => searchDuas(debouncedQuery), [debouncedQuery]);
-  const isSearching = searchQuery.trim().length > 0;
+  const trimmed = debouncedQuery.trim();
+  const isSearching = trimmed.length > 0;
+  const searchResults = useMemo(() => (isSearching ? searchDuas(trimmed) : []), [trimmed, isSearching]);
+
+  const collapseKey = `${selectedCategoryId}:${trimmed}`;
 
   const copyDua = useCallback((item: DuaItem) => {
     const text = `${item.arabic}\n\n${item.transliteration}\n\n"${item.translation}"${item.reference ? `\n— ${item.reference}` : ""}`;
@@ -216,8 +238,6 @@ export default function DuaScreen() {
     } else {
       Clipboard.setString(text);
     }
-    setCopiedDua(item.id);
-    setTimeout(() => setCopiedDua(null), 2000);
   }, []);
 
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
@@ -229,23 +249,24 @@ export default function DuaScreen() {
       return (
         <DuaCard
           item={item}
-          isExpanded={expandedDua === item.id}
-          isCopied={copiedDua === item.id}
           colors={colors}
           accentColor={cat?.accentColor}
           showCategory={isSearching}
-          onToggle={() => setExpandedDua((prev) => (prev === item.id ? null : item.id))}
-          onCopy={() => copyDua(item)}
+          onCopyDua={copyDua}
+          collapseKey={collapseKey}
         />
       );
     },
-    [expandedDua, copiedDua, colors, selectedCategoryId, isSearching, copyDua]
+    [colors, selectedCategoryId, isSearching, copyDua, collapseKey]
   );
 
   const keyExtractor = useCallback((item: DuaItem) => item.id, []);
 
   const listData = isSearching ? searchResults : selectedCategory.duas;
-  const totalDuas = ALL_DUA_CATEGORIES.reduce((sum, c) => sum + c.duas.length, 0);
+  const totalDuas = useMemo(
+    () => ALL_DUA_CATEGORIES.reduce((sum, c) => sum + c.duas.length, 0),
+    []
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -266,23 +287,27 @@ export default function DuaScreen() {
 
       {/* Search bar */}
       <View style={[styles.searchWrap, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <View style={[styles.searchBox, { backgroundColor: colors.surfaceElevated, borderColor: isSearching ? colors.tint : colors.border }]}>
-          <Feather name="search" size={16} color={isSearching ? colors.tint : colors.textSecondary} />
+        <View style={[styles.searchBox, { backgroundColor: colors.surfaceElevated, borderColor: searchQuery.length > 0 ? colors.tint : colors.border }]}>
+          <Feather name="search" size={16} color={searchQuery.length > 0 ? colors.tint : colors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
             placeholder="Search duas… e.g. breaking fast, sleep, travel"
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
-            onChangeText={(t) => {
-              setSearchQuery(t);
-              setExpandedDua(null);
-            }}
+            onChangeText={setSearchQuery}
             returnKeyType="search"
             clearButtonMode="while-editing"
             autoCorrect={false}
+            autoCapitalize="none"
           />
-          {isSearching && (
-            <TouchableOpacity onPress={() => { setSearchQuery(""); setDebouncedQuery(""); setExpandedDua(null); }} hitSlop={8}>
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => {
+                setSearchQuery("");
+                setDebouncedQuery("");
+              }}
+              hitSlop={8}
+            >
               <Feather name="x" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
@@ -305,10 +330,7 @@ export default function DuaScreen() {
                       borderColor: isSelected ? cat.accentColor : colors.border,
                     },
                   ]}
-                  onPress={() => {
-                    setSelectedCategoryId(cat.id);
-                    setExpandedDua(null);
-                  }}
+                  onPress={() => setSelectedCategoryId(cat.id)}
                 >
                   <Feather name={cat.icon as any} size={13} color={isSelected ? "#fff" : colors.textSecondary} />
                   <Text style={[styles.categoryTabText, { color: isSelected ? "#fff" : colors.textSecondary }]}>
@@ -331,10 +353,12 @@ export default function DuaScreen() {
           { paddingBottom: isWeb ? 34 + 84 : 100 + insets.bottom },
         ]}
         showsVerticalScrollIndicator={false}
-        initialNumToRender={10}
-        maxToRenderPerBatch={6}
+        initialNumToRender={8}
+        maxToRenderPerBatch={5}
         windowSize={5}
+        removeClippedSubviews={true}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         ListHeaderComponent={
           isSearching ? (
             <View style={styles.searchHeader}>
