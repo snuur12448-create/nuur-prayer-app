@@ -18,12 +18,14 @@ export type ThemeColors = {
 };
 
 export type ThemeName = "emerald" | "midnight" | "amber" | "violet" | "rose";
+export type DisplayMode = "dark" | "light";
 
 export type ThemeDefinition = {
   name: ThemeName;
   label: string;
   swatch: [string, string];
   colors: ThemeColors;
+  lightColors: ThemeColors;
 };
 
 export const THEMES: Record<ThemeName, ThemeDefinition> = {
@@ -49,6 +51,24 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       accent: "#F4C842",
       red: "#E55555",
     },
+    lightColors: {
+      text: "#0D2919",
+      textSecondary: "#3D6B50",
+      background: "#F0FAF3",
+      surface: "#FFFFFF",
+      surfaceElevated: "#E0F2E7",
+      border: "#B8DFC5",
+      tint: "#15803D",
+      tintLight: "#BBF7D0",
+      gold: "#92400E",
+      goldLight: "#FDE68A",
+      tabIconDefault: "#7AAF8A",
+      tabIconSelected: "#15803D",
+      prayerCard: "#D1FAE5",
+      prayerTime: "#0D2919",
+      accent: "#92400E",
+      red: "#DC2626",
+    },
   },
   midnight: {
     name: "midnight",
@@ -71,6 +91,24 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       prayerTime: "#E8F0FF",
       accent: "#93C5FD",
       red: "#F87171",
+    },
+    lightColors: {
+      text: "#0A1A3D",
+      textSecondary: "#3A5E90",
+      background: "#EEF4FF",
+      surface: "#FFFFFF",
+      surfaceElevated: "#DCE8FF",
+      border: "#B0CCEE",
+      tint: "#1D4ED8",
+      tintLight: "#BFDBFE",
+      gold: "#1E40AF",
+      goldLight: "#DBEAFE",
+      tabIconDefault: "#6A8EC2",
+      tabIconSelected: "#1D4ED8",
+      prayerCard: "#DBEAFE",
+      prayerTime: "#0A1A3D",
+      accent: "#3B82F6",
+      red: "#DC2626",
     },
   },
   amber: {
@@ -95,6 +133,24 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       accent: "#FBBF24",
       red: "#F87171",
     },
+    lightColors: {
+      text: "#2C1400",
+      textSecondary: "#7C4A15",
+      background: "#FFFBF0",
+      surface: "#FFFFFF",
+      surfaceElevated: "#FEF3C7",
+      border: "#EDD090",
+      tint: "#D97706",
+      tintLight: "#FDE68A",
+      gold: "#92400E",
+      goldLight: "#FCD34D",
+      tabIconDefault: "#B08040",
+      tabIconSelected: "#D97706",
+      prayerCard: "#FEF3C7",
+      prayerTime: "#2C1400",
+      accent: "#92400E",
+      red: "#DC2626",
+    },
   },
   violet: {
     name: "violet",
@@ -117,6 +173,24 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       prayerTime: "#EDE8FF",
       accent: "#C4B5FD",
       red: "#F87171",
+    },
+    lightColors: {
+      text: "#1A0A38",
+      textSecondary: "#5B4A8A",
+      background: "#F5F0FF",
+      surface: "#FFFFFF",
+      surfaceElevated: "#ECE5FF",
+      border: "#C4B5F8",
+      tint: "#6D28D9",
+      tintLight: "#DDD6FE",
+      gold: "#4C1D95",
+      goldLight: "#EDE9FE",
+      tabIconDefault: "#8B7AC8",
+      tabIconSelected: "#6D28D9",
+      prayerCard: "#EDE9FE",
+      prayerTime: "#1A0A38",
+      accent: "#7C3AED",
+      red: "#DC2626",
     },
   },
   rose: {
@@ -141,7 +215,26 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       accent: "#FB923C",
       red: "#F87171",
     },
+    lightColors: {
+      text: "#38060D",
+      textSecondary: "#8B3A50",
+      background: "#FFF0F5",
+      surface: "#FFFFFF",
+      surfaceElevated: "#FFE0EC",
+      border: "#F9B8CF",
+      tint: "#BE185D",
+      tintLight: "#FBCFE8",
+      gold: "#C2410C",
+      goldLight: "#FED7AA",
+      tabIconDefault: "#C08A9A",
+      tabIconSelected: "#BE185D",
+      prayerCard: "#FFE0EC",
+      prayerTime: "#38060D",
+      accent: "#C2410C",
+      red: "#DC2626",
+    },
   },
 };
 
 export const DEFAULT_THEME: ThemeName = "emerald";
+export const DEFAULT_DISPLAY_MODE: DisplayMode = "dark";

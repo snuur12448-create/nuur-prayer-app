@@ -12,7 +12,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ThemePicker } from "@/components/ThemePicker";
 import { useAppContext } from "@/context/AppContext";
 import { getIslamicDate, getTodaysReminder } from "@/utils/islamicData";
 import { getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
@@ -23,7 +22,6 @@ export default function PrayerScreen() {
   const { prayerTimes, location, isLoadingLocation, locationError, refreshPrayerTimes, themeColors: colors, notificationsEnabled, toggleNotifications } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const [showThemePicker, setShowThemePicker] = useState(false);
   const [nextPrayer, setNextPrayer] = useState<PrayerTime | null>(null);
   const [timeUntil, setTimeUntil] = useState<string>("");
   const [progress, setProgress] = useState(0);
@@ -140,13 +138,6 @@ export default function PrayerScreen() {
                   />
                 </Pressable>
               )}
-              <Pressable
-                onPress={() => setShowThemePicker(true)}
-                style={styles.paletteBtn}
-                hitSlop={10}
-              >
-                <MaterialCommunityIcons name="palette-outline" size={20} color="rgba(255,255,255,0.7)" />
-              </Pressable>
             </View>
           </View>
 
@@ -269,7 +260,6 @@ export default function PrayerScreen() {
           </Text>
         </View>
       </ScrollView>
-      <ThemePicker visible={showThemePicker} onClose={() => setShowThemePicker(false)} />
     </View>
   );
 }

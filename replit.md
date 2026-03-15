@@ -97,23 +97,36 @@ Utility scripts package. Each script is a `.ts` file in `src/` with a correspond
 
 ### `artifacts/islamic-prayer` (`@workspace/islamic-prayer`)
 
-Comprehensive Islamic prayer mobile app built with Expo (React Native). Serves at previewPath `/`.
+Comprehensive Islamic prayer mobile app — **Nuur / نور** — built with Expo (React Native). Serves at previewPath `/`.
 
 **Features:**
-- **Prayer Times** (tab: Prayer / index.tsx): Accurate 5 daily prayer times + Sunrise using MWL method (Fajr 18°, Isha 17°, using `-sin(angle)` formula from PrayTimes.org algorithm). Defaults to Makkah (UTC+3) when location permission not granted. Shows next prayer, countdown, and a progress bar for elapsed time between prayers. Islamic date display (Hijri calendar).
-- **Quran Reader** (tab: Quran): Browse 35 surahs, search by name/meaning/Arabic. Bookmarks via AsyncStorage. Detail screen shows Arabic verse + English translation for 17 surahs (Al-Fatihah, surahs 99–114). Copy-to-clipboard on each verse.
-- **Qibla Compass** (tab: Qibla): SVG compass showing Qibla direction (bearing to Makkah) using great-circle formula. Animated gold needle. Shows distance to Kaaba in km.
-- **Duas & Adhkar** (tab: Dua): 5 categories (Morning, Evening, After Prayer, Daily Supplications, Protection). Expand/collapse cards showing Arabic, transliteration, translation, source reference. Copy-to-clipboard button.
+- **Prayer Times** (tab: Prayer): Accurate 5 daily prayer times + Sunrise using `adhan` v4.4.3 library. Default method: Nuur UK (ISNA base + Fajr 15.5°). Shows next prayer, countdown, progress bar, and Islamic date.
+- **Quran Reader** (tab: Quran): Browse 114 surahs, search by name/meaning/Arabic. 8 reciters (Arabic + English translation). Verse-by-verse audio with preload. Transliteration. Bookmarks via AsyncStorage.
+- **Qibla Compass** (tab: Qibla): SVG compass showing Qibla direction (bearing to Makkah). Animated needle. Distance to Kaaba in km.
+- **Duas & Adhkar** (tab: Dua): 5 categories (Morning, Evening, After Prayer, Daily Supplications, Protection). Arabic, transliteration, translation, source.
+- **Tasbeeh Counter** (tab: Tasbeeh): Tap counter with haptic feedback, preset dhikr, and reset.
+- **Settings** (tab: Settings): All customisation in one place — see below.
+
+**Settings features (`app/(tabs)/settings.tsx`):**
+- Dark / Light display mode toggle (persisted)
+- 5 accent colour themes: Emerald, Midnight, Desert, Amber, Royal, Rose (all have dark + light variants)
+- 13 prayer calculation methods: Nuur UK, ISNA, MWL, Egyptian, Karachi, Umm al-Qura, Dubai, Kuwait, Qatar, Singapore, Turkey, Tehran, Moonsighting Committee
+- Asr juristic method: Shafi/Standard or Hanafi
+- High latitude rule: Twilight Angle, Middle of Night, Seventh of Night, None
+- Time format: 12h or 24h
+- Prayer notifications toggle (native only)
+- About section
 
 **Key files:**
-- `utils/prayerTimes.ts` — Prayer time algorithm (PrayTimes.org convention: `-sin(angle)` where angle is depression for below-horizon, negative for above-horizon like Asr)
-- `utils/islamicData.ts` — Quran surah list, Dua categories (5 cats, 15 duas), 12 Islamic reminders, Hijri date conversion
-- `utils/qibla.ts` — Qibla bearing + haversine distance to Kaaba
-- `context/AppContext.tsx` — GPS location (fallback: Makkah 21.4225°N, 39.8262°E, UTC+3), prayer times, surah bookmarks, AsyncStorage persistence
-- `constants/colors.ts` — Islamic green (#1B4332), gold (#D4A017), full dark mode
+- `utils/prayerTimes.ts` — adhan.js wrapper. `CalcMethodId`, `MadhabId`, `HighLatRuleId`, `TimeFormat` types exported. `calculatePrayerTimes` accepts all settings as optional params with defaults.
+- `utils/audioData.ts` — 8 reciters. CDN types: `verses-quran` (surah/verse path) and `islamic-network` (global ayah num). Sudais uses islamic-network 64kbps; Ibrahim Walk uses 192kbps.
+- `utils/islamicData.ts` — Quran surah list, Dua categories, Islamic reminders, Hijri date conversion
+- `utils/notifications.ts` — expo-notifications: schedules all 5 prayers for next 7 days
+- `context/AppContext.tsx` — All app state: location, prayer times, bookmarks, theme, displayMode, calcMethod, madhab, highLatRule, timeFormat, notifications. All persisted to AsyncStorage.
+- `constants/themes.ts` — 5 `ThemeDefinition`s each with `colors` (dark) and `lightColors` (light). `DisplayMode = "dark" | "light"`.
 
 **Prayer time notes:**
-- Formula: `cosVal = (-sin(angle) - sin(lat)*sin(decl)) / (cos(lat)*cos(decl))`
-- Positive angle = depression (Fajr=18°, Isha=17°, Sunrise/Maghrib=0.833°)
-- Negative angle = altitude above horizon (Asr uses `-arctan(1/(factor+tan(|lat-decl|)))`)
+- adhan.js returns absolute UTC timestamps. `fmtWithTz(d, tz, format)` applies UTC offset manually to avoid browser timezone mismatch.
+- NuurUK: `CalculationMethod.NorthAmerica()` + `fajrAngle = 15.5` + `HighLatitudeRule.TwilightAngle`
 - `useNativeDriver: false` required for all Animated calls (web compatibility)
+- Bismillah stripping: drop first 4 whitespace-split words from verse 1 (surahs ≠ 1 and ≠ 9)

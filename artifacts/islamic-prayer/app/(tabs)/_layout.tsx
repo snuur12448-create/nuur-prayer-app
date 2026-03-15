@@ -31,6 +31,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "circle.dotted", selected: "circle.dotted" }} />
         <Label>Tasbeeh</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="settings">
+        <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />
+        <Label>Settings</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -127,6 +131,18 @@ function ClassicTabLayout() {
               <SymbolView name="circle.dotted" tintColor={color} size={24} />
             ) : (
               <MaterialCommunityIcons name="circle-multiple-outline" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="gearshape.fill" tintColor={color} size={24} />
+            ) : (
+              <Feather name="settings" size={22} color={color} />
             ),
         }}
       />
