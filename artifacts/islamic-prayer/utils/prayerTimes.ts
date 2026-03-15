@@ -24,7 +24,7 @@ export interface PrayerTimesResult {
 }
 
 export type CalcMethodId =
-  | 'NuurUK'
+  | 'MoonsightingCommittee'
   | 'NorthAmerica'
   | 'MuslimWorldLeague'
   | 'Egyptian'
@@ -35,8 +35,7 @@ export type CalcMethodId =
   | 'Qatar'
   | 'Singapore'
   | 'Turkey'
-  | 'Tehran'
-  | 'MoonsightingCommittee';
+  | 'Tehran';
 
 export type MadhabId = 'Shafi' | 'Hanafi';
 
@@ -52,7 +51,7 @@ export interface CalcMethodInfo {
 }
 
 export const CALC_METHODS: CalcMethodInfo[] = [
-  { id: 'NuurUK',               label: 'Nuur (UK)',             region: 'United Kingdom',     detail: 'Fajr 15.5° · Isha 15° · Best for UK/Ireland' },
+  { id: 'MoonsightingCommittee', label: 'Nuur (UK)',             region: 'United Kingdom',     detail: 'Fajr 18° · Isha 18° · Moonsighting Committee' },
   { id: 'NorthAmerica',         label: 'ISNA',                  region: 'North America',      detail: 'Fajr 15° · Isha 15°' },
   { id: 'MuslimWorldLeague',    label: 'Muslim World League',   region: 'Europe & Far East',  detail: 'Fajr 18° · Isha 17°' },
   { id: 'Egyptian',             label: 'Egyptian',              region: 'Africa & Asia',      detail: 'Fajr 19.5° · Isha 17.5°' },
@@ -64,7 +63,6 @@ export const CALC_METHODS: CalcMethodInfo[] = [
   { id: 'Singapore',            label: 'Singapore',             region: 'Singapore & SE Asia', detail: 'Fajr 20° · Isha 18°' },
   { id: 'Turkey',               label: 'Turkey',                region: 'Turkey',             detail: 'Fajr 18° · Isha 17°' },
   { id: 'Tehran',               label: 'Tehran',                region: 'Iran & Shia regions', detail: 'Fajr 17.7° · Isha 14°' },
-  { id: 'MoonsightingCommittee', label: 'Moonsighting Committee', region: 'West',             detail: 'Fajr 18° · Isha 18°' },
 ];
 
 export const HIGH_LAT_RULES: { id: HighLatRuleId; label: string; detail: string }[] = [
@@ -74,7 +72,7 @@ export const HIGH_LAT_RULES: { id: HighLatRuleId; label: string; detail: string 
   { id: 'None',           label: 'None', detail: 'No adjustment applied' },
 ];
 
-export const DEFAULT_CALC_METHOD: CalcMethodId = 'NuurUK';
+export const DEFAULT_CALC_METHOD: CalcMethodId = 'MoonsightingCommittee';
 export const DEFAULT_MADHAB: MadhabId = 'Shafi';
 export const DEFAULT_HIGH_LAT_RULE: HighLatRuleId = 'TwilightAngle';
 export const DEFAULT_TIME_FORMAT: TimeFormat = '12h';
@@ -103,10 +101,6 @@ function buildParams(methodId: CalcMethodId, madhabId: MadhabId, highLatRuleId: 
   let params;
 
   switch (methodId) {
-    case 'NuurUK':
-      params = CalculationMethod.NorthAmerica();
-      params.fajrAngle = 15.5;
-      break;
     case 'NorthAmerica':
       params = CalculationMethod.NorthAmerica();
       break;
