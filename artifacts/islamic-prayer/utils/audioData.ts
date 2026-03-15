@@ -1,10 +1,16 @@
+export type CdnType = "verses-quran" | "islamic-network";
+
 export interface Reciter {
   id: string;
   name: string;
   arabicName: string;
   style: string;
-  folder: string;
   language: "arabic" | "english";
+  cdnType: CdnType;
+  /** Path prefix on verses.quran.com e.g. "Alafasy/mp3" */
+  folder?: string;
+  /** Edition identifier on cdn.islamic.network e.g. "ar.husary" */
+  edition?: string;
 }
 
 export const RECITERS: Reciter[] = [
@@ -13,93 +19,89 @@ export const RECITERS: Reciter[] = [
     name: "Mishary Rashid Al-Afasy",
     arabicName: "مشاري راشد العفاسي",
     style: "Murattal",
-    folder: "Alafasy_128kbps",
     language: "arabic",
+    cdnType: "verses-quran",
+    folder: "Alafasy/mp3",
   },
   {
-    id: "luhaidan",
-    name: "Muhammad Al-Luhaidan",
-    arabicName: "محمد اللحيدان",
-    style: "Murattal",
-    folder: "Muhammad_al_Luhaidan_128kbps",
-    language: "arabic",
-  },
-  {
-    id: "abdulsamad",
+    id: "abdulbaset",
     name: "Abdul Basit Abdul Samad",
     arabicName: "عبد الباسط عبد الصمد",
     style: "Murattal",
-    folder: "AbdulSamad_128kbps",
     language: "arabic",
+    cdnType: "verses-quran",
+    folder: "AbdulBaset/Murattal/mp3",
   },
   {
     id: "sudais",
     name: "Abdul Rahman Al-Sudais",
     arabicName: "عبد الرحمن السديس",
     style: "Murattal",
-    folder: "Sudais_192kbps",
     language: "arabic",
+    cdnType: "verses-quran",
+    folder: "Sudais/mp3",
+  },
+  {
+    id: "shuraym",
+    name: "Sa'ud Ash-Shuraym",
+    arabicName: "سعود الشريم",
+    style: "Murattal",
+    language: "arabic",
+    cdnType: "verses-quran",
+    folder: "Shuraym/mp3",
+  },
+  {
+    id: "minshawi",
+    name: "Mohamed Siddiq Al-Minshawi",
+    arabicName: "محمد صديق المنشاوي",
+    style: "Murattal",
+    language: "arabic",
+    cdnType: "verses-quran",
+    folder: "Minshawi/Murattal/mp3",
   },
   {
     id: "husary",
     name: "Mahmoud Khalil Al-Husary",
     arabicName: "محمود خليل الحصري",
     style: "Murattal",
-    folder: "Husary_128kbps",
     language: "arabic",
+    cdnType: "islamic-network",
+    edition: "ar.husary",
   },
   {
-    id: "minshawi",
-    name: "Mohammed Siddiq Al-Minshawi",
-    arabicName: "محمد صديق المنشاوي",
+    id: "maher",
+    name: "Maher Al-Muaiqly",
+    arabicName: "ماهر المعيقلي",
     style: "Murattal",
-    folder: "Minshawi_128kbps",
     language: "arabic",
-  },
-  {
-    id: "english",
-    name: "English Translation",
-    arabicName: "الترجمة الإنجليزية",
-    style: "Sahih International",
-    folder: "English_recitation_of_Quran_Sahih_International",
-    language: "english",
+    cdnType: "islamic-network",
+    edition: "ar.mahermuaiqly",
   },
 ];
 
 export const DEFAULT_RECITER = RECITERS[0];
 
 /**
- * Build EveryAyah.com CDN URL for a specific verse.
- * https://everyayah.com/data/{folder}/{surah_3digits}{verse_3digits}.mp3
+ * Build the audio URL for a single verse.
+ * @param globalAyahNum Required for islamic-network CDN reciters (1-6236).
+ *                      Provided by the API field `numberInQuran` on each ayah.
  */
 export function getVerseAudioUrl(
   reciter: Reciter,
   surahNumber: number,
-  verseNumber: number
+  verseNumber: number,
+  globalAyahNum?: number
 ): string {
+  if (reciter.cdnType === "verses-quran" && reciter.folder) {
+    const s = String(surahNumber).padStart(3, "0");
+    const v = String(verseNumber).padStart(3, "0");
+    return `https://verses.quran.com/${reciter.folder}/${s}${v}.mp3`;
+  }
+  if (reciter.cdnType === "islamic-network" && reciter.edition && globalAyahNum) {
+    return `https://cdn.islamic.network/quran/audio/128/${reciter.edition}/${globalAyahNum}.mp3`;
+  }
+  // Fallback — should not happen if globalAyahNum is passed for islamic-network
   const s = String(surahNumber).padStart(3, "0");
   const v = String(verseNumber).padStart(3, "0");
-  return `https://everyayah.com/data/${reciter.folder}/${s}${v}.mp3`;
-}
-
-/**
- * Build Islamic Network CDN URL for full surah audio.
- * https://cdn.islamic.network/quran/audio-surah/128/{edition}/{surah}.mp3
- * Only works for reciters that have an edition on the Islamic Network.
- */
-const ISLAMIC_NETWORK_EDITIONS: Record<string, string> = {
-  alafasy: "ar.alafasy",
-  abdulsamad: "ar.abdulsamad",
-  sudais: "ar.abdurrahmansudais",
-  husary: "ar.husary",
-  minshawi: "ar.minshawi",
-};
-
-export function getSurahAudioUrl(
-  reciter: Reciter,
-  surahNumber: number
-): string | null {
-  const edition = ISLAMIC_NETWORK_EDITIONS[reciter.id];
-  if (!edition) return null;
-  return `https://cdn.islamic.network/quran/audio-surah/128/${edition}/${surahNumber}.mp3`;
+  return `https://verses.quran.com/Alafasy/mp3/${s}${v}.mp3`;
 }
