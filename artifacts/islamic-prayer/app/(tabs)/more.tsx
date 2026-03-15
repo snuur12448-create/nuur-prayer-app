@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
   logoLatin: {
     fontSize: 13,
-    color: "#E8D5A8",
+    color: "#C9933A",
     letterSpacing: 5,
     fontFamily: Platform.select({ ios: "Georgia", android: "serif", web: "Georgia, serif" }),
   },
