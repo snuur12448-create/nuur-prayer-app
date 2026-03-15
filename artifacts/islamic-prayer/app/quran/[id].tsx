@@ -208,24 +208,40 @@ export default function QuranDetailScreen() {
     }
   }, [previewingId, stopPreview]);
 
-  /** Preload the audio for the next verse (web only) */
+  /** Preload the audio for the next verse and the one after (web only) */
   const preloadNext = useCallback((verse: Verse, currentVerses: Verse[]) => {
     if (Platform.OS !== "web") return;
     const next = currentVerses.find((v) => v.number === verse.number + 1);
     if (!next) return;
-    const url = getVerseAudioUrl(selectedReciter, surahNumber, next.number, next.numberInQuran);
-    const audio = new Audio(url);
-    audio.preload = "auto";
-    // Start loading but don't play
-    preloadRef.current = { verseNum: next.number, audio };
+
+    // Only replace the preload slot if it's not already the right verse
+    if (preloadRef.current?.verseNum !== next.number) {
+      try { preloadRef.current?.audio.src && (preloadRef.current.audio.src = ""); } catch {}
+      const urlNext = getVerseAudioUrl(selectedReciter, surahNumber, next.number, next.numberInQuran);
+      const audioNext = new Audio(urlNext);
+      audioNext.preload = "auto";
+      audioNext.load(); // aggressively start fetching
+      preloadRef.current = { verseNum: next.number, audio: audioNext };
+    }
+
+    // Also kick off N+2 in a throwaway element so the browser caches it
+    const afterNext = currentVerses.find((v) => v.number === next.number + 1);
+    if (afterNext) {
+      const url2 = getVerseAudioUrl(selectedReciter, surahNumber, afterNext.number, afterNext.numberInQuran);
+      const a2 = new Audio(url2);
+      a2.preload = "auto";
+      a2.load();
+      // We don't store this one — the browser's HTTP cache retains it,
+      // so when we create a new Audio(url2) at transition time it starts instantly
+    }
   }, [selectedReciter, surahNumber]);
 
   const playVerse = useCallback(
-    async (verse: Verse, currentVerses?: Verse[]) => {
+    async (verse: Verse, currentVerses?: Verse[], isAutoAdvance = false) => {
       const versesToUse = currentVerses || verses;
 
-      // Stop existing
-      if (soundRef.current) {
+      // Stop existing audio (manual play only — auto-advance reuses the preloaded element)
+      if (!isAutoAdvance && soundRef.current) {
         try {
           if (Platform.OS === "web") {
             const audio = soundRef.current as HTMLAudioElement;
@@ -244,7 +260,8 @@ export default function QuranDetailScreen() {
 
       if (!isMountedRef.current) return;
       setPlayingVerse(verse.number);
-      setPlayState("loading");
+      // Don't flash "loading" on auto-advance — go straight to playing
+      if (!isAutoAdvance) setPlayState("loading");
 
       const url = getVerseAudioUrl(selectedReciter, surahNumber, verse.number, verse.numberInQuran);
 
@@ -254,7 +271,7 @@ export default function QuranDetailScreen() {
         if (versesToUse) {
           const next = versesToUse.find((v) => v.number === verse.number + 1);
           if (next) {
-            playVerse(next, versesToUse);
+            playVerse(next, versesToUse, true); // auto-advance — seamless
           } else {
             setPlayingVerse(null);
             setPlayState("idle");
@@ -269,44 +286,28 @@ export default function QuranDetailScreen() {
         try {
           let audio: HTMLAudioElement;
 
-          // Check if we have a preloaded audio element for this verse
-          if (preloadRef.current && preloadRef.current.verseNum === verse.number) {
+          // Use preloaded element if available — it's already been buffering
+          if (preloadRef.current?.verseNum === verse.number) {
             audio = preloadRef.current.audio;
             preloadRef.current = null;
-            // Already loaded/loading — check readyState
-            if (audio.readyState >= 3) {
-              setPlayState("playing");
-            }
           } else {
             preloadRef.current = null;
             audio = new Audio(url);
             audio.preload = "auto";
+            audio.load();
           }
 
           soundRef.current = audio;
-
-          audio.onerror = () => {
-            if (isMountedRef.current) setPlayState("idle");
-          };
-
+          audio.onerror = () => { if (isMountedRef.current) setPlayState("idle"); };
           audio.onended = onEnded;
 
-          const startPlay = () => {
-            if (isMountedRef.current) setPlayState("playing");
-            audio.play().catch(() => {
-              if (isMountedRef.current) setPlayState("idle");
-            });
-            // Preload the verse after next immediately
-            if (versesToUse) preloadNext(verse, versesToUse);
-          };
+          // Play immediately — no canplaythrough gate
+          // Preloaded audio starts near-instantly; fresh audio buffers in background
+          setPlayState("playing");
+          audio.play().catch(() => { if (isMountedRef.current) setPlayState("idle"); });
 
-          if (audio.readyState >= 3) {
-            startPlay();
-          } else {
-            audio.oncanplaythrough = startPlay;
-            // Force load
-            if (audio.readyState === 0) audio.load();
-          }
+          // Kick off preload for N+1 (and N+2 inside preloadNext)
+          if (versesToUse) preloadNext(verse, versesToUse);
         } catch {
           if (isMountedRef.current) setPlayState("idle");
         }
