@@ -9,17 +9,23 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import { LocationModal } from "@/components/LocationModal";
 import { getIslamicDate, getTodaysReminder } from "@/utils/islamicData";
 import { getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
 
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 
 export default function PrayerScreen() {
-  const { prayerTimes, location, isLoadingLocation, locationError, refreshPrayerTimes, themeColors: colors, notificationsEnabled, toggleNotifications } = useAppContext();
+  const {
+    prayerTimes, location, isLoadingLocation, locationError,
+    refreshPrayerTimes, requestLocation, setManualLocation,
+    themeColors: colors, notificationsEnabled, toggleNotifications,
+  } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const [nextPrayer, setNextPrayer] = useState<PrayerTime | null>(null);
@@ -27,6 +33,7 @@ export default function PrayerScreen() {
   const [progress, setProgress] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showLocationModal, setShowLocationModal] = useState(false);
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
   const islamicDate = getIslamicDate();
@@ -110,10 +117,17 @@ export default function PrayerScreen() {
         <View style={[styles.header, { paddingTop: topPad + 16, backgroundColor: colors.prayerCard }]}>
           <View style={styles.headerTop}>
             <View>
-              <Text style={styles.locationLabel}>
-                <Feather name="map-pin" size={11} color="rgba(255,255,255,0.6)" />{" "}
-                {location?.city || "Locating..."}
-              </Text>
+              <TouchableOpacity
+                onPress={() => setShowLocationModal(true)}
+                style={styles.locationChip}
+                activeOpacity={0.7}
+              >
+                <Feather name="map-pin" size={11} color="rgba(255,255,255,0.6)" />
+                <Text style={styles.locationLabel}>
+                  {location?.city || "Locating..."}
+                </Text>
+                <Feather name="chevron-down" size={11} color="rgba(255,255,255,0.45)" />
+              </TouchableOpacity>
               <Text style={[styles.islamicDate, { color: colors.gold }]}>
                 {islamicDate.day} {islamicDate.month} {islamicDate.year} AH
               </Text>
@@ -260,6 +274,15 @@ export default function PrayerScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <LocationModal
+        visible={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onRequestGps={requestLocation}
+        onSelectManual={setManualLocation}
+        colors={colors}
+        isLoadingGps={isLoadingLocation}
+      />
     </View>
   );
 }
@@ -278,11 +301,19 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 4,
   },
-  locationLabel: {
-    color: "rgba(255,255,255,0.6)",
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
+  locationChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     marginBottom: 2,
+    paddingVertical: 2,
+    paddingRight: 4,
+    alignSelf: "flex-start",
+  },
+  locationLabel: {
+    color: "rgba(255,255,255,0.75)",
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
   },
   islamicDate: {
     fontSize: 13,

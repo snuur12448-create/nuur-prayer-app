@@ -28,7 +28,7 @@ import {
   schedulePrayerNotifications,
 } from "@/utils/notifications";
 
-interface LocationData {
+export interface LocationData {
   latitude: number;
   longitude: number;
   city: string;
@@ -43,6 +43,7 @@ interface AppContextType {
   usingDefaultLocation: boolean;
   refreshPrayerTimes: () => void;
   requestLocation: () => Promise<void>;
+  setManualLocation: (loc: LocationData) => Promise<void>;
   bookmarkedSurahs: number[];
   toggleBookmark: (surahNumber: number) => void;
   themeName: ThemeName;
@@ -312,6 +313,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await fetchGpsLocation(true);
   }, [fetchGpsLocation]);
 
+  // Public: manually set a location (city search)
+  const setManualLocation = useCallback(async (loc: LocationData) => {
+    setUsingDefaultLocation(false);
+    setLocationError(null);
+    updateLocation(loc);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.LOCATION, JSON.stringify(loc));
+    } catch {}
+  }, [updateLocation]);
+
   const initLocation = async () => {
     setIsLoadingLocation(true);
     setLocationError(null);
@@ -359,6 +370,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         usingDefaultLocation,
         refreshPrayerTimes,
         requestLocation,
+        setManualLocation,
         bookmarkedSurahs,
         toggleBookmark,
         themeName,
