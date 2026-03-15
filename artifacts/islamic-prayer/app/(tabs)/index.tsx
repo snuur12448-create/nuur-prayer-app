@@ -135,9 +135,7 @@ export default function PrayerScreen() {
               </Text>
             </View>
             <View style={styles.headerRight}>
-              <View style={styles.timeContainer}>
-                <Text style={[styles.currentTime, { color: colors.text }]}>{formatCurrentTime()}</Text>
-              </View>
+              <Text style={[styles.currentTime, { color: colors.text }]}>{formatCurrentTime()}</Text>
               {!isWeb && (
                 <Pressable
                   onPress={toggleNotifications}
@@ -331,14 +329,11 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 4,
     flexShrink: 0,
     marginLeft: "auto" as any,
-  },
-  timeContainer: {
-    alignItems: "flex-end",
   },
   paletteBtn: {
     width: 34,
