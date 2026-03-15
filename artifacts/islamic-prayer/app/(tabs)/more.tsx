@@ -97,13 +97,10 @@ export default function MoreScreen() {
         <View style={[styles.logoBlock, { borderBottomColor: LOGO_GOLD + "30" }]}>
           <NuurLogo size={52} />
           <View style={styles.logoText}>
-            <Text style={styles.logoArabic}>نُور</Text>
-            <View style={styles.dividerRow}>
-              <View style={[styles.dividerLine, { backgroundColor: LOGO_GOLD + "55" }]} />
-              <Text style={[styles.dividerDot, { color: LOGO_GOLD + "99" }]}>✦</Text>
-              <View style={[styles.dividerLine, { backgroundColor: LOGO_GOLD + "55" }]} />
+            <View style={styles.logoTitleRow}>
+              <Text style={styles.logoArabic}>نُور</Text>
+              <Text style={styles.logoLatin}>  NUUR</Text>
             </View>
-            <Text style={styles.logoLatin}>NUUR</Text>
             <Text style={styles.logoTagline}>Light for your daily deen</Text>
           </View>
         </View>
@@ -176,30 +173,22 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  logoArabic: {
-    fontSize: 32,
-    color: "#C9933A",
-    letterSpacing: 2,
-    includeFontPadding: false,
-    lineHeight: 42,
-  },
-  dividerRow: {
+  logoTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginVertical: 2,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerDot: {
-    fontSize: 9,
+  logoArabic: {
+    fontSize: 22,
+    color: "#C9933A",
+    letterSpacing: 1,
+    includeFontPadding: false,
+    lineHeight: 40,
+    paddingTop: 8,
   },
   logoLatin: {
     fontSize: 13,
     color: "#E8D5A8",
-    letterSpacing: 7,
+    letterSpacing: 5,
     fontFamily: Platform.select({ ios: "Georgia", android: "serif", web: "Georgia, serif" }),
   },
   logoTagline: {
