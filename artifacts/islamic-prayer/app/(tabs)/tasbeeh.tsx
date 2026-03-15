@@ -1,8 +1,8 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
+import { Circle, Svg } from "react-native-svg";
 import {
   Animated,
-  FlatList,
   Platform,
   Pressable,
   StyleSheet,
@@ -130,8 +130,8 @@ export default function TasbeehScreen() {
         setJustCompleted(true);
         Animated.sequence([
           Animated.timing(completionAnim, { toValue: 1, duration: 300, useNativeDriver: false }),
-          Animated.delay(1200),
-          Animated.timing(completionAnim, { toValue: 0, duration: 300, useNativeDriver: false }),
+          Animated.delay(2000),
+          Animated.timing(completionAnim, { toValue: 0, duration: 400, useNativeDriver: false }),
         ]).start(() => setJustCompleted(false));
         setTotalCount((t) => t + 1);
         return 0;
@@ -158,11 +158,11 @@ export default function TasbeehScreen() {
     setShowSelector(false);
   };
 
-  // Arc path for progress ring
-  const size = 240;
-  const cx = size / 2;
-  const radius = 100;
-  const circumference = 2 * Math.PI * radius;
+  // SVG progress ring
+  const RING_SIZE = 210;
+  const RING_RADIUS = 97;
+  const RING_STROKE = 6;
+  const circumference = 2 * Math.PI * RING_RADIUS;
   const strokeDashoffset = circumference * (1 - progress);
 
   const completionScale = completionAnim.interpolate({
@@ -276,20 +276,37 @@ export default function TasbeehScreen() {
 
           {/* Main counter button with ring */}
           <View style={styles.ringContainer}>
-            {/* Background ring */}
-            <View style={[styles.ringTrack, {
-              borderColor: colors.border,
-            }]} />
-
-            {/* Progress ring (SVG-like overlay using transforms) */}
-            <View style={[styles.progressRingWrap, {
-              borderColor: selectedDhikr.color,
-              borderTopColor: progress < 0.125 ? "transparent" : selectedDhikr.color,
-              borderRightColor: progress < 0.375 ? "transparent" : selectedDhikr.color,
-              borderBottomColor: progress < 0.625 ? "transparent" : selectedDhikr.color,
-              borderLeftColor: progress < 0.875 ? "transparent" : selectedDhikr.color,
-              opacity: progress > 0 ? 1 : 0,
-            }]} />
+            {/* SVG Progress ring — positioned absolutely behind the button */}
+            <Svg
+              width={RING_SIZE}
+              height={RING_SIZE}
+              style={StyleSheet.absoluteFillObject}
+            >
+              {/* Track */}
+              <Circle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_RADIUS}
+                stroke={colors.border}
+                strokeWidth={RING_STROKE}
+                fill="none"
+              />
+              {/* Progress arc — starts from top (rotation -90) */}
+              <Circle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_RADIUS}
+                stroke={selectedDhikr.color}
+                strokeWidth={RING_STROKE}
+                fill="none"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                rotation="-90"
+                origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+                opacity={progress > 0 ? 1 : 0}
+              />
+            </Svg>
 
             {/* Ripple */}
             <Animated.View style={[
@@ -465,20 +482,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
-  },
-  ringTrack: {
-    position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 6,
-  },
-  progressRingWrap: {
-    position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 6,
   },
   ripple: {
     position: "absolute",
