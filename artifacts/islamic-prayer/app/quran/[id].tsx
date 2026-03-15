@@ -395,14 +395,14 @@ export default function QuranDetailScreen() {
       <View style={[styles.header, { paddingTop: topPad + 16, backgroundColor: colors.prayerCard }]}>
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => { stopAudio(); router.back(); }} style={styles.backBtn}>
-            <Feather name="arrow-left" size={22} color="#fff" />
+            <Feather name="arrow-left" size={22} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerArabic}>{surah.name}</Text>
-            <Text style={styles.headerEnglish}>{surah.englishName}</Text>
+            <Text style={[styles.headerArabic, { color: colors.text }]}>{surah.name}</Text>
+            <Text style={[styles.headerEnglish, { color: colors.textSecondary }]}>{surah.englishName}</Text>
           </View>
           <TouchableOpacity onPress={() => toggleBookmark(surahNumber)} style={styles.bookmarkBtn}>
-            <Feather name="bookmark" size={22} color={isBookmarked ? colors.gold : "rgba(255,255,255,0.5)"} />
+            <Feather name="bookmark" size={22} color={isBookmarked ? colors.gold : colors.textSecondary} />
           </TouchableOpacity>
         </View>
         <View style={styles.headerMeta}>
