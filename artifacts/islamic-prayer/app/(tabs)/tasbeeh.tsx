@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontFamily: "Inter_700Bold",
   },
   headerSubtitle: {

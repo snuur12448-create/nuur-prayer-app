@@ -541,8 +541,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontFamily: "Inter_700Bold",
+    letterSpacing: -0.3,
   },
   locRow: {
     flexDirection: "row",

@@ -233,7 +233,7 @@ export default function TrackerScreen() {
                   <Text style={[styles.weekDayLetter, { color: isTodayKey ? colors.tint : colors.textSecondary }]}>
                     {DAY_LETTERS[d.getDay()]}
                   </Text>
-                  <Text style={[styles.weekDayNum, { color: isSelected ? colors.tint : colors.text, fontWeight: isSelected ? "700" : "400" }]}>
+                  <Text style={[styles.weekDayNum, { color: isSelected ? colors.tint : colors.text, fontFamily: isSelected ? "Inter_700Bold" : "Inter_400Regular" }]}>
                     {d.getDate()}
                   </Text>
                   <View style={styles.weekDots}>
@@ -343,18 +343,18 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { paddingHorizontal: 20, paddingBottom: 16 },
   headerRow: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16 },
-  headerTitle: { fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
-  headerAr: { fontSize: 16, fontWeight: "600" },
+  headerTitle: { fontSize: 24, fontFamily: "Inter_700Bold", letterSpacing: -0.3 },
+  headerAr: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
 
   statsRow: { flexDirection: "row", gap: 10, marginBottom: 18 },
   statCard: { flex: 1, borderRadius: 14, padding: 12, alignItems: "center" },
-  statNum: { fontSize: 24, fontWeight: "800" },
-  statLabel: { fontSize: 11, marginTop: 2, fontWeight: "500" },
+  statNum: { fontSize: 24, fontFamily: "Inter_700Bold", fontVariant: ["tabular-nums"] },
+  statLabel: { fontSize: 11, marginTop: 2, fontFamily: "Inter_500Medium" },
 
   weekStrip: { flexDirection: "row", justifyContent: "space-between" },
   weekDay: { flex: 1, alignItems: "center", paddingVertical: 8, paddingHorizontal: 2 },
-  weekDayLetter: { fontSize: 11, fontWeight: "600", marginBottom: 4 },
-  weekDayNum: { fontSize: 15, marginBottom: 5 },
+  weekDayLetter: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginBottom: 4 },
+  weekDayNum: { fontSize: 15, fontFamily: "Inter_500Medium", marginBottom: 5 },
   weekDots: { flexDirection: "row", gap: 2 },
   weekDot: { width: 4, height: 4, borderRadius: 2 },
 
@@ -367,16 +367,16 @@ const styles = StyleSheet.create({
   },
   navBtn: { padding: 6 },
   dateCenterCol: { flex: 1, alignItems: "center" },
-  gregDate: { fontSize: 14, fontWeight: "600", textAlign: "center" },
-  hijriDate: { fontSize: 12, fontWeight: "500", marginTop: 2 },
+  gregDate: { fontSize: 14, fontFamily: "Inter_600SemiBold", textAlign: "center" },
+  hijriDate: { fontSize: 12, fontFamily: "Inter_500Medium", marginTop: 2 },
   navRightGroup: { flexDirection: "row", alignItems: "center", gap: 4 },
   todayBtn: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, marginRight: 4 },
-  todayBtnText: { fontSize: 12, fontWeight: "600" },
+  todayBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
 
   completionBar: { padding: 14 },
   completionRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
-  completionLabel: { fontSize: 13 },
-  completionPct: { fontSize: 13, fontWeight: "700" },
+  completionLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  completionPct: { fontSize: 13, fontFamily: "Inter_700Bold" },
   progressTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
   progressFill: { height: 6, borderRadius: 3 },
 
@@ -393,9 +393,9 @@ const styles = StyleSheet.create({
   },
   prayerColorBar: { width: 4, alignSelf: "stretch", borderRadius: 2, marginLeft: 2 },
   prayerInfo: { flex: 1 },
-  prayerName: { fontSize: 16, fontWeight: "700" },
-  prayerAr: { fontSize: 13, marginTop: 2 },
-  prayerTime: { fontSize: 14, fontWeight: "500", marginRight: 4 },
+  prayerName: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  prayerAr: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
+  prayerTime: { fontSize: 14, fontFamily: "Inter_500Medium", fontVariant: ["tabular-nums"], marginRight: 4 },
 
   checkbox: {
     width: 26,
@@ -416,5 +416,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   motivationEmoji: { fontSize: 22 },
-  motivationText: { flex: 1, fontSize: 14, fontWeight: "600", lineHeight: 20 },
+  motivationText: { flex: 1, fontSize: 14, fontFamily: "Inter_600SemiBold", lineHeight: 20 },
 });

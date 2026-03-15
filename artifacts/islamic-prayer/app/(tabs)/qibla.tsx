@@ -765,8 +765,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: "Inter_700Bold",
+    letterSpacing: -0.3,
     color: "#fff",
   },
   headerAngle: {

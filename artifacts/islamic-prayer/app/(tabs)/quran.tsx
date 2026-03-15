@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   },
   headerTitleRow: { marginBottom: 12 },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontFamily: "Inter_700Bold",
     textAlign: "right",
   },

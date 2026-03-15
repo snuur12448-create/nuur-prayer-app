@@ -345,6 +345,7 @@ const styles = StyleSheet.create({
   currentTime: {
     fontSize: 28,
     fontFamily: "Inter_700Bold",
+    fontVariant: ["tabular-nums"],
   },
   gregorianDate: {
     fontSize: 14,
@@ -469,6 +470,7 @@ const styles = StyleSheet.create({
   prayerTime: {
     fontSize: 15,
     fontFamily: "Inter_500Medium",
+    fontVariant: ["tabular-nums"],
   },
   loadingContainer: {
     alignItems: "center",

@@ -234,8 +234,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   headerContent: { alignItems: "center", marginBottom: 16 },
-  headerAr: { fontSize: 28, fontWeight: "700", marginBottom: 6, textAlign: "center" },
-  headerTitle: { fontSize: 18, fontWeight: "800", marginBottom: 4, letterSpacing: -0.3 },
+  headerAr: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 6, textAlign: "center" },
+  headerTitle: { fontSize: 24, fontFamily: "Inter_700Bold", marginBottom: 4, letterSpacing: -0.3 },
   headerSub: { fontSize: 13, textAlign: "center" },
 
   searchBox: {
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   resultCount: { fontSize: 12, textAlign: "center" },
 
   countBanner: { marginHorizontal: 16, marginBottom: 8, marginTop: 12, borderRadius: 10, padding: 8, alignItems: "center" },
-  countBannerText: { fontSize: 12, fontWeight: "600" },
+  countBannerText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
 
   listContent: { paddingHorizontal: 16, paddingTop: 4 },
   row: { gap: 10, marginBottom: 10 },
@@ -275,9 +275,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  cardNum: { fontSize: 11, fontWeight: "700" },
-  cardArabic: { fontSize: 26, fontWeight: "700", textAlign: "center", marginTop: 16 },
-  cardTranslit: { fontSize: 13, fontWeight: "600", textAlign: "center" },
+  cardNum: { fontSize: 11, fontFamily: "Inter_700Bold" },
+  cardArabic: { fontSize: 26, fontFamily: "Inter_700Bold", textAlign: "center", marginTop: 16 },
+  cardTranslit: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" },
   cardDivider: { width: 36, height: 1, borderRadius: 1 },
   cardMeaning: { fontSize: 11, textAlign: "center", lineHeight: 15 },
 
@@ -302,9 +302,9 @@ const styles = StyleSheet.create({
   },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, marginBottom: 4 },
   sheetNumBadge: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
-  sheetNum: { fontSize: 13, fontWeight: "700" },
-  sheetArabic: { fontSize: 52, fontWeight: "700", textAlign: "center", lineHeight: 70 },
-  sheetTranslit: { fontSize: 20, fontWeight: "700", textAlign: "center" },
+  sheetNum: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  sheetArabic: { fontSize: 52, fontFamily: "Inter_700Bold", textAlign: "center", lineHeight: 70 },
+  sheetTranslit: { fontSize: 20, fontFamily: "Inter_700Bold", textAlign: "center" },
 
   sheetPronRow: {
     flexDirection: "row",
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
   },
   sheetPronLabel: { fontSize: 13 },
-  sheetPron: { fontSize: 13, fontWeight: "600" },
+  sheetPron: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 
   sheetMeaningBox: {
     borderWidth: 1,
@@ -325,15 +325,15 @@ const styles = StyleSheet.create({
     padding: 14,
     alignSelf: "stretch",
   },
-  sheetMeaningTitle: { fontSize: 11, fontWeight: "600", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.8 },
-  sheetMeaning: { fontSize: 18, fontWeight: "700", textAlign: "center" },
+  sheetMeaningTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.8 },
+  sheetMeaning: { fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "center" },
 
   sheetDescBox: {
     borderRadius: 14,
     padding: 14,
     alignSelf: "stretch",
   },
-  sheetDescTitle: { fontSize: 11, fontWeight: "600", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 },
+  sheetDescTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 },
   sheetDesc: { fontSize: 14, lineHeight: 21 },
 
   sheetCloseBtn: {
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 4,
   },
-  sheetCloseBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  sheetCloseBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
 
   emptyBox: { alignItems: "center", paddingTop: 60 },
   emptyText: { fontSize: 16 },
