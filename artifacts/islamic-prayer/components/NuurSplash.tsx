@@ -10,7 +10,6 @@ const BG = "#09150D";
 const GOLD = "#C9933A";
 const GOLD_DIM = "#C9933A44";
 const GOLD_FAINT = "#C9933A18";
-const GREEN_ACCENT = "#2D6A4F";
 
 export function NuurSplash({ onComplete }: Props) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -55,13 +54,6 @@ export function NuurSplash({ onComplete }: Props) {
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      {/* Background shimmer lines */}
-      <View style={styles.bgLines} pointerEvents="none">
-        {[...Array(6)].map((_, i) => (
-          <View key={i} style={[styles.bgLine, { top: `${12 + i * 16}%` as any }]} />
-        ))}
-      </View>
-
       {/* Logo mark */}
       <Animated.View style={[styles.logoArea, { transform: [{ scale: scaleAnim }] }]}>
         {/* Outer glow ring */}
@@ -122,17 +114,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     zIndex: 9999,
     gap: 0,
-  },
-  bgLines: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: "hidden",
-  },
-  bgLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: GREEN_ACCENT + "22",
   },
   logoArea: {
     width: 160,
