@@ -1,6 +1,7 @@
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
+  Clipboard,
   FlatList,
   Platform,
   Pressable,
@@ -23,6 +24,18 @@ export default function DuaScreen() {
 
   const [selectedCategory, setSelectedCategory] = useState<DuaCategory>(DUA_CATEGORIES[0]);
   const [expandedDua, setExpandedDua] = useState<string | null>(null);
+  const [copiedDua, setCopiedDua] = useState<string | null>(null);
+
+  const copyDua = (item: Dua) => {
+    const text = `${item.arabic}\n\n${item.transliteration}\n\n"${item.translation}"${item.reference ? `\n— ${item.reference}` : ""}`;
+    if (Platform.OS === "web") {
+      navigator.clipboard?.writeText(text).catch(() => {});
+    } else {
+      Clipboard.setString(text);
+    }
+    setCopiedDua(item.id);
+    setTimeout(() => setCopiedDua(null), 2000);
+  };
 
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
@@ -59,14 +72,30 @@ export default function DuaScreen() {
             <Text style={[styles.translationText, { color: colors.textSecondary }]}>
               {item.translation}
             </Text>
-            {item.reference && (
-              <View style={[styles.referenceBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)" }]}>
-                <Feather name="book-open" size={11} color={colors.textSecondary} />
-                <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
-                  {item.reference}
+            <View style={styles.expandedFooter}>
+              {item.reference && (
+                <View style={[styles.referenceBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)" }]}>
+                  <Feather name="book-open" size={11} color={colors.textSecondary} />
+                  <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
+                    {item.reference}
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity
+                onPress={() => copyDua(item)}
+                style={[styles.copyBtn, { backgroundColor: copiedDua === item.id ? colors.gold + "20" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)") }]}
+                hitSlop={8}
+              >
+                <Feather
+                  name={copiedDua === item.id ? "check" : "copy"}
+                  size={13}
+                  color={copiedDua === item.id ? colors.gold : colors.textSecondary}
+                />
+                <Text style={[styles.copyText, { color: copiedDua === item.id ? colors.gold : colors.textSecondary }]}>
+                  {copiedDua === item.id ? "Copied!" : "Copy"}
                 </Text>
-              </View>
-            )}
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </Pressable>
@@ -245,6 +274,14 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     lineHeight: 22,
   },
+  expandedFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 4,
+    flexWrap: "wrap",
+    gap: 8,
+  },
   referenceBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -252,11 +289,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    alignSelf: "flex-start",
-    marginTop: 4,
+    flex: 1,
   },
   referenceText: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
+  },
+  copyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  copyText: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
   },
 });

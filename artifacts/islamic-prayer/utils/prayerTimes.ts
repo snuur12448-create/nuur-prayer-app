@@ -15,59 +15,47 @@ export interface PrayerTimesResult {
   date: Date;
 }
 
-function toRad(deg: number): number {
-  return (deg * Math.PI) / 180;
-}
-function toDeg(rad: number): number {
-  return (rad * 180) / Math.PI;
-}
-function fixAngle(a: number): number {
-  return a - 360 * Math.floor(a / 360);
-}
-function fixHour(a: number): number {
-  return a - 24 * Math.floor(a / 24);
-}
+const PI = Math.PI;
+const sin = (d: number) => Math.sin(d * PI / 180);
+const cos = (d: number) => Math.cos(d * PI / 180);
+const tan = (d: number) => Math.tan(d * PI / 180);
+const arctan = (x: number) => Math.atan(x) * 180 / PI;
+const arcsin = (x: number) => Math.asin(x) * 180 / PI;
+const arccos = (x: number) => Math.acos(x) * 180 / PI;
+const fixHour = (h: number) => h - 24 * Math.floor(h / 24);
+const fixAngle = (a: number) => a - 360 * Math.floor(a / 360);
+const dtr = (d: number) => d * PI / 180;
 
-function sunPosition(jd: number) {
-  const D = jd - 2451545.0;
-  const g = fixAngle(357.529 + 0.98560028 * D);
-  const q = fixAngle(280.459 + 0.98564736 * D);
-  const L = fixAngle(q + 1.915 * Math.sin(toRad(g)) + 0.02 * Math.sin(toRad(2 * g)));
-  const e = 23.439 - 0.00000036 * D;
-  const RA = toDeg(Math.atan2(Math.cos(toRad(e)) * Math.sin(toRad(L)), Math.cos(toRad(L)))) / 15;
-  const eqt = q / 15 - fixHour(RA);
-  const decl = toDeg(Math.asin(Math.sin(toRad(e)) * Math.sin(toRad(L))));
-  return { eqt, decl };
-}
-
-function julianDate(year: number, month: number, day: number): number {
-  if (month <= 2) {
-    year -= 1;
-    month += 12;
-  }
+function julianDay(year: number, month: number, day: number, tz = 0): number {
+  if (month <= 2) { year--; month += 12; }
   const A = Math.floor(year / 100);
   const B = 2 - A + Math.floor(A / 4);
-  return Math.floor(365.25 * (year + 4716)) + Math.floor(30.6001 * (month + 1)) + day + B - 1524.5;
+  return Math.floor(365.25 * (year + 4716)) + Math.floor(30.6001 * (month + 1)) + day + B - 1524.5 - tz / 24;
 }
 
-function computePrayerTime(
-  angle: number,
-  lat: number,
-  lng: number,
-  decl: number,
-  eqt: number,
-  isRise: boolean
-): number {
-  const cosT = (Math.cos(toRad(angle)) - Math.sin(toRad(lat)) * Math.sin(toRad(decl))) /
-    (Math.cos(toRad(lat)) * Math.cos(toRad(decl)));
-  if (cosT < -1 || cosT > 1) return NaN;
-  const T = (isRise ? -1 : 1) * toDeg(Math.acos(cosT)) / 15;
-  return 12 - eqt - lng / 15 + T;
+function sunEquation(jd: number): { decl: number; eqt: number } {
+  const D = jd - 2451545;
+  const g = fixAngle(357.529 + 0.98560028 * D);
+  const q = fixAngle(280.459 + 0.98564736 * D);
+  const L = fixAngle(q + 1.915 * sin(g) + 0.02 * sin(2 * g));
+  const e = 23.439 - 0.00000036 * D;
+  const RA = Math.atan2(cos(e) * sin(L), cos(L)) * 180 / PI / 15;
+  const eqt = q / 15 - fixHour(RA);
+  const decl = arcsin(sin(e) * sin(L));
+  return { decl, eqt };
 }
 
-function asrTime(factor: number, lat: number, decl: number, eqt: number, lng: number): number {
-  const G = toDeg(Math.atan(1 / (factor + Math.tan(toRad(Math.abs(lat - decl))))));
-  return computePrayerTime(-G, lat, lng, decl, eqt, false);
+/**
+ * Compute the hour angle from solar noon.
+ * angle: positive = sun below horizon (depression); negative = sun above horizon (altitude).
+ * Follows the PrayTimes.org convention: cosVal = (-sin(angle) - sin(lat)*sin(decl)) / (cos(lat)*cos(decl))
+ */
+function hourAngle(angle: number, lat: number, decl: number): number {
+  const cosVal =
+    (-sin(angle) - sin(lat) * sin(decl)) /
+    (cos(lat) * cos(decl));
+  if (cosVal < -1 || cosVal > 1) return NaN;
+  return arccos(cosVal) / 15;
 }
 
 export function calculatePrayerTimes(
@@ -80,79 +68,77 @@ export function calculatePrayerTimes(
   const month = date.getMonth() + 1;
   const day = date.getDate();
 
-  const jd = julianDate(year, month, day - timezone / 24);
-  const { eqt, decl } = sunPosition(jd);
+  const jd = julianDay(year, month, day, timezone);
+  const { decl, eqt } = sunEquation(jd);
 
-  const fajrHour = fixHour(computePrayerTime(18, lat, lng, decl, eqt, true) + timezone);
-  const sunriseHour = fixHour(computePrayerTime(0.833, lat, lng, decl, eqt, true) + timezone);
-  const dhuhrHour = fixHour(12 - eqt - lng / 15 + timezone);
-  const asrHour = fixHour(asrTime(1, lat, decl, eqt, lng) + timezone);
-  const maghribHour = fixHour(computePrayerTime(0.833, lat, lng, decl, eqt, false) + timezone);
-  const ishaHour = fixHour(computePrayerTime(17, lat, lng, decl, eqt, false) + timezone);
+  // Solar noon in UTC
+  const noon = 12 - eqt - lng / 15;
+
+  // Hour angles (hours before/after solar noon)
+  const fajrHA    = hourAngle(18, lat, decl);     // 18° depression (MWL method)
+  const sunriseHA = hourAngle(0.833, lat, decl);  // 0.833° for refraction
+  const asrAngle  = -arctan(1 / (1 + tan(Math.abs(lat - decl)))); // Hanafi=2, Shafi=1
+  const asrHA     = hourAngle(asrAngle, lat, decl);
+  const maghribHA = hourAngle(0.833, lat, decl);  // same as sunset
+  const ishaHA    = hourAngle(17, lat, decl);     // 17° depression (MWL method)
+
+  const toLocal = (base: number, ha: number, isRise: boolean) =>
+    fixHour(base + timezone + (isRise ? -ha : ha));
+
+  const fajrHour    = toLocal(noon, fajrHA, true);
+  const sunriseHour = toLocal(noon, sunriseHA, true);
+  const dhuhrHour   = fixHour(noon + timezone);
+  const asrHour     = toLocal(noon, asrHA, false);
+  const maghribHour = toLocal(noon, maghribHA, false);
+  const ishaHour    = toLocal(noon, ishaHA, false);
 
   const toDate = (hour: number): Date => {
-    if (isNaN(hour)) {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      return d;
-    }
     const d = new Date(date);
+    if (isNaN(hour)) { d.setHours(0, 0, 0, 0); return d; }
     const h = Math.floor(hour);
-    const m = Math.floor((hour - h) * 60);
+    const m = Math.round((hour - h) * 60) % 60;
     d.setHours(h, m, 0, 0);
     return d;
   };
 
-  const formatTime = (d: Date): string => {
-    try {
-      let h = d.getHours();
-      const m = d.getMinutes();
-      if (isNaN(h) || isNaN(m)) return "--:--";
-      const ampm = h >= 12 ? "PM" : "AM";
-      h = h % 12 || 12;
-      return `${h}:${m.toString().padStart(2, "0")} ${ampm}`;
-    } catch {
-      return "--:--";
-    }
+  const fmt = (d: Date): string => {
+    const h = d.getHours();
+    const m = d.getMinutes();
+    if (isNaN(h) || isNaN(m)) return "--:--";
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hh = h % 12 || 12;
+    return `${hh}:${m.toString().padStart(2, "0")} ${ampm}`;
   };
 
-  const makePrayer = (name: string, arabicName: string, hour: number): PrayerTime => {
+  const mk = (name: string, arabic: string, hour: number): PrayerTime => {
     const t = toDate(hour);
-    return { name, arabicName, time: t, timeString: formatTime(t) };
+    return { name, arabicName: arabic, time: t, timeString: fmt(t) };
   };
 
   return {
-    fajr: makePrayer("Fajr", "الفجر", fajrHour),
-    sunrise: makePrayer("Sunrise", "الشروق", sunriseHour),
-    dhuhr: makePrayer("Dhuhr", "الظهر", dhuhrHour),
-    asr: makePrayer("Asr", "العصر", asrHour),
-    maghrib: makePrayer("Maghrib", "المغرب", maghribHour),
-    isha: makePrayer("Isha", "العشاء", ishaHour),
+    fajr:    mk("Fajr",    "الفجر",  fajrHour),
+    sunrise: mk("Sunrise", "الشروق", sunriseHour),
+    dhuhr:   mk("Dhuhr",   "الظهر",  dhuhrHour),
+    asr:     mk("Asr",     "العصر",  asrHour),
+    maghrib: mk("Maghrib", "المغرب", maghribHour),
+    isha:    mk("Isha",    "العشاء", ishaHour),
     date,
   };
 }
 
 export function getNextPrayer(prayers: PrayerTimesResult): PrayerTime | null {
   const now = new Date();
-  const prayerList: PrayerTime[] = [
-    prayers.fajr,
-    prayers.dhuhr,
-    prayers.asr,
-    prayers.maghrib,
-    prayers.isha,
-  ];
-  for (const prayer of prayerList) {
-    if (prayer.time > now) return prayer;
+  const list = [prayers.fajr, prayers.dhuhr, prayers.asr, prayers.maghrib, prayers.isha];
+  for (const p of list) {
+    if (p.time > now) return p;
   }
   return null;
 }
 
 export function getTimeUntilPrayer(prayer: PrayerTime): string {
-  const now = new Date();
-  const diff = prayer.time.getTime() - now.getTime();
+  const diff = prayer.time.getTime() - Date.now();
   if (diff <= 0) return "Now";
   const h = Math.floor(diff / 3600000);
   const m = Math.floor((diff % 3600000) / 60000);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }

@@ -169,7 +169,7 @@ export default function QiblaScreen() {
             </View>
             {distance !== null && (
               <View style={styles.distanceInfo}>
-                <MaterialCommunityIcons name="kaaba" size={14} color={colors.gold} />
+                <Feather name="navigation" size={14} color={colors.gold} />
                 <Text style={[styles.distanceText, { color: colors.gold }]}>
                   {distance.toLocaleString()} km to Kaaba
                 </Text>

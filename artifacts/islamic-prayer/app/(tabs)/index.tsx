@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
 import { getIslamicDate, getTodaysReminder } from "@/utils/islamicData";
-import { getNextPrayer, getTimeUntilPrayer, PrayerTime } from "@/utils/prayerTimes";
+import { getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
 
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 
@@ -30,6 +30,7 @@ export default function PrayerScreen() {
   const { prayerTimes, location, isLoadingLocation, locationError, refreshPrayerTimes } = useAppContext();
   const [nextPrayer, setNextPrayer] = useState<PrayerTime | null>(null);
   const [timeUntil, setTimeUntil] = useState<string>("");
+  const [progress, setProgress] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
@@ -49,7 +50,20 @@ export default function PrayerScreen() {
     if (prayerTimes) {
       const next = getNextPrayer(prayerTimes);
       setNextPrayer(next);
-      if (next) setTimeUntil(getTimeUntilPrayer(next));
+      if (next) {
+        setTimeUntil(getTimeUntilPrayer(next));
+        // Compute progress: find previous prayer time
+        const now = Date.now();
+        const pList = [prayerTimes.fajr, prayerTimes.dhuhr, prayerTimes.asr, prayerTimes.maghrib, prayerTimes.isha];
+        const prev = [...pList].reverse().find((p) => p.time.getTime() <= now);
+        if (prev) {
+          const total = next.time.getTime() - prev.time.getTime();
+          const elapsed = now - prev.time.getTime();
+          setProgress(Math.min(1, Math.max(0, elapsed / total)));
+        } else {
+          setProgress(0);
+        }
+      }
     }
   }, [prayerTimes, currentTime]);
 
@@ -120,17 +134,24 @@ export default function PrayerScreen() {
           {/* Next Prayer Card */}
           {nextPrayer && (
             <Animated.View style={[styles.nextPrayerCard, { transform: [{ scale: pulseAnim }] }]}>
-              <View>
-                <Text style={styles.nextLabel}>Next Prayer</Text>
-                <Text style={styles.nextPrayerName}>{nextPrayer.name}</Text>
-                <Text style={[styles.nextPrayerArabic]}>{nextPrayer.arabicName}</Text>
-              </View>
-              <View style={styles.nextRight}>
-                <Text style={styles.nextTime}>{nextPrayer.timeString}</Text>
-                <View style={styles.countdownBadge}>
-                  <Text style={styles.countdown}>{timeUntil}</Text>
+              <View style={styles.nextPrayerTop}>
+                <View>
+                  <Text style={styles.nextLabel}>Next Prayer</Text>
+                  <Text style={styles.nextPrayerName}>{nextPrayer.name}</Text>
+                  <Text style={styles.nextPrayerArabic}>{nextPrayer.arabicName}</Text>
+                </View>
+                <View style={styles.nextRight}>
+                  <Text style={styles.nextTime}>{nextPrayer.timeString}</Text>
+                  <View style={styles.countdownBadge}>
+                    <Text style={styles.countdown}>{timeUntil}</Text>
+                  </View>
                 </View>
               </View>
+              {/* Progress bar */}
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any }]} />
+              </View>
+              <Text style={styles.progressLabel}>{Math.round(progress * 100)}% of time elapsed</Text>
             </Animated.View>
           )}
         </View>
@@ -273,11 +294,31 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 16,
     padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    gap: 12,
+  },
+  nextPrayerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: 4,
+    backgroundColor: "rgba(212, 160, 23, 0.85)",
+    borderRadius: 2,
+  },
+  progressLabel: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    textAlign: "right",
   },
   nextLabel: {
     color: "rgba(255,255,255,0.6)",

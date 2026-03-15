@@ -55,6 +55,19 @@ export const SURAHS: Surah[] = [
   { number: 56, name: "الواقعة", englishName: "Al-Waqi'a", englishMeaning: "The Event", verses: 96, revelationType: "Meccan" },
   { number: 67, name: "الملك", englishName: "Al-Mulk", englishMeaning: "The Sovereignty", verses: 30, revelationType: "Meccan" },
   { number: 78, name: "النبأ", englishName: "An-Naba", englishMeaning: "The Great News", verses: 40, revelationType: "Meccan" },
+  { number: 99, name: "الزلزلة", englishName: "Az-Zalzalah", englishMeaning: "The Earthquake", verses: 8, revelationType: "Medinan" },
+  { number: 100, name: "العاديات", englishName: "Al-'Adiyat", englishMeaning: "The Courser", verses: 11, revelationType: "Meccan" },
+  { number: 101, name: "القارعة", englishName: "Al-Qari'ah", englishMeaning: "The Calamity", verses: 11, revelationType: "Meccan" },
+  { number: 102, name: "التكاثر", englishName: "At-Takathur", englishMeaning: "The Rivalry in Worldly Things", verses: 8, revelationType: "Meccan" },
+  { number: 103, name: "العصر", englishName: "Al-'Asr", englishMeaning: "The Declining Day", verses: 3, revelationType: "Meccan" },
+  { number: 104, name: "الهمزة", englishName: "Al-Humazah", englishMeaning: "The Slanderer", verses: 9, revelationType: "Meccan" },
+  { number: 105, name: "الفيل", englishName: "Al-Fil", englishMeaning: "The Elephant", verses: 5, revelationType: "Meccan" },
+  { number: 106, name: "قريش", englishName: "Quraysh", englishMeaning: "Quraysh", verses: 4, revelationType: "Meccan" },
+  { number: 107, name: "الماعون", englishName: "Al-Ma'un", englishMeaning: "Small Kindnesses", verses: 7, revelationType: "Meccan" },
+  { number: 108, name: "الكوثر", englishName: "Al-Kawthar", englishMeaning: "Abundance", verses: 3, revelationType: "Meccan" },
+  { number: 109, name: "الكافرون", englishName: "Al-Kafirun", englishMeaning: "The Disbelievers", verses: 6, revelationType: "Meccan" },
+  { number: 110, name: "النصر", englishName: "An-Nasr", englishMeaning: "The Victory", verses: 3, revelationType: "Medinan" },
+  { number: 111, name: "المسد", englishName: "Al-Masad", englishMeaning: "The Palm Fiber", verses: 5, revelationType: "Meccan" },
   { number: 112, name: "الإخلاص", englishName: "Al-Ikhlas", englishMeaning: "The Sincerity", verses: 4, revelationType: "Meccan" },
   { number: 113, name: "الفلق", englishName: "Al-Falaq", englishMeaning: "The Dawn", verses: 5, revelationType: "Meccan" },
   { number: 114, name: "الناس", englishName: "An-Nas", englishMeaning: "Mankind", verses: 6, revelationType: "Meccan" },
@@ -118,7 +131,7 @@ export const DUA_CATEGORIES: DuaCategory[] = [
   {
     id: "prayer",
     name: "After Prayer",
-    icon: "hands-praying",
+    icon: "star",
     duas: [
       {
         id: "p1",
