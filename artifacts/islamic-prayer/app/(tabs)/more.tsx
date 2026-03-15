@@ -40,14 +40,6 @@ export default function MoreScreen() {
       accentColor: "#E8A87C",
     },
     {
-      label: "Wudhu & Prayer Guide",
-      arabic: "الوضوء والصلاة",
-      description: "Step-by-step guides for performing wudhu and salah, with duas and tips",
-      route: "/(tabs)/guide",
-      icon: <MaterialCommunityIcons name="hand-water" size={26} color="#64B5F6" />,
-      accentColor: "#64B5F6",
-    },
-    {
       label: "99 Names of Allah",
       arabic: "أسماء الله الحسنى",
       description: "The beautiful names of Allah with meanings, transliterations, and reflections",

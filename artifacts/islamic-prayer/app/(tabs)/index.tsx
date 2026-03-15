@@ -17,6 +17,7 @@ import { useAppContext } from "@/context/AppContext";
 import { LocationModal } from "@/components/LocationModal";
 import { getIslamicDate, getTodaysReminder } from "@/utils/islamicData";
 import { getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
+import { GuideSection } from "@/components/GuideSection";
 
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 
@@ -319,6 +320,9 @@ export default function PrayerScreen() {
             — {reminder.source}
           </Text>
         </View>
+
+        {/* Wudhu & Prayer Guide */}
+        <GuideSection colors={colors} />
       </ScrollView>
 
       <LocationModal
