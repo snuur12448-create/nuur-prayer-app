@@ -169,9 +169,9 @@ export default function PrayerScreen() {
               ]}
             >
               <View style={styles.nextPrayerTop}>
-                <View>
+                <View style={{ flex: 1, paddingRight: 12 }}>
                   <Text style={[styles.nextLabel, { color: colors.textSecondary }]}>Next Prayer</Text>
-                  <Text style={[styles.nextPrayerName, { color: colors.text }]}>{nextPrayer.name}</Text>
+                  <Text style={[styles.nextPrayerName, { color: colors.text }]} numberOfLines={1}>{nextPrayer.name}</Text>
                   <Text style={[styles.nextPrayerArabic, { color: colors.textSecondary }]}>{nextPrayer.arabicName}</Text>
                 </View>
                 <View style={styles.nextRight}>
@@ -225,14 +225,16 @@ export default function PrayerScreen() {
                     <View style={[styles.prayerDot, {
                       backgroundColor: isActive ? colors.background : isPast ? colors.textSecondary : colors.gold,
                     }]} />
-                    <View>
-                      <Text style={[
-                        styles.prayerName,
-                        {
-                          color: isActive ? colors.background : isPast ? colors.textSecondary : colors.text,
-                          fontFamily: "Inter_600SemiBold",
-                        }
-                      ]}>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.prayerName,
+                          {
+                            color: isActive ? colors.background : isPast ? colors.textSecondary : colors.text,
+                            fontFamily: "Inter_600SemiBold",
+                          }
+                        ]}>
                         {prayer.name}
                       </Text>
                       <Text style={[styles.prayerArabicSmall, {
@@ -436,6 +438,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    flex: 1,
+    paddingRight: 8,
   },
   prayerDot: {
     width: 8,
