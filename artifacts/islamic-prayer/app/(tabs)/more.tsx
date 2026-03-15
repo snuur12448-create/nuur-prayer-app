@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import { NuurLogo } from "@/components/NuurLogo";
 
 interface MoreItem {
   label: string;
@@ -76,11 +77,17 @@ export default function MoreScreen() {
       >
         {/* Nuur Logo */}
         <View style={styles.logoBlock}>
-          <View style={[styles.logoCircle, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "30" }]}>
-            <Text style={[styles.logoNun, { color: colors.gold }]}>ن</Text>
+          <NuurLogo size={130} gold={colors.gold} />
+          <View style={styles.logoText}>
+            <Text style={[styles.logoArabic, { color: colors.text }]}>نُور</Text>
+            <View style={styles.dividerRow}>
+              <View style={[styles.dividerLine, { backgroundColor: colors.gold + "55" }]} />
+              <Text style={[styles.dividerDot, { color: colors.gold + "99" }]}>✦</Text>
+              <View style={[styles.dividerLine, { backgroundColor: colors.gold + "55" }]} />
+            </View>
+            <Text style={[styles.logoLatin, { color: colors.textSecondary }]}>NUUR</Text>
+            <Text style={[styles.logoTagline, { color: colors.textSecondary }]}>Light for your daily deen</Text>
           </View>
-          <Text style={[styles.logoArabic, { color: colors.text }]}>نور</Text>
-          <Text style={[styles.logoLatin, { color: colors.textSecondary }]}>N U U R</Text>
           <View style={[styles.logoDivider, { backgroundColor: colors.gold + "40" }]} />
         </View>
 
@@ -142,32 +149,43 @@ const styles = StyleSheet.create({
   /* Logo */
   logoBlock: {
     alignItems: "center",
-    marginBottom: 36,
+    marginBottom: 32,
+    gap: 0,
   },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 1.5,
+  logoText: {
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  logoNun: {
-    fontSize: 34,
-    lineHeight: 42,
+    gap: 6,
+    marginTop: 16,
   },
   logoArabic: {
-    fontSize: 36,
+    fontSize: 42,
     fontFamily: "Inter_700Bold",
     letterSpacing: 2,
-    lineHeight: 48,
+    lineHeight: 52,
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  dividerLine: {
+    width: 36,
+    height: 1,
+  },
+  dividerDot: {
+    fontSize: 10,
   },
   logoLatin: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    letterSpacing: 6,
+  },
+  logoTagline: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
-    letterSpacing: 5,
-    marginTop: 2,
+    letterSpacing: 1,
+    fontStyle: "italic",
+    opacity: 0.7,
   },
   logoDivider: {
     width: 40,
