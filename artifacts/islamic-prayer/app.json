@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "Islamic Prayer",
+    "slug": "islamic-prayer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "islamic-prayer",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A1A0E"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need your location to calculate accurate prayer times for your area.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to calculate accurate prayer times for your area."
+      }
+    },
+    "android": {
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://replit.com/"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Islamic Prayer to access your location to calculate accurate prayer times.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Islamic Prayer to access your location to calculate accurate prayer times."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
