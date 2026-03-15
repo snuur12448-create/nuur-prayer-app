@@ -135,7 +135,7 @@ export default function PrayerScreen() {
               </Text>
             </View>
             <View style={styles.headerRight}>
-              <Text style={[styles.currentTime, { color: colors.text }]}>{formatCurrentTime()}</Text>
+              <Text style={[styles.currentTime, { color: colors.text }]} numberOfLines={1}>{formatCurrentTime()}</Text>
               {!isWeb && (
                 <Pressable
                   onPress={toggleNotifications}
@@ -334,6 +334,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 4,
     flexShrink: 0,
+    minWidth: 130,
   },
   paletteBtn: {
     width: 34,
