@@ -93,15 +93,18 @@ export default function MoreScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Nuur Logo — compact horizontal header */}
+        {/* Nuur Logo — matches splash screen style */}
         <View style={[styles.logoBlock, { borderBottomColor: LOGO_GOLD + "30" }]}>
           <NuurLogo size={52} />
           <View style={styles.logoText}>
-            <View style={styles.logoTitleRow}>
-              <Text style={[styles.logoArabic, { color: LOGO_GOLD }]}>نُور</Text>
-              <Text style={[styles.logoLatin, { color: LOGO_GOLD + "CC" }]}>  NUUR</Text>
+            <Text style={styles.logoArabic}>نُور</Text>
+            <View style={styles.dividerRow}>
+              <View style={[styles.dividerLine, { backgroundColor: LOGO_GOLD + "55" }]} />
+              <Text style={[styles.dividerDot, { color: LOGO_GOLD + "99" }]}>✦</Text>
+              <View style={[styles.dividerLine, { backgroundColor: LOGO_GOLD + "55" }]} />
             </View>
-            <Text style={[styles.logoTagline, { color: colors.textSecondary }]}>Light for your daily deen</Text>
+            <Text style={styles.logoLatin}>NUUR</Text>
+            <Text style={styles.logoTagline}>Light for your daily deen</Text>
           </View>
         </View>
 
@@ -164,38 +167,48 @@ const styles = StyleSheet.create({
   logoBlock: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 16,
     marginBottom: 20,
-    paddingBottom: 16,
+    paddingBottom: 18,
     borderBottomWidth: 1,
   },
   logoText: {
     flex: 1,
-    gap: 3,
-  },
-  logoTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 0,
+    gap: 2,
   },
   logoArabic: {
-    fontSize: 22,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1,
-    lineHeight: 40,
-    paddingTop: 8,
+    fontSize: 32,
+    color: "#C9933A",
+    letterSpacing: 2,
+    includeFontPadding: false,
+    lineHeight: 42,
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginVertical: 2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerDot: {
+    fontSize: 9,
   },
   logoLatin: {
     fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 4,
+    color: "#E8D5A8",
+    letterSpacing: 7,
+    fontFamily: Platform.select({ ios: "Georgia", android: "serif", web: "Georgia, serif" }),
   },
   logoTagline: {
     fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    letterSpacing: 0.5,
+    color: "#8BAF8E",
+    letterSpacing: 1,
+    marginTop: 2,
+    fontFamily: Platform.select({ ios: "Georgia", android: "serif", web: "Georgia, serif" }),
     fontStyle: "italic",
-    opacity: 0.7,
   },
 
   /* Section label */
