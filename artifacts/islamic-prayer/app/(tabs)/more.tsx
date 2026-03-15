@@ -183,14 +183,15 @@ const styles = StyleSheet.create({
   },
   logoTitleRow: {
     flexDirection: "row",
-    alignItems: "baseline",
+    alignItems: "center",
     gap: 0,
   },
   logoArabic: {
     fontSize: 22,
     fontFamily: "Inter_700Bold",
     letterSpacing: 1,
-    lineHeight: 28,
+    lineHeight: 40,
+    paddingTop: 8,
   },
   logoLatin: {
     fontSize: 13,
