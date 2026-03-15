@@ -54,7 +54,7 @@ function NameCard({ item, colors, onPress }: { item: AllahName; colors: any; onP
         <Text style={[styles.cardArabic, { color: colors.text }]}>{item.arabic}</Text>
         <Text style={[styles.cardTranslit, { color: colors.tint }]} numberOfLines={1}>{item.transliteration}</Text>
         <View style={[styles.cardDivider, { backgroundColor: colors.tint + "33" }]} />
-        <Text style={[styles.cardMeaning, { color: colors.subtext }]} numberOfLines={2}>{item.meaning}</Text>
+        <Text style={[styles.cardMeaning, { color: colors.textSecondary }]} numberOfLines={2}>{item.meaning}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -100,18 +100,18 @@ function DetailSheet({ item, colors, onClose }: { item: AllahName; colors: any; 
         <Text style={[styles.sheetTranslit, { color: colors.tint }]}>{item.transliteration}</Text>
 
         <View style={[styles.sheetPronRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <Feather name="volume-2" size={14} color={colors.subtext} />
-          <Text style={[styles.sheetPronLabel, { color: colors.subtext }]}>Pronunciation: </Text>
+          <Feather name="volume-2" size={14} color={colors.textSecondary} />
+          <Text style={[styles.sheetPronLabel, { color: colors.textSecondary }]}>Pronunciation: </Text>
           <Text style={[styles.sheetPron, { color: colors.text }]}>{item.pronunciation}</Text>
         </View>
 
         <View style={[styles.sheetMeaningBox, { backgroundColor: colors.background, borderColor: colors.tint + "33" }]}>
-          <Text style={[styles.sheetMeaningTitle, { color: colors.subtext }]}>Meaning</Text>
+          <Text style={[styles.sheetMeaningTitle, { color: colors.textSecondary }]}>Meaning</Text>
           <Text style={[styles.sheetMeaning, { color: colors.text }]}>{item.meaning}</Text>
         </View>
 
         <View style={[styles.sheetDescBox, { backgroundColor: colors.background }]}>
-          <Text style={[styles.sheetDescTitle, { color: colors.subtext }]}>Description</Text>
+          <Text style={[styles.sheetDescTitle, { color: colors.textSecondary }]}>Description</Text>
           <Text style={[styles.sheetDesc, { color: colors.text }]}>{item.description}</Text>
         </View>
 
@@ -158,18 +158,18 @@ export default function NamesScreen() {
         <View style={styles.headerContent}>
           <Text style={[styles.headerAr, { color: colors.tint }]}>أَسْمَاءُ اللّٰهِ الْحُسْنَىٰ</Text>
           <Text style={[styles.headerTitle, { color: colors.text }]}>The 99 Names of Allah</Text>
-          <Text style={[styles.headerSub, { color: colors.subtext }]}>
+          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>
             Tap any name to learn its meaning and pronunciation
           </Text>
         </View>
 
         {/* Search */}
         <View style={[styles.searchBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <Feather name="search" size={16} color={colors.subtext} />
+          <Feather name="search" size={16} color={colors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
             placeholder="Search by name, meaning or number…"
-            placeholderTextColor={colors.subtext}
+            placeholderTextColor={colors.textSecondary}
             value={query}
             onChangeText={setQuery}
             returnKeyType="search"
@@ -178,13 +178,13 @@ export default function NamesScreen() {
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => setQuery("")} hitSlop={8}>
-              <Feather name="x" size={16} color={colors.subtext} />
+              <Feather name="x" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
 
         {query.length > 0 && (
-          <Text style={[styles.resultCount, { color: colors.subtext }]}>
+          <Text style={[styles.resultCount, { color: colors.textSecondary }]}>
             {filtered.length} {filtered.length === 1 ? "name" : "names"} found
           </Text>
         )}
@@ -204,12 +204,12 @@ export default function NamesScreen() {
         maxToRenderPerBatch={20}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Text style={[styles.emptyText, { color: colors.subtext }]}>No names match your search</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No names match your search</Text>
           </View>
         }
         ListHeaderComponent={
           <View style={[styles.countBanner, { backgroundColor: colors.surface + "88" }]}>
-            <Text style={[styles.countBannerText, { color: colors.subtext }]}>
+            <Text style={[styles.countBannerText, { color: colors.textSecondary }]}>
               {query ? `${filtered.length} of 99 names` : "99 Beautiful Names"}
             </Text>
           </View>

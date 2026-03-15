@@ -200,15 +200,15 @@ export default function TrackerScreen() {
           <View style={styles.statsRow}>
             <View style={[styles.statCard, { backgroundColor: colors.background }]}>
               <Text style={[styles.statNum, { color: colors.tint }]}>{streak}</Text>
-              <Text style={[styles.statLabel, { color: colors.subtext }]}>Day Streak</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Day Streak</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: colors.background }]}>
               <Text style={[styles.statNum, { color: colors.tint }]}>{weekTotal}</Text>
-              <Text style={[styles.statLabel, { color: colors.subtext }]}>This Week</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>This Week</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: colors.background }]}>
               <Text style={[styles.statNum, { color: colors.tint }]}>{completedCount}/5</Text>
-              <Text style={[styles.statLabel, { color: colors.subtext }]}>Today</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Today</Text>
             </View>
           </View>
 
@@ -230,7 +230,7 @@ export default function TrackerScreen() {
                   onPress={() => setSelectedKey(key)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.weekDayLetter, { color: isTodayKey ? colors.tint : colors.subtext }]}>
+                  <Text style={[styles.weekDayLetter, { color: isTodayKey ? colors.tint : colors.textSecondary }]}>
                     {DAY_LETTERS[d.getDay()]}
                   </Text>
                   <Text style={[styles.weekDayNum, { color: isSelected ? colors.tint : colors.text, fontWeight: isSelected ? "700" : "400" }]}>
@@ -284,7 +284,7 @@ export default function TrackerScreen() {
         {/* ── Completion Arc ── */}
         <View style={[styles.completionBar, { backgroundColor: colors.surface, marginTop: 12, marginHorizontal: 16, borderRadius: 16 }]}>
           <View style={styles.completionRow}>
-            <Text style={[styles.completionLabel, { color: colors.subtext }]}>
+            <Text style={[styles.completionLabel, { color: colors.textSecondary }]}>
               {completedCount === 0 ? "No prayers recorded" : completedCount === 5 ? "All 5 prayers completed" : `${completedCount} of 5 prayers recorded`}
             </Text>
             <Text style={[styles.completionPct, { color: colors.tint }]}>
@@ -316,9 +316,9 @@ export default function TrackerScreen() {
                 <View style={[styles.prayerColorBar, { backgroundColor: color }]} />
                 <View style={styles.prayerInfo}>
                   <Text style={[styles.prayerName, { color: checked ? color : colors.text }]}>{en}</Text>
-                  <Text style={[styles.prayerAr, { color: colors.subtext }]}>{ar}</Text>
+                  <Text style={[styles.prayerAr, { color: colors.textSecondary }]}>{ar}</Text>
                 </View>
-                <Text style={[styles.prayerTime, { color: colors.subtext }]}>{time}</Text>
+                <Text style={[styles.prayerTime, { color: colors.textSecondary }]}>{time}</Text>
                 <CheckBox checked={checked} color={color} onPress={() => togglePrayer(prayer)} />
               </TouchableOpacity>
             );

@@ -53,7 +53,6 @@ export default function PrayerScreen() {
       setNextPrayer(next);
       if (next) {
         setTimeUntil(getTimeUntilPrayer(next));
-        // Compute progress: find previous prayer time
         const now = Date.now();
         const pList = [prayerTimes.fajr, prayerTimes.dhuhr, prayerTimes.asr, prayerTimes.maghrib, prayerTimes.isha];
         const prev = [...pList].reverse().find((p) => p.time.getTime() <= now);
@@ -122,11 +121,11 @@ export default function PrayerScreen() {
                 style={styles.locationChip}
                 activeOpacity={0.7}
               >
-                <Feather name="map-pin" size={11} color="rgba(255,255,255,0.6)" />
-                <Text style={styles.locationLabel}>
+                <Feather name="map-pin" size={11} color={colors.textSecondary} />
+                <Text style={[styles.locationLabel, { color: colors.text }]}>
                   {location?.city || "Locating..."}
                 </Text>
-                <Feather name="chevron-down" size={11} color="rgba(255,255,255,0.45)" />
+                <Feather name="chevron-down" size={11} color={colors.textSecondary} />
               </TouchableOpacity>
               <Text style={[styles.islamicDate, { color: colors.gold }]}>
                 {islamicDate.day} {islamicDate.month} {islamicDate.year} AH
@@ -134,50 +133,59 @@ export default function PrayerScreen() {
             </View>
             <View style={styles.headerRight}>
               <View style={styles.timeContainer}>
-                <Text style={styles.currentTime}>{formatCurrentTime()}</Text>
+                <Text style={[styles.currentTime, { color: colors.text }]}>{formatCurrentTime()}</Text>
               </View>
               {!isWeb && (
                 <Pressable
                   onPress={toggleNotifications}
                   style={[
                     styles.paletteBtn,
-                    notificationsEnabled && { backgroundColor: colors.tint + "33" },
+                    { backgroundColor: notificationsEnabled ? colors.tint + "33" : colors.border },
                   ]}
                   hitSlop={10}
                 >
                   <Feather
                     name={notificationsEnabled ? "bell" : "bell-off"}
                     size={18}
-                    color={notificationsEnabled ? colors.tint : "rgba(255,255,255,0.7)"}
+                    color={notificationsEnabled ? colors.tint : colors.textSecondary}
                   />
                 </Pressable>
               )}
             </View>
           </View>
 
-          <Text style={styles.gregorianDate}>{formatDate()}</Text>
+          <Text style={[styles.gregorianDate, { color: colors.textSecondary }]}>{formatDate()}</Text>
 
           {/* Next Prayer Card */}
           {nextPrayer && (
-            <Animated.View style={[styles.nextPrayerCard, { transform: [{ scale: pulseAnim }] }]}>
+            <Animated.View
+              style={[
+                styles.nextPrayerCard,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                  transform: [{ scale: pulseAnim }],
+                },
+              ]}
+            >
               <View style={styles.nextPrayerTop}>
                 <View>
-                  <Text style={styles.nextLabel}>Next Prayer</Text>
-                  <Text style={styles.nextPrayerName}>{nextPrayer.name}</Text>
-                  <Text style={styles.nextPrayerArabic}>{nextPrayer.arabicName}</Text>
+                  <Text style={[styles.nextLabel, { color: colors.textSecondary }]}>Next Prayer</Text>
+                  <Text style={[styles.nextPrayerName, { color: colors.text }]}>{nextPrayer.name}</Text>
+                  <Text style={[styles.nextPrayerArabic, { color: colors.textSecondary }]}>{nextPrayer.arabicName}</Text>
                 </View>
                 <View style={styles.nextRight}>
-                  <Text style={styles.nextTime}>{nextPrayer.timeString}</Text>
-                  <View style={styles.countdownBadge}>
-                    <Text style={styles.countdown}>{timeUntil}</Text>
+                  <Text style={[styles.nextTime, { color: colors.text }]}>{nextPrayer.timeString}</Text>
+                  <View style={[styles.countdownBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "55" }]}>
+                    <Text style={[styles.countdown, { color: colors.gold }]}>{timeUntil}</Text>
                   </View>
                 </View>
               </View>
               {/* Progress bar */}
-              <View style={styles.progressTrack}>
+              <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
                 <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any }]} />
               </View>
-              <Text style={styles.progressLabel}>{Math.round(progress * 100)}% of time elapsed</Text>
+              <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>{Math.round(progress * 100)}% of time elapsed</Text>
             </Animated.View>
           )}
         </View>
@@ -215,20 +223,20 @@ export default function PrayerScreen() {
                 >
                   <View style={styles.prayerLeft}>
                     <View style={[styles.prayerDot, {
-                      backgroundColor: isActive ? "#fff" : isPast ? colors.textSecondary : colors.gold,
+                      backgroundColor: isActive ? colors.background : isPast ? colors.textSecondary : colors.gold,
                     }]} />
                     <View>
                       <Text style={[
                         styles.prayerName,
                         {
-                          color: isActive ? "#fff" : isPast ? colors.textSecondary : colors.text,
+                          color: isActive ? colors.background : isPast ? colors.textSecondary : colors.text,
                           fontFamily: "Inter_600SemiBold",
                         }
                       ]}>
                         {prayer.name}
                       </Text>
                       <Text style={[styles.prayerArabicSmall, {
-                        color: isActive ? "rgba(255,255,255,0.7)" : colors.textSecondary,
+                        color: isActive ? colors.background + "CC" : colors.textSecondary,
                       }]}>
                         {prayer.arabicName}
                       </Text>
@@ -236,13 +244,13 @@ export default function PrayerScreen() {
                   </View>
                   <View style={styles.prayerRight}>
                     {isActive && (
-                      <View style={styles.activeBadge}>
-                        <Text style={styles.activeBadgeText}>Next</Text>
+                      <View style={[styles.activeBadge, { backgroundColor: colors.background + "33" }]}>
+                        <Text style={[styles.activeBadgeText, { color: colors.background }]}>Next</Text>
                       </View>
                     )}
                     <Text style={[
                       styles.prayerTime,
-                      { color: isActive ? "#fff" : isPast ? colors.textSecondary : colors.text }
+                      { color: isActive ? colors.background : isPast ? colors.textSecondary : colors.text }
                     ]}>
                       {prayer.timeString}
                     </Text>
@@ -311,7 +319,6 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   locationLabel: {
-    color: "rgba(255,255,255,0.75)",
     fontSize: 12,
     fontFamily: "Inter_500Medium",
   },
@@ -331,27 +338,22 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
   },
   currentTime: {
-    color: "#fff",
     fontSize: 28,
     fontFamily: "Inter_700Bold",
   },
   gregorianDate: {
-    color: "rgba(255,255,255,0.7)",
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     marginBottom: 20,
   },
   nextPrayerCard: {
-    backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
     gap: 12,
   },
   nextPrayerTop: {
@@ -361,7 +363,6 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 4,
-    backgroundColor: "rgba(255,255,255,0.15)",
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -371,13 +372,11 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   progressLabel: {
-    color: "rgba(255,255,255,0.4)",
     fontSize: 10,
     fontFamily: "Inter_400Regular",
     textAlign: "right",
   },
   nextLabel: {
-    color: "rgba(255,255,255,0.6)",
     fontSize: 11,
     fontFamily: "Inter_500Medium",
     letterSpacing: 1,
@@ -385,13 +384,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   nextPrayerName: {
-    color: "#fff",
     fontSize: 24,
     fontFamily: "Inter_700Bold",
     lineHeight: 28,
   },
   nextPrayerArabic: {
-    color: "rgba(255,255,255,0.6)",
     fontSize: 16,
     marginTop: 2,
   },
@@ -400,20 +397,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   nextTime: {
-    color: "#fff",
     fontSize: 22,
     fontFamily: "Inter_600SemiBold",
   },
   countdownBadge: {
-    backgroundColor: "rgba(212, 160, 23, 0.3)",
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: "rgba(212, 160, 23, 0.5)",
   },
   countdown: {
-    color: "#F4C842",
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
   },
@@ -462,13 +455,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   activeBadge: {
-    backgroundColor: "rgba(255,255,255,0.25)",
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   activeBadgeText: {
-    color: "#fff",
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
   },
