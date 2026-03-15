@@ -79,26 +79,22 @@ export default function MoreScreen() {
         contentContainerStyle={[
           styles.scroll,
           {
-            paddingTop: topPad + 24,
+            paddingTop: topPad + 12,
             paddingBottom: insets.bottom + 100,
           },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Nuur Logo */}
-        <View style={styles.logoBlock}>
-          <NuurLogo size={130} />
+        {/* Nuur Logo — compact horizontal header */}
+        <View style={[styles.logoBlock, { borderBottomColor: LOGO_GOLD + "30" }]}>
+          <NuurLogo size={52} />
           <View style={styles.logoText}>
-            <Text style={[styles.logoArabic, { color: LOGO_GOLD }]}>نُور</Text>
-            <View style={styles.dividerRow}>
-              <View style={[styles.dividerLine, { backgroundColor: LOGO_GOLD + "55" }]} />
-              <Text style={[styles.dividerDot, { color: LOGO_GOLD + "99" }]}>✦</Text>
-              <View style={[styles.dividerLine, { backgroundColor: LOGO_GOLD + "55" }]} />
+            <View style={styles.logoTitleRow}>
+              <Text style={[styles.logoArabic, { color: LOGO_GOLD }]}>نُور</Text>
+              <Text style={[styles.logoLatin, { color: LOGO_GOLD + "CC" }]}>  NUUR</Text>
             </View>
-            <Text style={[styles.logoLatin, { color: LOGO_GOLD + "CC" }]}>NUUR</Text>
             <Text style={[styles.logoTagline, { color: colors.textSecondary }]}>Light for your daily deen</Text>
           </View>
-          <View style={[styles.logoDivider, { backgroundColor: LOGO_GOLD + "40" }]} />
         </View>
 
         {/* Section label */}
@@ -158,49 +154,39 @@ const styles = StyleSheet.create({
 
   /* Logo */
   logoBlock: {
-    alignItems: "center",
-    marginBottom: 32,
-    gap: 0,
-  },
-  logoText: {
-    alignItems: "center",
-    gap: 6,
-    marginTop: 16,
-  },
-  logoArabic: {
-    fontSize: 42,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 2,
-    lineHeight: 52,
-  },
-  dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 14,
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
   },
-  dividerLine: {
-    width: 36,
-    height: 1,
+  logoText: {
+    flex: 1,
+    gap: 3,
   },
-  dividerDot: {
-    fontSize: 10,
+  logoTitleRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 0,
+  },
+  logoArabic: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1,
+    lineHeight: 28,
   },
   logoLatin: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    letterSpacing: 6,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 4,
   },
   logoTagline: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "Inter_400Regular",
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     fontStyle: "italic",
     opacity: 0.7,
-  },
-  logoDivider: {
-    width: 40,
-    height: 1,
-    marginTop: 20,
   },
 
   /* Section label */
