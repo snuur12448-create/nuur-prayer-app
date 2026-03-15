@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { LocationModal } from "@/components/LocationModal";
 import { getIslamicDate, getTodaysReminder } from "@/utils/islamicData";
-import { getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
+import { calculatePrayerTimes, getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
 import { GuideSection } from "@/components/GuideSection";
 
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
@@ -25,7 +25,8 @@ export default function PrayerScreen() {
   const {
     prayerTimes, location, isLoadingLocation, locationError,
     refreshPrayerTimes, requestLocation, setManualLocation,
-    themeColors: colors, notificationsEnabled, toggleNotifications, timeFormat,
+    themeColors: colors, notificationsEnabled, toggleNotifications,
+    timeFormat, calcMethod, madhab, highLatRule,
   } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
@@ -54,26 +55,44 @@ export default function PrayerScreen() {
 
   useEffect(() => {
     if (prayerTimes) {
-      const next = getNextPrayer(prayerTimes);
-      setNextPrayer(next);
       const now = Date.now();
       const pList = [prayerTimes.fajr, prayerTimes.dhuhr, prayerTimes.asr, prayerTimes.maghrib, prayerTimes.isha];
-      // Current prayer = most recently started prayer
+
+      // Current prayer = most recently started obligatory prayer
       const prev = [...pList].reverse().find((p) => p.time.getTime() <= now) ?? null;
       setCurrentPrayer(prev);
+
+      // Next prayer — if all today's prayers are done, fetch tomorrow's Fajr
+      let next = getNextPrayer(prayerTimes);
+      if (!next && location) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowTimes = calculatePrayerTimes(
+          location.latitude,
+          location.longitude,
+          location.timezone,
+          tomorrow,
+          calcMethod,
+          madhab,
+          highLatRule,
+          timeFormat,
+        );
+        next = tomorrowTimes.fajr;
+      }
+      setNextPrayer(next);
+
       if (prev && next) {
-        // Time remaining = time until the next prayer
         setTimeRemaining(getTimeUntilPrayer(next));
         const total = next.time.getTime() - prev.time.getTime();
         const elapsed = now - prev.time.getTime();
         setProgress(Math.min(1, Math.max(0, elapsed / total)));
       } else if (next) {
-        // Before Fajr — nothing has started yet
+        // Before today's Fajr — nothing has started yet
         setTimeRemaining(getTimeUntilPrayer(next));
         setProgress(0);
       }
     }
-  }, [prayerTimes, currentTime]);
+  }, [prayerTimes, currentTime, location, calcMethod, madhab, highLatRule, timeFormat]);
 
   useEffect(() => {
     Animated.loop(
