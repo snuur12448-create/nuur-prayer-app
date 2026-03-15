@@ -32,6 +32,14 @@ export default function MoreScreen() {
 
   const items: MoreItem[] = [
     {
+      label: "Mosque Finder",
+      arabic: "المساجد القريبة",
+      description: "Find the nearest mosques to you, sorted by distance with addresses",
+      route: "/(tabs)/mosques",
+      icon: <MaterialCommunityIcons name="mosque" size={26} color="#4DB6AC" />,
+      accentColor: "#4DB6AC",
+    },
+    {
       label: "Duas & Adhkar",
       arabic: "الأدعية والأذكار",
       description: "Daily supplications, morning & evening adhkar, and rotating authentic hadith",

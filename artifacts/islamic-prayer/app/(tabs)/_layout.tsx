@@ -186,6 +186,7 @@ function ClassicTabLayout() {
         <Tabs.Screen name="names"    options={{ href: null }} />
         <Tabs.Screen name="tasbeeh"  options={{ href: null }} />
         <Tabs.Screen name="settings" options={{ href: null }} />
+        <Tabs.Screen name="mosques"  options={{ href: null }} />
       </Tabs>
       <MiniPlayer />
     </View>

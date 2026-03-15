@@ -12,9 +12,166 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Circle, Defs, G, Line, Path, RadialGradient, Stop, Text as SvgText } from "react-native-svg";
+import Svg, { Circle, Defs, Line, Path, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
 import { useAppContext } from "@/context/AppContext";
 import { calculateQiblaDirection, getDistanceToKaaba } from "@/utils/qibla";
+
+// ── Ka'bah silhouette ─────────────────────────────────────────────────────────
+function KaabahSilhouette({ size, color }: { size: number; color: string }) {
+  const w = size;
+  const h = size;
+
+  // Main cube body — classic Ka'bah proportions
+  const bodyW = w * 0.54;
+  const bodyH = h * 0.52;
+  const bodyX = (w - bodyW) / 2;
+  const bodyY = h * 0.28;
+
+  // Kiswa band (gold stripe ~1/3 from top)
+  const bandH = bodyH * 0.13;
+  const bandY = bodyY + bodyH * 0.28;
+
+  // Door
+  const doorW = bodyW * 0.22;
+  const doorH = bodyH * 0.34;
+  const doorX = bodyX + bodyW / 2 - doorW / 2;
+  const doorY = bodyY + bodyH * 0.36;
+  const doorArcR = doorW * 0.5;
+
+  // Steps
+  const stepsY = bodyY + bodyH;
+  const step1W = bodyW * 1.08;
+  const step2W = bodyW * 1.18;
+  const step1H = h * 0.035;
+  const step2H = h * 0.028;
+
+  // Maqam Ibrahim (small structure to the right)
+  const maqamW = w * 0.07;
+  const maqamH = h * 0.14;
+  const maqamX = bodyX + bodyW + w * 0.05;
+  const maqamY = stepsY - maqamH;
+
+  // Corner columns
+  const colW = bodyW * 0.05;
+
+  // Crescent + star top
+  const crescentCY = bodyY - h * 0.08;
+  const crescentCX = w / 2;
+
+  return (
+    <Svg width={w} height={h}>
+      {/* Shadow/base */}
+      <Rect
+        x={(w - step2W) / 2}
+        y={stepsY + step1H + step2H}
+        width={step2W}
+        height={h * 0.02}
+        rx={4}
+        fill={color}
+        opacity={0.12}
+      />
+
+      {/* Step 2 (bottom) */}
+      <Rect
+        x={(w - step2W) / 2}
+        y={stepsY + step1H}
+        width={step2W}
+        height={step2H}
+        rx={2}
+        fill={color}
+        opacity={0.45}
+      />
+
+      {/* Step 1 */}
+      <Rect
+        x={(w - step1W) / 2}
+        y={stepsY}
+        width={step1W}
+        height={step1H}
+        rx={2}
+        fill={color}
+        opacity={0.5}
+      />
+
+      {/* Main Ka'bah body */}
+      <Rect
+        x={bodyX}
+        y={bodyY}
+        width={bodyW}
+        height={bodyH}
+        rx={2}
+        fill={color}
+        opacity={0.68}
+      />
+
+      {/* Corner columns */}
+      <Rect x={bodyX - colW * 0.4} y={bodyY} width={colW} height={bodyH} rx={1} fill={color} opacity={0.3} />
+      <Rect x={bodyX + bodyW - colW * 0.6} y={bodyY} width={colW} height={bodyH} rx={1} fill={color} opacity={0.3} />
+
+      {/* Kiswa gold band */}
+      <Rect
+        x={bodyX}
+        y={bandY}
+        width={bodyW}
+        height={bandH}
+        fill={color}
+        opacity={0.35}
+      />
+      {/* Calligraphy dots in band */}
+      {Array.from({ length: 5 }, (_, i) => (
+        <Rect
+          key={i}
+          x={bodyX + bodyW * 0.1 + i * bodyW * 0.17}
+          y={bandY + bandH * 0.3}
+          width={bodyW * 0.07}
+          height={bandH * 0.45}
+          rx={1}
+          fill={color}
+          opacity={0.25}
+        />
+      ))}
+
+      {/* Door arch */}
+      <Path
+        d={`M ${doorX} ${doorY + doorH} L ${doorX} ${doorY + doorArcR} A ${doorArcR} ${doorArcR} 0 0 1 ${doorX + doorW} ${doorY + doorArcR} L ${doorX + doorW} ${doorY + doorH} Z`}
+        fill={color}
+        opacity={0.2}
+      />
+      <Path
+        d={`M ${doorX} ${doorY + doorH} L ${doorX} ${doorY + doorArcR} A ${doorArcR} ${doorArcR} 0 0 1 ${doorX + doorW} ${doorY + doorArcR} L ${doorX + doorW} ${doorY + doorH}`}
+        fill="none"
+        stroke={color}
+        strokeWidth={1}
+        opacity={0.5}
+      />
+
+      {/* Maqam Ibrahim */}
+      <Rect x={maqamX} y={maqamY} width={maqamW} height={maqamH} rx={1} fill={color} opacity={0.3} />
+      <Path
+        d={`M ${maqamX - 1} ${maqamY} Q ${maqamX + maqamW / 2} ${maqamY - maqamH * 0.3} ${maqamX + maqamW + 1} ${maqamY} Z`}
+        fill={color}
+        opacity={0.3}
+      />
+
+      {/* Finial pole */}
+      <Rect
+        x={w / 2 - 1}
+        y={bodyY - h * 0.15}
+        width={2}
+        height={h * 0.15}
+        fill={color}
+        opacity={0.55}
+      />
+
+      {/* Crescent */}
+      <Path
+        d={`M ${crescentCX - 7} ${crescentCY - 5} A 8 8 0 1 1 ${crescentCX + 7} ${crescentCY - 5} A 5 5 0 1 0 ${crescentCX - 7} ${crescentCY - 5} Z`}
+        fill={color}
+        opacity={0.65}
+      />
+    </Svg>
+  );
+}
 
 const COMPASS_SIZE = 300;
 const CX = COMPASS_SIZE / 2;
@@ -376,6 +533,11 @@ export default function QiblaScreen() {
 
       {/* Main compass area */}
       <View style={styles.compassArea}>
+        {/* Ka'bah watermark background */}
+        <View style={styles.kaabahBg} pointerEvents="none">
+          <KaabahSilhouette size={220} color={colors.tint} />
+        </View>
+
         {/* Distance info */}
         {distance !== null && (
           <Text style={styles.distanceText}>
@@ -523,6 +685,14 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingVertical: 16,
     paddingHorizontal: 16,
+    position: "relative",
+  },
+  kaabahBg: {
+    position: "absolute",
+    bottom: 0,
+    alignSelf: "center",
+    opacity: 0.07,
+    zIndex: 0,
   },
   distanceText: {
     fontSize: 13,
