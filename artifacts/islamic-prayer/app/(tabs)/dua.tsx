@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Clipboard,
@@ -197,6 +198,9 @@ export default function DuaScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
+        <Pressable onPress={() => router.navigate("/(tabs)/more")} style={styles.backBtn} hitSlop={10}>
+          <Feather name="chevron-left" size={24} color={colors.tint} />
+        </Pressable>
         <Text style={[styles.headerTitle, { color: colors.text }]}>الأدعية والأحاديث</Text>
         <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
           Duas, Adhkar & Hadiths
@@ -276,6 +280,7 @@ export default function DuaScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  backBtn: { alignSelf: "flex-start", marginBottom: 4 },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 12,

@@ -1,4 +1,5 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useCallback, useRef, useState } from "react";
 import { Circle, Svg } from "react-native-svg";
 import {
@@ -190,7 +191,10 @@ export default function TasbeehScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 16, borderBottomColor: colors.border }]}>
         <View style={styles.headerRow}>
-          <View>
+          <Pressable onPress={() => router.navigate("/(tabs)/more")} hitSlop={10} style={styles.backBtn}>
+            <Feather name="chevron-left" size={24} color={colors.tint} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.headerTitle, { color: colors.text }]}>التسبيح</Text>
             <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
               Tasbeeh Counter
@@ -366,6 +370,7 @@ export default function TasbeehScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  backBtn: { marginRight: 12 },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 14,

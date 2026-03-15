@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -387,6 +388,9 @@ export default function MosquesScreen() {
 
         {/* Header text */}
         <View style={styles.headerContent}>
+          <Pressable onPress={() => router.navigate("/(tabs)/more")} hitSlop={10} style={styles.backBtn}>
+            <Feather name="chevron-left" size={24} color={colors.tint} />
+          </Pressable>
           <Text style={[styles.headerArabic, { color: colors.gold }]}>المساجد القريبة</Text>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Mosque Finder</Text>
           {location && !usingDefaultLocation && (
@@ -513,6 +517,7 @@ export default function MosquesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  backBtn: { alignSelf: "flex-start", marginBottom: 6 },
 
   /* Header */
   header: {

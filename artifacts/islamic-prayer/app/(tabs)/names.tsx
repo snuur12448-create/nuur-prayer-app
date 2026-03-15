@@ -1,10 +1,12 @@
 import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
   FlatList,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -155,6 +157,9 @@ export default function NamesScreen() {
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInset + 16, backgroundColor: colors.surface }]}>
+        <Pressable onPress={() => router.navigate("/(tabs)/more")} style={styles.backBtn} hitSlop={10}>
+          <Feather name="chevron-left" size={24} color={colors.tint} />
+        </Pressable>
         <View style={styles.headerContent}>
           <Text style={[styles.headerAr, { color: colors.tint }]}>أَسْمَاءُ اللّٰهِ الْحُسْنَىٰ</Text>
           <Text style={[styles.headerTitle, { color: colors.text }]}>The 99 Names of Allah</Text>
@@ -228,6 +233,7 @@ const CARD_W = (width - 48) / NUM_COLS;
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  backBtn: { alignSelf: "flex-start", marginBottom: 4 },
 
   header: {
     paddingHorizontal: 20,

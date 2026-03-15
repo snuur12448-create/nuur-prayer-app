@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Modal,
@@ -323,6 +324,9 @@ export default function SettingsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 12, backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <Pressable onPress={() => router.navigate("/(tabs)/more")} style={styles.backBtn} hitSlop={10}>
+          <Feather name="chevron-left" size={24} color={colors.tint} />
+        </Pressable>
         <Text style={[styles.headerTitle, { color: colors.text }]}>نور</Text>
         <Text style={[styles.headerSub, { color: colors.textSecondary }]}>Settings</Text>
       </View>
@@ -662,6 +666,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  backBtn: { alignSelf: "flex-start", marginBottom: 4 },
   header: {
     paddingHorizontal: 24,
     paddingBottom: 16,
