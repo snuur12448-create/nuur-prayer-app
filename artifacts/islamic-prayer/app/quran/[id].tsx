@@ -650,7 +650,14 @@ export default function QuranDetailScreen() {
                             <Feather name="mic" size={14} color={isSelected ? "#fff" : colors.tint} />
                           </View>
                           <View style={styles.reciterDetails}>
-                            <Text style={[styles.reciterName, { color: colors.text }]}>{reciter.name}</Text>
+                            <View style={styles.reciterNameRow}>
+                              <Text style={[styles.reciterName, { color: colors.text }]}>{reciter.name}</Text>
+                              {reciter.language === "english" && (
+                                <View style={[styles.langBadge, { backgroundColor: colors.tint + "22", borderColor: colors.tint + "55" }]}>
+                                  <Text style={[styles.langBadgeText, { color: colors.tint }]}>EN</Text>
+                                </View>
+                              )}
+                            </View>
                             <Text style={[styles.reciterArabic, { color: colors.textSecondary }]}>
                               {reciter.arabicName}
                             </Text>
@@ -832,8 +839,16 @@ const styles = StyleSheet.create({
   reciterInfo: { flexDirection: "row", alignItems: "center", gap: 12 },
   reciterIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   reciterDetails: { gap: 2 },
+  reciterNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   reciterName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   reciterArabic: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  langBadge: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  langBadgeText: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
   reciterRowRight: { flexDirection: "row", alignItems: "center", gap: 10 },
   previewBtn: {
     width: 28,

@@ -11,8 +11,8 @@ export interface Reciter {
   folder?: string;
   /** Edition identifier on cdn.islamic.network e.g. "ar.husary" */
   edition?: string;
-  /** Bitrate for cdn.islamic.network — defaults to 128. Use 64 when 128 is unavailable. */
-  bitrate?: 64 | 128;
+  /** Bitrate for cdn.islamic.network — defaults to 128. Use 64/192 when 128 is unavailable. */
+  bitrate?: 64 | 128 | 192;
 }
 
 export const RECITERS: Reciter[] = [
@@ -79,6 +79,16 @@ export const RECITERS: Reciter[] = [
     language: "arabic",
     cdnType: "islamic-network",
     edition: "ar.mahermuaiqly",
+  },
+  {
+    id: "walk",
+    name: "Ibrahim Walk",
+    arabicName: "English Translation",
+    style: "Translation",
+    language: "english",
+    cdnType: "islamic-network",
+    edition: "en.walk",
+    bitrate: 192,
   },
 ];
 
