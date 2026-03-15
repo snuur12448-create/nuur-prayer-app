@@ -1,8 +1,11 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Clipboard,
+  FlatList,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -16,6 +19,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAppContext } from "@/context/AppContext";
 import { SURAHS } from "@/utils/islamicData";
+import {
+  DEFAULT_RECITER,
+  getVerseAudioUrl,
+  RECITERS,
+  Reciter,
+} from "@/utils/audioData";
 
 interface Verse {
   number: number;
@@ -165,6 +174,8 @@ const SURAH_VERSES: Record<number, Verse[]> = {
   ],
 };
 
+type PlayState = "idle" | "loading" | "playing" | "paused";
+
 export default function QuranDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const surahNumber = parseInt(id || "1", 10);
@@ -179,9 +190,183 @@ export default function QuranDetailScreen() {
 
   const [showTranslation, setShowTranslation] = useState(true);
   const [copiedVerse, setCopiedVerse] = useState<number | null>(null);
+
+  // Audio state
+  const [selectedReciter, setSelectedReciter] = useState<Reciter>(DEFAULT_RECITER);
+  const [playingVerse, setPlayingVerse] = useState<number | null>(null);
+  const [playState, setPlayState] = useState<PlayState>("idle");
+  const [autoAdvance, setAutoAdvance] = useState(true);
+  const [showReciterModal, setShowReciterModal] = useState(false);
+  const soundRef = useRef<any>(null);
+  const isMountedRef = useRef(true);
+
   const verses = SURAH_VERSES[surahNumber] || null;
   const isBookmarked = bookmarkedSurahs.includes(surahNumber);
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      stopAudio();
+    };
+  }, []);
+
+  // Stop when surah changes
+  useEffect(() => {
+    stopAudio();
+  }, [surahNumber]);
+
+  const stopAudio = useCallback(async () => {
+    if (soundRef.current) {
+      try {
+        if (Platform.OS === "web") {
+          const audio = soundRef.current as HTMLAudioElement;
+          audio.pause();
+          audio.src = "";
+        } else {
+          await soundRef.current.stopAsync();
+          await soundRef.current.unloadAsync();
+        }
+      } catch {}
+      soundRef.current = null;
+    }
+    if (isMountedRef.current) {
+      setPlayingVerse(null);
+      setPlayState("idle");
+    }
+  }, []);
+
+  const playVerse = useCallback(
+    async (verseNumber: number) => {
+      // Stop current audio first
+      if (soundRef.current) {
+        try {
+          if (Platform.OS === "web") {
+            (soundRef.current as HTMLAudioElement).pause();
+            soundRef.current = null;
+          } else {
+            await soundRef.current.stopAsync();
+            await soundRef.current.unloadAsync();
+            soundRef.current = null;
+          }
+        } catch {}
+      }
+
+      if (!isMountedRef.current) return;
+      setPlayingVerse(verseNumber);
+      setPlayState("loading");
+
+      const url = getVerseAudioUrl(selectedReciter, surahNumber, verseNumber);
+
+      if (Platform.OS === "web") {
+        try {
+          const audio = new Audio(url);
+          soundRef.current = audio;
+          audio.oncanplaythrough = () => {
+            if (isMountedRef.current) setPlayState("playing");
+            audio.play().catch(() => {
+              if (isMountedRef.current) setPlayState("idle");
+            });
+          };
+          audio.onerror = () => {
+            if (isMountedRef.current) setPlayState("idle");
+          };
+          audio.onended = () => {
+            if (!isMountedRef.current) return;
+            soundRef.current = null;
+            const currentVerses = SURAH_VERSES[surahNumber];
+            if (autoAdvance && currentVerses) {
+              const nextVerse = currentVerses.find((v) => v.number === verseNumber + 1);
+              if (nextVerse) {
+                playVerse(nextVerse.number);
+              } else {
+                setPlayingVerse(null);
+                setPlayState("idle");
+              }
+            } else {
+              setPlayingVerse(null);
+              setPlayState("idle");
+            }
+          };
+        } catch {
+          if (isMountedRef.current) setPlayState("idle");
+        }
+      } else {
+        try {
+          const { Audio } = await import("expo-av");
+          await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+          const { sound } = await Audio.Sound.createAsync(
+            { uri: url },
+            { shouldPlay: true }
+          );
+          soundRef.current = sound;
+          if (isMountedRef.current) setPlayState("playing");
+          sound.setOnPlaybackStatusUpdate((status: any) => {
+            if (!isMountedRef.current) return;
+            if (status.didJustFinish) {
+              soundRef.current = null;
+              const currentVerses = SURAH_VERSES[surahNumber];
+              if (autoAdvance && currentVerses) {
+                const nextVerse = currentVerses.find((v) => v.number === verseNumber + 1);
+                if (nextVerse) {
+                  playVerse(nextVerse.number);
+                } else {
+                  setPlayingVerse(null);
+                  setPlayState("idle");
+                }
+              } else {
+                setPlayingVerse(null);
+                setPlayState("idle");
+              }
+            }
+          });
+        } catch {
+          if (isMountedRef.current) setPlayState("idle");
+        }
+      }
+    },
+    [selectedReciter, surahNumber, autoAdvance]
+  );
+
+  const togglePlayPause = useCallback(
+    async (verseNumber: number) => {
+      if (playingVerse === verseNumber && playState === "playing") {
+        // Pause
+        try {
+          if (Platform.OS === "web") {
+            (soundRef.current as HTMLAudioElement)?.pause();
+          } else {
+            await soundRef.current?.pauseAsync();
+          }
+          setPlayState("paused");
+        } catch {}
+      } else if (playingVerse === verseNumber && playState === "paused") {
+        // Resume
+        try {
+          if (Platform.OS === "web") {
+            await (soundRef.current as HTMLAudioElement)?.play();
+          } else {
+            await soundRef.current?.playAsync();
+          }
+          setPlayState("playing");
+        } catch {}
+      } else {
+        // Play new verse
+        await playVerse(verseNumber);
+      }
+    },
+    [playingVerse, playState, playVerse]
+  );
+
+  const playAllVerses = useCallback(async () => {
+    if (!verses) return;
+    if (playState === "playing" || playState === "loading") {
+      await stopAudio();
+    } else {
+      await playVerse(verses[0].number);
+    }
+  }, [verses, playState, playVerse, stopAudio]);
 
   const copyVerse = (verse: Verse) => {
     const text = `${verse.text}\n\n${verse.translation}\n— Surah ${surah?.englishName} (${surah?.number}:${verse.number})`;
@@ -194,6 +379,14 @@ export default function QuranDetailScreen() {
     setTimeout(() => setCopiedVerse(null), 2000);
   };
 
+  const getVersePlayIcon = (verseNumber: number): string => {
+    if (playingVerse !== verseNumber) return "play";
+    if (playState === "loading") return "loader";
+    if (playState === "playing") return "pause";
+    if (playState === "paused") return "play";
+    return "play";
+  };
+
   if (!surah) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -204,9 +397,10 @@ export default function QuranDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 16, backgroundColor: colors.prayerCard }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => { stopAudio(); router.back(); }} style={styles.backBtn}>
             <Feather name="arrow-left" size={22} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
@@ -217,7 +411,6 @@ export default function QuranDetailScreen() {
             <Feather name="bookmark" size={22} color={isBookmarked ? colors.gold : "rgba(255,255,255,0.5)"} />
           </TouchableOpacity>
         </View>
-
         <View style={styles.headerMeta}>
           <View style={styles.metaItem}>
             <Text style={styles.metaValue}>{surah.verses}</Text>
@@ -236,22 +429,69 @@ export default function QuranDetailScreen() {
         </View>
       </View>
 
-      {/* Translation toggle */}
-      <View style={[styles.toggleRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>Show Translation</Text>
-        <Pressable
-          style={[styles.toggle, { backgroundColor: showTranslation ? colors.tint : colors.border }]}
-          onPress={() => setShowTranslation(!showTranslation)}
+      {/* Controls bar */}
+      <View style={[styles.controlsBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        {/* Reciter selector */}
+        <TouchableOpacity
+          style={[styles.reciterBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)", borderColor: colors.border }]}
+          onPress={() => setShowReciterModal(true)}
         >
-          <View style={[styles.toggleThumb, { transform: [{ translateX: showTranslation ? 20 : 0 }] }]} />
-        </Pressable>
+          <Feather name="mic" size={13} color={colors.tint} />
+          <Text style={[styles.reciterBtnText, { color: colors.text }]} numberOfLines={1}>
+            {selectedReciter.name.split(" ").slice(0, 2).join(" ")}
+          </Text>
+          <Feather name="chevron-down" size={13} color={colors.textSecondary} />
+        </TouchableOpacity>
+
+        <View style={styles.controlsRight}>
+          {/* Play All */}
+          {verses && (
+            <TouchableOpacity
+              style={[styles.playAllBtn, { backgroundColor: colors.tint }]}
+              onPress={playAllVerses}
+            >
+              <Feather
+                name={playState === "playing" || playState === "loading" ? "square" : "play"}
+                size={13}
+                color="#fff"
+              />
+              <Text style={styles.playAllText}>
+                {playState === "playing" || playState === "loading" ? "Stop" : "Play All"}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Translation toggle */}
+          <Pressable
+            style={[styles.toggle, { backgroundColor: showTranslation ? colors.tint : colors.border }]}
+            onPress={() => setShowTranslation(!showTranslation)}
+          >
+            <View style={[styles.toggleThumb, { transform: [{ translateX: showTranslation ? 20 : 0 }] }]} />
+          </Pressable>
+          <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>EN</Text>
+        </View>
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: isWeb ? 34 : insets.bottom + 20 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: isWeb ? 34 : insets.bottom + 20 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Currently playing bar */}
+        {playingVerse !== null && (
+          <View style={[styles.nowPlayingBar, { backgroundColor: colors.tint + "15", borderColor: colors.tint + "40" }]}>
+            <View style={styles.nowPlayingLeft}>
+              <View style={[styles.playingDot, { backgroundColor: colors.tint }]} />
+              <Text style={[styles.nowPlayingText, { color: colors.tint }]}>
+                {playState === "loading" ? "Loading..." : `Playing verse ${playingVerse} · ${selectedReciter.name}`}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={stopAudio}>
+              <Feather name="x" size={15} color={colors.tint} />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Bismillah */}
         {surahNumber !== 9 && surahNumber !== 1 && (
           <Text style={[styles.bismillah, { color: colors.text }]}>
@@ -260,47 +500,146 @@ export default function QuranDetailScreen() {
         )}
 
         {verses ? (
-          verses.map((verse) => (
-            <View
-              key={verse.number}
-              style={[styles.verseCard, { backgroundColor: colors.surface, borderColor: copiedVerse === verse.number ? colors.gold : colors.border }]}
-            >
-              <View style={styles.verseHeader}>
-                <TouchableOpacity
-                  onPress={() => copyVerse(verse)}
-                  style={[styles.copyBtn, { backgroundColor: copiedVerse === verse.number ? colors.gold + "20" : "transparent" }]}
-                  hitSlop={8}
-                >
-                  <Feather
-                    name={copiedVerse === verse.number ? "check" : "copy"}
-                    size={13}
-                    color={copiedVerse === verse.number ? colors.gold : colors.textSecondary}
-                  />
-                </TouchableOpacity>
-                <View style={[styles.verseNumberBadge, { backgroundColor: colors.prayerCard }]}>
-                  <Text style={[styles.verseNumber, { color: colors.gold }]}>{verse.number}</Text>
+          verses.map((verse) => {
+            const isActive = playingVerse === verse.number;
+            const playIcon = getVersePlayIcon(verse.number);
+            return (
+              <View
+                key={verse.number}
+                style={[
+                  styles.verseCard,
+                  {
+                    backgroundColor: isActive ? (isDark ? colors.tint + "18" : colors.tint + "08") : colors.surface,
+                    borderColor: isActive ? colors.tint + "60" : (copiedVerse === verse.number ? colors.gold : colors.border),
+                  },
+                ]}
+              >
+                <View style={styles.verseHeader}>
+                  <View style={styles.verseHeaderLeft}>
+                    {/* Play button */}
+                    <TouchableOpacity
+                      style={[
+                        styles.playBtn,
+                        {
+                          backgroundColor: isActive ? colors.tint : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"),
+                          borderColor: isActive ? colors.tint : colors.border,
+                        },
+                      ]}
+                      onPress={() => togglePlayPause(verse.number)}
+                    >
+                      {playIcon === "loader" ? (
+                        <ActivityIndicator size="small" color={isActive ? "#fff" : colors.tint} />
+                      ) : (
+                        <Feather name={playIcon as any} size={11} color={isActive ? "#fff" : colors.tint} />
+                      )}
+                    </TouchableOpacity>
+
+                    {/* Copy button */}
+                    <TouchableOpacity
+                      onPress={() => copyVerse(verse)}
+                      style={[styles.copyBtn, { backgroundColor: copiedVerse === verse.number ? colors.gold + "20" : "transparent" }]}
+                      hitSlop={8}
+                    >
+                      <Feather
+                        name={copiedVerse === verse.number ? "check" : "copy"}
+                        size={12}
+                        color={copiedVerse === verse.number ? colors.gold : colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={[styles.verseNumberBadge, { backgroundColor: isActive ? colors.tint : colors.prayerCard }]}>
+                    <Text style={[styles.verseNumber, { color: isActive ? "#fff" : colors.gold }]}>{verse.number}</Text>
+                  </View>
                 </View>
+
+                <Text style={[styles.arabicVerse, { color: colors.text }]}>{verse.text}</Text>
+                {showTranslation && (
+                  <Text style={[styles.translationVerse, { color: colors.textSecondary, borderTopColor: colors.border }]}>
+                    {verse.translation}
+                  </Text>
+                )}
               </View>
-              <Text style={[styles.arabicVerse, { color: colors.text }]}>{verse.text}</Text>
-              {showTranslation && (
-                <Text style={[styles.translationVerse, { color: colors.textSecondary, borderTopColor: colors.border }]}>
-                  {verse.translation}
-                </Text>
-              )}
-            </View>
-          ))
+            );
+          })
         ) : (
           <View style={styles.comingSoon}>
-            <Feather name="book-open" size={48} color={colors.textSecondary} />
+            <View style={[styles.comingSoonIcon, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Feather name="book-open" size={36} color={colors.textSecondary} />
+            </View>
             <Text style={[styles.comingSoonTitle, { color: colors.text }]}>
               Full Surah Coming Soon
             </Text>
             <Text style={[styles.comingSoonText, { color: colors.textSecondary }]}>
-              This surah has {surah.verses} verses. Full text will be available in a future update.
+              This surah has {surah.verses} verses.{"\n"}Full text in a future update.
             </Text>
           </View>
         )}
       </ScrollView>
+
+      {/* Reciter Selection Modal */}
+      <Modal
+        visible={showReciterModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowReciterModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowReciterModal(false)}>
+          <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Choose Reciter</Text>
+
+            {RECITERS.map((reciter) => {
+              const isSelected = selectedReciter.id === reciter.id;
+              return (
+                <TouchableOpacity
+                  key={reciter.id}
+                  style={[
+                    styles.reciterRow,
+                    {
+                      backgroundColor: isSelected
+                        ? (isDark ? colors.tint + "20" : colors.tint + "10")
+                        : "transparent",
+                      borderColor: isSelected ? colors.tint + "40" : colors.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    setSelectedReciter(reciter);
+                    stopAudio();
+                    setShowReciterModal(false);
+                  }}
+                >
+                  <View style={styles.reciterInfo}>
+                    <View style={[styles.reciterIcon, { backgroundColor: isSelected ? colors.tint : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)") }]}>
+                      <Feather
+                        name={reciter.language === "english" ? "globe" : "mic"}
+                        size={14}
+                        color={isSelected ? "#fff" : colors.textSecondary}
+                      />
+                    </View>
+                    <View style={styles.reciterDetails}>
+                      <Text style={[styles.reciterName, { color: colors.text }]}>{reciter.name}</Text>
+                      <Text style={[styles.reciterArabic, { color: colors.textSecondary }]}>
+                        {reciter.arabicName} · {reciter.style}
+                      </Text>
+                    </View>
+                  </View>
+                  {isSelected && (
+                    <Feather name="check" size={16} color={colors.tint} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+
+            <View style={[styles.modalNote, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }]}>
+              <Feather name="wifi" size={13} color={colors.textSecondary} />
+              <Text style={[styles.modalNoteText, { color: colors.textSecondary }]}>
+                Audio streams from EveryAyah.com — internet connection required
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -308,12 +647,7 @@ export default function QuranDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 20, paddingBottom: 16 },
-  headerTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
+  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
   backBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   headerCenter: { alignItems: "center", flex: 1 },
   headerArabic: { color: "#fff", fontSize: 22, fontFamily: "Inter_700Bold" },
@@ -324,32 +658,106 @@ const styles = StyleSheet.create({
   metaValue: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" },
   metaLabel: { color: "rgba(255,255,255,0.5)", fontSize: 10, fontFamily: "Inter_400Regular" },
   metaDivider: { width: 1, height: 30, backgroundColor: "rgba(255,255,255,0.15)" },
-  toggleRow: {
+  controlsBar: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
+    gap: 10,
   },
-  toggleLabel: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  reciterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    flex: 1,
+    maxWidth: 200,
+  },
+  reciterBtnText: { fontSize: 13, fontFamily: "Inter_500Medium", flex: 1 },
+  controlsRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  playAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  playAllText: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
   toggle: { width: 44, height: 24, borderRadius: 12, padding: 2 },
   toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff" },
-  bismillah: { fontSize: 22, textAlign: "center", marginBottom: 24, lineHeight: 36 },
-  verseCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
-  verseHeader: {
+  toggleLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  nowPlayingBar: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    justifyContent: "space-between",
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  nowPlayingLeft: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
+  playingDot: { width: 7, height: 7, borderRadius: 4 },
+  nowPlayingText: { fontSize: 12, fontFamily: "Inter_500Medium", flex: 1 },
+  bismillah: { fontSize: 22, textAlign: "center", marginBottom: 20, lineHeight: 36 },
+  verseCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
+  verseHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  verseHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  playBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
   },
   copyBtn: { borderRadius: 8, padding: 6 },
   verseNumberBadge: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   verseNumber: { fontSize: 13, fontFamily: "Inter_700Bold" },
   arabicVerse: { fontSize: 22, textAlign: "right", lineHeight: 38, letterSpacing: 0.3, writingDirection: "rtl", marginBottom: 10 },
   translationVerse: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22, borderTopWidth: 1, paddingTop: 10 },
-  comingSoon: { alignItems: "center", paddingVertical: 60, gap: 12 },
+  comingSoon: { alignItems: "center", paddingVertical: 60, gap: 14 },
+  comingSoonIcon: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center", borderWidth: 1 },
   comingSoonTitle: { fontSize: 20, fontFamily: "Inter_600SemiBold" },
   comingSoonText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22, maxWidth: 280 },
   errorText: { fontSize: 16, textAlign: "center", marginTop: 100 },
+  // Modal styles
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    paddingTop: 12,
+  },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold", marginBottom: 16 },
+  reciterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  reciterInfo: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  reciterIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  reciterDetails: { flex: 1 },
+  reciterName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  reciterArabic: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  modalNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 8,
+  },
+  modalNoteText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
 });
