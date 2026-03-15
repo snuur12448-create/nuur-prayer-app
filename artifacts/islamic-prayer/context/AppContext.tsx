@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import {
   calculatePrayerTimes,
@@ -127,11 +127,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [highLatRule, setHighLatRuleState] = useState<HighLatRuleId>(DEFAULT_HIGH_LAT_RULE);
   const [timeFormat, setTimeFormatState] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
 
+  // Refs to always have latest values in async callbacks without stale closures
+  const calcMethodRef = useRef(calcMethod);
+  const madhabRef = useRef(madhab);
+  const highLatRuleRef = useRef(highLatRule);
+  const timeFormatRef = useRef(timeFormat);
+  const notificationsRef = useRef(notificationsEnabled);
+
+  useEffect(() => { calcMethodRef.current = calcMethod; }, [calcMethod]);
+  useEffect(() => { madhabRef.current = madhab; }, [madhab]);
+  useEffect(() => { highLatRuleRef.current = highLatRule; }, [highLatRule]);
+  useEffect(() => { timeFormatRef.current = timeFormat; }, [timeFormat]);
+  useEffect(() => { notificationsRef.current = notificationsEnabled; }, [notificationsEnabled]);
+
   const themeColors =
     displayMode === "dark"
       ? THEMES[themeName].colors
       : THEMES[themeName].lightColors;
 
+  // ── Single source of truth: recalculate whenever location OR settings change ──
+  useEffect(() => {
+    if (location) {
+      try {
+        const times = calculatePrayerTimes(
+          location.latitude, location.longitude, location.timezone,
+          new Date(), calcMethod, madhab, highLatRule, timeFormat,
+        );
+        setPrayerTimes(times);
+      } catch (e) {
+        console.warn("Prayer time calculation failed:", e);
+      }
+    }
+  }, [location, calcMethod, madhab, highLatRule, timeFormat]);
+
+  // ── Initialisation ──
   useEffect(() => {
     loadPreferences();
     loadBookmarks();
@@ -206,39 +235,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const loadNotificationsPref = async () => {
-    try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
-      if (stored === "true") setNotificationsEnabled(true);
-    } catch {}
-  };
-
-  const applyLocation = useCallback(
-    (loc: LocationData, method?: CalcMethodId, m?: MadhabId, hlr?: HighLatRuleId, fmt?: TimeFormat) => {
-      setLocation(loc);
-      const times = calculatePrayerTimes(
-        loc.latitude, loc.longitude, loc.timezone,
-        new Date(),
-        method ?? calcMethod,
-        m ?? madhab,
-        hlr ?? highLatRule,
-        fmt ?? timeFormat,
-      );
-      setPrayerTimes(times);
-    },
-    [calcMethod, madhab, highLatRule, timeFormat]
-  );
-
-  const rescheduleIfEnabled = useCallback(
-    async (loc: LocationData, enabled: boolean) => {
-      if (!enabled || Platform.OS === "web") return;
-      await schedulePrayerNotifications(loc.latitude, loc.longitude, loc.timezone, loc.city);
-    },
-    []
-  );
-
   const toggleNotifications = useCallback(async () => {
-    const next = !notificationsEnabled;
+    const next = !notificationsRef.current;
     if (next) {
       const granted = await requestNotificationPermission();
       if (!granted) return;
@@ -254,18 +252,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "false");
       await cancelAllPrayerNotifications();
     }
-  }, [notificationsEnabled, location]);
+  }, [location]);
 
-  const requestLocation = useCallback(async () => {
-    setIsLoadingLocation(true);
-    setLocationError(null);
+  // ── Location helpers — use refs so async callbacks always see latest settings ──
+  const updateLocation = useCallback((loc: LocationData) => {
+    setLocation(loc);
+    // Prayer times recalculated automatically by the useEffect above
+  }, []);
+
+  // Internal GPS fetch — showLoading controls whether isLoadingLocation is updated
+  const fetchGpsLocation = useCallback(async (showLoading: boolean) => {
+    if (showLoading) {
+      setIsLoadingLocation(true);
+      setLocationError(null);
+    }
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        setLocationError("Location permission denied. Using Makkah as default.");
-        setUsingDefaultLocation(true);
-        applyLocation(DEFAULT_LOCATION);
-        setIsLoadingLocation(false);
+        if (showLoading) {
+          setLocationError("Location permission denied. Using Makkah as default.");
+          setUsingDefaultLocation(true);
+          updateLocation(DEFAULT_LOCATION);
+        }
         return;
       }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -277,57 +285,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } catch {}
       if (!cityName) cityName = await nominatimCity(latitude, longitude);
       const tz = getTimezoneOffset();
-      const locationData: LocationData = { latitude, longitude, city: cityName ?? "Your Location", timezone: tz };
+      const locationData: LocationData = {
+        latitude, longitude,
+        city: cityName ?? "Your Location",
+        timezone: tz,
+      };
       setUsingDefaultLocation(false);
-      applyLocation(locationData);
+      updateLocation(locationData);
       await AsyncStorage.setItem(STORAGE_KEYS.LOCATION, JSON.stringify(locationData));
-      await rescheduleIfEnabled(locationData, notificationsEnabled);
+      if (Platform.OS !== "web" && notificationsRef.current) {
+        await schedulePrayerNotifications(latitude, longitude, tz, locationData.city);
+      }
     } catch {
-      setLocationError("Could not determine location. Using Makkah as default.");
-      setUsingDefaultLocation(true);
-      applyLocation(DEFAULT_LOCATION);
+      if (showLoading) {
+        setLocationError("Could not determine location. Using Makkah as default.");
+        setUsingDefaultLocation(true);
+        updateLocation(DEFAULT_LOCATION);
+      }
     } finally {
-      setIsLoadingLocation(false);
+      if (showLoading) setIsLoadingLocation(false);
     }
-  }, [applyLocation, notificationsEnabled, rescheduleIfEnabled]);
+  }, [updateLocation]);
+
+  // Public: user-initiated refresh — shows the loading spinner
+  const requestLocation = useCallback(async () => {
+    await fetchGpsLocation(true);
+  }, [fetchGpsLocation]);
 
   const initLocation = async () => {
     setIsLoadingLocation(true);
     setLocationError(null);
-    applyLocation(DEFAULT_LOCATION);
+    // Show default location immediately
+    setLocation(DEFAULT_LOCATION);
     setUsingDefaultLocation(true);
-    setIsLoadingLocation(false);
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION);
       if (stored) {
         const cachedLocation: LocationData = JSON.parse(stored);
-        applyLocation(cachedLocation);
+        setLocation(cachedLocation);
         setUsingDefaultLocation(false);
       }
     } catch {}
-    await requestLocation();
+    setIsLoadingLocation(false);
+    // Silently refresh GPS in the background — prayer list stays visible
+    fetchGpsLocation(false);
   };
 
   const refreshPrayerTimes = useCallback(() => {
     if (location) {
-      const times = calculatePrayerTimes(
-        location.latitude, location.longitude, location.timezone,
-        new Date(), calcMethod, madhab, highLatRule, timeFormat,
-      );
-      setPrayerTimes(times);
+      try {
+        const times = calculatePrayerTimes(
+          location.latitude, location.longitude, location.timezone,
+          new Date(),
+          calcMethodRef.current,
+          madhabRef.current,
+          highLatRuleRef.current,
+          timeFormatRef.current,
+        );
+        setPrayerTimes(times);
+      } catch (e) {
+        console.warn("Prayer time refresh failed:", e);
+      }
     }
-  }, [location, calcMethod, madhab, highLatRule, timeFormat]);
-
-  // Re-compute prayer times whenever calculation settings change
-  useEffect(() => {
-    if (location) {
-      const times = calculatePrayerTimes(
-        location.latitude, location.longitude, location.timezone,
-        new Date(), calcMethod, madhab, highLatRule, timeFormat,
-      );
-      setPrayerTimes(times);
-    }
-  }, [calcMethod, madhab, highLatRule, timeFormat]);
+  }, [location]);
 
   return (
     <AppContext.Provider
