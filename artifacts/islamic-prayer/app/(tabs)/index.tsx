@@ -308,6 +308,7 @@ const styles = StyleSheet.create({
   },
   headerTop: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 4,
   },
@@ -333,7 +334,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 4,
     flexShrink: 0,
-    marginLeft: "auto" as any,
   },
   paletteBtn: {
     width: 34,
