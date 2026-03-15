@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Islamic Prayer",
+    "name": "Nuur",
     "slug": "islamic-prayer",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "islamic-prayer",
+    "scheme": "nuur",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -38,8 +38,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Islamic Prayer to access your location to calculate accurate prayer times.",
-          "locationAlwaysAndWhenInUsePermission": "Allow Islamic Prayer to access your location to calculate accurate prayer times."
+          "locationWhenInUsePermission": "Allow Nuur to access your location to calculate accurate prayer times.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Nuur to access your location to calculate accurate prayer times."
         }
       ]
     ],
