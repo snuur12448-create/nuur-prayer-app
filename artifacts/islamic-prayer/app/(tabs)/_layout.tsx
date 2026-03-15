@@ -91,7 +91,12 @@ function ClassicTabLayout() {
           headerShown: false,
           tabBarActiveTintColor: colors.tint,
           tabBarInactiveTintColor: colors.tabIconDefault,
-          tabBarShowLabel: isWeb,
+          tabBarShowLabel: true,
+          tabBarLabelStyle: {
+            fontSize: 10,
+            fontFamily: "Inter_500Medium",
+            marginBottom: isIOS ? 0 : 4,
+          },
           tabBarStyle: {
             position: "absolute",
             backgroundColor: isIOS ? "transparent" : colors.surface,
@@ -114,6 +119,7 @@ function ClassicTabLayout() {
             ) : null,
         }}
       >
+        {/* ── 5 visible tabs ── */}
         <Tabs.Screen
           name="index"
           options={{
@@ -163,53 +169,23 @@ function ClassicTabLayout() {
           }}
         />
         <Tabs.Screen
-          name="dua"
+          name="more"
           options={{
-            title: "Duas",
+            title: "More",
             tabBarIcon: ({ color }) =>
               isIOS ? (
-                <SymbolView name="hands.and.sparkles.fill" tintColor={color} size={24} />
+                <SymbolView name="ellipsis.circle.fill" tintColor={color} size={24} />
               ) : (
-                <Feather name="heart" size={22} color={color} />
+                <Feather name="grid" size={22} color={color} />
               ),
           }}
         />
-        <Tabs.Screen
-          name="names"
-          options={{
-            title: "Names",
-            tabBarIcon: ({ color }) =>
-              isIOS ? (
-                <SymbolView name="star.circle.fill" tintColor={color} size={24} />
-              ) : (
-                <MaterialCommunityIcons name="star-circle-outline" size={22} color={color} />
-              ),
-          }}
-        />
-        <Tabs.Screen
-          name="tasbeeh"
-          options={{
-            title: "Tasbeeh",
-            tabBarIcon: ({ color }) =>
-              isIOS ? (
-                <SymbolView name="circle.dotted" tintColor={color} size={24} />
-              ) : (
-                <MaterialCommunityIcons name="circle-multiple-outline" size={22} color={color} />
-              ),
-          }}
-        />
-        <Tabs.Screen
-          name="settings"
-          options={{
-            title: "Settings",
-            tabBarIcon: ({ color }) =>
-              isIOS ? (
-                <SymbolView name="gearshape.fill" tintColor={color} size={24} />
-              ) : (
-                <Feather name="settings" size={22} color={color} />
-              ),
-          }}
-        />
+
+        {/* ── Hidden from tab bar — accessible via More screen ── */}
+        <Tabs.Screen name="dua"      options={{ href: null }} />
+        <Tabs.Screen name="names"    options={{ href: null }} />
+        <Tabs.Screen name="tasbeeh"  options={{ href: null }} />
+        <Tabs.Screen name="settings" options={{ href: null }} />
       </Tabs>
       <MiniPlayer />
     </View>
