@@ -28,6 +28,92 @@ interface Verse {
   numberInQuran: number;
 }
 
+// ── Memoized verse card — prevents full-list re-renders on playback/copy state changes ──
+interface VerseCardProps {
+  verse: Verse;
+  isActive: boolean;
+  playIcon: string;
+  isCopied: boolean;
+  showTransliteration: boolean;
+  showTranslation: boolean;
+  colors: Record<string, string>;
+  onPlay: () => void;
+  onCopy: () => void;
+}
+
+const VerseCard = React.memo(function VerseCard({
+  verse,
+  isActive,
+  playIcon,
+  isCopied,
+  showTransliteration,
+  showTranslation,
+  colors,
+  onPlay,
+  onCopy,
+}: VerseCardProps) {
+  return (
+    <View
+      style={[
+        styles.verseCard,
+        {
+          backgroundColor: isActive ? colors.tint + "18" : colors.surface,
+          borderColor: isActive ? colors.tint + "60" : isCopied ? colors.gold : colors.border,
+        },
+      ]}
+    >
+      <View style={styles.verseHeader}>
+        <View style={styles.verseHeaderLeft}>
+          <TouchableOpacity
+            style={[
+              styles.playBtn,
+              {
+                backgroundColor: isActive ? colors.tint : colors.surfaceElevated,
+                borderColor: isActive ? colors.tint : colors.border,
+              },
+            ]}
+            onPress={onPlay}
+          >
+            {playIcon === "loader" ? (
+              <ActivityIndicator size="small" color={isActive ? "#fff" : colors.tint} />
+            ) : (
+              <Feather name={playIcon as any} size={11} color={isActive ? "#fff" : colors.tint} />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onCopy}
+            style={[styles.copyBtn, { backgroundColor: isCopied ? colors.gold + "20" : "transparent" }]}
+            hitSlop={8}
+          >
+            <Feather
+              name={isCopied ? "check" : "copy"}
+              size={12}
+              color={isCopied ? colors.gold : colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.verseNumberBadge, { backgroundColor: isActive ? colors.tint : colors.prayerCard }]}>
+          <Text style={[styles.verseNumber, { color: isActive ? "#fff" : colors.gold }]}>{verse.number}</Text>
+        </View>
+      </View>
+
+      <Text style={[styles.arabicVerse, { color: colors.text }]}>{verse.text}</Text>
+
+      {showTransliteration && verse.transliteration ? (
+        <Text style={[styles.transliterationVerse, { color: colors.gold, borderTopColor: colors.border }]}>
+          {verse.transliteration}
+        </Text>
+      ) : null}
+
+      {showTranslation && (
+        <Text style={[styles.translationVerse, { color: colors.textSecondary, borderTopColor: colors.border }]}>
+          {verse.translation}
+        </Text>
+      )}
+    </View>
+  );
+});
+
 function stripBismillah(text: string, surahNum: number, verseNum: number): string {
   if (surahNum === 1 || surahNum === 9 || verseNum !== 1) return text;
   const words = text.trim().split(/\s+/);
@@ -215,6 +301,25 @@ export default function QuranDetailScreen() {
     return "play";
   };
 
+  const renderItem = useCallback(
+    ({ item: verse }: { item: Verse }) => (
+      <VerseCard
+        verse={verse}
+        isActive={playingVerse === verse.number}
+        playIcon={getPlayIcon(verse)}
+        isCopied={copiedVerse === verse.number}
+        showTransliteration={showTransliteration}
+        showTranslation={showTranslation}
+        colors={colors}
+        onPlay={() => togglePlayPause(verse)}
+        onCopy={() => copyVerse(verse)}
+      />
+    ),
+    [playingVerse, playState, copiedVerse, showTransliteration, showTranslation, colors, togglePlayPause, copyVerse]
+  );
+
+  const keyExtractor = useCallback((v: Verse) => String(v.number), []);
+
   if (!surah) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -332,9 +437,15 @@ export default function QuranDetailScreen() {
       ) : (
         <FlatList
           data={verses}
-          keyExtractor={(v) => String(v.number)}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
           contentContainerStyle={{ padding: 16, paddingBottom: isWeb ? 34 : insets.bottom + 20 }}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={12}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          updateCellsBatchingPeriod={50}
+          removeClippedSubviews={Platform.OS !== "web"}
           ListHeaderComponent={
             <>
               {playingVerse !== null && (
@@ -357,76 +468,6 @@ export default function QuranDetailScreen() {
               )}
             </>
           }
-          renderItem={({ item: verse }) => {
-            const isActive = playingVerse === verse.number;
-            const playIcon = getPlayIcon(verse);
-            return (
-              <View
-                style={[
-                  styles.verseCard,
-                  {
-                    backgroundColor: isActive
-                      ? colors.tint + "18"
-                      : colors.surface,
-                    borderColor: isActive
-                      ? colors.tint + "60"
-                      : copiedVerse === verse.number
-                      ? colors.gold
-                      : colors.border,
-                  },
-                ]}
-              >
-                <View style={styles.verseHeader}>
-                  <View style={styles.verseHeaderLeft}>
-                    <TouchableOpacity
-                      style={[
-                        styles.playBtn,
-                        {
-                          backgroundColor: isActive ? colors.tint : colors.surfaceElevated,
-                          borderColor: isActive ? colors.tint : colors.border,
-                        },
-                      ]}
-                      onPress={() => togglePlayPause(verse)}
-                    >
-                      {playIcon === "loader" ? (
-                        <ActivityIndicator size="small" color={isActive ? "#fff" : colors.tint} />
-                      ) : (
-                        <Feather name={playIcon as any} size={11} color={isActive ? "#fff" : colors.tint} />
-                      )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => copyVerse(verse)}
-                      style={[styles.copyBtn, { backgroundColor: copiedVerse === verse.number ? colors.gold + "20" : "transparent" }]}
-                      hitSlop={8}
-                    >
-                      <Feather
-                        name={copiedVerse === verse.number ? "check" : "copy"}
-                        size={12}
-                        color={copiedVerse === verse.number ? colors.gold : colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  <View style={[styles.verseNumberBadge, { backgroundColor: isActive ? colors.tint : colors.prayerCard }]}>
-                    <Text style={[styles.verseNumber, { color: isActive ? "#fff" : colors.gold }]}>{verse.number}</Text>
-                  </View>
-                </View>
-
-                <Text style={[styles.arabicVerse, { color: colors.text }]}>{verse.text}</Text>
-
-                {showTransliteration && verse.transliteration ? (
-                  <Text style={[styles.transliterationVerse, { color: colors.gold, borderTopColor: colors.border }]}>
-                    {verse.transliteration}
-                  </Text>
-                ) : null}
-
-                {showTranslation && (
-                  <Text style={[styles.translationVerse, { color: colors.textSecondary, borderTopColor: colors.border }]}>
-                    {verse.translation}
-                  </Text>
-                )}
-              </View>
-            );
-          }}
         />
       )}
 
