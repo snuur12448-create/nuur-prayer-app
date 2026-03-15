@@ -37,7 +37,10 @@ export default function PrayerScreen() {
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
   const islamicDate = getIslamicDate();
-  const reminder = getTodaysReminder();
+  // Recomputed every minute (currentTime updates) — passes today's Maghrib
+  // time so the reminder rolls over at sunset, not midnight.
+  const maghribTime = prayerTimes?.maghrib?.time;
+  const reminder = getTodaysReminder(maghribTime);
 
   useEffect(() => {
     const timer = setInterval(() => {

@@ -495,9 +495,23 @@ export const ISLAMIC_REMINDERS: IslamicReminder[] = [
   }
 ];
 
-export function getTodaysReminder(): IslamicReminder {
-  const today = new Date();
-  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
+/**
+ * Returns the reminder for the current Islamic day.
+ * The Islamic day starts at Maghrib (sunset), so once Maghrib has passed
+ * today we advance to the next reminder — matching Islamic tradition.
+ * Pass today's Maghrib time so the function can detect the changeover.
+ */
+export function getTodaysReminder(maghribTime?: Date): IslamicReminder {
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 0);
+  let dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000);
+
+  // If Maghrib has already passed today, the Islamic day has turned —
+  // use the next reminder index so it changes at Maghrib, not midnight.
+  if (maghribTime && now >= maghribTime) {
+    dayOfYear += 1;
+  }
+
   return ISLAMIC_REMINDERS[dayOfYear % ISLAMIC_REMINDERS.length];
 }
 
