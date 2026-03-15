@@ -32,6 +32,22 @@ export default function MoreScreen() {
 
   const items: MoreItem[] = [
     {
+      label: "Wudhu & Prayer Guide",
+      arabic: "الوضوء والصلاة",
+      description: "Step-by-step guides for performing wudhu and salah, with duas and tips",
+      route: "/(tabs)/guide",
+      icon: <MaterialCommunityIcons name="hand-water" size={26} color="#64B5F6" />,
+      accentColor: "#64B5F6",
+    },
+    {
+      label: "Sahih Hadiths",
+      arabic: "الأحاديث الصحيحة",
+      description: "Browse authentic hadiths from Bukhari & Muslim with live Sunnah.com content",
+      route: "/(tabs)/hadiths",
+      icon: <MaterialCommunityIcons name="book-open-page-variant" size={26} color="#A5D6A7" />,
+      accentColor: "#A5D6A7",
+    },
+    {
       label: "Mosque Finder",
       arabic: "المساجد القريبة",
       description: "Find the nearest mosques to you, sorted by distance with addresses",

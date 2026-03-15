@@ -72,9 +72,11 @@ function HadithCard({ hadith, colors }: { hadith: Hadith; colors: any }) {
             <View style={[styles.hadithDivider, { backgroundColor: colors.gold + "33" }]} />
 
             {/* Transliteration */}
-            <Text style={[styles.hadithTranslit, { color: colors.gold }]}>
-              {hadith.transliteration}
-            </Text>
+            {hadith.transliteration ? (
+              <Text style={[styles.hadithTranslit, { color: colors.gold }]}>
+                {hadith.transliteration}
+              </Text>
+            ) : null}
 
             {/* Narrator */}
             <View style={styles.hadithMetaRow}>
