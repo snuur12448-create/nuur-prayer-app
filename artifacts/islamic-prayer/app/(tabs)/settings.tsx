@@ -24,7 +24,7 @@ import {
   HighLatRuleId,
   TimeFormat,
 } from "@/utils/prayerTimes";
-import { ADHAN_STYLES, AdhanStyle } from "@/utils/adhanData";
+import { ADHAN_STYLES, AdhanStyle, AdhanMode, ADHAN_MODE_INFO } from "@/utils/adhanData";
 import { previewAdhan, stopAdhanAudio } from "@/utils/adhanPlayer";
 
 const isWeb = Platform.OS === "web";
@@ -310,6 +310,7 @@ export default function SettingsScreen() {
     notificationsEnabled, toggleNotifications,
     adhanEnabled, toggleAdhan,
     adhanStyleId, setAdhanStyleId,
+    adhanMode, setAdhanMode,
     adhanCurrentStyle,
   } = useAppContext();
 
@@ -505,6 +506,59 @@ export default function SettingsScreen() {
               />
             </View>
           </TouchableOpacity>
+
+          {/* Mode picker */}
+          {adhanEnabled && (
+            <>
+              <RowSeparator colors={colors} />
+              <View style={styles.cardRow}>
+                <View style={styles.rowLeft}>
+                  <Feather name="sliders" size={16} color={colors.tint} style={styles.rowIcon} />
+                  <View>
+                    <Text style={[styles.rowLabel, { color: colors.text }]}>Adhan Mode</Text>
+                    <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                      {ADHAN_MODE_INFO[adhanMode].description}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <View style={[styles.modeChipsRow, { borderColor: colors.border }]}>
+                {(["full", "short", "silent"] as AdhanMode[]).map((m) => {
+                  const active = adhanMode === m;
+                  const info = ADHAN_MODE_INFO[m];
+                  return (
+                    <TouchableOpacity
+                      key={m}
+                      onPress={() => setAdhanMode(m)}
+                      style={[
+                        styles.modeChip,
+                        {
+                          backgroundColor: active ? colors.tint + "18" : colors.surfaceElevated,
+                          borderColor: active ? colors.tint : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={{ fontSize: 16 }}>{info.icon}</Text>
+                      <Text style={[styles.modeChipLabel, { color: active ? colors.tint : colors.text }]}>
+                        {info.label}
+                      </Text>
+                      <Text style={[styles.modeChipSub, { color: colors.textSecondary }]}>
+                        {info.duration}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {adhanMode === "short" && (
+                <View style={[styles.adhanInfoRow, { backgroundColor: colors.gold + "0C" }]}>
+                  <Feather name="sun" size={12} color={colors.gold} />
+                  <Text style={[styles.adhanInfoText, { color: colors.textSecondary }]}>
+                    Fajr uses a slightly longer recitation with the Fajr-specific call
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
 
           {/* Description */}
           {adhanEnabled && (
@@ -719,6 +773,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   adhanInfoText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
+
+  modeChipsRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    paddingTop: 4,
+  },
+  modeChip: {
+    flex: 1,
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  modeChipLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  modeChipSub: { fontSize: 10, fontFamily: "Inter_400Regular", opacity: 0.8 },
 
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
   methodSheet: {

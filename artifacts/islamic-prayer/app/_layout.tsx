@@ -33,8 +33,11 @@ function RootLayoutNav() {
 }
 
 function AdhanGate() {
-  const { adhanPlaying, adhanPrayerName, adhanPrayerArabicName, adhanCurrentStyle, stopAdhan } =
-    useAppContext();
+  const {
+    adhanPlaying, adhanIsSilent,
+    adhanPrayerName, adhanPrayerArabicName,
+    adhanCurrentStyle, stopAdhan,
+  } = useAppContext();
 
   if (!adhanPlaying || !adhanPrayerName || !adhanPrayerArabicName) return null;
 
@@ -44,6 +47,7 @@ function AdhanGate() {
       prayerArabicName={adhanPrayerArabicName}
       reciter={adhanCurrentStyle.reciter}
       styleName={adhanCurrentStyle.name}
+      isSilent={adhanIsSilent}
       onStop={stopAdhan}
     />
   );

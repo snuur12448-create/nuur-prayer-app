@@ -16,10 +16,11 @@ interface Props {
   prayerArabicName: string;
   reciter: string;
   styleName: string;
+  isSilent: boolean;
   onStop: () => void;
 }
 
-export function AdhanOverlay({ prayerName, prayerArabicName, reciter, styleName, onStop }: Props) {
+export function AdhanOverlay({ prayerName, prayerArabicName, reciter, styleName, isSilent, onStop }: Props) {
   const { themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
 
@@ -30,30 +31,31 @@ export function AdhanOverlay({ prayerName, prayerArabicName, reciter, styleName,
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: false }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: false }),
       Animated.spring(scaleAnim, { toValue: 1, friction: 5, tension: 50, useNativeDriver: false }),
     ]).start();
 
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.08, duration: 900, useNativeDriver: false }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: false }),
-      ])
-    );
-    const ring = Animated.loop(
-      Animated.sequence([
-        Animated.timing(ringAnim, { toValue: 1, duration: 2000, useNativeDriver: false }),
-        Animated.timing(ringAnim, { toValue: 0, duration: 0, useNativeDriver: false }),
-      ])
-    );
-    pulse.start();
-    ring.start();
-
-    return () => {
-      pulse.stop();
-      ring.stop();
-    };
-  }, []);
+    if (!isSilent) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.08, duration: 900, useNativeDriver: false }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: false }),
+        ])
+      );
+      const ring = Animated.loop(
+        Animated.sequence([
+          Animated.timing(ringAnim, { toValue: 1, duration: 2000, useNativeDriver: false }),
+          Animated.timing(ringAnim, { toValue: 0, duration: 0, useNativeDriver: false }),
+        ])
+      );
+      pulse.start();
+      ring.start();
+      return () => {
+        pulse.stop();
+        ring.stop();
+      };
+    }
+  }, [isSilent]);
 
   const ringScale = ringAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.4] });
   const ringOpacity = ringAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.5, 0.1, 0] });
@@ -66,90 +68,126 @@ export function AdhanOverlay({ prayerName, prayerArabicName, reciter, styleName,
           opacity: fadeAnim,
           paddingTop: Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top,
           paddingBottom: insets.bottom + 20,
-          backgroundColor: colors.background,
+          backgroundColor: isSilent
+            ? colors.background + "F5"
+            : colors.background,
         },
       ]}
     >
-      {/* Subtle top gradient glow */}
-      <View style={[styles.topGlow, { backgroundColor: colors.gold + "18" }]} />
+      {/* Subtle top glow — only when playing audio */}
+      {!isSilent && (
+        <View style={[styles.topGlow, { backgroundColor: colors.gold + "18" }]} />
+      )}
 
       {/* Centre content */}
       <Animated.View style={[styles.content, { transform: [{ scale: scaleAnim }] }]}>
-        {/* Pulsing ring behind icon */}
+        {/* Icon + ring */}
         <View style={styles.iconWrap}>
-          <Animated.View
-            style={[
-              styles.ring,
-              {
-                transform: [{ scale: ringScale }],
-                opacity: ringOpacity,
-                backgroundColor: colors.gold,
-              },
-            ]}
-          />
+          {!isSilent && (
+            <Animated.View
+              style={[
+                styles.ring,
+                {
+                  transform: [{ scale: ringScale }],
+                  opacity: ringOpacity,
+                  backgroundColor: colors.gold,
+                },
+              ]}
+            />
+          )}
 
-          {/* Main crescent icon */}
           <Animated.View
             style={[
               styles.iconCircle,
               {
-                backgroundColor: colors.gold + "20",
-                borderColor: colors.gold + "55",
-                transform: [{ scale: pulseAnim }],
+                backgroundColor: isSilent ? colors.surfaceElevated : colors.gold + "20",
+                borderColor: isSilent ? colors.border : colors.gold + "55",
+                transform: [{ scale: isSilent ? 1 : pulseAnim }],
               },
             ]}
           >
-            <Text style={[styles.crescentIcon, { color: colors.gold }]}>☽</Text>
+            {isSilent ? (
+              <Feather name="bell" size={36} color={colors.textSecondary} />
+            ) : (
+              <Text style={[styles.crescentIcon, { color: colors.gold }]}>☽</Text>
+            )}
           </Animated.View>
         </View>
 
-        {/* Now Playing label */}
-        <View style={[styles.nowPlayingBadge, { backgroundColor: colors.tint + "22", borderColor: colors.tint + "44" }]}>
-          <View style={[styles.playingDot, { backgroundColor: colors.tint }]} />
-          <Text style={[styles.nowPlayingText, { color: colors.tint }]}>ADHAN PLAYING</Text>
-        </View>
+        {/* Status badge */}
+        {isSilent ? (
+          <View style={[styles.nowPlayingBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <Feather name="volume-x" size={10} color={colors.textSecondary} />
+            <Text style={[styles.nowPlayingText, { color: colors.textSecondary }]}>SILENT PRAYER ALERT</Text>
+          </View>
+        ) : (
+          <View style={[styles.nowPlayingBadge, { backgroundColor: colors.tint + "22", borderColor: colors.tint + "44" }]}>
+            <View style={[styles.playingDot, { backgroundColor: colors.tint }]} />
+            <Text style={[styles.nowPlayingText, { color: colors.tint }]}>ADHAN PLAYING</Text>
+          </View>
+        )}
 
         {/* Arabic prayer name */}
         <Text style={[styles.arabicName, { color: colors.text }]}>{prayerArabicName}</Text>
-        {/* English prayer name */}
         <Text style={[styles.englishName, { color: colors.textSecondary }]}>{prayerName} Prayer</Text>
 
         {/* Gold divider */}
         <View style={styles.dividerRow}>
-          <View style={[styles.dividerLine, { backgroundColor: colors.gold + "33" }]} />
-          <Text style={[styles.dividerStar, { color: colors.gold }]}>✦</Text>
-          <View style={[styles.dividerLine, { backgroundColor: colors.gold + "33" }]} />
+          <View style={[styles.dividerLine, { backgroundColor: isSilent ? colors.border : colors.gold + "33" }]} />
+          <Text style={[styles.dividerStar, { color: isSilent ? colors.textSecondary : colors.gold }]}>✦</Text>
+          <View style={[styles.dividerLine, { backgroundColor: isSilent ? colors.border : colors.gold + "33" }]} />
         </View>
 
-        {/* Reciter */}
-        <View style={styles.reciterRow}>
-          <Feather name="mic" size={13} color={colors.textSecondary} />
-          <Text style={[styles.reciterText, { color: colors.textSecondary }]}>{reciter}</Text>
-        </View>
-        <View style={styles.styleRow}>
-          <Feather name="music" size={11} color={colors.textSecondary} />
-          <Text style={[styles.styleText, { color: colors.textSecondary }]}>{styleName} style</Text>
-        </View>
+        {/* Reciter / silent note */}
+        {isSilent ? (
+          <View style={styles.reciterRow}>
+            <Feather name="info" size={13} color={colors.textSecondary} />
+            <Text style={[styles.reciterText, { color: colors.textSecondary }]}>
+              Dismisses automatically in a few seconds
+            </Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.reciterRow}>
+              <Feather name="mic" size={13} color={colors.textSecondary} />
+              <Text style={[styles.reciterText, { color: colors.textSecondary }]}>{reciter}</Text>
+            </View>
+            <View style={styles.styleRow}>
+              <Feather name="music" size={11} color={colors.textSecondary} />
+              <Text style={[styles.styleText, { color: colors.textSecondary }]}>{styleName} style</Text>
+            </View>
+          </>
+        )}
       </Animated.View>
 
-      {/* Stop button */}
+      {/* Stop / Dismiss button */}
       <Pressable
         onPress={onStop}
         style={({ pressed }) => [
           styles.stopBtn,
           {
-            backgroundColor: pressed ? colors.gold + "30" : colors.surfaceElevated,
-            borderColor: colors.gold + "55",
+            backgroundColor: pressed
+              ? (isSilent ? colors.border : colors.gold + "30")
+              : colors.surfaceElevated,
+            borderColor: isSilent ? colors.border : colors.gold + "55",
           },
         ]}
       >
-        <Feather name="square" size={16} color={colors.gold} />
-        <Text style={[styles.stopText, { color: colors.gold }]}>Stop Adhan</Text>
+        <Feather
+          name={isSilent ? "x" : "square"}
+          size={16}
+          color={isSilent ? colors.textSecondary : colors.gold}
+        />
+        <Text style={[styles.stopText, { color: isSilent ? colors.textSecondary : colors.gold }]}>
+          {isSilent ? "Dismiss" : "Stop Adhan"}
+        </Text>
       </Pressable>
 
-      <Text style={[styles.swipeHint, { color: colors.textSecondary }]}>
-        Adhan will stop automatically when finished
-      </Text>
+      {!isSilent && (
+        <Text style={[styles.swipeHint, { color: colors.textSecondary }]}>
+          Adhan will stop automatically when finished
+        </Text>
+      )}
     </Animated.View>
   );
 }
@@ -160,7 +198,6 @@ const styles = StyleSheet.create({
     zIndex: 999,
     alignItems: "center",
     justifyContent: "center",
-    gap: 0,
   },
   topGlow: {
     position: "absolute",
@@ -195,9 +232,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  crescentIcon: {
-    fontSize: 44,
-  },
+  crescentIcon: { fontSize: 44 },
   nowPlayingBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -238,13 +273,8 @@ const styles = StyleSheet.create({
     width: "60%",
     marginVertical: 4,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerStar: {
-    fontSize: 12,
-  },
+  dividerLine: { flex: 1, height: 1 },
+  dividerStar: { fontSize: 12 },
   reciterRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -254,6 +284,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_500Medium",
     textAlign: "center",
+    flex: 1,
   },
   styleRow: {
     flexDirection: "row",

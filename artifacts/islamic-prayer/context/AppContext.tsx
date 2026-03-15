@@ -30,8 +30,11 @@ import {
 import {
   ADHAN_STYLES,
   DEFAULT_ADHAN_STYLE_ID,
+  DEFAULT_ADHAN_MODE,
   getAdhanStyle,
+  resolveAdhanUrl,
   AdhanStyle,
+  AdhanMode,
 } from "@/utils/adhanData";
 import { playAdhanAudio, stopAdhanAudio } from "@/utils/adhanPlayer";
 
@@ -70,9 +73,12 @@ interface AppContextType {
   setTimeFormat: (format: TimeFormat) => void;
   adhanEnabled: boolean;
   adhanStyleId: string;
+  adhanMode: AdhanMode;
   setAdhanStyleId: (id: string) => Promise<void>;
+  setAdhanMode: (mode: AdhanMode) => Promise<void>;
   toggleAdhan: () => Promise<void>;
   adhanPlaying: boolean;
+  adhanIsSilent: boolean;
   adhanPrayerName: string | null;
   adhanPrayerArabicName: string | null;
   adhanCurrentStyle: AdhanStyle;
@@ -93,6 +99,7 @@ const STORAGE_KEYS = {
   TIME_FORMAT: "time_format",
   ADHAN_ENABLED: "adhan_enabled",
   ADHAN_STYLE: "adhan_style",
+  ADHAN_MODE: "adhan_mode",
 };
 
 function getTimezoneOffset(): number {
@@ -151,7 +158,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Adhan state
   const [adhanEnabled, setAdhanEnabled] = useState(false);
   const [adhanStyleId, setAdhanStyleIdState] = useState<string>(DEFAULT_ADHAN_STYLE_ID);
+  const [adhanMode, setAdhanModeState] = useState<AdhanMode>(DEFAULT_ADHAN_MODE);
   const [adhanPlaying, setAdhanPlaying] = useState(false);
+  const [adhanIsSilent, setAdhanIsSilent] = useState(false);
   const [adhanPrayerName, setAdhanPrayerName] = useState<string | null>(null);
   const [adhanPrayerArabicName, setAdhanPrayerArabicName] = useState<string | null>(null);
 
@@ -163,6 +172,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const notificationsRef = useRef(notificationsEnabled);
   const adhanEnabledRef = useRef(adhanEnabled);
   const adhanStyleIdRef = useRef(adhanStyleId);
+  const adhanModeRef = useRef(adhanMode);
   const prayerTimesRef = useRef(prayerTimes);
   const lastPlayedRef = useRef<string>(""); // "prayerKey_YYYY-MM-DD"
 
@@ -173,6 +183,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { notificationsRef.current = notificationsEnabled; }, [notificationsEnabled]);
   useEffect(() => { adhanEnabledRef.current = adhanEnabled; }, [adhanEnabled]);
   useEffect(() => { adhanStyleIdRef.current = adhanStyleId; }, [adhanStyleId]);
+  useEffect(() => { adhanModeRef.current = adhanMode; }, [adhanMode]);
   useEffect(() => { prayerTimesRef.current = prayerTimes; }, [prayerTimes]);
 
   const themeColors =
@@ -222,15 +233,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           lastPlayedRef.current = token;
 
           const style = getAdhanStyle(adhanStyleIdRef.current);
+          const mode = adhanModeRef.current;
+          const isFajr = key === "fajr";
+          const audioUrl = resolveAdhanUrl(style, mode, isFajr);
+
           setAdhanPrayerName(prayer.name);
           setAdhanPrayerArabicName(prayer.arabicName);
+          setAdhanIsSilent(mode === "silent");
           setAdhanPlaying(true);
 
-          playAdhanAudio(style.audioUrl, () => {
+          const finish = () => {
             setAdhanPlaying(false);
+            setAdhanIsSilent(false);
             setAdhanPrayerName(null);
             setAdhanPrayerArabicName(null);
-          });
+          };
+
+          if (audioUrl) {
+            playAdhanAudio(audioUrl, finish);
+          } else {
+            // Silent mode: show overlay briefly then auto-dismiss
+            setTimeout(finish, 5000);
+          }
           break;
         }
       }
@@ -249,7 +273,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPreferences = async () => {
     try {
-      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle] =
+      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.THEME),
           AsyncStorage.getItem(STORAGE_KEYS.DISPLAY_MODE),
@@ -260,6 +284,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(STORAGE_KEYS.TIME_FORMAT),
           AsyncStorage.getItem(STORAGE_KEYS.ADHAN_ENABLED),
           AsyncStorage.getItem(STORAGE_KEYS.ADHAN_STYLE),
+          AsyncStorage.getItem(STORAGE_KEYS.ADHAN_MODE),
         ]);
       if (theme && theme in THEMES) setThemeNameState(theme as ThemeName);
       if (mode === "dark" || mode === "light") setDisplayModeState(mode);
@@ -271,6 +296,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (adhanOn === "true") setAdhanEnabled(true);
       if (adhanStyle && ADHAN_STYLES.find((s) => s.id === adhanStyle)) {
         setAdhanStyleIdState(adhanStyle);
+      }
+      if (adhanModeVal === "full" || adhanModeVal === "short" || adhanModeVal === "silent") {
+        setAdhanModeState(adhanModeVal);
       }
     } catch {}
   };
@@ -359,9 +387,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try { await AsyncStorage.setItem(STORAGE_KEYS.ADHAN_STYLE, id); } catch {}
   }, []);
 
+  const setAdhanMode = useCallback(async (m: AdhanMode) => {
+    setAdhanModeState(m);
+    try { await AsyncStorage.setItem(STORAGE_KEYS.ADHAN_MODE, m); } catch {}
+  }, []);
+
   const stopAdhan = useCallback(async () => {
     await stopAdhanAudio();
     setAdhanPlaying(false);
+    setAdhanIsSilent(false);
     setAdhanPrayerName(null);
     setAdhanPrayerArabicName(null);
   }, []);
@@ -495,9 +529,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTimeFormat,
         adhanEnabled,
         adhanStyleId,
+        adhanMode,
         setAdhanStyleId,
+        setAdhanMode,
         toggleAdhan,
         adhanPlaying,
+        adhanIsSilent,
         adhanPrayerName,
         adhanPrayerArabicName,
         adhanCurrentStyle: getAdhanStyle(adhanStyleId),
