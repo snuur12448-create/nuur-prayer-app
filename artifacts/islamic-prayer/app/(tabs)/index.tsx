@@ -20,7 +20,7 @@ import { getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 
 export default function PrayerScreen() {
-  const { prayerTimes, location, isLoadingLocation, locationError, refreshPrayerTimes, themeColors: colors } = useAppContext();
+  const { prayerTimes, location, isLoadingLocation, locationError, refreshPrayerTimes, themeColors: colors, notificationsEnabled, toggleNotifications } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -124,6 +124,22 @@ export default function PrayerScreen() {
               <View style={styles.timeContainer}>
                 <Text style={styles.currentTime}>{formatCurrentTime()}</Text>
               </View>
+              {!isWeb && (
+                <Pressable
+                  onPress={toggleNotifications}
+                  style={[
+                    styles.paletteBtn,
+                    notificationsEnabled && { backgroundColor: colors.tint + "33" },
+                  ]}
+                  hitSlop={10}
+                >
+                  <Feather
+                    name={notificationsEnabled ? "bell" : "bell-off"}
+                    size={18}
+                    color={notificationsEnabled ? colors.tint : "rgba(255,255,255,0.7)"}
+                  />
+                </Pressable>
+              )}
               <Pressable
                 onPress={() => setShowThemePicker(true)}
                 style={styles.paletteBtn}

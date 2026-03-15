@@ -1,8 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { Platform } from "react-native";
 import { calculatePrayerTimes, PrayerTimesResult } from "@/utils/prayerTimes";
 import { DEFAULT_THEME, THEMES, ThemeColors, ThemeName } from "@/constants/themes";
+import {
+  cancelAllPrayerNotifications,
+  requestNotificationPermission,
+  schedulePrayerNotifications,
+} from "@/utils/notifications";
 
 interface LocationData {
   latitude: number;
@@ -24,6 +30,8 @@ interface AppContextType {
   themeName: ThemeName;
   setThemeName: (name: ThemeName) => void;
   themeColors: ThemeColors;
+  notificationsEnabled: boolean;
+  toggleNotifications: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -32,6 +40,7 @@ const STORAGE_KEYS = {
   LOCATION: "location_data",
   BOOKMARKS: "bookmarked_surahs",
   THEME: "app_theme",
+  NOTIFICATIONS: "notifications_enabled",
 };
 
 function getTimezoneOffset(): number {
@@ -45,6 +54,38 @@ const DEFAULT_LOCATION: LocationData = {
   timezone: 3,
 };
 
+/** Best-effort city name from expo-location geocode result */
+function extractCity(geocode: Location.LocationGeocodedAddress | null | undefined): string | null {
+  if (!geocode) return null;
+  return geocode.city || geocode.subregion || geocode.district || geocode.region || null;
+}
+
+/** Nominatim reverse geocode fallback (no API key required, web-friendly) */
+async function nominatimCity(lat: number, lng: number): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`,
+      { headers: { "Accept-Language": "en" } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const addr = data?.address;
+    if (!addr) return null;
+    return (
+      addr.city ||
+      addr.town ||
+      addr.village ||
+      addr.municipality ||
+      addr.county ||
+      addr.state_district ||
+      addr.state ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useState<LocationData | null>(null);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimesResult | null>(null);
@@ -53,12 +94,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [usingDefaultLocation, setUsingDefaultLocation] = useState(false);
   const [bookmarkedSurahs, setBookmarkedSurahs] = useState<number[]>([]);
   const [themeName, setThemeNameState] = useState<ThemeName>(DEFAULT_THEME);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   const themeColors = THEMES[themeName].colors;
 
   useEffect(() => {
     loadBookmarks();
     loadTheme();
+    loadNotificationsPref();
     initLocation();
   }, []);
 
@@ -95,11 +138,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const loadNotificationsPref = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
+      if (stored === "true") setNotificationsEnabled(true);
+    } catch {}
+  };
+
   const applyLocation = useCallback((loc: LocationData) => {
     setLocation(loc);
     const times = calculatePrayerTimes(loc.latitude, loc.longitude, loc.timezone);
     setPrayerTimes(times);
   }, []);
+
+  /** Re-schedule notifications whenever location/times change (if enabled) */
+  const rescheduleIfEnabled = useCallback(
+    async (loc: LocationData, enabled: boolean) => {
+      if (!enabled || Platform.OS === "web") return;
+      await schedulePrayerNotifications(loc.latitude, loc.longitude, loc.timezone, loc.city);
+    },
+    []
+  );
+
+  const toggleNotifications = useCallback(async () => {
+    const next = !notificationsEnabled;
+
+    if (next) {
+      const granted = await requestNotificationPermission();
+      if (!granted) return;
+      setNotificationsEnabled(true);
+      await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "true");
+      if (location) {
+        await schedulePrayerNotifications(
+          location.latitude,
+          location.longitude,
+          location.timezone,
+          location.city
+        );
+      }
+    } else {
+      setNotificationsEnabled(false);
+      await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "false");
+      await cancelAllPrayerNotifications();
+    }
+  }, [notificationsEnabled, location]);
 
   const requestLocation = useCallback(async () => {
     setIsLoadingLocation(true);
@@ -118,28 +200,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         accuracy: Location.Accuracy.Balanced,
       });
 
-      let cityName = "Your Location";
+      const { latitude, longitude } = loc.coords;
+
+      let cityName: string | null = null;
+
+      // Try expo-location reverse geocode first (works well on native)
       try {
-        const [geocode] = await Location.reverseGeocodeAsync({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
-        if (geocode) {
-          cityName = geocode.city || geocode.region || "Your Location";
-        }
+        const [geocode] = await Location.reverseGeocodeAsync({ latitude, longitude });
+        cityName = extractCity(geocode);
       } catch {}
+
+      // Fall back to Nominatim (works on web, and as a safety net on native)
+      if (!cityName) {
+        cityName = await nominatimCity(latitude, longitude);
+      }
 
       const tz = getTimezoneOffset();
       const locationData: LocationData = {
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-        city: cityName,
+        latitude,
+        longitude,
+        city: cityName ?? "Your Location",
         timezone: tz,
       };
 
       setUsingDefaultLocation(false);
       applyLocation(locationData);
       await AsyncStorage.setItem(STORAGE_KEYS.LOCATION, JSON.stringify(locationData));
+      await rescheduleIfEnabled(locationData, notificationsEnabled);
     } catch {
       setLocationError("Could not determine location. Using Makkah as default.");
       setUsingDefaultLocation(true);
@@ -147,7 +234,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoadingLocation(false);
     }
-  }, [applyLocation]);
+  }, [applyLocation, notificationsEnabled, rescheduleIfEnabled]);
 
   const initLocation = async () => {
     setIsLoadingLocation(true);
@@ -194,6 +281,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         themeName,
         setThemeName,
         themeColors,
+        notificationsEnabled,
+        toggleNotifications,
       }}
     >
       {children}
