@@ -11,6 +11,8 @@ export interface Reciter {
   folder?: string;
   /** Edition identifier on cdn.islamic.network e.g. "ar.husary" */
   edition?: string;
+  /** Bitrate for cdn.islamic.network — defaults to 128. Use 64 when 128 is unavailable. */
+  bitrate?: 64 | 128;
 }
 
 export const RECITERS: Reciter[] = [
@@ -38,8 +40,9 @@ export const RECITERS: Reciter[] = [
     arabicName: "عبد الرحمن السديس",
     style: "Murattal",
     language: "arabic",
-    cdnType: "verses-quran",
-    folder: "Sudais/mp3",
+    cdnType: "islamic-network",
+    edition: "ar.abdurrahmaansudais",
+    bitrate: 64,
   },
   {
     id: "shuraym",
@@ -98,7 +101,8 @@ export function getVerseAudioUrl(
     return `https://verses.quran.com/${reciter.folder}/${s}${v}.mp3`;
   }
   if (reciter.cdnType === "islamic-network" && reciter.edition && globalAyahNum) {
-    return `https://cdn.islamic.network/quran/audio/128/${reciter.edition}/${globalAyahNum}.mp3`;
+    const bitrate = reciter.bitrate ?? 128;
+    return `https://cdn.islamic.network/quran/audio/${bitrate}/${reciter.edition}/${globalAyahNum}.mp3`;
   }
   // Fallback — should not happen if globalAyahNum is passed for islamic-network
   const s = String(surahNumber).padStart(3, "0");
