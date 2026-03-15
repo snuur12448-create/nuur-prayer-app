@@ -118,7 +118,7 @@ export default function PrayerScreen() {
         {/* Header */}
         <View style={[styles.header, { paddingTop: topPad + 16, backgroundColor: colors.prayerCard }]}>
           <View style={styles.headerTop}>
-            <View>
+            <View style={{ flex: 1, paddingRight: 12 }}>
               <TouchableOpacity
                 onPress={() => setShowLocationModal(true)}
                 style={styles.locationChip}
@@ -130,7 +130,7 @@ export default function PrayerScreen() {
                 </Text>
                 <Feather name="chevron-down" size={11} color={colors.textSecondary} />
               </TouchableOpacity>
-              <Text style={[styles.islamicDate, { color: colors.gold }]}>
+              <Text style={[styles.islamicDate, { color: colors.gold }]} numberOfLines={1} adjustsFontSizeToFit>
                 {islamicDate.day} {islamicDate.month} {islamicDate.year} AH
               </Text>
             </View>
