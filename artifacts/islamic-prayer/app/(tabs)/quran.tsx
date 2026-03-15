@@ -64,8 +64,8 @@ export default function QuranScreen() {
             </Text>
             <View style={[styles.typeBadge, {
               backgroundColor: item.revelationType === "Meccan"
-                ? (isDark ? "rgba(212, 160, 23, 0.15)" : "rgba(212, 160, 23, 0.1)")
-                : (isDark ? "rgba(45, 106, 79, 0.3)" : "rgba(27, 67, 50, 0.08)")
+                ? `${colors.gold}26`
+                : `${colors.tint}26`
             }]}>
               <Text style={[styles.typeText, {
                 color: item.revelationType === "Meccan" ? colors.gold : colors.tint

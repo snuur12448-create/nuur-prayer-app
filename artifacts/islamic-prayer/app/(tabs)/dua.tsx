@@ -71,7 +71,7 @@ export default function DuaScreen() {
             </Text>
             <View style={styles.expandedFooter}>
               {item.reference && (
-                <View style={[styles.referenceBadge, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)" }]}>
+                <View style={[styles.referenceBadge, { backgroundColor: "rgba(255,255,255,0.05)" }]}>
                   <Feather name="book-open" size={11} color={colors.textSecondary} />
                   <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
                     {item.reference}
@@ -80,7 +80,7 @@ export default function DuaScreen() {
               )}
               <TouchableOpacity
                 onPress={() => copyDua(item)}
-                style={[styles.copyBtn, { backgroundColor: copiedDua === item.id ? colors.gold + "20" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)") }]}
+                style={[styles.copyBtn, { backgroundColor: copiedDua === item.id ? colors.gold + "20" : "rgba(255,255,255,0.05)" }]}
                 hitSlop={8}
               >
                 <Feather

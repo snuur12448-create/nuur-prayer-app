@@ -234,7 +234,7 @@ export default function TasbeehScreen() {
                   styles.dhikrOption,
                   {
                     backgroundColor: selectedDhikr.id === dhikr.id
-                      ? (isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)")
+                      ? "rgba(255,255,255,0.06)"
                       : "transparent",
                     borderBottomColor: colors.border,
                   }
@@ -278,7 +278,7 @@ export default function TasbeehScreen() {
           <View style={styles.ringContainer}>
             {/* Background ring */}
             <View style={[styles.ringTrack, {
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+              borderColor: colors.border,
             }]} />
 
             {/* Progress ring (SVG-like overlay using transforms) */}

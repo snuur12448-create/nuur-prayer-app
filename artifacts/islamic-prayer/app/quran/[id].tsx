@@ -365,7 +365,7 @@ export default function QuranDetailScreen() {
       {/* Controls bar */}
       <View style={[styles.controlsBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.reciterBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)", borderColor: colors.border }]}
+          style={[styles.reciterBtn, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: colors.border }]}
           onPress={() => setShowReciterModal(true)}
         >
           <Feather name="mic" size={13} color={colors.tint} />
@@ -390,7 +390,7 @@ export default function QuranDetailScreen() {
           {/* Transliteration toggle */}
           <TouchableOpacity
             style={[styles.toggleChip, {
-              backgroundColor: showTransliteration ? colors.gold + "20" : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"),
+              backgroundColor: showTransliteration ? colors.gold + "20" : "rgba(255,255,255,0.05)",
               borderColor: showTransliteration ? colors.gold + "60" : colors.border,
             }]}
             onPress={() => setShowTransliteration((v) => !v)}
@@ -459,7 +459,7 @@ export default function QuranDetailScreen() {
                   styles.verseCard,
                   {
                     backgroundColor: isActive
-                      ? (isDark ? colors.tint + "18" : colors.tint + "08")
+                      ? colors.tint + "18"
                       : colors.surface,
                     borderColor: isActive
                       ? colors.tint + "60"
@@ -475,7 +475,7 @@ export default function QuranDetailScreen() {
                       style={[
                         styles.playBtn,
                         {
-                          backgroundColor: isActive ? colors.tint : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"),
+                          backgroundColor: isActive ? colors.tint : "rgba(255,255,255,0.08)",
                           borderColor: isActive ? colors.tint : colors.border,
                         },
                       ]}
@@ -541,7 +541,7 @@ export default function QuranDetailScreen() {
                     style={[
                       styles.reciterRow,
                       {
-                        backgroundColor: isSelected ? (isDark ? colors.tint + "20" : colors.tint + "10") : "transparent",
+                        backgroundColor: isSelected ? colors.tint + "20" : "transparent",
                         borderColor: isSelected ? colors.tint + "40" : colors.border,
                       },
                     ]}
@@ -552,7 +552,7 @@ export default function QuranDetailScreen() {
                     }}
                   >
                     <View style={styles.reciterInfo}>
-                      <View style={[styles.reciterIcon, { backgroundColor: isSelected ? colors.tint : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)") }]}>
+                      <View style={[styles.reciterIcon, { backgroundColor: isSelected ? colors.tint : "rgba(255,255,255,0.08)" }]}>
                         <Feather name="mic" size={14} color={isSelected ? "#fff" : colors.textSecondary} />
                       </View>
                       <View style={styles.reciterDetails}>
