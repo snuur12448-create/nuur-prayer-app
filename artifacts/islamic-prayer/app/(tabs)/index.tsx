@@ -24,7 +24,7 @@ export default function PrayerScreen() {
   const {
     prayerTimes, location, isLoadingLocation, locationError,
     refreshPrayerTimes, requestLocation, setManualLocation,
-    themeColors: colors, notificationsEnabled, toggleNotifications,
+    themeColors: colors, notificationsEnabled, toggleNotifications, timeFormat,
   } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
@@ -93,7 +93,7 @@ export default function PrayerScreen() {
     return currentTime.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
-      hour12: true,
+      hour12: timeFormat === "12h",
     });
   };
 
