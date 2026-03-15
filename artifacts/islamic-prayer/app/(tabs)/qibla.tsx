@@ -220,81 +220,139 @@ function IslamicGeometricPattern({ size, color }: { size: number; color: string 
   );
 }
 
-function CompassFace({ tintColor = "#2ECC71" }: { tintColor?: string }) {
+function CompassFace({
+  tintColor = "#C9933A",
+  faceColor = "#162A1A",
+  ringColor = "#C9933A",
+  textColor = "#E8D5A3",
+}: {
+  tintColor?: string;
+  faceColor?: string;
+  ringColor?: string;
+  textColor?: string;
+}) {
   const ticks = Array.from({ length: 72 }, (_, i) => i * 5);
   const cardinalAngles = [
-    { label: "N", angle: 0, color: "#FF4040", size: 16, weight: "bold" as const },
-    { label: "S", angle: 180, color: "#fff", size: 13, weight: "normal" as const },
-    { label: "E", angle: 90, color: "#fff", size: 13, weight: "normal" as const },
-    { label: "W", angle: 270, color: "#fff", size: 13, weight: "normal" as const },
+    { label: "N", angle: 0, color: "#FF5C5C", size: 17, weight: "bold" as const },
+    { label: "S", angle: 180, color: textColor, size: 14, weight: "bold" as const },
+    { label: "E", angle: 90, color: textColor, size: 14, weight: "bold" as const },
+    { label: "W", angle: 270, color: textColor, size: 14, weight: "bold" as const },
   ];
   const degreeLabels = [30, 60, 120, 150, 210, 240, 300, 330];
+  // 8 intercardinal markers (NE, SE, SW, NW + midpoints)
+  const intercardinals = [
+    { label: "NE", angle: 45 }, { label: "SE", angle: 135 },
+    { label: "SW", angle: 225 }, { label: "NW", angle: 315 },
+  ];
 
   return (
     <Svg width={COMPASS_SIZE} height={COMPASS_SIZE}>
       <Defs>
-        <RadialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
-          <Stop offset="0%" stopColor={tintColor} stopOpacity="0.25" />
-          <Stop offset="60%" stopColor={tintColor} stopOpacity="0.08" />
-          <Stop offset="100%" stopColor="#000" stopOpacity="0.6" />
+        <RadialGradient id="faceGrad" cx="50%" cy="50%" r="50%">
+          <Stop offset="0%" stopColor={faceColor} stopOpacity="1" />
+          <Stop offset="75%" stopColor={faceColor} stopOpacity="1" />
+          <Stop offset="100%" stopColor="#0A1A0E" stopOpacity="1" />
         </RadialGradient>
-        <RadialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
-          <Stop offset="0%" stopColor={tintColor} stopOpacity="0.12" />
+        <RadialGradient id="tintGlow" cx="50%" cy="50%" r="50%">
+          <Stop offset="0%" stopColor={tintColor} stopOpacity="0.18" />
           <Stop offset="100%" stopColor={tintColor} stopOpacity="0" />
         </RadialGradient>
       </Defs>
 
-      {/* Outer ring background */}
-      <Circle cx={CX} cy={CX} r={OUTER_R} fill="#111" />
-      {/* Outer ring border */}
-      <Circle cx={CX} cy={CX} r={OUTER_R} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={2} />
+      {/* ── Outer bezel ring ─────────────────────────────── */}
+      <Circle cx={CX} cy={CX} r={OUTER_R + 4} fill={ringColor} opacity={0.9} />
+      <Circle cx={CX} cy={CX} r={OUTER_R + 2} fill="#0A1A0E" />
+      {/* Decorative gold ring segments (8 notches) */}
+      {Array.from({ length: 8 }, (_, i) => {
+        const a1 = ((i * 45 - 18) - 90) * (Math.PI / 180);
+        const a2 = ((i * 45 + 18) - 90) * (Math.PI / 180);
+        const r = OUTER_R + 3;
+        return (
+          <Path
+            key={i}
+            d={`M ${CX + r * Math.cos(a1)} ${CX + r * Math.sin(a1)} A ${r} ${r} 0 0 1 ${CX + r * Math.cos(a2)} ${CX + r * Math.sin(a2)}`}
+            fill="none"
+            stroke={ringColor}
+            strokeWidth={3}
+            opacity={0.6}
+          />
+        );
+      })}
 
-      {/* Inner compass face */}
-      <Circle cx={CX} cy={CX} r={INNER_R} fill="url(#bgGrad)" />
-      {/* Glow layer */}
-      <Circle cx={CX} cy={CX} r={INNER_R} fill="url(#glowGrad)" />
-      {/* Inner border */}
-      <Circle cx={CX} cy={CX} r={INNER_R} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={1.5} />
+      {/* ── Compass face ────────────────────────────────── */}
+      <Circle cx={CX} cy={CX} r={OUTER_R} fill="url(#faceGrad)" />
+      <Circle cx={CX} cy={CX} r={OUTER_R} fill="url(#tintGlow)" />
+      {/* Face inner border */}
+      <Circle cx={CX} cy={CX} r={OUTER_R} fill="none" stroke={ringColor} strokeWidth={1.5} opacity={0.5} />
 
-      {/* Tick marks on outer ring */}
+      {/* ── Degree ring border ──────────────────────────── */}
+      <Circle cx={CX} cy={CX} r={INNER_R + 14} fill="none" stroke={ringColor} strokeWidth={0.5} opacity={0.3} />
+      <Circle cx={CX} cy={CX} r={INNER_R} fill="none" stroke={ringColor} strokeWidth={1} opacity={0.4} />
+
+      {/* ── Tick marks ──────────────────────────────────── */}
       {ticks.map((deg) => {
         const rad = (deg - 90) * (Math.PI / 180);
         const isMajor = deg % 90 === 0;
-        const isMid = deg % 30 === 0 && !isMajor;
-        const tickLen = isMajor ? 14 : isMid ? 9 : 5;
-        const r1 = OUTER_R - 3;
+        const isMid = deg % 45 === 0 && !isMajor;
+        const isMinor30 = deg % 30 === 0 && !isMajor && !isMid;
+        const tickLen = isMajor ? 16 : isMid ? 12 : isMinor30 ? 8 : 4;
+        const r1 = OUTER_R - 2;
         const r2 = r1 - tickLen;
+        const stroke = isMajor
+          ? ringColor
+          : isMid
+          ? ringColor
+          : isMinor30
+          ? `${textColor}99`
+          : `${textColor}44`;
         return (
           <Line
             key={deg}
             x1={CX + r1 * Math.cos(rad)} y1={CX + r1 * Math.sin(rad)}
             x2={CX + r2 * Math.cos(rad)} y2={CX + r2 * Math.sin(rad)}
-            stroke={isMajor ? "rgba(255,255,255,0.9)" : isMid ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.2)"}
-            strokeWidth={isMajor ? 2 : 1}
+            stroke={stroke}
+            strokeWidth={isMajor ? 2.5 : isMid ? 1.8 : 1}
+            opacity={isMajor ? 1 : 0.85}
           />
         );
       })}
 
-      {/* Degree number labels */}
+      {/* ── Degree number labels ─────────────────────────── */}
       {degreeLabels.map((deg) => {
         const rad = (deg - 90) * (Math.PI / 180);
-        const r = OUTER_R - 21;
+        const r = OUTER_R - 24;
         return (
           <SvgText
             key={deg}
             x={CX + r * Math.cos(rad)} y={CX + r * Math.sin(rad)}
             textAnchor="middle" dominantBaseline="central"
-            fill="rgba(255,255,255,0.6)" fontSize="8"
+            fill={textColor} fontSize="8" opacity={0.6}
           >
             {deg}
           </SvgText>
         );
       })}
 
-      {/* Cardinal labels */}
+      {/* ── Intercardinal labels (NE/SE/SW/NW) ──────────── */}
+      {intercardinals.map(({ label, angle }) => {
+        const rad = (angle - 90) * (Math.PI / 180);
+        const r = OUTER_R - 22;
+        return (
+          <SvgText
+            key={label}
+            x={CX + r * Math.cos(rad)} y={CX + r * Math.sin(rad)}
+            textAnchor="middle" dominantBaseline="central"
+            fill={textColor} fontSize="9" opacity={0.75}
+          >
+            {label}
+          </SvgText>
+        );
+      })}
+
+      {/* ── Cardinal labels ──────────────────────────────── */}
       {cardinalAngles.map(({ label, angle, color, size, weight }) => {
         const rad = (angle - 90) * (Math.PI / 180);
-        const r = OUTER_R - 20;
+        const r = OUTER_R - 21;
         return (
           <SvgText
             key={label}
@@ -306,49 +364,103 @@ function CompassFace({ tintColor = "#2ECC71" }: { tintColor?: string }) {
           </SvgText>
         );
       })}
+
+      {/* ── Crosshair lines ──────────────────────────────── */}
+      <Line x1={CX} y1={CX - INNER_R + 4} x2={CX} y2={CX - FACE_R + 2} stroke={ringColor} strokeWidth={0.8} opacity={0.2} />
+      <Line x1={CX} y1={CX + INNER_R - 4} x2={CX} y2={CX + FACE_R - 2} stroke={ringColor} strokeWidth={0.8} opacity={0.2} />
+      <Line x1={CX - INNER_R + 4} y1={CX} x2={CX - FACE_R + 2} y2={CX} stroke={ringColor} strokeWidth={0.8} opacity={0.2} />
+      <Line x1={CX + INNER_R - 4} y1={CX} x2={CX + FACE_R - 2} y2={CX} stroke={ringColor} strokeWidth={0.8} opacity={0.2} />
     </Svg>
   );
 }
 
 function QiblaNeedle({ size, aligned }: { size: number; aligned: boolean }) {
   const cx = size / 2;
-  const needleColor = aligned ? "#2ECC71" : "#D4A017";
-  const glowColor = aligned ? "rgba(46,204,113,0.4)" : "rgba(212,160,23,0.3)";
-  const tipY = cx - size * 0.35;
-  const baseY = cx + size * 0.15;
-  const halfW = 10;
-  const waist = 3;
+  const gold = "#C9933A";
+  const green = "#2ECC71";
+  const needleColor = aligned ? green : gold;
+  const tailColor = aligned ? "rgba(46,204,113,0.55)" : "rgba(40,40,40,0.75)";
+
+  // Needle geometry — kept well inside the SVG bounds
+  const tipY = cx - size * 0.32;   // top tip:  150 - 96 = 54px from top ✓
+  const baseY = cx + size * 0.22;  // bottom:   150 + 66 = 216px ✓
+  const halfW = 12;
+  const tailHalfW = 8;
+
+  // Kaaba icon centred just inside the upper needle face
+  const kaabaW = 20;
+  const kaabaH = 15;
+  const kaabaMidY = tipY + 30;          // centre of Kaaba body (well inside SVG)
+  const kaabaX = cx - kaabaW / 2;
+  const kaabaTY = kaabaMidY - kaabaH / 2;
+
+  // Pole from needle tip up to Kaaba bottom
+  const poleTop = tipY + 2;
+  const poleBot = kaabaTY;
 
   return (
     <Svg width={size} height={size}>
-      {/* Glow */}
+      {/* ── Qibla (top) half — gold/green ──────────────── */}
       <Path
-        d={`M ${cx} ${tipY - 8} L ${cx - halfW - 4} ${baseY + 4} L ${cx} ${cx + 2} L ${cx + halfW + 4} ${baseY + 4} Z`}
-        fill={glowColor}
-      />
-      {/* Main needle */}
-      <Path
-        d={`M ${cx} ${tipY} L ${cx - halfW} ${baseY} L ${cx - waist} ${cx} L ${cx} ${cx + size * 0.12} L ${cx + waist} ${cx} L ${cx + halfW} ${baseY} Z`}
+        d={`M ${cx} ${tipY} L ${cx - halfW} ${cx} L ${cx} ${cx + 6} L ${cx + halfW} ${cx} Z`}
         fill={needleColor}
-        opacity={0.95}
+        opacity={0.97}
       />
-      {/* Highlight */}
+      {/* Depth shading */}
       <Path
-        d={`M ${cx} ${tipY} L ${cx - halfW * 0.5} ${(tipY + baseY) / 2} L ${cx} ${(tipY + baseY) / 2 + 4} Z`}
-        fill="rgba(255,255,255,0.35)"
+        d={`M ${cx} ${tipY} L ${cx - halfW} ${cx} L ${cx} ${cx + 6} Z`}
+        fill="rgba(0,0,0,0.14)"
       />
-      {/* Center knob */}
-      <Circle cx={cx} cy={cx} r={10} fill={needleColor} />
-      <Circle cx={cx} cy={cx} r={5} fill="#fff" opacity={0.9} />
-      {/* Kaaba glyph at tip */}
+      {/* Highlight streak */}
       <Path
-        d={`M ${cx - 6} ${tipY + 4} h 12 v 9 h -12 Z`}
-        fill="#fff" opacity={0.9}
+        d={`M ${cx} ${tipY + 8} L ${cx - halfW * 0.3} ${cx - 6} L ${cx} ${cx - 8} Z`}
+        fill="rgba(255,255,255,0.22)"
       />
+
+      {/* ── Tail (bottom) half — dark ───────────────────── */}
       <Path
-        d={`M ${cx - 4} ${tipY + 4} v -3 h 8 v 3`}
-        fill="none" stroke="#fff" strokeWidth={1.2} opacity={0.7}
+        d={`M ${cx - tailHalfW} ${cx} L ${cx} ${cx + 6} L ${cx + tailHalfW} ${cx} L ${cx} ${baseY} Z`}
+        fill={tailColor}
       />
+
+      {/* ── Ka'bah icon inside the needle tip ────────────── */}
+      {/* Finial pole from needle tip to Ka'bah base */}
+      <Rect x={cx - 1.2} y={poleTop} width={2.4} height={Math.max(poleBot - poleTop, 0)} fill={needleColor} opacity={0.7} rx={1} />
+
+      {/* Ka'bah body */}
+      <Rect
+        x={kaabaX} y={kaabaTY}
+        width={kaabaW} height={kaabaH}
+        rx={1.5}
+        fill="#061008"
+        stroke={needleColor}
+        strokeWidth={1.4}
+        opacity={0.97}
+      />
+      {/* Kiswa stripe */}
+      <Rect
+        x={kaabaX} y={kaabaTY + kaabaH * 0.28}
+        width={kaabaW} height={kaabaH * 0.17}
+        fill={needleColor}
+        opacity={0.75}
+      />
+      {/* Door arch */}
+      <Path
+        d={`M ${cx - 3} ${kaabaTY + kaabaH - 1}
+            L ${cx - 3} ${kaabaTY + kaabaH * 0.6}
+            A 3 3 0 0 1 ${cx + 3} ${kaabaTY + kaabaH * 0.6}
+            L ${cx + 3} ${kaabaTY + kaabaH - 1} Z`}
+        fill={needleColor}
+        opacity={0.35}
+      />
+      {/* Steps */}
+      <Rect x={kaabaX - 2} y={kaabaTY + kaabaH} width={kaabaW + 4} height={2} rx={0.8} fill={needleColor} opacity={0.5} />
+      <Rect x={kaabaX - 4} y={kaabaTY + kaabaH + 2} width={kaabaW + 8} height={1.5} rx={0.8} fill={needleColor} opacity={0.3} />
+
+      {/* ── Center pivot ─────────────────────────────────── */}
+      <Circle cx={cx} cy={cx} r={14} fill="#061008" stroke={needleColor} strokeWidth={2.2} opacity={0.97} />
+      <Circle cx={cx} cy={cx} r={7} fill={needleColor} opacity={0.92} />
+      <Circle cx={cx} cy={cx} r={3} fill="#fff" opacity={0.8} />
     </Svg>
   );
 }
@@ -551,7 +663,12 @@ export default function QiblaScreen() {
           <Animated.View
             style={[styles.absoluteFill, { transform: [{ rotate: compassRotate }] }]}
           >
-            <CompassFace tintColor={colors.tint} />
+            <CompassFace
+              tintColor={colors.gold}
+              faceColor={colors.surface}
+              ringColor={colors.gold}
+              textColor={colors.text}
+            />
           </Animated.View>
 
           {/* Islamic pattern on compass face (static decoration) */}
