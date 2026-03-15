@@ -310,7 +310,6 @@ const styles = StyleSheet.create({
   },
   headerTop: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 4,
   },
@@ -335,6 +334,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    flexShrink: 0,
+    marginLeft: "auto" as any,
   },
   timeContainer: {
     alignItems: "flex-end",
