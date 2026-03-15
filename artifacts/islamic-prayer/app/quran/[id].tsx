@@ -67,6 +67,8 @@ export default function QuranDetailScreen() {
   const [showReciterModal, setShowReciterModal] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const [reciterListAtBottom, setReciterListAtBottom] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState<number>(1.0);
+  const playbackRateRef = useRef<number>(1.0);
   const soundRef = useRef<any>(null);
   const previewAudioRef = useRef<any>(null);
   // Preloaded next audio (web only)
@@ -129,6 +131,21 @@ export default function QuranDetailScreen() {
       stopPreview();
     }
   }, [showReciterModal]);
+
+  // Keep ref in sync so async callbacks always see the latest rate
+  useEffect(() => {
+    playbackRateRef.current = playbackRate;
+  }, [playbackRate]);
+
+  // Live-update rate on currently playing audio
+  useEffect(() => {
+    if (!soundRef.current) return;
+    if (Platform.OS === "web") {
+      try { (soundRef.current as HTMLAudioElement).playbackRate = playbackRate; } catch {}
+    } else {
+      soundRef.current.setRateAsync?.(playbackRate, true).catch(() => {});
+    }
+  }, [playbackRate]);
 
   const stopAudio = useCallback(async () => {
     if (soundRef.current) {
@@ -300,6 +317,7 @@ export default function QuranDetailScreen() {
           soundRef.current = audio;
           audio.onerror = () => { if (isMountedRef.current) setPlayState("idle"); };
           audio.onended = onEnded;
+          audio.playbackRate = playbackRateRef.current;
 
           // Play immediately — no canplaythrough gate
           // Preloaded audio starts near-instantly; fresh audio buffers in background
@@ -317,6 +335,7 @@ export default function QuranDetailScreen() {
           await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
           const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
           soundRef.current = sound;
+          try { await sound.setRateAsync(playbackRateRef.current, true); } catch {}
           if (isMountedRef.current) setPlayState("playing");
           sound.setOnPlaybackStatusUpdate((status: any) => {
             if (!isMountedRef.current) return;
@@ -407,18 +426,18 @@ export default function QuranDetailScreen() {
         </View>
         <View style={styles.headerMeta}>
           <View style={styles.metaItem}>
-            <Text style={styles.metaValue}>{surah.verses}</Text>
-            <Text style={styles.metaLabel}>Verses</Text>
+            <Text style={[styles.metaValue, { color: colors.text }]}>{surah.verses}</Text>
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Verses</Text>
           </View>
-          <View style={styles.metaDivider} />
+          <View style={[styles.metaDivider, { backgroundColor: colors.border }]} />
           <View style={styles.metaItem}>
-            <Text style={styles.metaValue}>{surah.revelationType}</Text>
-            <Text style={styles.metaLabel}>Revelation</Text>
+            <Text style={[styles.metaValue, { color: colors.text }]}>{surah.revelationType}</Text>
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Revelation</Text>
           </View>
-          <View style={styles.metaDivider} />
+          <View style={[styles.metaDivider, { backgroundColor: colors.border }]} />
           <View style={styles.metaItem}>
-            <Text style={styles.metaValue}>Juz {surah.juz}</Text>
-            <Text style={styles.metaLabel}>Location</Text>
+            <Text style={[styles.metaValue, { color: colors.text }]}>Juz {surah.juz}</Text>
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Location</Text>
           </View>
         </View>
       </View>
@@ -426,7 +445,7 @@ export default function QuranDetailScreen() {
       {/* Controls bar */}
       <View style={[styles.controlsBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.reciterBtn, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: colors.border }]}
+          style={[styles.reciterBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
           onPress={() => setShowReciterModal(true)}
         >
           <Feather name="mic" size={13} color={colors.tint} />
@@ -448,10 +467,26 @@ export default function QuranDetailScreen() {
               </Text>
             </TouchableOpacity>
           )}
+          {/* Speed selector */}
+          <TouchableOpacity
+            style={[styles.toggleChip, {
+              backgroundColor: playbackRate !== 1.0 ? colors.tint + "20" : colors.surfaceElevated,
+              borderColor: playbackRate !== 1.0 ? colors.tint + "60" : colors.border,
+            }]}
+            onPress={() => {
+              const speeds = [1.0, 1.5, 2.0];
+              const next = speeds[(speeds.indexOf(playbackRate) + 1) % speeds.length];
+              setPlaybackRate(next);
+            }}
+          >
+            <Text style={[styles.toggleChipText, { color: playbackRate !== 1.0 ? colors.tint : colors.textSecondary }]}>
+              {playbackRate === 1.0 ? "1×" : `${playbackRate}×`}
+            </Text>
+          </TouchableOpacity>
           {/* Transliteration toggle */}
           <TouchableOpacity
             style={[styles.toggleChip, {
-              backgroundColor: showTransliteration ? colors.gold + "20" : "rgba(255,255,255,0.05)",
+              backgroundColor: showTransliteration ? colors.gold + "20" : colors.surfaceElevated,
               borderColor: showTransliteration ? colors.gold + "60" : colors.border,
             }]}
             onPress={() => setShowTransliteration((v) => !v)}
