@@ -29,7 +29,8 @@ export default function PrayerScreen() {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const [nextPrayer, setNextPrayer] = useState<PrayerTime | null>(null);
-  const [timeUntil, setTimeUntil] = useState<string>("");
+  const [currentPrayer, setCurrentPrayer] = useState<PrayerTime | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [progress, setProgress] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -54,18 +55,21 @@ export default function PrayerScreen() {
     if (prayerTimes) {
       const next = getNextPrayer(prayerTimes);
       setNextPrayer(next);
-      if (next) {
-        setTimeUntil(getTimeUntilPrayer(next));
-        const now = Date.now();
-        const pList = [prayerTimes.fajr, prayerTimes.dhuhr, prayerTimes.asr, prayerTimes.maghrib, prayerTimes.isha];
-        const prev = [...pList].reverse().find((p) => p.time.getTime() <= now);
-        if (prev) {
-          const total = next.time.getTime() - prev.time.getTime();
-          const elapsed = now - prev.time.getTime();
-          setProgress(Math.min(1, Math.max(0, elapsed / total)));
-        } else {
-          setProgress(0);
-        }
+      const now = Date.now();
+      const pList = [prayerTimes.fajr, prayerTimes.dhuhr, prayerTimes.asr, prayerTimes.maghrib, prayerTimes.isha];
+      // Current prayer = most recently started prayer
+      const prev = [...pList].reverse().find((p) => p.time.getTime() <= now) ?? null;
+      setCurrentPrayer(prev);
+      if (prev && next) {
+        // Time remaining = time until the next prayer
+        setTimeRemaining(getTimeUntilPrayer(next));
+        const total = next.time.getTime() - prev.time.getTime();
+        const elapsed = now - prev.time.getTime();
+        setProgress(Math.min(1, Math.max(0, elapsed / total)));
+      } else if (next) {
+        // Before Fajr — nothing has started yet
+        setTimeRemaining(getTimeUntilPrayer(next));
+        setProgress(0);
       }
     }
   }, [prayerTimes, currentTime]);
@@ -86,7 +90,7 @@ export default function PrayerScreen() {
   };
 
   const isActivePrayer = (prayerName: string) => {
-    return nextPrayer?.name.toLowerCase() === prayerName.toLowerCase();
+    return currentPrayer?.name.toLowerCase() === prayerName.toLowerCase();
   };
 
   const formatCurrentTime = () => {
@@ -157,8 +161,8 @@ export default function PrayerScreen() {
 
           <Text style={[styles.gregorianDate, { color: colors.textSecondary }]}>{formatDate()}</Text>
 
-          {/* Next Prayer Card */}
-          {nextPrayer && (
+          {/* Current / Next Prayer Card */}
+          {(currentPrayer || nextPrayer) && (
             <Animated.View
               style={[
                 styles.nextPrayerCard,
@@ -169,24 +173,55 @@ export default function PrayerScreen() {
                 },
               ]}
             >
-              <View style={styles.nextPrayerTop}>
-                <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={[styles.nextLabel, { color: colors.textSecondary }]}>Next Prayer</Text>
-                  <Text style={[styles.nextPrayerName, { color: colors.text }]} numberOfLines={1}>{nextPrayer.name}</Text>
-                  <Text style={[styles.nextPrayerArabic, { color: colors.textSecondary }]}>{nextPrayer.arabicName}</Text>
-                </View>
-                <View style={styles.nextRight}>
-                  <Text style={[styles.nextTime, { color: colors.text }]}>{nextPrayer.timeString}</Text>
-                  <View style={[styles.countdownBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "55" }]}>
-                    <Text style={[styles.countdown, { color: colors.gold }]}>{timeUntil}</Text>
+              {currentPrayer ? (
+                <>
+                  <View style={styles.nextPrayerTop}>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <View style={styles.nowBadgeRow}>
+                        <View style={[styles.nowDot, { backgroundColor: colors.tint }]} />
+                        <Text style={[styles.nextLabel, { color: colors.tint }]}>NOW</Text>
+                      </View>
+                      <Text style={[styles.nextPrayerName, { color: colors.text }]} numberOfLines={1}>{currentPrayer.name}</Text>
+                      <Text style={[styles.nextPrayerArabic, { color: colors.textSecondary }]}>{currentPrayer.arabicName}</Text>
+                    </View>
+                    <View style={styles.nextRight}>
+                      <Text style={[styles.nextTime, { color: colors.text }]}>{currentPrayer.timeString}</Text>
+                      <View style={[styles.countdownBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "55" }]}>
+                        <Text style={[styles.countdown, { color: colors.gold }]}>{timeRemaining} left</Text>
+                      </View>
+                    </View>
                   </View>
-                </View>
-              </View>
-              {/* Progress bar */}
-              <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-                <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any }]} />
-              </View>
-              <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>{Math.round(progress * 100)}% of time elapsed</Text>
+                  {/* Progress bar — elapsed in this prayer window */}
+                  <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                    <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any }]} />
+                  </View>
+                  <View style={styles.progressFooter}>
+                    <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>{Math.round(progress * 100)}% elapsed</Text>
+                    {nextPrayer && (
+                      <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
+                        Next: {nextPrayer.name} at {nextPrayer.timeString}
+                      </Text>
+                    )}
+                  </View>
+                </>
+              ) : (
+                /* Before Fajr — nothing started yet, show upcoming Fajr */
+                <>
+                  <View style={styles.nextPrayerTop}>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text style={[styles.nextLabel, { color: colors.textSecondary }]}>UPCOMING</Text>
+                      <Text style={[styles.nextPrayerName, { color: colors.text }]} numberOfLines={1}>{nextPrayer!.name}</Text>
+                      <Text style={[styles.nextPrayerArabic, { color: colors.textSecondary }]}>{nextPrayer!.arabicName}</Text>
+                    </View>
+                    <View style={styles.nextRight}>
+                      <Text style={[styles.nextTime, { color: colors.text }]}>{nextPrayer!.timeString}</Text>
+                      <View style={[styles.countdownBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "55" }]}>
+                        <Text style={[styles.countdown, { color: colors.gold }]}>in {timeRemaining}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </>
+              )}
             </Animated.View>
           )}
         </View>
@@ -248,7 +283,7 @@ export default function PrayerScreen() {
                   <View style={styles.prayerRight}>
                     {isActive && (
                       <View style={[styles.activeBadge, { backgroundColor: colors.background + "33" }]}>
-                        <Text style={[styles.activeBadgeText, { color: colors.background }]}>Next</Text>
+                        <Text style={[styles.activeBadgeText, { color: colors.background }]}>Now</Text>
                       </View>
                     )}
                     <Text style={[
@@ -374,10 +409,25 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(212, 160, 23, 0.85)",
     borderRadius: 2,
   },
+  progressFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   progressLabel: {
     fontSize: 10,
     fontFamily: "Inter_400Regular",
-    textAlign: "right",
+  },
+  nowBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+  nowDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
   nextLabel: {
     fontSize: 11,
