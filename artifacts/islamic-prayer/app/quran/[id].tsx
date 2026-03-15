@@ -288,13 +288,13 @@ export default function QuranDetailScreen() {
               borderColor: playbackRate !== 1.0 ? colors.tint + "60" : colors.border,
             }]}
             onPress={() => {
-              const speeds = [1.0, 1.5, 2.0];
+              const speeds = [0.75, 1.0, 1.5, 2.0];
               const next = speeds[(speeds.indexOf(playbackRate) + 1) % speeds.length];
               setPlaybackRate(next);
             }}
           >
             <Text style={[styles.toggleChipText, { color: playbackRate !== 1.0 ? colors.tint : colors.textSecondary }]}>
-              {playbackRate === 1.0 ? "1×" : `${playbackRate}×`}
+              {playbackRate === 0.75 ? "¾×" : playbackRate === 1.0 ? "1×" : `${playbackRate}×`}
             </Text>
           </TouchableOpacity>
           {/* Transliteration toggle */}
