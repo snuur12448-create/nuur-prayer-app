@@ -13,6 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { NuurLogo } from "@/components/NuurLogo";
 
+const LOGO_GOLD = "#C9933A";
+
 interface MoreItem {
   label: string;
   arabic: string;
@@ -77,18 +79,18 @@ export default function MoreScreen() {
       >
         {/* Nuur Logo */}
         <View style={styles.logoBlock}>
-          <NuurLogo size={130} gold={colors.gold} />
+          <NuurLogo size={130} />
           <View style={styles.logoText}>
-            <Text style={[styles.logoArabic, { color: colors.text }]}>نُور</Text>
+            <Text style={[styles.logoArabic, { color: LOGO_GOLD }]}>نُور</Text>
             <View style={styles.dividerRow}>
-              <View style={[styles.dividerLine, { backgroundColor: colors.gold + "55" }]} />
-              <Text style={[styles.dividerDot, { color: colors.gold + "99" }]}>✦</Text>
-              <View style={[styles.dividerLine, { backgroundColor: colors.gold + "55" }]} />
+              <View style={[styles.dividerLine, { backgroundColor: LOGO_GOLD + "55" }]} />
+              <Text style={[styles.dividerDot, { color: LOGO_GOLD + "99" }]}>✦</Text>
+              <View style={[styles.dividerLine, { backgroundColor: LOGO_GOLD + "55" }]} />
             </View>
-            <Text style={[styles.logoLatin, { color: colors.textSecondary }]}>NUUR</Text>
+            <Text style={[styles.logoLatin, { color: LOGO_GOLD + "CC" }]}>NUUR</Text>
             <Text style={[styles.logoTagline, { color: colors.textSecondary }]}>Light for your daily deen</Text>
           </View>
-          <View style={[styles.logoDivider, { backgroundColor: colors.gold + "40" }]} />
+          <View style={[styles.logoDivider, { backgroundColor: LOGO_GOLD + "40" }]} />
         </View>
 
         {/* Section label */}
