@@ -13,9 +13,10 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { AdhanOverlay } from "@/components/AdhanOverlay";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NuurSplash } from "@/components/NuurSplash";
-import { AppProvider } from "@/context/AppContext";
+import { AppProvider, useAppContext } from "@/context/AppContext";
 import { QuranPlayerProvider } from "@/context/QuranPlayerContext";
 
 SplashScreen.preventAutoHideAsync();
@@ -28,6 +29,23 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="quran/[id]" options={{ headerShown: false, presentation: "card" }} />
     </Stack>
+  );
+}
+
+function AdhanGate() {
+  const { adhanPlaying, adhanPrayerName, adhanPrayerArabicName, adhanCurrentStyle, stopAdhan } =
+    useAppContext();
+
+  if (!adhanPlaying || !adhanPrayerName || !adhanPrayerArabicName) return null;
+
+  return (
+    <AdhanOverlay
+      prayerName={adhanPrayerName}
+      prayerArabicName={adhanPrayerArabicName}
+      reciter={adhanCurrentStyle.reciter}
+      styleName={adhanCurrentStyle.name}
+      onStop={stopAdhan}
+    />
   );
 }
 
@@ -57,6 +75,7 @@ export default function RootLayout() {
               <AppProvider>
                 <QuranPlayerProvider>
                   <RootLayoutNav />
+                  <AdhanGate />
                   {!splashDone && (
                     <NuurSplash onComplete={() => setSplashDone(true)} />
                   )}

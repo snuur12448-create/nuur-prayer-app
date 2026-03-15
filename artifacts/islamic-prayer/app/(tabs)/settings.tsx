@@ -24,6 +24,8 @@ import {
   HighLatRuleId,
   TimeFormat,
 } from "@/utils/prayerTimes";
+import { ADHAN_STYLES, AdhanStyle } from "@/utils/adhanData";
+import { previewAdhan, stopAdhanAudio } from "@/utils/adhanPlayer";
 
 const isWeb = Platform.OS === "web";
 const THEME_ORDER: ThemeName[] = ["emerald", "midnight", "amber", "violet", "rose"];
@@ -67,8 +69,7 @@ function SegmentControl<T extends string>({
             <Text
               style={[
                 styles.segmentLabel,
-                { color: active ? (colors.background.startsWith("#F") ? "#fff" : "#000") : colors.textSecondary },
-                active && { color: "#fff" },
+                { color: active ? "#fff" : colors.textSecondary },
               ]}
             >
               {opt.label}
@@ -81,16 +82,8 @@ function SegmentControl<T extends string>({
 }
 
 function ThemeSwatch({
-  name,
-  isActive,
-  displayMode,
-  onPress,
-}: {
-  name: ThemeName;
-  isActive: boolean;
-  displayMode: DisplayMode;
-  onPress: () => void;
-}) {
+  name, isActive, displayMode, onPress,
+}: { name: ThemeName; isActive: boolean; displayMode: DisplayMode; onPress: () => void }) {
   const theme = THEMES[name];
   const [accent, bg] = theme.swatch;
   const activeBg = displayMode === "light" ? theme.lightColors.background : bg;
@@ -123,17 +116,10 @@ function ThemeSwatch({
 }
 
 function CalcMethodModal({
-  visible,
-  current,
-  onSelect,
-  onClose,
-  colors,
+  visible, current, onSelect, onClose, colors,
 }: {
-  visible: boolean;
-  current: CalcMethodId;
-  onSelect: (id: CalcMethodId) => void;
-  onClose: () => void;
-  colors: any;
+  visible: boolean; current: CalcMethodId; onSelect: (id: CalcMethodId) => void;
+  onClose: () => void; colors: any;
 }) {
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -156,8 +142,7 @@ function CalcMethodModal({
                 key={method.id}
                 onPress={() => { onSelect(method.id); onClose(); }}
                 style={[
-                  styles.methodRow,
-                  { borderBottomColor: colors.border },
+                  styles.methodRow, { borderBottomColor: colors.border },
                   i === CALC_METHODS.length - 1 && { borderBottomWidth: 0 },
                   active && { backgroundColor: colors.tint + "14" },
                 ]}
@@ -166,21 +151,140 @@ function CalcMethodModal({
                   <Text style={[styles.methodName, { color: active ? colors.tint : colors.text }]}>
                     {method.label}
                   </Text>
-                  <Text style={[styles.methodRegion, { color: colors.textSecondary }]}>
-                    {method.region}
-                  </Text>
-                  <Text style={[styles.methodDetail, { color: colors.textSecondary }]}>
-                    {method.detail}
-                  </Text>
+                  <Text style={[styles.methodRegion, { color: colors.textSecondary }]}>{method.region}</Text>
+                  <Text style={[styles.methodDetail, { color: colors.textSecondary }]}>{method.detail}</Text>
                 </View>
-                {active && (
+                {active ? (
                   <View style={[styles.radioActive, { backgroundColor: colors.tint }]}>
                     <Feather name="check" size={12} color="#fff" />
                   </View>
-                )}
-                {!active && (
+                ) : (
                   <View style={[styles.radioInactive, { borderColor: colors.border }]} />
                 )}
+              </TouchableOpacity>
+            );
+          })}
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+function AdhanStyleModal({
+  visible, current, onSelect, onClose, colors,
+}: {
+  visible: boolean; current: string; onSelect: (id: string) => void;
+  onClose: () => void; colors: any;
+}) {
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+
+  const handlePreview = async (style: AdhanStyle) => {
+    if (previewingId === style.id) {
+      await stopAdhanAudio();
+      setPreviewingId(null);
+    } else {
+      setPreviewingId(style.id);
+      await previewAdhan(style.audioUrl);
+      setPreviewingId(null);
+    }
+  };
+
+  const handleClose = async () => {
+    await stopAdhanAudio();
+    setPreviewingId(null);
+    onClose();
+  };
+
+  const handleSelect = async (id: string) => {
+    await stopAdhanAudio();
+    setPreviewingId(null);
+    onSelect(id);
+    onClose();
+  };
+
+  return (
+    <Modal transparent visible={visible} animationType="slide" onRequestClose={handleClose}>
+      <TouchableWithoutFeedback onPress={handleClose}>
+        <View style={styles.modalBackdrop} />
+      </TouchableWithoutFeedback>
+      <View style={[styles.methodSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+        <View style={[styles.sheetHeaderRow, { borderBottomColor: colors.border }]}>
+          <View>
+            <Text style={[styles.sheetTitle, { color: colors.text }]}>Adhan Style</Text>
+            <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
+              Tap ▶ to preview · Tap row to select
+            </Text>
+          </View>
+          <TouchableOpacity onPress={handleClose} style={[styles.closeBtn, { borderColor: colors.border }]}>
+            <Feather name="x" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.methodList}>
+          {ADHAN_STYLES.map((style, i) => {
+            const active = style.id === current;
+            const isPreviewing = previewingId === style.id;
+            return (
+              <TouchableOpacity
+                key={style.id}
+                onPress={() => handleSelect(style.id)}
+                style={[
+                  styles.adhanRow,
+                  { borderBottomColor: colors.border },
+                  i === ADHAN_STYLES.length - 1 && { borderBottomWidth: 0 },
+                  active && { backgroundColor: colors.tint + "12" },
+                ]}
+              >
+                {/* Left: text info */}
+                <View style={styles.adhanRowLeft}>
+                  <View style={styles.adhanNameRow}>
+                    <Text style={[styles.adhanName, { color: active ? colors.tint : colors.text }]}>
+                      {style.name}
+                    </Text>
+                    <Text style={[styles.adhanArabic, { color: colors.gold }]}>
+                      {style.arabic}
+                    </Text>
+                  </View>
+                  <Text style={[styles.adhanReciter, { color: colors.textSecondary }]}>
+                    {style.reciter}
+                  </Text>
+                  <View style={styles.adhanLocationRow}>
+                    <Feather name="map-pin" size={10} color={colors.textSecondary} />
+                    <Text style={[styles.adhanLocation, { color: colors.textSecondary }]}>
+                      {style.location}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Right: preview + radio */}
+                <View style={styles.adhanRowRight}>
+                  <TouchableOpacity
+                    onPress={() => handlePreview(style)}
+                    hitSlop={10}
+                    style={[
+                      styles.previewBtn,
+                      {
+                        backgroundColor: isPreviewing ? colors.gold + "22" : colors.surfaceElevated,
+                        borderColor: isPreviewing ? colors.gold : colors.border,
+                      },
+                    ]}
+                  >
+                    <Feather
+                      name={isPreviewing ? "square" : "play"}
+                      size={12}
+                      color={isPreviewing ? colors.gold : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+
+                  {active ? (
+                    <View style={[styles.radioActive, { backgroundColor: colors.tint }]}>
+                      <Feather name="check" size={12} color="#fff" />
+                    </View>
+                  ) : (
+                    <View style={[styles.radioInactive, { borderColor: colors.border }]} />
+                  )}
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -204,9 +308,13 @@ export default function SettingsScreen() {
     highLatRule, setHighLatRule,
     timeFormat, setTimeFormat,
     notificationsEnabled, toggleNotifications,
+    adhanEnabled, toggleAdhan,
+    adhanStyleId, setAdhanStyleId,
+    adhanCurrentStyle,
   } = useAppContext();
 
   const [showMethodModal, setShowMethodModal] = useState(false);
+  const [showAdhanModal, setShowAdhanModal] = useState(false);
 
   const currentMethod = CALC_METHODS.find((m) => m.id === calcMethod);
 
@@ -226,17 +334,13 @@ export default function SettingsScreen() {
         {/* ── APPEARANCE ── */}
         <SectionHeader title="APPEARANCE" colors={colors} />
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {/* Dark / Light */}
           <View style={styles.cardRow}>
             <View style={styles.rowLeft}>
               <Feather name="sun" size={16} color={colors.tint} style={styles.rowIcon} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>Display Mode</Text>
             </View>
             <SegmentControl<DisplayMode>
-              options={[
-                { value: "dark", label: "Dark" },
-                { value: "light", label: "Light" },
-              ]}
+              options={[{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }]}
               value={displayMode}
               onChange={setDisplayMode}
               colors={colors}
@@ -245,7 +349,6 @@ export default function SettingsScreen() {
 
           <RowSeparator colors={colors} />
 
-          {/* Theme swatches */}
           <View style={[styles.cardRow, styles.swatchSection]}>
             <View style={styles.rowLeft}>
               <Feather name="droplet" size={16} color={colors.tint} style={styles.rowIcon} />
@@ -253,13 +356,8 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.swatchRow}>
               {THEME_ORDER.map((name) => (
-                <ThemeSwatch
-                  key={name}
-                  name={name}
-                  isActive={themeName === name}
-                  displayMode={displayMode}
-                  onPress={() => setThemeName(name)}
-                />
+                <ThemeSwatch key={name} name={name} isActive={themeName === name}
+                  displayMode={displayMode} onPress={() => setThemeName(name)} />
               ))}
             </View>
           </View>
@@ -268,12 +366,7 @@ export default function SettingsScreen() {
         {/* ── PRAYER TIMES ── */}
         <SectionHeader title="PRAYER TIMES" colors={colors} />
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {/* Calculation Method */}
-          <TouchableOpacity
-            style={styles.cardRow}
-            onPress={() => setShowMethodModal(true)}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.cardRow} onPress={() => setShowMethodModal(true)} activeOpacity={0.7}>
             <View style={styles.rowLeft}>
               <Feather name="clock" size={16} color={colors.tint} style={styles.rowIcon} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>Calculation Method</Text>
@@ -288,7 +381,6 @@ export default function SettingsScreen() {
 
           <RowSeparator colors={colors} />
 
-          {/* Asr Juristic Method */}
           <View style={[styles.cardRow, styles.columnRow]}>
             <View style={[styles.rowLeft, styles.rowLabelFull]}>
               <Feather name="sunset" size={16} color={colors.tint} style={styles.rowIcon} />
@@ -300,10 +392,7 @@ export default function SettingsScreen() {
               </View>
             </View>
             <SegmentControl<MadhabId>
-              options={[
-                { value: "Shafi", label: "Standard" },
-                { value: "Hanafi", label: "Hanafi" },
-              ]}
+              options={[{ value: "Shafi", label: "Standard" }, { value: "Hanafi", label: "Hanafi" }]}
               value={madhab}
               onChange={setMadhab}
               colors={colors}
@@ -312,7 +401,6 @@ export default function SettingsScreen() {
 
           <RowSeparator colors={colors} />
 
-          {/* High Latitude Rule */}
           <View style={[styles.cardRow, styles.columnRow]}>
             <View style={[styles.rowLeft, styles.rowLabelFull]}>
               <Feather name="globe" size={16} color={colors.tint} style={styles.rowIcon} />
@@ -323,7 +411,7 @@ export default function SettingsScreen() {
                 </Text>
               </View>
             </View>
-            <View style={[styles.chipGroup]}>
+            <View style={styles.chipGroup}>
               {HIGH_LAT_RULES.map((rule) => {
                 const active = rule.id === highLatRule;
                 return (
@@ -355,15 +443,81 @@ export default function SettingsScreen() {
               <Text style={[styles.rowLabel, { color: colors.text }]}>Time Format</Text>
             </View>
             <SegmentControl<TimeFormat>
-              options={[
-                { value: "12h", label: "12h" },
-                { value: "24h", label: "24h" },
-              ]}
+              options={[{ value: "12h", label: "12h" }, { value: "24h", label: "24h" }]}
               value={timeFormat}
               onChange={setTimeFormat}
               colors={colors}
             />
           </View>
+        </View>
+
+        {/* ── ADHAN ── */}
+        <SectionHeader title="ADHAN" colors={colors} />
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {/* Enable toggle */}
+          <View style={styles.cardRow}>
+            <View style={styles.rowLeft}>
+              <Feather name="volume-2" size={16} color={colors.tint} style={styles.rowIcon} />
+              <View>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Play Adhan</Text>
+                <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                  Plays the call to prayer at each prayer time
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={adhanEnabled}
+              onValueChange={toggleAdhan}
+              trackColor={{ false: colors.border, true: colors.tint + "80" }}
+              thumbColor={adhanEnabled ? colors.tint : colors.textSecondary}
+            />
+          </View>
+
+          <RowSeparator colors={colors} />
+
+          {/* Style picker */}
+          <TouchableOpacity
+            style={[styles.cardRow, !adhanEnabled && styles.disabledRow]}
+            onPress={() => adhanEnabled && setShowAdhanModal(true)}
+            activeOpacity={adhanEnabled ? 0.7 : 1}
+          >
+            <View style={styles.rowLeft}>
+              <Feather name="music" size={16} color={adhanEnabled ? colors.tint : colors.textSecondary} style={styles.rowIcon} />
+              <View>
+                <Text style={[styles.rowLabel, { color: adhanEnabled ? colors.text : colors.textSecondary }]}>
+                  Adhan Style
+                </Text>
+                <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                  {adhanCurrentStyle.reciter}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.rowRight}>
+              <View style={[styles.adhanStyleChip, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "44" }]}>
+                <Text style={[styles.adhanStyleChipText, { color: colors.gold }]}>
+                  {adhanCurrentStyle.name}
+                </Text>
+              </View>
+              <Feather
+                name="chevron-right"
+                size={16}
+                color={adhanEnabled ? colors.textSecondary : colors.border}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Description */}
+          {adhanEnabled && (
+            <>
+              <RowSeparator colors={colors} />
+              <View style={[styles.adhanInfoRow, { backgroundColor: colors.gold + "0C" }]}>
+                <Feather name="map-pin" size={12} color={colors.gold} />
+                <Text style={[styles.adhanInfoText, { color: colors.textSecondary }]}>
+                  {adhanCurrentStyle.location} · {adhanCurrentStyle.description}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* ── NOTIFICATIONS ── */}
@@ -436,6 +590,14 @@ export default function SettingsScreen() {
         onClose={() => setShowMethodModal(false)}
         colors={colors}
       />
+
+      <AdhanStyleModal
+        visible={showAdhanModal}
+        current={adhanStyleId}
+        onSelect={setAdhanStyleId}
+        onClose={() => setShowAdhanModal(false)}
+        colors={colors}
+      />
     </View>
   );
 }
@@ -447,16 +609,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1,
-  },
-  headerSub: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
-  },
+  headerTitle: { fontSize: 28, fontFamily: "Inter_700Bold", letterSpacing: 1 },
+  headerSub: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingTop: 20 },
 
@@ -492,26 +646,17 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 16,
   },
+  disabledRow: { opacity: 0.45 },
   rowLeft: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
     gap: 10,
   },
-  rowLabelFull: {
-    flex: undefined,
-    width: "100%",
-  },
+  rowLabelFull: { flex: undefined, width: "100%" },
   rowIcon: { width: 20 },
-  rowLabel: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-  },
-  rowHint: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
-  },
+  rowLabel: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  rowHint: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
   rowRight: {
     flexDirection: "row",
     alignItems: "center",
@@ -524,10 +669,7 @@ const styles = StyleSheet.create({
     maxWidth: 160,
     textAlign: "right",
   },
-  separator: {
-    height: 1,
-    marginHorizontal: 16,
-  },
+  separator: { height: 1, marginHorizontal: 16 },
 
   segment: {
     flexDirection: "row",
@@ -541,137 +683,102 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  segmentBtnBorder: {
-    borderRightWidth: 1,
-  },
-  segmentLabel: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
+  segmentBtnBorder: { borderRightWidth: 1 },
+  segmentLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 
-  swatchRow: {
-    flexDirection: "row",
-    gap: 12,
-    paddingLeft: 26,
-  },
-  swatchWrapper: {
-    alignItems: "center",
-    gap: 6,
-  },
+  swatchRow: { flexDirection: "row", gap: 12, paddingLeft: 26 },
+  swatchWrapper: { alignItems: "center", gap: 6 },
   swatchOuter: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: "transparent",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
+    width: 48, height: 48, borderRadius: 24,
+    borderWidth: 2, borderColor: "transparent",
+    alignItems: "center", justifyContent: "center", overflow: "hidden",
   },
-  swatchCheck: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  swatchCheckText: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: "Inter_700Bold",
-  },
+  swatchCheck: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  swatchCheckText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
   swatchLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_600SemiBold",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
+    fontSize: 10, fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase", letterSpacing: 0.4,
   },
 
-  chipGroup: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    paddingLeft: 26,
-  },
-  chip: {
+  chipGroup: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingLeft: 26 },
+  chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  chipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+
+  adhanStyleChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
     borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
   },
-  chipText: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
+  adhanStyleChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  adhanInfoRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
+  adhanInfoText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
 
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
-  },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
   methodSheet: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 0, left: 0, right: 0,
     maxHeight: "75%",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
+    borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1,
   },
   sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: "center",
-    marginTop: 10,
-    marginBottom: 4,
+    width: 36, height: 4, borderRadius: 2,
+    alignSelf: "center", marginTop: 10, marginBottom: 4,
   },
   sheetHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "row", alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: 20, paddingVertical: 14,
     borderBottomWidth: 1,
   },
-  sheetTitle: {
-    fontSize: 17,
-    fontFamily: "Inter_700Bold",
-  },
+  sheetTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  sheetSubtitle: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
   closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 30, height: 30, borderRadius: 15,
+    borderWidth: 1, alignItems: "center", justifyContent: "center",
   },
   methodList: { flex: 1 },
   methodRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    gap: 12,
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 20, paddingVertical: 14,
+    borderBottomWidth: 1, gap: 12,
   },
   methodRowLeft: { flex: 1, gap: 2 },
   methodName: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   methodRegion: { fontSize: 12, fontFamily: "Inter_400Regular" },
   methodDetail: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
   radioActive: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
+    width: 24, height: 24, borderRadius: 12,
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
-  radioInactive: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    flexShrink: 0,
+  radioInactive: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, flexShrink: 0 },
+
+  adhanRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
+  adhanRowLeft: { flex: 1, gap: 4 },
+  adhanNameRow: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
+  adhanName: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  adhanArabic: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  adhanReciter: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  adhanLocationRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  adhanLocation: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  adhanRowRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  previewBtn: {
+    width: 30, height: 30, borderRadius: 8,
+    borderWidth: 1, alignItems: "center", justifyContent: "center",
   },
 });

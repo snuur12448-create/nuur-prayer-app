@@ -27,6 +27,13 @@ import {
   requestNotificationPermission,
   schedulePrayerNotifications,
 } from "@/utils/notifications";
+import {
+  ADHAN_STYLES,
+  DEFAULT_ADHAN_STYLE_ID,
+  getAdhanStyle,
+  AdhanStyle,
+} from "@/utils/adhanData";
+import { playAdhanAudio, stopAdhanAudio } from "@/utils/adhanPlayer";
 
 export interface LocationData {
   latitude: number;
@@ -61,6 +68,15 @@ interface AppContextType {
   setHighLatRule: (rule: HighLatRuleId) => void;
   timeFormat: TimeFormat;
   setTimeFormat: (format: TimeFormat) => void;
+  adhanEnabled: boolean;
+  adhanStyleId: string;
+  setAdhanStyleId: (id: string) => Promise<void>;
+  toggleAdhan: () => Promise<void>;
+  adhanPlaying: boolean;
+  adhanPrayerName: string | null;
+  adhanPrayerArabicName: string | null;
+  adhanCurrentStyle: AdhanStyle;
+  stopAdhan: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -75,6 +91,8 @@ const STORAGE_KEYS = {
   MADHAB: "madhab",
   HIGH_LAT_RULE: "high_lat_rule",
   TIME_FORMAT: "time_format",
+  ADHAN_ENABLED: "adhan_enabled",
+  ADHAN_STYLE: "adhan_style",
 };
 
 function getTimezoneOffset(): number {
@@ -113,6 +131,8 @@ async function nominatimCity(lat: number, lng: number): Promise<string | null> {
   }
 }
 
+const PRAYER_KEYS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useState<LocationData | null>(null);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimesResult | null>(null);
@@ -128,25 +148,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [highLatRule, setHighLatRuleState] = useState<HighLatRuleId>(DEFAULT_HIGH_LAT_RULE);
   const [timeFormat, setTimeFormatState] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
 
-  // Refs to always have latest values in async callbacks without stale closures
+  // Adhan state
+  const [adhanEnabled, setAdhanEnabled] = useState(false);
+  const [adhanStyleId, setAdhanStyleIdState] = useState<string>(DEFAULT_ADHAN_STYLE_ID);
+  const [adhanPlaying, setAdhanPlaying] = useState(false);
+  const [adhanPrayerName, setAdhanPrayerName] = useState<string | null>(null);
+  const [adhanPrayerArabicName, setAdhanPrayerArabicName] = useState<string | null>(null);
+
+  // Refs for latest values inside async/interval callbacks
   const calcMethodRef = useRef(calcMethod);
   const madhabRef = useRef(madhab);
   const highLatRuleRef = useRef(highLatRule);
   const timeFormatRef = useRef(timeFormat);
   const notificationsRef = useRef(notificationsEnabled);
+  const adhanEnabledRef = useRef(adhanEnabled);
+  const adhanStyleIdRef = useRef(adhanStyleId);
+  const prayerTimesRef = useRef(prayerTimes);
+  const lastPlayedRef = useRef<string>(""); // "prayerKey_YYYY-MM-DD"
 
   useEffect(() => { calcMethodRef.current = calcMethod; }, [calcMethod]);
   useEffect(() => { madhabRef.current = madhab; }, [madhab]);
   useEffect(() => { highLatRuleRef.current = highLatRule; }, [highLatRule]);
   useEffect(() => { timeFormatRef.current = timeFormat; }, [timeFormat]);
   useEffect(() => { notificationsRef.current = notificationsEnabled; }, [notificationsEnabled]);
+  useEffect(() => { adhanEnabledRef.current = adhanEnabled; }, [adhanEnabled]);
+  useEffect(() => { adhanStyleIdRef.current = adhanStyleId; }, [adhanStyleId]);
+  useEffect(() => { prayerTimesRef.current = prayerTimes; }, [prayerTimes]);
 
   const themeColors =
     displayMode === "dark"
       ? THEMES[themeName].colors
       : THEMES[themeName].lightColors;
 
-  // ── Single source of truth: recalculate whenever location OR settings change ──
+  // ── Prayer time calculation ──
   useEffect(() => {
     if (location) {
       try {
@@ -161,7 +195,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [location, calcMethod, madhab, highLatRule, timeFormat]);
 
-  // ── Initialisation ──
+  // ── Adhan prayer-time watcher ──
+  useEffect(() => {
+    const check = () => {
+      if (!adhanEnabledRef.current) return;
+      const times = prayerTimesRef.current;
+      if (!times) return;
+
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10);
+      const nowH = now.getHours();
+      const nowM = now.getMinutes();
+      const nowS = now.getSeconds();
+
+      // Only fire in the first 45 seconds of the minute
+      if (nowS > 45) return;
+
+      for (const key of PRAYER_KEYS) {
+        const prayer = times[key];
+        const pH = prayer.time.getHours();
+        const pM = prayer.time.getMinutes();
+
+        if (pH === nowH && pM === nowM) {
+          const token = `${key}_${todayStr}`;
+          if (lastPlayedRef.current === token) break; // already played today
+          lastPlayedRef.current = token;
+
+          const style = getAdhanStyle(adhanStyleIdRef.current);
+          setAdhanPrayerName(prayer.name);
+          setAdhanPrayerArabicName(prayer.arabicName);
+          setAdhanPlaying(true);
+
+          playAdhanAudio(style.audioUrl, () => {
+            setAdhanPlaying(false);
+            setAdhanPrayerName(null);
+            setAdhanPrayerArabicName(null);
+          });
+          break;
+        }
+      }
+    };
+
+    const interval = setInterval(check, 15_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ── Init ──
   useEffect(() => {
     loadPreferences();
     loadBookmarks();
@@ -170,15 +249,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPreferences = async () => {
     try {
-      const [theme, mode, notifs, method, madhabVal, latRule, fmt] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.THEME),
-        AsyncStorage.getItem(STORAGE_KEYS.DISPLAY_MODE),
-        AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS),
-        AsyncStorage.getItem(STORAGE_KEYS.CALC_METHOD),
-        AsyncStorage.getItem(STORAGE_KEYS.MADHAB),
-        AsyncStorage.getItem(STORAGE_KEYS.HIGH_LAT_RULE),
-        AsyncStorage.getItem(STORAGE_KEYS.TIME_FORMAT),
-      ]);
+      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle] =
+        await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEYS.THEME),
+          AsyncStorage.getItem(STORAGE_KEYS.DISPLAY_MODE),
+          AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS),
+          AsyncStorage.getItem(STORAGE_KEYS.CALC_METHOD),
+          AsyncStorage.getItem(STORAGE_KEYS.MADHAB),
+          AsyncStorage.getItem(STORAGE_KEYS.HIGH_LAT_RULE),
+          AsyncStorage.getItem(STORAGE_KEYS.TIME_FORMAT),
+          AsyncStorage.getItem(STORAGE_KEYS.ADHAN_ENABLED),
+          AsyncStorage.getItem(STORAGE_KEYS.ADHAN_STYLE),
+        ]);
       if (theme && theme in THEMES) setThemeNameState(theme as ThemeName);
       if (mode === "dark" || mode === "light") setDisplayModeState(mode);
       if (notifs === "true") setNotificationsEnabled(true);
@@ -186,6 +268,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (madhabVal === "Hanafi" || madhabVal === "Shafi") setMadhabState(madhabVal);
       if (latRule) setHighLatRuleState(latRule as HighLatRuleId);
       if (fmt === "12h" || fmt === "24h") setTimeFormatState(fmt);
+      if (adhanOn === "true") setAdhanEnabled(true);
+      if (adhanStyle && ADHAN_STYLES.find((s) => s.id === adhanStyle)) {
+        setAdhanStyleIdState(adhanStyle);
+      }
     } catch {}
   };
 
@@ -255,13 +341,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [location]);
 
-  // ── Location helpers — use refs so async callbacks always see latest settings ──
-  const updateLocation = useCallback((loc: LocationData) => {
-    setLocation(loc);
-    // Prayer times recalculated automatically by the useEffect above
+  // ── Adhan callbacks ──
+  const toggleAdhan = useCallback(async () => {
+    const next = !adhanEnabledRef.current;
+    setAdhanEnabled(next);
+    try { await AsyncStorage.setItem(STORAGE_KEYS.ADHAN_ENABLED, next ? "true" : "false"); } catch {}
+    if (!next) {
+      await stopAdhanAudio();
+      setAdhanPlaying(false);
+      setAdhanPrayerName(null);
+      setAdhanPrayerArabicName(null);
+    }
   }, []);
 
-  // Internal GPS fetch — showLoading controls whether isLoadingLocation is updated
+  const setAdhanStyleId = useCallback(async (id: string) => {
+    setAdhanStyleIdState(id);
+    try { await AsyncStorage.setItem(STORAGE_KEYS.ADHAN_STYLE, id); } catch {}
+  }, []);
+
+  const stopAdhan = useCallback(async () => {
+    await stopAdhanAudio();
+    setAdhanPlaying(false);
+    setAdhanPrayerName(null);
+    setAdhanPrayerArabicName(null);
+  }, []);
+
+  // ── Location ──
+  const updateLocation = useCallback((loc: LocationData) => {
+    setLocation(loc);
+  }, []);
+
   const fetchGpsLocation = useCallback(async (showLoading: boolean) => {
     if (showLoading) {
       setIsLoadingLocation(true);
@@ -308,12 +417,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [updateLocation]);
 
-  // Public: user-initiated refresh — shows the loading spinner
   const requestLocation = useCallback(async () => {
     await fetchGpsLocation(true);
   }, [fetchGpsLocation]);
 
-  // Public: manually set a location (city search)
   const setManualLocation = useCallback(async (loc: LocationData) => {
     setUsingDefaultLocation(false);
     setLocationError(null);
@@ -326,7 +433,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const initLocation = async () => {
     setIsLoadingLocation(true);
     setLocationError(null);
-    // Show default location immediately
     setLocation(DEFAULT_LOCATION);
     setUsingDefaultLocation(true);
     try {
@@ -338,7 +444,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {}
     setIsLoadingLocation(false);
-    // Silently refresh GPS in the background — prayer list stays visible
     fetchGpsLocation(false);
   };
 
@@ -388,6 +493,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setHighLatRule,
         timeFormat,
         setTimeFormat,
+        adhanEnabled,
+        adhanStyleId,
+        setAdhanStyleId,
+        toggleAdhan,
+        adhanPlaying,
+        adhanPrayerName,
+        adhanPrayerArabicName,
+        adhanCurrentStyle: getAdhanStyle(adhanStyleId),
+        stopAdhan,
       }}
     >
       {children}

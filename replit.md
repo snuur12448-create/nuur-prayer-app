@@ -116,16 +116,25 @@ Comprehensive Islamic prayer mobile app — **Nuur / نور** — built with Exp
 - Asr juristic method: Shafi/Standard or Hanafi
 - High latitude rule: Twilight Angle, Middle of Night, Seventh of Night, None
 - Time format: 12h or 24h
+- **Adhan toggle + 5 style picker** (Makkah, Madinah, Mishari Al-Afasy, Egyptian, Turkish) with preview button
 - Prayer notifications toggle (native only)
 - About section
+
+**Adhan system:**
+- `utils/adhanData.ts` — 5 `AdhanStyle` objects with id, name, arabic, reciter, location, description, audioUrl (islamcan.com CDN)
+- `utils/adhanPlayer.ts` — `playAdhanAudio(url, onFinish?)`, `stopAdhanAudio()`, `previewAdhan(url)`. Uses expo-av on native, `new Audio()` on web.
+- `components/AdhanOverlay.tsx` — Full-screen overlay with crescent icon, pulsing ring, prayer name in Arabic/English, reciter, stop button. Shown via `AdhanGate` in `_layout.tsx`.
+- `context/AppContext.tsx` — `adhanEnabled`, `adhanStyleId`, `toggleAdhan`, `setAdhanStyleId`, `adhanPlaying`, `adhanPrayerName`, `adhanPrayerArabicName`, `adhanCurrentStyle`, `stopAdhan`. Timer interval (15s) checks prayer times and fires adhan when minute matches.
 
 **Key files:**
 - `utils/prayerTimes.ts` — adhan.js wrapper. `CalcMethodId`, `MadhabId`, `HighLatRuleId`, `TimeFormat` types exported. `calculatePrayerTimes` accepts all settings as optional params with defaults.
 - `utils/audioData.ts` — 8 reciters. CDN types: `verses-quran` (surah/verse path) and `islamic-network` (global ayah num). Sudais uses islamic-network 64kbps; Ibrahim Walk uses 192kbps.
 - `utils/islamicData.ts` — Quran surah list, Dua categories, Islamic reminders, Hijri date conversion
+- `utils/hadithData.ts` — 15 Sahih hadiths with Arabic, transliteration, translation, narrator, source, grade. `getDailyHadith()` rotates daily.
 - `utils/notifications.ts` — expo-notifications: schedules all 5 prayers for next 7 days
-- `context/AppContext.tsx` — All app state: location, prayer times, bookmarks, theme, displayMode, calcMethod, madhab, highLatRule, timeFormat, notifications. All persisted to AsyncStorage.
+- `context/AppContext.tsx` — All app state: location, prayer times, bookmarks, theme, displayMode, calcMethod, madhab, highLatRule, timeFormat, notifications, adhan. All persisted to AsyncStorage.
 - `constants/themes.ts` — 5 `ThemeDefinition`s each with `colors` (dark) and `lightColors` (light). `DisplayMode = "dark" | "light"`.
+- `components/NuurSplash.tsx` — Branded splash with golden ن, rays, glow rings, "نور / NUUR" text. Shows on app open, fades out after ~2.5s.
 
 **Prayer time notes:**
 - adhan.js returns absolute UTC timestamps. `fmtWithTz(d, tz, format)` applies UTC offset manually to avoid browser timezone mismatch.
