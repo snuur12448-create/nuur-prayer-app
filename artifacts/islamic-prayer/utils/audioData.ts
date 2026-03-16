@@ -1,4 +1,4 @@
-export type CdnType = "verses-quran" | "islamic-network";
+export type CdnType = "verses-quran" | "islamic-network" | "mp3quran-net";
 
 export interface Reciter {
   id: string;
@@ -13,6 +13,12 @@ export interface Reciter {
   edition?: string;
   /** Bitrate for cdn.islamic.network — defaults to 128. Use 64/192 when 128 is unavailable. */
   bitrate?: 64 | 128 | 192;
+  /**
+   * Reciter folder slug on server8.mp3quran.net e.g. "lhdan".
+   * These are per-surah files (not per-verse). The player plays the
+   * full surah as a single track when this CDN type is used.
+   */
+  mp3QuranFolder?: string;
 }
 
 export const RECITERS: Reciter[] = [
@@ -81,6 +87,15 @@ export const RECITERS: Reciter[] = [
     edition: "ar.mahermuaiqly",
   },
   {
+    id: "luhaidan",
+    name: "Muhammad Al-Luhaidan",
+    arabicName: "محمد اللحيدان",
+    style: "Murattal",
+    language: "arabic",
+    cdnType: "mp3quran-net",
+    mp3QuranFolder: "lhdan",
+  },
+  {
     id: "walk",
     name: "Ibrahim Walk",
     arabicName: "English Translation",
@@ -95,7 +110,15 @@ export const RECITERS: Reciter[] = [
 export const DEFAULT_RECITER = RECITERS[0];
 
 /**
- * Build the audio URL for a single verse.
+ * Returns true if this reciter serves per-surah audio (not per-verse).
+ * The player plays the full surah as one track for these reciters.
+ */
+export function isSurahLevelReciter(reciter: Reciter): boolean {
+  return reciter.cdnType === "mp3quran-net";
+}
+
+/**
+ * Build the audio URL for a single verse (or full surah for mp3quran-net reciters).
  * @param globalAyahNum Required for islamic-network CDN reciters (1-6236).
  *                      Provided by the API field `numberInQuran` on each ayah.
  */
@@ -114,7 +137,11 @@ export function getVerseAudioUrl(
     const bitrate = reciter.bitrate ?? 128;
     return `https://cdn.islamic.network/quran/audio/${bitrate}/${reciter.edition}/${globalAyahNum}.mp3`;
   }
-  // Fallback — should not happen if globalAyahNum is passed for islamic-network
+  if (reciter.cdnType === "mp3quran-net" && reciter.mp3QuranFolder) {
+    const s = String(surahNumber).padStart(3, "0");
+    return `https://server8.mp3quran.net/${reciter.mp3QuranFolder}/${s}.mp3`;
+  }
+  // Fallback
   const s = String(surahNumber).padStart(3, "0");
   const v = String(verseNumber).padStart(3, "0");
   return `https://verses.quran.com/Alafasy/mp3/${s}${v}.mp3`;

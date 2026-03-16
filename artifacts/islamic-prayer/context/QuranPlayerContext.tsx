@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import { Platform } from "react-native";
-import { DEFAULT_RECITER, getVerseAudioUrl, Reciter } from "@/utils/audioData";
+import { DEFAULT_RECITER, getVerseAudioUrl, isSurahLevelReciter, Reciter } from "@/utils/audioData";
 
 export interface PlayerVerse {
   number: number;
@@ -107,6 +107,8 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
 
   const preloadNext = useCallback((verse: PlayerVerse, currentVerses: PlayerVerse[]) => {
     if (Platform.OS !== "web") return;
+    // Surah-level reciters use one file for the whole surah — no per-verse preloading needed
+    if (isSurahLevelReciter(reciterRef.current)) return;
     const next = currentVerses.find((v) => v.number === verse.number + 1);
     if (!next) return;
     const surahNum = surahNumRef.current!;
@@ -172,7 +174,9 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
         const currentSurahNum = surahNumRef.current!;
         const currentSurahArabic = surahArabicRef.current;
         const currentSurahName = surahNameRef.current;
-        if (currentVerses) {
+        const reciter = reciterRef.current;
+        // Surah-level reciters play the full surah as one file — don't auto-advance verses
+        if (!isSurahLevelReciter(reciter) && currentVerses) {
           const next = currentVerses.find((v) => v.number === verse.number + 1);
           if (next) {
             playVerse(next, currentSurahNum, currentSurahArabic, currentSurahName, currentVerses, true);
