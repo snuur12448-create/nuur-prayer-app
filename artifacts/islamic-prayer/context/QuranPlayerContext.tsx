@@ -67,6 +67,25 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
   const surahNameRef = useRef<string>("");
   const versesRef = useRef<PlayerVerse[] | null>(null);
 
+  // Configure audio session once on mount for background + lock-screen playback
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    (async () => {
+      try {
+        const { Audio, InterruptionModeIOS, InterruptionModeAndroid } = await import("expo-av");
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+          interruptionModeIOS: InterruptionModeIOS.DuckOthers,
+          interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+        });
+      } catch {}
+    })();
+  }, []);
+
   // Sync rate ref and apply to current audio
   useEffect(() => {
     playbackRateRef.current = playbackRate;
@@ -238,12 +257,10 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
       } else {
         try {
           const { Audio } = await import("expo-av");
-          await Audio.setAudioModeAsync({
-            playsInSilentModeIOS: true,
-            staysActiveInBackground: true,
-            shouldDuckAndroid: true,
-          });
-          const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
+          const { sound } = await Audio.Sound.createAsync(
+            { uri: url },
+            { shouldPlay: true, progressUpdateIntervalMillis: 500 }
+          );
           soundRef.current = sound;
           try { await sound.setRateAsync(playbackRateRef.current, true); } catch {}
           setPlayState("playing");
