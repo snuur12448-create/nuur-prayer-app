@@ -147,6 +147,7 @@ export default function QuranDetailScreen() {
     playingVerse,
     playbackRate,
     selectedReciter,
+    currentSurahNum: playingSurahNum,
     playVerse: ctxPlayVerse,
     stopAudio,
     togglePlayPause: ctxTogglePlayPause,
@@ -159,6 +160,7 @@ export default function QuranDetailScreen() {
   const [reciterListAtBottom, setReciterListAtBottom] = useState(false);
   const previewAudioRef = useRef<any>(null);
   const isMountedRef = useRef(true);
+  const flatListRef = useRef<FlatList>(null);
 
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
   const isBookmarked = bookmarkedSurahs.includes(surahNumber);
@@ -169,7 +171,12 @@ export default function QuranDetailScreen() {
     setVerses(null);
     setVersesError(false);
     setLoadingVerses(true);
-    stopAudio(); // switching surah: stop previous surah's audio
+
+    // Only stop audio when switching to a DIFFERENT surah.
+    // If the mini player navigated us here and this surah is already playing, keep it going.
+    if (playingSurahNum !== surahNumber) {
+      stopAudio();
+    }
 
     const controller = new AbortController();
     fetch(
@@ -204,6 +211,18 @@ export default function QuranDetailScreen() {
       isMountedRef.current = false;
     };
   }, [surahNumber]);
+
+  // After verses load, scroll to the currently playing verse if this is the active surah
+  useEffect(() => {
+    if (!verses || !playingVerse || playingSurahNum !== surahNumber) return;
+    const idx = verses.findIndex((v) => v.number === playingVerse);
+    if (idx < 0) return;
+    // Small delay lets the FlatList finish its initial render before scrolling
+    const t = setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.3 });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [verses, playingVerse, playingSurahNum, surahNumber]);
 
   useEffect(() => {
     // Only stop the reciter preview on unmount — main audio continues in the background
@@ -436,6 +455,7 @@ export default function QuranDetailScreen() {
         </View>
       ) : (
         <FlatList
+          ref={flatListRef}
           data={verses}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
@@ -446,6 +466,12 @@ export default function QuranDetailScreen() {
           windowSize={5}
           updateCellsBatchingPeriod={50}
           removeClippedSubviews={Platform.OS !== "web"}
+          onScrollToIndexFailed={({ index }) => {
+            // Fallback: wait for list to grow then retry
+            setTimeout(() => {
+              flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.3 });
+            }, 500);
+          }}
           ListHeaderComponent={
             <>
               {playingVerse !== null && (
