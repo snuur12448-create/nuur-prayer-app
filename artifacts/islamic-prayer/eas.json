@@ -4,7 +4,13 @@
     "appVersionSource": "local"
   },
   "build": {
+    "base": {
+      "env": {
+        "EXPO_MONOREPO_ROOT": "../.."
+      }
+    },
     "preview": {
+      "extends": "base",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
@@ -14,6 +20,7 @@
       }
     },
     "production": {
+      "extends": "base",
       "android": {
         "buildType": "app-bundle"
       }

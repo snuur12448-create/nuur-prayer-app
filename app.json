@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "1881b9ba-230b-48c0-a81a-262a9f8c7577"
+      }
+    },
+    "android": {
+      "package": "com.sxdaq.workspace"
+    }
+  }
+}
