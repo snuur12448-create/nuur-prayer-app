@@ -85,9 +85,14 @@ function parseElements(elements: OsmElement[], lat: number, lon: number): Mosque
       const tags = el.tags ?? {};
       const name = tags["name:en"] || tags.name || tags["name:ar"] || "Unnamed Mosque";
       const nameAr = tags["name:ar"] || "";
-      const city = tags["addr:city"] || tags["addr:suburb"] || "";
-      const street = tags["addr:street"] || "";
-      const address = [street, city].filter(Boolean).join(", ");
+      const housenumber = tags["addr:housenumber"] || "";
+      const street     = tags["addr:street"] || "";
+      const suburb     = tags["addr:suburb"] || tags["addr:neighbourhood"] || tags["addr:quarter"] || "";
+      const city       = tags["addr:city"] || tags["addr:town"] || tags["addr:village"] || "";
+      const postcode   = tags["addr:postcode"] || "";
+      const streetLine = [housenumber, street].filter(Boolean).join(" ");
+      const areaLine   = [suburb, city].filter(Boolean).join(", ");
+      const address    = [streetLine, areaLine, postcode].filter(Boolean).join(", ");
       return { id: el.id, name, nameAr, lat: elLat, lon: elLon, distance: haversineKm(lat, lon, elLat, elLon), address } as Mosque;
     })
     .filter((m): m is Mosque => m !== null)
@@ -286,6 +291,8 @@ function MosqueCard({
   const isClose = mosque.distance < 0.5;
   const isNear = mosque.distance < 2;
 
+  const distColor = isClose ? colors.tint : isNear ? colors.gold : colors.textSecondary;
+
   return (
     <View
       style={[
@@ -293,39 +300,6 @@ function MosqueCard({
         { backgroundColor: colors.surface, borderColor: index === 0 ? colors.gold + "55" : colors.border },
       ]}
     >
-      {/* Distance badge */}
-      <View
-        style={[
-          styles.distBadge,
-          {
-            backgroundColor: isClose
-              ? colors.tint + "20"
-              : isNear
-              ? colors.gold + "18"
-              : colors.surfaceElevated,
-            borderColor: isClose
-              ? colors.tint + "55"
-              : isNear
-              ? colors.gold + "44"
-              : colors.border,
-          },
-        ]}
-      >
-        <Feather
-          name="map-pin"
-          size={10}
-          color={isClose ? colors.tint : isNear ? colors.gold : colors.textSecondary}
-        />
-        <Text
-          style={[
-            styles.distText,
-            { color: isClose ? colors.tint : isNear ? colors.gold : colors.textSecondary },
-          ]}
-        >
-          {fmtDist(mosque.distance)}
-        </Text>
-      </View>
-
       {/* Rank */}
       <View style={[styles.rankWrap, { backgroundColor: colors.surfaceElevated }]}>
         <Text style={[styles.rankText, { color: colors.textSecondary }]}>
@@ -333,7 +307,7 @@ function MosqueCard({
         </Text>
       </View>
 
-      {/* Info */}
+      {/* Info — name → arabic → address → distance */}
       <View style={styles.cardInfo}>
         <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>
           {mosque.name}
@@ -344,21 +318,23 @@ function MosqueCard({
           </Text>
         ) : null}
         {mosque.address ? (
-          <View style={styles.addrRow}>
-            <Feather name="navigation" size={10} color={colors.textSecondary} />
-            <Text style={[styles.cardAddr, { color: colors.textSecondary }]} numberOfLines={1}>
-              {mosque.address}
-            </Text>
-          </View>
+          <Text style={[styles.cardAddr, { color: colors.textSecondary }]} numberOfLines={2}>
+            {mosque.address}
+          </Text>
         ) : null}
-      </View>
-
-      {/* Closest badge */}
-      {index === 0 && (
-        <View style={[styles.closestBadge, { backgroundColor: colors.gold + "20", borderColor: colors.gold + "50" }]}>
-          <Text style={[styles.closestText, { color: colors.gold }]}>Nearest</Text>
+        {/* Distance row — always shown, below address */}
+        <View style={styles.distRow}>
+          <Feather name="map-pin" size={10} color={distColor} />
+          <Text style={[styles.distInline, { color: distColor }]}>
+            {fmtDist(mosque.distance)}
+          </Text>
+          {index === 0 && (
+            <View style={[styles.nearestPill, { backgroundColor: colors.gold + "20", borderColor: colors.gold + "50" }]}>
+              <Text style={[styles.nearestText, { color: colors.gold }]}>Nearest</Text>
+            </View>
+          )}
         </View>
-      )}
+      </View>
     </View>
   );
 }
@@ -726,41 +702,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_500Medium",
   },
-  addrRow: {
+  cardAddr: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 17,
+  },
+  distRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
+    marginTop: 1,
   },
-  cardAddr: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
+  distInline: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
   },
-  distBadge: {
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 10,
+  nearestPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 7,
     borderWidth: 1,
-    minWidth: 50,
-    flexShrink: 0,
+    marginLeft: 4,
   },
-  distText: {
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-    textAlign: "center",
-  },
-  closestBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    flexShrink: 0,
-  },
-  closestText: {
+  nearestText: {
     fontSize: 10,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.5,
