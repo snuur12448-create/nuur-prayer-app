@@ -53,56 +53,93 @@ interface Mosque {
   address: string;
 }
 
-async function fetchNearbyMosques(
-  lat: number,
-  lon: number,
-  radiusM = 8000
-): Promise<Mosque[]> {
-  const query = `
-    [out:json][timeout:30];
-    (
-      node["amenity"="place_of_worship"]["religion"="muslim"](around:${radiusM},${lat},${lon});
-      way["amenity"="place_of_worship"]["religion"="muslim"](around:${radiusM},${lat},${lon});
-      relation["amenity"="place_of_worship"]["religion"="muslim"](around:${radiusM},${lat},${lon});
-    );
-    out center tags;
-  `.trim();
+// Multiple Overpass endpoints tried in order until one succeeds.
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+  "https://overpass.openstreetmap.ru/api/interpreter",
+];
 
-  const resp = await fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `data=${encodeURIComponent(query)}`,
-  });
-  if (!resp.ok) throw new Error(`Overpass error ${resp.status}`);
-  const json = await resp.json();
+function buildQuery(lat: number, lon: number, radiusM: number, nodesOnly = false) {
+  if (nodesOnly) {
+    // Lightweight fallback — nodes only, faster to compute server-side.
+    return `[out:json][timeout:25];node["amenity"="place_of_worship"]["religion"="muslim"](around:${radiusM},${lat},${lon});out tags;`;
+  }
+  return (
+    `[out:json][timeout:25];` +
+    `(` +
+    `node["amenity"="place_of_worship"]["religion"="muslim"](around:${radiusM},${lat},${lon});` +
+    `way["amenity"="place_of_worship"]["religion"="muslim"](around:${radiusM},${lat},${lon});` +
+    `relation["amenity"="place_of_worship"]["religion"="muslim"](around:${radiusM},${lat},${lon});` +
+    `);out center tags;`
+  );
+}
 
-  const elements: OsmElement[] = json.elements ?? [];
-  const mosques: Mosque[] = elements
+function parseElements(elements: OsmElement[], lat: number, lon: number): Mosque[] {
+  return elements
     .map((el) => {
       const elLat = el.lat ?? el.center?.lat;
       const elLon = el.lon ?? el.center?.lon;
       if (elLat === undefined || elLon === undefined) return null;
       const tags = el.tags ?? {};
-      const name =
-        tags["name:en"] || tags.name || tags["name:ar"] || "Unnamed Mosque";
+      const name = tags["name:en"] || tags.name || tags["name:ar"] || "Unnamed Mosque";
       const nameAr = tags["name:ar"] || "";
       const city = tags["addr:city"] || tags["addr:suburb"] || "";
       const street = tags["addr:street"] || "";
       const address = [street, city].filter(Boolean).join(", ");
-      return {
-        id: el.id,
-        name,
-        nameAr,
-        lat: elLat,
-        lon: elLon,
-        distance: haversineKm(lat, lon, elLat, elLon),
-        address,
-      } as Mosque;
+      return { id: el.id, name, nameAr, lat: elLat, lon: elLon, distance: haversineKm(lat, lon, elLat, elLon), address } as Mosque;
     })
     .filter((m): m is Mosque => m !== null)
     .sort((a, b) => a.distance - b.distance);
+}
 
-  return mosques;
+async function tryEndpoint(url: string, query: string, timeoutMs: number): Promise<OsmElement[]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `data=${encodeURIComponent(query)}`,
+      signal: controller.signal,
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const json = await resp.json();
+    return json.elements ?? [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchNearbyMosques(
+  lat: number,
+  lon: number,
+  radiusM = 8000
+): Promise<Mosque[]> {
+  // Round 1: full query (nodes + ways + relations) across all mirrors.
+  const fullQuery = buildQuery(lat, lon, radiusM);
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const elements = await tryEndpoint(endpoint, fullQuery, 18000);
+      return parseElements(elements, lat, lon);
+    } catch (_) {
+      // Try next mirror.
+    }
+  }
+
+  // Round 2: lightweight nodes-only query as last resort.
+  const liteQuery = buildQuery(lat, lon, radiusM, true);
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const elements = await tryEndpoint(endpoint, liteQuery, 15000);
+      return parseElements(elements, lat, lon);
+    } catch (_) {
+      // Try next mirror.
+    }
+  }
+
+  throw new Error("All Overpass endpoints failed");
 }
 
 // ── Mosque silhouette SVG header ──────────────────────────────────────────────
@@ -355,7 +392,7 @@ export default function MosquesScreen() {
         );
         setMosques(results);
       } catch (e: any) {
-        setError("Could not load mosques. Check your connection and try again.");
+        setError("Could not reach mosque data servers. Please check your connection and try again.");
       } finally {
         setLoading(false);
       }
@@ -451,7 +488,7 @@ export default function MosquesScreen() {
         <View style={styles.centred}>
           <ActivityIndicator size="large" color={colors.tint} />
           <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-            {isLoadingLocation ? "Detecting your location…" : "Searching for mosques…"}
+            {isLoadingLocation ? "Detecting your location…" : "Searching nearby mosques…"}
           </Text>
         </View>
       ) : error ? (
