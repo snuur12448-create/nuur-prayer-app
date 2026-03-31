@@ -124,16 +124,19 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
     })();
   }, []);
 
-  // ── 2. Configure expo-av audio session for background playback (native) ─────
+  // ── 2. Configure expo-av audio session (all native — Expo Go + standalone) ──
+  // Must be called before ANY Sound.createAsync, otherwise iOS silently
+  // drops playback.  Expo Go cannot hold background audio, so we only set
+  // staysActiveInBackground=true for real standalone builds.
   useEffect(() => {
-    if (Platform.OS === "web" || isExpoGo) return;
+    if (Platform.OS === "web") return;
     (async () => {
       try {
         const { Audio, InterruptionModeIOS, InterruptionModeAndroid } = await import("expo-av");
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
           playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
+          staysActiveInBackground: !isExpoGo,
           interruptionModeIOS: InterruptionModeIOS.DuckOthers,
           interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
           shouldDuckAndroid: true,
@@ -427,8 +430,13 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
           }
           const { sound } = await Sound.createAsync(
             { uri: url },
-            { shouldPlay: true, rate: playbackRateRef.current, volume: 1.0 }
+            { shouldPlay: true, volume: 1.0 }
           );
+          // Apply playback rate after creation; rate in initial options can
+          // silently throw on some iOS SDK versions.
+          if (playbackRateRef.current !== 1.0) {
+            try { await sound.setRateAsync(playbackRateRef.current, true); } catch {}
+          }
           expoAvSoundRef.current = sound;
           setPlayState("playing");
           sound.setOnPlaybackStatusUpdate((status: any) => {
