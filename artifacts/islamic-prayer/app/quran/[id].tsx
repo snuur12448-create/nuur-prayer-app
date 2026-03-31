@@ -125,8 +125,9 @@ function stripBismillah(text: string, surahNum: number, verseNum: number): strin
 }
 
 export default function QuranDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, initialVerse } = useLocalSearchParams<{ id: string; initialVerse?: string }>();
   const surahNumber = parseInt(id || "1", 10);
+  const initialVerseNum = initialVerse ? parseInt(initialVerse, 10) : null;
   const surah = SURAHS.find((s) => s.number === surahNumber);
 
   const insets = useSafeAreaInsets();
@@ -223,6 +224,17 @@ export default function QuranDetailScreen() {
     }, 350);
     return () => clearTimeout(t);
   }, [verses, playingVerse, playingSurahNum, surahNumber]);
+
+  // Scroll to a specific verse when opened from search results
+  useEffect(() => {
+    if (!verses || !initialVerseNum) return;
+    const idx = verses.findIndex((v) => v.number === initialVerseNum);
+    if (idx < 0) return;
+    const t = setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.15 });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [verses, initialVerseNum]);
 
   useEffect(() => {
     // Only stop the reciter preview on unmount — main audio continues in the background
