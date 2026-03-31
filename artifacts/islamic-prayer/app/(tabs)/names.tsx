@@ -94,21 +94,42 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
       <Animated.View
         style={[
           styles.sheet,
-          { backgroundColor: colors.surface, height: SHEET_H, transform: [{ translateY: slideY }] },
+          { backgroundColor: colors.surface, transform: [{ translateY: slideY }] },
         ]}
       >
+        {/* Drag handle */}
         <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
 
-        <ScrollView
-          style={styles.sheetScrollView}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-          contentContainerStyle={styles.sheetScroll}
-        >
+        {/* Top action bar — always visible, no scroll needed */}
+        <View style={styles.sheetTopBar}>
           <View style={[styles.sheetNumBadge, { backgroundColor: colors.tint + "22" }]}>
             <Text style={[styles.sheetNum, { color: colors.tint }]}>#{item.number}</Text>
           </View>
+          <View style={styles.sheetTopActions}>
+            <TouchableOpacity
+              style={[styles.sheetShareBtn, { borderColor: colors.tint }]}
+              onPress={onShare}
+              activeOpacity={0.82}
+            >
+              <Feather name="share-2" size={14} color={colors.tint} />
+              <Text style={[styles.sheetShareBtnText, { color: colors.tint }]}>Share</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sheetCloseBtn, { backgroundColor: colors.tint }]}
+              onPress={handleClose}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.sheetCloseBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
+        {/* Scrollable content */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          contentContainerStyle={[styles.sheetScroll, { paddingBottom: 24 + miniPlayerH }]}
+        >
           <Text style={[styles.sheetArabic, { color: colors.text }]}>{item.arabic}</Text>
           <Text style={[styles.sheetTranslit, { color: colors.tint }]}>{item.transliteration}</Text>
 
@@ -128,25 +149,6 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
             <Text style={[styles.sheetDesc, { color: colors.text }]}>{item.description}</Text>
           </View>
         </ScrollView>
-
-        {/* Fixed footer — always visible */}
-        <View style={[styles.sheetBtnRow, { paddingBottom: 16 + miniPlayerH }]}>
-          <TouchableOpacity
-            style={[styles.sheetShareBtn, { borderColor: colors.tint }]}
-            onPress={onShare}
-            activeOpacity={0.82}
-          >
-            <Feather name="share" size={15} color={colors.tint} />
-            <Text style={[styles.sheetShareBtnText, { color: colors.tint }]}>Share Card</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.sheetCloseBtn, { backgroundColor: colors.tint }]}
-            onPress={handleClose}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.sheetCloseBtnText}>Close</Text>
-          </TouchableOpacity>
-        </View>
       </Animated.View>
     </Animated.View>
   );
@@ -346,22 +348,29 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingHorizontal: 24,
-    alignItems: "center",
+    maxHeight: "88%",
   },
-  sheetScrollView: {
+  sheetTopBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     width: "100%",
-    flex: 1,
+    paddingVertical: 10,
+  },
+  sheetTopActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   sheetScroll: {
     alignItems: "center",
     gap: 12,
     paddingTop: 4,
-    paddingBottom: 8,
     width: "100%",
   },
-  sheetHandle: { width: 40, height: 4, borderRadius: 2, marginBottom: 4 },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, marginBottom: 8, alignSelf: "center" },
   sheetNumBadge: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
   sheetNum: { fontSize: 13, fontFamily: "Inter_700Bold" },
   sheetArabic: { fontSize: 52, fontFamily: "Inter_700Bold", textAlign: "center", lineHeight: 80, paddingTop: 14 },
@@ -397,31 +406,22 @@ const styles = StyleSheet.create({
   sheetDescTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 },
   sheetDesc: { fontSize: 14, lineHeight: 21 },
 
-  sheetBtnRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingTop: 12,
-    paddingHorizontal: 4,
-    width: "100%",
-    justifyContent: "center",
-  },
   sheetShareBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    gap: 5,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderWidth: 1.5,
   },
-  sheetShareBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  sheetShareBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   sheetCloseBtn: {
-    borderRadius: 20,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
   },
-  sheetCloseBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
+  sheetCloseBtnText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold" },
 
   emptyBox: { alignItems: "center", paddingTop: 60 },
   emptyText: { fontSize: 16 },
