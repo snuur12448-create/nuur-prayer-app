@@ -87,6 +87,11 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
   // Tracks the verse currently playing so skipNext can advance without relying
   // on the playingVerse state (which is stale inside useCallback closures).
   const currentVerseRef = useRef<PlayerVerse | null>(null);
+  // Stable ref to playVerse — lets skipNext call it without a forward-reference
+  // in the deps array (which causes a TDZ crash under the React Compiler).
+  const playVerseRef = useRef<
+    ((verse: PlayerVerse, surahNum: number, surahArabic: string, surahName: string, allVerses: PlayerVerse[], isAutoAdvance?: boolean) => Promise<void>) | null
+  >(null);
 
   // ── 1. Initialise TrackPlayer once (native only, not Expo Go) ───────────────
   useEffect(() => {
@@ -315,7 +320,7 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
         if (!isSurahLevelReciter(reciter) && currentVerses && curVerse) {
           const next = currentVerses.find((v) => v.number === curVerse.number + 1);
           if (next) {
-            await playVerse(next, curSurahNum, curSurahArabic, curSurahName, currentVerses, true);
+            await playVerseRef.current?.(next, curSurahNum, curSurahArabic, curSurahName, currentVerses, true);
             return;
           }
         }
@@ -332,7 +337,7 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
         await TrackPlayer.skipToNext();
       } catch {}
     }
-  }, [playVerse]);
+  }, []);
 
   const skipPrevious = useCallback(async () => {
     if (Platform.OS === "web") {
@@ -550,6 +555,8 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
     },
     [preloadNext, stopAudio]
   );
+  // Keep the ref in sync so skipNext can always call the latest playVerse.
+  playVerseRef.current = playVerse;
 
   // ── togglePlayPause ──────────────────────────────────────────────────────────
   const togglePlayPause = useCallback(
