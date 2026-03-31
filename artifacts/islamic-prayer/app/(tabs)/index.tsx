@@ -24,6 +24,17 @@ import { GuideSection } from "@/components/GuideSection";
 
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 
+// Static fallbacks so prayer-row Text nodes are in the DOM from first render
+// (prevents Inter font FOUT when prayerTimes data arrives late)
+const PRAYER_STATIC: Record<string, [string, string]> = {
+  fajr:    ["Fajr",    "الفجر"],
+  sunrise: ["Sunrise", "الشروق"],
+  dhuhr:   ["Dhuhr",   "الظهر"],
+  asr:     ["Asr",     "العصر"],
+  maghrib: ["Maghrib", "المغرب"],
+  isha:    ["Isha",    "العشاء"],
+};
+
 export default function PrayerScreen() {
   const {
     prayerTimes, location, isLoadingLocation, locationError,
@@ -188,69 +199,86 @@ export default function PrayerScreen() {
 
           <Text style={[styles.gregorianDate, { color: colors.textSecondary }]}>{formatDate()}</Text>
 
-          {/* Current / Next Prayer Card */}
-          {(currentPrayer || nextPrayer) && (
-            <Animated.View
-              style={[
-                styles.nextPrayerCard,
-                {
-                  backgroundColor: colors.surfaceElevated,
-                  borderColor: colors.border,
-                  transform: [{ scale: pulseAnim }],
-                },
-              ]}
-            >
-              {currentPrayer ? (
-                <>
-                  <View style={styles.nextPrayerTop}>
-                    <View style={{ flex: 1, paddingRight: 12 }}>
-                      <View style={styles.nowBadgeRow}>
-                        <View style={[styles.nowDot, { backgroundColor: colors.tint }]} />
-                        <Text style={[styles.nextLabel, { color: colors.tint }]}>NOW</Text>
-                      </View>
-                      <Text style={[styles.nextPrayerName, { color: colors.text }]} numberOfLines={1}>{currentPrayer.name}</Text>
-                      <Text style={[styles.nextPrayerArabic, { color: colors.textSecondary }]}>{currentPrayer.arabicName}</Text>
-                    </View>
-                    <View style={styles.nextRight}>
-                      <Text style={[styles.nextTime, { color: colors.text }]}>{currentPrayer.timeString}</Text>
-                      <View style={[styles.countdownBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "55" }]}>
-                        <Text style={[styles.countdown, { color: colors.gold }]}>{timeRemaining} left</Text>
-                      </View>
-                    </View>
+          {/* Current / Next Prayer Card
+              ALWAYS rendered — never conditionally mounted.
+              Text elements with Inter_700Bold exist from first paint so the
+              font is already applied before data arrives; updating text content
+              never causes a FOUT (Flash Of Unstyled Text) flash. */}
+          <Animated.View
+            style={[
+              styles.nextPrayerCard,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderColor: colors.border,
+                transform: [{ scale: pulseAnim }],
+              },
+            ]}
+          >
+            {!prayerTimes || (!currentPrayer && !nextPrayer) ? (
+              /* Skeleton — same font/size as live content, invisible colour */
+              <View style={styles.nextPrayerTop}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <View style={styles.nowBadgeRow}>
+                    <View style={[styles.nowDot, { backgroundColor: colors.border }]} />
+                    <Text style={[styles.nextLabel, { color: colors.border }]}>···</Text>
                   </View>
-                  {/* Progress bar — elapsed in this prayer window */}
-                  <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-                    <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any }]} />
+                  <Text style={[styles.nextPrayerName, { color: colors.border }]}>Prayer</Text>
+                  <Text style={[styles.nextPrayerArabic, { color: colors.border }]}>الصلاة</Text>
+                </View>
+                <View style={styles.nextRight}>
+                  <Text style={[styles.nextTime, { color: colors.border }]}>--:--</Text>
+                  <View style={[styles.countdownBadge, { backgroundColor: colors.border + "40", borderColor: "transparent" }]}>
+                    <Text style={[styles.countdown, { color: colors.border }]}>-h --m</Text>
                   </View>
-                  <View style={styles.progressFooter}>
-                    <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>{Math.round(progress * 100)}% elapsed</Text>
-                    {nextPrayer && (
-                      <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
-                        Next: {nextPrayer.name} at {nextPrayer.timeString}
-                      </Text>
-                    )}
-                  </View>
-                </>
-              ) : (
-                /* Before Fajr — nothing started yet, show upcoming Fajr */
-                <>
-                  <View style={styles.nextPrayerTop}>
-                    <View style={{ flex: 1, paddingRight: 12 }}>
-                      <Text style={[styles.nextLabel, { color: colors.textSecondary }]}>UPCOMING</Text>
-                      <Text style={[styles.nextPrayerName, { color: colors.text }]} numberOfLines={1}>{nextPrayer!.name}</Text>
-                      <Text style={[styles.nextPrayerArabic, { color: colors.textSecondary }]}>{nextPrayer!.arabicName}</Text>
+                </View>
+              </View>
+            ) : currentPrayer ? (
+              <>
+                <View style={styles.nextPrayerTop}>
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <View style={styles.nowBadgeRow}>
+                      <View style={[styles.nowDot, { backgroundColor: colors.tint }]} />
+                      <Text style={[styles.nextLabel, { color: colors.tint }]}>NOW</Text>
                     </View>
-                    <View style={styles.nextRight}>
-                      <Text style={[styles.nextTime, { color: colors.text }]}>{nextPrayer!.timeString}</Text>
-                      <View style={[styles.countdownBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "55" }]}>
-                        <Text style={[styles.countdown, { color: colors.gold }]}>in {timeRemaining}</Text>
-                      </View>
+                    <Text style={[styles.nextPrayerName, { color: colors.text }]} numberOfLines={1}>{currentPrayer.name}</Text>
+                    <Text style={[styles.nextPrayerArabic, { color: colors.textSecondary }]}>{currentPrayer.arabicName}</Text>
+                  </View>
+                  <View style={styles.nextRight}>
+                    <Text style={[styles.nextTime, { color: colors.text }]}>{currentPrayer.timeString}</Text>
+                    <View style={[styles.countdownBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "55" }]}>
+                      <Text style={[styles.countdown, { color: colors.gold }]}>{timeRemaining} left</Text>
                     </View>
                   </View>
-                </>
-              )}
-            </Animated.View>
-          )}
+                </View>
+                <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                  <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any }]} />
+                </View>
+                <View style={styles.progressFooter}>
+                  <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>{Math.round(progress * 100)}% elapsed</Text>
+                  {nextPrayer && (
+                    <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
+                      Next: {nextPrayer.name} at {nextPrayer.timeString}
+                    </Text>
+                  )}
+                </View>
+              </>
+            ) : (
+              /* Before Fajr — nothing started yet */
+              <View style={styles.nextPrayerTop}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={[styles.nextLabel, { color: colors.textSecondary }]}>UPCOMING</Text>
+                  <Text style={[styles.nextPrayerName, { color: colors.text }]} numberOfLines={1}>{nextPrayer!.name}</Text>
+                  <Text style={[styles.nextPrayerArabic, { color: colors.textSecondary }]}>{nextPrayer!.arabicName}</Text>
+                </View>
+                <View style={styles.nextRight}>
+                  <Text style={[styles.nextTime, { color: colors.text }]}>{nextPrayer!.timeString}</Text>
+                  <View style={[styles.countdownBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "55" }]}>
+                    <Text style={[styles.countdown, { color: colors.gold }]}>in {timeRemaining}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </Animated.View>
         </View>
 
         {/* Prayer Times */}
@@ -259,22 +287,18 @@ export default function PrayerScreen() {
             Today's Prayer Times
           </Text>
 
-          {isLoadingLocation ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color={colors.tint} />
-              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                Calculating prayer times...
-              </Text>
-            </View>
-          ) : (
-            PRAYER_ORDER.map((key) => {
+          {/* Prayer rows — ALWAYS rendered (no isLoadingLocation guard).
+              Rows show "--:--" until prayerTimes arrives so Text nodes with
+              Inter_500Medium exist from the very first paint; data updates are
+              text-content swaps, not new node insertions → zero font flash. */}
+          {PRAYER_ORDER.map((key) => {
               const prayer = prayerTimes?.[key];
-              if (!prayer) return null;
-              const isActive = isActivePrayer(prayer.name);
-              const isPast = prayer.time < new Date() && !isActive;
+              const [fallbackName, fallbackArabic] = PRAYER_STATIC[key];
+              const isActive = prayer ? isActivePrayer(prayer.name) : false;
+              const isPast = prayer ? (prayer.time < new Date() && !isActive) : false;
 
               const isBellPrayer = key !== "sunrise";
-              const notifSettings = isBellPrayer ? prayerNotifConfig[key as PrayerKey] : null;
+              const notifSettings = (isBellPrayer && prayer) ? prayerNotifConfig[key as PrayerKey] : null;
               const notifOn = notifSettings?.enabled ?? false;
               const GOLD = colors.gold ?? "#C9933A";
 
@@ -303,12 +327,12 @@ export default function PrayerScreen() {
                             fontFamily: "Inter_600SemiBold",
                           }
                         ]}>
-                        {prayer.name}
+                        {prayer?.name ?? fallbackName}
                       </Text>
                       <Text style={[styles.prayerArabicSmall, {
                         color: isActive ? colors.background + "CC" : colors.textSecondary,
                       }]}>
-                        {prayer.arabicName}
+                        {prayer?.arabicName ?? fallbackArabic}
                       </Text>
                     </View>
                   </View>
@@ -322,7 +346,7 @@ export default function PrayerScreen() {
                       styles.prayerTime,
                       { color: isActive ? colors.background : isPast ? colors.textSecondary : colors.text }
                     ]}>
-                      {prayer.timeString}
+                      {prayer?.timeString ?? "--:--"}
                     </Text>
                     {isBellPrayer && (
                       <TouchableOpacity
@@ -354,8 +378,7 @@ export default function PrayerScreen() {
                   </View>
                 </View>
               );
-            })
-          )}
+            })}
 
           {locationError && (
             <View style={[styles.errorBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
