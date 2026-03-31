@@ -7,6 +7,7 @@ import {
   FlatList,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -91,51 +92,57 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
       <Animated.View
         style={[
           styles.sheet,
-          { backgroundColor: colors.surface, transform: [{ translateY: slideY }], paddingBottom: 40 + miniPlayerH },
+          { backgroundColor: colors.surface, transform: [{ translateY: slideY }] },
         ]}
       >
         <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
 
-        <View style={[styles.sheetNumBadge, { backgroundColor: colors.tint + "22" }]}>
-          <Text style={[styles.sheetNum, { color: colors.tint }]}>#{item.number}</Text>
-        </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          contentContainerStyle={[styles.sheetScroll, { paddingBottom: 40 + miniPlayerH }]}
+        >
+          <View style={[styles.sheetNumBadge, { backgroundColor: colors.tint + "22" }]}>
+            <Text style={[styles.sheetNum, { color: colors.tint }]}>#{item.number}</Text>
+          </View>
 
-        <Text style={[styles.sheetArabic, { color: colors.text }]}>{item.arabic}</Text>
-        <Text style={[styles.sheetTranslit, { color: colors.tint }]}>{item.transliteration}</Text>
+          <Text style={[styles.sheetArabic, { color: colors.text }]}>{item.arabic}</Text>
+          <Text style={[styles.sheetTranslit, { color: colors.tint }]}>{item.transliteration}</Text>
 
-        <View style={[styles.sheetPronRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <Feather name="volume-2" size={14} color={colors.textSecondary} />
-          <Text style={[styles.sheetPronLabel, { color: colors.textSecondary }]}>Pronunciation: </Text>
-          <Text style={[styles.sheetPron, { color: colors.text }]}>{item.pronunciation}</Text>
-        </View>
+          <View style={[styles.sheetPronRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <Feather name="volume-2" size={14} color={colors.textSecondary} />
+            <Text style={[styles.sheetPronLabel, { color: colors.textSecondary }]}>Pronunciation: </Text>
+            <Text style={[styles.sheetPron, { color: colors.text }]}>{item.pronunciation}</Text>
+          </View>
 
-        <View style={[styles.sheetMeaningBox, { backgroundColor: colors.background, borderColor: colors.tint + "33" }]}>
-          <Text style={[styles.sheetMeaningTitle, { color: colors.textSecondary }]}>Meaning</Text>
-          <Text style={[styles.sheetMeaning, { color: colors.text }]}>{item.meaning}</Text>
-        </View>
+          <View style={[styles.sheetMeaningBox, { backgroundColor: colors.background, borderColor: colors.tint + "33" }]}>
+            <Text style={[styles.sheetMeaningTitle, { color: colors.textSecondary }]}>Meaning</Text>
+            <Text style={[styles.sheetMeaning, { color: colors.text }]}>{item.meaning}</Text>
+          </View>
 
-        <View style={[styles.sheetDescBox, { backgroundColor: colors.background }]}>
-          <Text style={[styles.sheetDescTitle, { color: colors.textSecondary }]}>Description</Text>
-          <Text style={[styles.sheetDesc, { color: colors.text }]}>{item.description}</Text>
-        </View>
+          <View style={[styles.sheetDescBox, { backgroundColor: colors.background }]}>
+            <Text style={[styles.sheetDescTitle, { color: colors.textSecondary }]}>Description</Text>
+            <Text style={[styles.sheetDesc, { color: colors.text }]}>{item.description}</Text>
+          </View>
 
-        <View style={styles.sheetBtnRow}>
-          <TouchableOpacity
-            style={[styles.sheetShareBtn, { borderColor: colors.tint }]}
-            onPress={onShare}
-            activeOpacity={0.82}
-          >
-            <Feather name="share" size={15} color={colors.tint} />
-            <Text style={[styles.sheetShareBtnText, { color: colors.tint }]}>Share Card</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.sheetCloseBtn, { backgroundColor: colors.tint }]}
-            onPress={handleClose}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.sheetCloseBtnText}>Close</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.sheetBtnRow}>
+            <TouchableOpacity
+              style={[styles.sheetShareBtn, { borderColor: colors.tint }]}
+              onPress={onShare}
+              activeOpacity={0.82}
+            >
+              <Feather name="share" size={15} color={colors.tint} />
+              <Text style={[styles.sheetShareBtnText, { color: colors.tint }]}>Share Card</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sheetCloseBtn, { backgroundColor: colors.tint }]}
+              onPress={handleClose}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.sheetCloseBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </Animated.View>
     </Animated.View>
   );
@@ -335,10 +342,16 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    padding: 24,
+    paddingTop: 16,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    maxHeight: "90%",
+  },
+  sheetScroll: {
     alignItems: "center",
     gap: 12,
-    maxHeight: "80%",
+    paddingTop: 4,
+    width: "100%",
   },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, marginBottom: 4 },
   sheetNumBadge: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
