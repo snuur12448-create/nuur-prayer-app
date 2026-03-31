@@ -405,6 +405,8 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontFamily: "Inter_700Bold",
     fontVariant: ["tabular-nums"],
+    textAlign: "right",
+    includeFontPadding: false,
   },
   gregorianDate: {
     fontSize: 14,
@@ -475,6 +477,8 @@ const styles = StyleSheet.create({
   nextTime: {
     fontSize: 22,
     fontFamily: "Inter_600SemiBold",
+    fontVariant: ["tabular-nums"],
+    includeFontPadding: false,
   },
   countdownBadge: {
     borderRadius: 20,
@@ -485,6 +489,8 @@ const styles = StyleSheet.create({
   countdown: {
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
+    fontVariant: ["tabular-nums"],
+    includeFontPadding: false,
   },
   section: {
     padding: 14,
