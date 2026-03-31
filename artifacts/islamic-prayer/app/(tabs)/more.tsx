@@ -34,14 +34,6 @@ export default function MoreScreen() {
 
   const items: MoreItem[] = [
     {
-      label: "Islamic Calendar",
-      arabic: "التقويم الإسلامي",
-      description: "Hijri & Gregorian dates, Islamic events, Eid, Ramadan, Laylatul Qadr nights",
-      route: "/calendar",
-      icon: <MaterialCommunityIcons name="calendar-month" size={26} color="#C9933A" />,
-      accentColor: "#C9933A",
-    },
-    {
       label: "Duas & Adhkar",
       arabic: "الأدعية والأذكار",
       description: "Daily supplications, morning & evening adhkar, and rotating authentic hadith",
@@ -80,6 +72,14 @@ export default function MoreScreen() {
       route: "/(tabs)/mosques",
       icon: <MaterialCommunityIcons name="mosque" size={26} color="#4DB6AC" />,
       accentColor: "#4DB6AC",
+    },
+    {
+      label: "Islamic Calendar",
+      arabic: "التقويم الإسلامي",
+      description: "Hijri & Gregorian dates, Islamic events, Eid, Ramadan, Laylatul Qadr nights",
+      route: "/calendar",
+      icon: <MaterialCommunityIcons name="calendar-month" size={26} color="#C9933A" />,
+      accentColor: "#C9933A",
     },
     {
       label: "Settings",
