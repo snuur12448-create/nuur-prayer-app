@@ -255,6 +255,14 @@ export function IslamicCalendar({ onClose }: Props) {
           </View>
         )}
 
+        {/* ── Disclaimer ───────────────────────────────────────────── */}
+        <View style={styles.disclaimer}>
+          <Feather name="info" size={11} color={colors.textSecondary} style={styles.disclaimerIcon} />
+          <Text style={[styles.disclaimerText, { color: colors.textSecondary }]}>
+            Islamic event dates are calculated estimates. Actual dates may vary by 1–2 days subject to moon sighting in your region.
+          </Text>
+        </View>
+
         <View style={{ height: 40 }} />
       </ScrollView>
 
@@ -539,5 +547,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
     color: "#0B1F1A",
+  },
+
+  /* Disclaimer */
+  disclaimer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 7,
+    paddingHorizontal: 4,
+    marginBottom: 4,
+  },
+  disclaimerIcon: {
+    marginTop: 1,
+    opacity: 0.5,
+  },
+  disclaimerText: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 16,
+    opacity: 0.7,
   },
 });
