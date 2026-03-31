@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
-import { HADITHS, Hadith } from "@/utils/hadithData";
+import { HADITHS, HADITH_TOPICS, Hadith } from "@/utils/hadithData";
 
 const SUNNAH_API_KEY = "SqD712P3E82xnwOAEOkGd5JZH8s9wRR24TqNFzjk";
 const SUNNAH_RANDOM_URL = "https://api.sunnah.com/v1/hadiths/random";
@@ -24,13 +24,6 @@ const SUNNAH_RANDOM_URL = "https://api.sunnah.com/v1/hadiths/random";
 const SAHIH_COLLECTIONS = ["bukhari", "muslim", "riyadussalihin", "nawawi40"];
 
 type CollectionFilter = "all" | "Bukhari" | "Muslim" | "Both";
-
-const TOPICS = [
-  "All", "Intentions", "Prayer", "Quran", "Fasting", "Dhikr", "Dua",
-  "Kindness", "Family", "Brotherhood", "Knowledge",
-  "Patience", "Gratitude", "Repentance", "Trust in Allah", "The Heart",
-  "Modesty", "Anger", "Wealth", "Paradise",
-];
 
 interface LiveHadith {
   id: string;
@@ -213,7 +206,7 @@ export default function HadithsScreen() {
           <>
             {/* Topic pills */}
             <FlatList
-              data={TOPICS}
+              data={HADITH_TOPICS}
               keyExtractor={(t) => t}
               horizontal
               showsHorizontalScrollIndicator={false}
