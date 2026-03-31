@@ -22,8 +22,8 @@ import ContentShareSheet from "@/components/ContentShareSheet";
 
 const { width, height: SCREEN_H } = Dimensions.get("window");
 const NUM_COLS = width >= 600 ? 3 : 2;
-// Sheet occupies up to 90% of screen. Fixed elements (handle + top padding + btn row) ~130px.
-const SHEET_SCROLL_MAX_H = SCREEN_H * 0.9 - 130;
+// Sheet takes 82% of screen — explicit height so flex:1 on ScrollView works reliably.
+const SHEET_H = Math.round(SCREEN_H * 0.82);
 
 const CARD_GRADIENTS = [
   ["#1a1a2e", "#16213e"],
@@ -94,13 +94,13 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
       <Animated.View
         style={[
           styles.sheet,
-          { backgroundColor: colors.surface, transform: [{ translateY: slideY }] },
+          { backgroundColor: colors.surface, height: SHEET_H, transform: [{ translateY: slideY }] },
         ]}
       >
         <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
 
         <ScrollView
-          style={[styles.sheetScrollView, { maxHeight: SHEET_SCROLL_MAX_H }]}
+          style={styles.sheetScrollView}
           showsVerticalScrollIndicator={false}
           bounces={false}
           contentContainerStyle={styles.sheetScroll}
@@ -349,10 +349,10 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingHorizontal: 24,
     alignItems: "center",
-    maxHeight: "90%",
   },
   sheetScrollView: {
     width: "100%",
+    flex: 1,
   },
   sheetScroll: {
     alignItems: "center",
