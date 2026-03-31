@@ -98,9 +98,10 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
         <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
 
         <ScrollView
+          style={styles.sheetScrollView}
           showsVerticalScrollIndicator={false}
           bounces={false}
-          contentContainerStyle={[styles.sheetScroll, { paddingBottom: 40 + miniPlayerH }]}
+          contentContainerStyle={styles.sheetScroll}
         >
           <View style={[styles.sheetNumBadge, { backgroundColor: colors.tint + "22" }]}>
             <Text style={[styles.sheetNum, { color: colors.tint }]}>#{item.number}</Text>
@@ -124,25 +125,26 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
             <Text style={[styles.sheetDescTitle, { color: colors.textSecondary }]}>Description</Text>
             <Text style={[styles.sheetDesc, { color: colors.text }]}>{item.description}</Text>
           </View>
-
-          <View style={styles.sheetBtnRow}>
-            <TouchableOpacity
-              style={[styles.sheetShareBtn, { borderColor: colors.tint }]}
-              onPress={onShare}
-              activeOpacity={0.82}
-            >
-              <Feather name="share" size={15} color={colors.tint} />
-              <Text style={[styles.sheetShareBtnText, { color: colors.tint }]}>Share Card</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.sheetCloseBtn, { backgroundColor: colors.tint }]}
-              onPress={handleClose}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.sheetCloseBtnText}>Close</Text>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
+
+        {/* Fixed footer — always visible */}
+        <View style={[styles.sheetBtnRow, { paddingBottom: 16 + miniPlayerH }]}>
+          <TouchableOpacity
+            style={[styles.sheetShareBtn, { borderColor: colors.tint }]}
+            onPress={onShare}
+            activeOpacity={0.82}
+          >
+            <Feather name="share" size={15} color={colors.tint} />
+            <Text style={[styles.sheetShareBtnText, { color: colors.tint }]}>Share Card</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sheetCloseBtn, { backgroundColor: colors.tint }]}
+            onPress={handleClose}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.sheetCloseBtnText}>Close</Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
     </Animated.View>
   );
@@ -347,10 +349,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     maxHeight: "90%",
   },
+  sheetScrollView: {
+    width: "100%",
+    flex: 1,
+  },
   sheetScroll: {
     alignItems: "center",
     gap: 12,
     paddingTop: 4,
+    paddingBottom: 8,
     width: "100%",
   },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, marginBottom: 4 },
@@ -393,8 +400,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginTop: 4,
-    alignSelf: "stretch",
+    paddingTop: 12,
+    paddingHorizontal: 4,
+    width: "100%",
     justifyContent: "center",
   },
   sheetShareBtn: {
