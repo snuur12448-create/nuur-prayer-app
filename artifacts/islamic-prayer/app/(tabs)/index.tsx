@@ -16,8 +16,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { LocationModal } from "@/components/LocationModal";
+import { PrayerNotifSheet } from "@/components/PrayerNotifSheet";
 import { getIslamicDate, getTodaysReminder } from "@/utils/islamicData";
 import { calculatePrayerTimes, getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
+import { PrayerKey } from "@/utils/prayerNotifData";
 import { GuideSection } from "@/components/GuideSection";
 
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
@@ -28,7 +30,10 @@ export default function PrayerScreen() {
     refreshPrayerTimes, requestLocation, setManualLocation,
     themeColors: colors, notificationsEnabled, toggleNotifications,
     timeFormat, calcMethod, madhab, highLatRule,
+    prayerNotifConfig, setPrayerNotifSettings,
   } = useAppContext();
+
+  const [notifSheetKey, setNotifSheetKey] = useState<PrayerKey | null>(null);
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const miniPlayerH = useMiniPlayerHeight();
@@ -268,6 +273,11 @@ export default function PrayerScreen() {
               const isActive = isActivePrayer(prayer.name);
               const isPast = prayer.time < new Date() && !isActive;
 
+              const isBellPrayer = key !== "sunrise";
+              const notifSettings = isBellPrayer ? prayerNotifConfig[key as PrayerKey] : null;
+              const notifOn = notifSettings?.enabled ?? false;
+              const GOLD = colors.gold ?? "#C9933A";
+
               return (
                 <View
                   key={key}
@@ -281,7 +291,7 @@ export default function PrayerScreen() {
                 >
                   <View style={styles.prayerLeft}>
                     <View style={[styles.prayerDot, {
-                      backgroundColor: isActive ? colors.background : isPast ? colors.textSecondary : colors.gold,
+                      backgroundColor: isActive ? colors.background : isPast ? colors.textSecondary : GOLD,
                     }]} />
                     <View style={{ flex: 1 }}>
                       <Text
@@ -314,6 +324,33 @@ export default function PrayerScreen() {
                     ]}>
                       {prayer.timeString}
                     </Text>
+                    {isBellPrayer && (
+                      <TouchableOpacity
+                        onPress={() => setNotifSheetKey(key as PrayerKey)}
+                        hitSlop={10}
+                        style={[
+                          styles.bellBtn,
+                          {
+                            backgroundColor: notifOn
+                              ? (isActive ? colors.background + "33" : GOLD + "22")
+                              : (isActive ? colors.background + "22" : colors.border),
+                            borderColor: notifOn
+                              ? (isActive ? colors.background + "66" : GOLD + "66")
+                              : "transparent",
+                          },
+                        ]}
+                      >
+                        <Feather
+                          name={notifOn ? "bell" : "bell-off"}
+                          size={13}
+                          color={
+                            notifOn
+                              ? (isActive ? colors.background : GOLD)
+                              : (isActive ? colors.background + "99" : colors.textSecondary)
+                          }
+                        />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               );
@@ -354,6 +391,18 @@ export default function PrayerScreen() {
         colors={colors}
         isLoadingGps={isLoadingLocation}
       />
+
+      {notifSheetKey && prayerTimes?.[notifSheetKey] && (
+        <PrayerNotifSheet
+          visible={!!notifSheetKey}
+          prayerKey={notifSheetKey}
+          prayerName={prayerTimes[notifSheetKey]!.name}
+          settings={prayerNotifConfig[notifSheetKey]}
+          colors={colors}
+          onSave={(s) => setPrayerNotifSettings(notifSheetKey, s)}
+          onClose={() => setNotifSheetKey(null)}
+        />
+      )}
     </View>
   );
 }
@@ -538,7 +587,15 @@ const styles = StyleSheet.create({
   prayerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
+  },
+  bellBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
   },
   activeBadge: {
     borderRadius: 10,

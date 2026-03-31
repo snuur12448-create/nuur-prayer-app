@@ -28,6 +28,12 @@ import {
   schedulePrayerNotifications,
 } from "@/utils/notifications";
 import {
+  DEFAULT_PRAYER_NOTIF_CONFIG,
+  PrayerKey,
+  PrayerNotifConfig,
+  PrayerNotifSettings,
+} from "@/utils/prayerNotifData";
+import {
   ADHAN_STYLES,
   DEFAULT_ADHAN_STYLE_ID,
   DEFAULT_ADHAN_MODE,
@@ -84,6 +90,8 @@ interface AppContextType {
   adhanPrayerArabicName: string | null;
   adhanCurrentStyle: AdhanStyle;
   stopAdhan: () => Promise<void>;
+  prayerNotifConfig: PrayerNotifConfig;
+  setPrayerNotifSettings: (key: PrayerKey, settings: PrayerNotifSettings) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -101,6 +109,7 @@ const STORAGE_KEYS = {
   ADHAN_ENABLED: "adhan_enabled",
   ADHAN_STYLE: "adhan_style",
   ADHAN_MODE: "adhan_mode",
+  PRAYER_NOTIF_CONFIG: "prayer_notif_config",
 };
 
 function getTimezoneOffset(): number {
@@ -156,6 +165,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [madhab, setMadhabState] = useState<MadhabId>(DEFAULT_MADHAB);
   const [highLatRule, setHighLatRuleState] = useState<HighLatRuleId>(DEFAULT_HIGH_LAT_RULE);
   const [timeFormat, setTimeFormatState] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
+
+  // Per-prayer notification config
+  const [prayerNotifConfig, setPrayerNotifConfigState] = useState<PrayerNotifConfig>(DEFAULT_PRAYER_NOTIF_CONFIG);
 
   // Adhan state
   const [adhanEnabled, setAdhanEnabled] = useState(false);
@@ -280,7 +292,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPreferences = async () => {
     try {
-      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal] =
+      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.THEME),
           AsyncStorage.getItem(STORAGE_KEYS.DISPLAY_MODE),
@@ -292,6 +304,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(STORAGE_KEYS.ADHAN_ENABLED),
           AsyncStorage.getItem(STORAGE_KEYS.ADHAN_STYLE),
           AsyncStorage.getItem(STORAGE_KEYS.ADHAN_MODE),
+          AsyncStorage.getItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG),
         ]);
       if (theme && theme in THEMES) setThemeNameState(theme as ThemeName);
       if (mode === "auto" || mode === "dark" || mode === "light") setDisplayModeState(mode);
@@ -306,6 +319,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       if (adhanModeVal === "full" || adhanModeVal === "short" || adhanModeVal === "silent") {
         setAdhanModeState(adhanModeVal);
+      }
+      if (prayerNotifRaw) {
+        try {
+          const parsed = JSON.parse(prayerNotifRaw) as PrayerNotifConfig;
+          setPrayerNotifConfigState({ ...DEFAULT_PRAYER_NOTIF_CONFIG, ...parsed });
+        } catch {}
       }
     } catch {}
   };
@@ -397,6 +416,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setAdhanMode = useCallback(async (m: AdhanMode) => {
     setAdhanModeState(m);
     try { await AsyncStorage.setItem(STORAGE_KEYS.ADHAN_MODE, m); } catch {}
+  }, []);
+
+  const setPrayerNotifSettings = useCallback(async (key: PrayerKey, settings: PrayerNotifSettings) => {
+    setPrayerNotifConfigState((prev) => {
+      const next = { ...prev, [key]: settings };
+      AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
   }, []);
 
   const stopAdhan = useCallback(async () => {
@@ -547,6 +574,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         adhanPrayerArabicName,
         adhanCurrentStyle: getAdhanStyle(adhanStyleId),
         stopAdhan,
+        prayerNotifConfig,
+        setPrayerNotifSettings,
       }}
     >
       {children}
