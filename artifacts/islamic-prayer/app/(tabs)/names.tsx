@@ -20,8 +20,10 @@ import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { ALLAH_NAMES, AllahName } from "@/utils/namesData";
 import ContentShareSheet from "@/components/ContentShareSheet";
 
-const { width } = Dimensions.get("window");
+const { width, height: SCREEN_H } = Dimensions.get("window");
 const NUM_COLS = width >= 600 ? 3 : 2;
+// Sheet occupies up to 90% of screen. Fixed elements (handle + top padding + btn row) ~130px.
+const SHEET_SCROLL_MAX_H = SCREEN_H * 0.9 - 130;
 
 const CARD_GRADIENTS = [
   ["#1a1a2e", "#16213e"],
@@ -98,7 +100,7 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
         <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
 
         <ScrollView
-          style={styles.sheetScrollView}
+          style={[styles.sheetScrollView, { maxHeight: SHEET_SCROLL_MAX_H }]}
           showsVerticalScrollIndicator={false}
           bounces={false}
           contentContainerStyle={styles.sheetScroll}
@@ -351,7 +353,6 @@ const styles = StyleSheet.create({
   },
   sheetScrollView: {
     width: "100%",
-    flex: 1,
   },
   sheetScroll: {
     alignItems: "center",
