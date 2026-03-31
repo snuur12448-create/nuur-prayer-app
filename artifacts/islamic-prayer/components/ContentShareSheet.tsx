@@ -165,6 +165,7 @@ export interface ContentShareSheetProps {
   label: string;
   secondaryTitle?: string;
   arabicText?: string;
+  arabicFontSize?: number;
   bodyItalic?: string;
   bodyText: string;
   source?: string;
@@ -179,6 +180,7 @@ export default function ContentShareSheet({
   label,
   secondaryTitle,
   arabicText,
+  arabicFontSize,
   bodyItalic,
   bodyText,
   source,
@@ -301,7 +303,10 @@ export default function ContentShareSheet({
 
                   {arabicText ? (
                     <View style={s.arabicWrap}>
-                      <Text style={s.arabicTxt}>{arabicText}</Text>
+                      <Text style={[
+                        s.arabicTxt,
+                        arabicFontSize ? { fontSize: arabicFontSize, lineHeight: arabicFontSize * 1.7, paddingTop: 6 } : null,
+                      ]}>{arabicText}</Text>
                     </View>
                   ) : null}
 

@@ -266,8 +266,8 @@ export default function NamesScreen() {
           sheetTitle="Share Name"
           shareTitle={shareItem.transliteration}
           label={`NAME #${shareItem.number}  ·  ASMA AL-HUSNA`}
-          secondaryTitle={shareItem.transliteration}
           arabicText={shareItem.arabic}
+          arabicFontSize={36}
           bodyItalic={shareItem.pronunciation}
           bodyText={`${shareItem.meaning}\n\n${shareItem.description}`}
         />
