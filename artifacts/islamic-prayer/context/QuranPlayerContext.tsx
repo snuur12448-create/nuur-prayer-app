@@ -43,11 +43,16 @@ interface QuranPlayerContextType {
     surahName: string,
     allVerses: PlayerVerse[]
   ) => Promise<void>;
+  skipNext: () => Promise<void>;
+  skipPrevious: () => Promise<void>;
   setSelectedReciter: (reciter: Reciter) => void;
   setPlaybackRate: (rate: number) => void;
 }
 
 const QuranPlayerContext = createContext<QuranPlayerContextType | null>(null);
+
+// ── Icon used as lock-screen / notification artwork ──────────────────────────
+const APP_ICON = require("@/assets/images/icon.png");
 
 export function QuranPlayerProvider({ children }: { children: React.ReactNode }) {
   const [playState, setPlayState] = useState<PlayState>("idle");
@@ -58,16 +63,55 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
   const [currentSurahName, setCurrentSurahName] = useState<string | null>(null);
   const [currentSurahArabic, setCurrentSurahArabic] = useState<string | null>(null);
 
-  const soundRef = useRef<any>(null);
+  // Web-only refs
+  const webSoundRef = useRef<HTMLAudioElement | null>(null);
   const preloadRef = useRef<{ verseNum: number; audio: HTMLAudioElement } | null>(null);
+
+  // Shared refs
   const playbackRateRef = useRef<number>(1.0);
   const reciterRef = useRef<Reciter>(DEFAULT_RECITER);
   const surahNumRef = useRef<number | null>(null);
   const surahArabicRef = useRef<string>("");
   const surahNameRef = useRef<string>("");
   const versesRef = useRef<PlayerVerse[] | null>(null);
+  const tpReadyRef = useRef(false);
 
-  // Configure audio session once on mount for background + lock-screen playback
+  // ── 1. Initialise TrackPlayer once (native only) ────────────────────────────
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    (async () => {
+      try {
+        const TrackPlayer = (await import("react-native-track-player")).default;
+        const { Capability, AppKilledPlaybackBehavior } = await import("react-native-track-player");
+        await TrackPlayer.setupPlayer({ autoHandleInterruptions: true });
+        await TrackPlayer.updateOptions({
+          capabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+            Capability.SkipToPrevious,
+            Capability.Stop,
+          ],
+          compactCapabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+          ],
+          progressUpdateEventInterval: 1,
+          android: {
+            appKilledPlaybackBehavior:
+              AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
+          },
+        });
+        tpReadyRef.current = true;
+      } catch {
+        // setupPlayer throws "Already been initialized" on hot reload — safe to ignore
+        tpReadyRef.current = true;
+      }
+    })();
+  }, []);
+
+  // ── 2. Configure expo-av audio session for background playback (native) ─────
   useEffect(() => {
     if (Platform.OS === "web") return;
     (async () => {
@@ -86,47 +130,103 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
     })();
   }, []);
 
-  // Sync rate ref and apply to current audio
+  // ── 3. Subscribe to TrackPlayer events (native only) ────────────────────────
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    let subs: Array<{ remove(): void }> = [];
+    (async () => {
+      const TrackPlayer = (await import("react-native-track-player")).default;
+      const { Event, State } = await import("react-native-track-player");
+
+      subs.push(
+        TrackPlayer.addEventListener(Event.PlaybackState, ({ state }: { state: any }) => {
+          if (state === State.Playing) setPlayState("playing");
+          else if (state === State.Paused) setPlayState("paused");
+          else if (state === State.Loading || state === State.Buffering)
+            setPlayState("loading");
+          else if (state === State.Stopped || state === State.None)
+            setPlayState("idle");
+          else if (state === State.Ended) {
+            setPlayState("idle");
+            setPlayingVerse(null);
+          }
+        })
+      );
+
+      subs.push(
+        TrackPlayer.addEventListener(Event.PlaybackTrackChanged, async ({ nextTrack }: { nextTrack: any }) => {
+          if (nextTrack !== null && nextTrack !== undefined) {
+            try {
+              const track = await TrackPlayer.getActiveTrack();
+              if (track?.id) setPlayingVerse(Number(track.id));
+            } catch {}
+          }
+        })
+      );
+
+      subs.push(
+        TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
+          setPlayingVerse(null);
+          setPlayState("idle");
+          setCurrentSurahNum(null);
+          setCurrentSurahName(null);
+          setCurrentSurahArabic(null);
+        })
+      );
+    })();
+
+    return () => { subs.forEach((s) => s.remove()); };
+  }, []);
+
+  // ── 4. Sync playback rate ────────────────────────────────────────────────────
   useEffect(() => {
     playbackRateRef.current = playbackRate;
-    if (!soundRef.current) return;
     if (Platform.OS === "web") {
-      try { (soundRef.current as HTMLAudioElement).playbackRate = playbackRate; } catch {}
+      if (webSoundRef.current) {
+        try { webSoundRef.current.playbackRate = playbackRate; } catch {}
+      }
     } else {
-      soundRef.current.setRateAsync?.(playbackRate, true).catch(() => {});
+      (async () => {
+        try {
+          const TrackPlayer = (await import("react-native-track-player")).default;
+          await TrackPlayer.setRate(playbackRate);
+        } catch {}
+      })();
     }
   }, [playbackRate]);
 
+  // ── stopAudio ────────────────────────────────────────────────────────────────
   const stopAudio = useCallback(async () => {
-    if (soundRef.current) {
+    if (Platform.OS === "web") {
+      if (webSoundRef.current) {
+        try {
+          webSoundRef.current.onended = null;
+          webSoundRef.current.onerror = null;
+          webSoundRef.current.pause();
+          webSoundRef.current.src = "";
+        } catch {}
+        webSoundRef.current = null;
+      }
+      if (preloadRef.current) {
+        try { preloadRef.current.audio.src = ""; } catch {}
+        preloadRef.current = null;
+      }
+      if ("mediaSession" in navigator) {
+        try { navigator.mediaSession.playbackState = "none"; } catch {}
+      }
+    } else {
       try {
-        if (Platform.OS === "web") {
-          const audio = soundRef.current as HTMLAudioElement;
-          audio.onended = null;
-          audio.onerror = null;
-          audio.pause();
-          audio.src = "";
-        } else {
-          await soundRef.current.stopAsync?.();
-          await soundRef.current.unloadAsync?.();
-        }
+        const TrackPlayer = (await import("react-native-track-player")).default;
+        await TrackPlayer.reset();
       } catch {}
-      soundRef.current = null;
-    }
-    if (preloadRef.current) {
-      try { preloadRef.current.audio.src = ""; } catch {}
-      preloadRef.current = null;
-    }
-    if (Platform.OS === "web" && "mediaSession" in navigator) {
-      try { navigator.mediaSession.playbackState = "none"; } catch {}
     }
     setPlayingVerse(null);
     setPlayState("idle");
   }, []);
 
+  // ── Web-only: preload next verse ─────────────────────────────────────────────
   const preloadNext = useCallback((verse: PlayerVerse, currentVerses: PlayerVerse[]) => {
     if (Platform.OS !== "web") return;
-    // Surah-level reciters use one file for the whole surah — no per-verse preloading needed
     if (isSurahLevelReciter(reciterRef.current)) return;
     const next = currentVerses.find((v) => v.number === verse.number + 1);
     if (!next) return;
@@ -149,6 +249,37 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
+  // ── skipNext / skipPrevious ──────────────────────────────────────────────────
+  const skipNext = useCallback(async () => {
+    if (Platform.OS === "web") {
+      // Trigger onended of the current web audio to auto-advance
+      if (webSoundRef.current) {
+        webSoundRef.current.dispatchEvent(new Event("ended"));
+      }
+    } else {
+      try {
+        const TrackPlayer = (await import("react-native-track-player")).default;
+        await TrackPlayer.skipToNext();
+      } catch {}
+    }
+  }, []);
+
+  const skipPrevious = useCallback(async () => {
+    if (Platform.OS === "web") {
+      // Restart current verse on web
+      if (webSoundRef.current) {
+        webSoundRef.current.currentTime = 0;
+        webSoundRef.current.play().catch(() => {});
+      }
+    } else {
+      try {
+        const TrackPlayer = (await import("react-native-track-player")).default;
+        await TrackPlayer.skipToPrevious();
+      } catch {}
+    }
+  }, []);
+
+  // ── playVerse ────────────────────────────────────────────────────────────────
   const playVerse = useCallback(
     async (
       verse: PlayerVerse,
@@ -163,22 +294,6 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
       surahNameRef.current = surahName;
       versesRef.current = allVerses;
 
-      if (!isAutoAdvance && soundRef.current) {
-        try {
-          if (Platform.OS === "web") {
-            const audio = soundRef.current as HTMLAudioElement;
-            audio.onended = null;
-            audio.onerror = null;
-            audio.pause();
-            audio.src = "";
-          } else {
-            await soundRef.current.stopAsync?.();
-            await soundRef.current.unloadAsync?.();
-          }
-        } catch {}
-        soundRef.current = null;
-      }
-
       setCurrentSurahNum(surahNum);
       setCurrentSurahArabic(surahArabic);
       setCurrentSurahName(surahName);
@@ -187,29 +302,39 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
 
       const url = getVerseAudioUrl(reciterRef.current, surahNum, verse.number, verse.numberInQuran);
 
-      const onEnded = () => {
-        soundRef.current = null;
-        const currentVerses = versesRef.current;
-        const currentSurahNum = surahNumRef.current!;
-        const currentSurahArabic = surahArabicRef.current;
-        const currentSurahName = surahNameRef.current;
-        const reciter = reciterRef.current;
-        // Surah-level reciters play the full surah as one file — don't auto-advance verses
-        if (!isSurahLevelReciter(reciter) && currentVerses) {
-          const next = currentVerses.find((v) => v.number === verse.number + 1);
-          if (next) {
-            playVerse(next, currentSurahNum, currentSurahArabic, currentSurahName, currentVerses, true);
-            return;
-          }
-        }
-        setPlayingVerse(null);
-        setPlayState("idle");
-        if (Platform.OS === "web" && "mediaSession" in navigator) {
-          try { navigator.mediaSession.playbackState = "none"; } catch {}
-        }
-      };
-
       if (Platform.OS === "web") {
+        // ── WEB PATH (unchanged HTMLAudioElement logic) ─────────────────────
+        const onEnded = () => {
+          webSoundRef.current = null;
+          const currentVerses = versesRef.current;
+          const curSurahNum = surahNumRef.current!;
+          const curSurahArabic = surahArabicRef.current;
+          const curSurahName = surahNameRef.current;
+          const reciter = reciterRef.current;
+          if (!isSurahLevelReciter(reciter) && currentVerses) {
+            const next = currentVerses.find((v) => v.number === verse.number + 1);
+            if (next) {
+              playVerse(next, curSurahNum, curSurahArabic, curSurahName, currentVerses, true);
+              return;
+            }
+          }
+          setPlayingVerse(null);
+          setPlayState("idle");
+          if ("mediaSession" in navigator) {
+            try { navigator.mediaSession.playbackState = "none"; } catch {}
+          }
+        };
+
+        if (!isAutoAdvance && webSoundRef.current) {
+          try {
+            webSoundRef.current.onended = null;
+            webSoundRef.current.onerror = null;
+            webSoundRef.current.pause();
+            webSoundRef.current.src = "";
+          } catch {}
+          webSoundRef.current = null;
+        }
+
         try {
           let audio: HTMLAudioElement;
           if (preloadRef.current?.verseNum === verse.number) {
@@ -222,7 +347,7 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
             audio.load();
           }
 
-          soundRef.current = audio;
+          webSoundRef.current = audio;
           audio.onerror = () => { setPlayState("idle"); };
           audio.onended = onEnded;
           audio.playbackRate = playbackRateRef.current;
@@ -255,21 +380,50 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
           setPlayState("idle");
         }
       } else {
+        // ── NATIVE PATH (react-native-track-player) ─────────────────────────
         try {
-          const { Audio } = await import("expo-av");
-          const { sound } = await Audio.Sound.createAsync(
-            { uri: url },
-            { shouldPlay: true, progressUpdateIntervalMillis: 500 }
-          );
-          soundRef.current = sound;
-          try { await sound.setRateAsync(playbackRateRef.current, true); } catch {}
+          const TrackPlayer = (await import("react-native-track-player")).default;
+          const reciter = reciterRef.current;
+          const surahLevel = isSurahLevelReciter(reciter);
+
+          let tracks: Array<{
+            id: string; url: string; title: string; artist: string; album: string; artwork: any;
+          }>;
+
+          if (surahLevel) {
+            // One audio file covers the whole surah — add a single track
+            tracks = [
+              {
+                id: String(verse.number),
+                url,
+                title: surahArabic,
+                artist: reciter.name,
+                album: "Quran · Nuur",
+                artwork: APP_ICON,
+              },
+            ];
+          } else {
+            // Verse-level reciter — queue this verse and every subsequent verse
+            tracks = allVerses
+              .filter((v) => v.number >= verse.number)
+              .map((v) => ({
+                id: String(v.number),
+                url: getVerseAudioUrl(reciter, surahNum, v.number, v.numberInQuran),
+                title: `${surahArabic} — Ayah ${v.number}`,
+                artist: reciter.name,
+                album: "Quran · Nuur",
+                artwork: APP_ICON,
+              }));
+          }
+
+          await TrackPlayer.reset();
+          await TrackPlayer.add(tracks);
+          if (playbackRateRef.current !== 1.0) {
+            await TrackPlayer.setRate(playbackRateRef.current);
+          }
+          await TrackPlayer.play();
           setPlayState("playing");
-          sound.setOnPlaybackStatusUpdate((status: any) => {
-            if (status.didJustFinish) {
-              soundRef.current = null;
-              onEnded();
-            }
-          });
+          setPlayingVerse(verse.number);
         } catch {
           setPlayState("idle");
         }
@@ -278,6 +432,7 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
     [preloadNext, stopAudio]
   );
 
+  // ── togglePlayPause ──────────────────────────────────────────────────────────
   const togglePlayPause = useCallback(
     async (
       verse: PlayerVerse,
@@ -289,20 +444,22 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
       if (playingVerse === verse.number && playState === "playing") {
         try {
           if (Platform.OS === "web") {
-            (soundRef.current as HTMLAudioElement)?.pause();
+            webSoundRef.current?.pause();
             if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
           } else {
-            await soundRef.current?.pauseAsync();
+            const TrackPlayer = (await import("react-native-track-player")).default;
+            await TrackPlayer.pause();
           }
           setPlayState("paused");
         } catch {}
       } else if (playingVerse === verse.number && playState === "paused") {
         try {
           if (Platform.OS === "web") {
-            await (soundRef.current as HTMLAudioElement)?.play();
+            await webSoundRef.current?.play();
             if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
           } else {
-            await soundRef.current?.playAsync();
+            const TrackPlayer = (await import("react-native-track-player")).default;
+            await TrackPlayer.play();
           }
           setPlayState("playing");
         } catch {}
@@ -336,6 +493,8 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
         playVerse,
         stopAudio,
         togglePlayPause,
+        skipNext,
+        skipPrevious,
         setSelectedReciter,
         setPlaybackRate,
       }}

@@ -59,6 +59,7 @@
     "@nkzw/create-context-hook": "^1.1.0",
     "adhan": "^4.4.3",
     "expo-av": "^16.0.8",
-    "expo-notifications": "^0.32.16"
+    "expo-notifications": "^0.32.16",
+    "react-native-track-player": "^4.1.2"
   }
 }

@@ -129,6 +129,7 @@ Comprehensive Islamic prayer mobile app — **Nuur / نور** — built with Exp
 **Key files:**
 - `utils/prayerTimes.ts` — adhan.js wrapper. `CalcMethodId`, `MadhabId`, `HighLatRuleId`, `TimeFormat` types exported. `calculatePrayerTimes` accepts all settings as optional params with defaults.
 - `utils/audioData.ts` — 8 reciters. CDN types: `verses-quran` (surah/verse path) and `islamic-network` (global ayah num). Sudais uses islamic-network 64kbps; Ibrahim Walk uses 192kbps.
+- `context/QuranPlayerContext.tsx` — Native path uses **`react-native-track-player`** (v4) for lock screen / Control Center / AVAudioSession playback category. Web path uses `HTMLAudioElement` + `navigator.mediaSession`. TrackPlayer is dynamically imported (`await import("react-native-track-player")`) so the web bundle stays clean. Lock screen shows: surah Arabic name, verse number, reciter as artist, app icon as artwork. Remote commands: Play, Pause, Skip Next, Skip Previous, Stop all registered. Verse-level reciters pre-load the full queue from the tapped verse to end of surah so auto-advance and skip-next work. Surah-level reciters add a single track. Requires a development build (EAS) — not available in Expo Go.
 - `utils/islamicData.ts` — Quran surah list, Dua categories, Islamic reminders, Hijri date conversion
 - `utils/hadithData.ts` — 15 Sahih hadiths with Arabic, transliteration, translation, narrator, source, grade. `getDailyHadith()` rotates daily.
 - `utils/notifications.ts` — expo-notifications: schedules all 5 prayers for next 7 days

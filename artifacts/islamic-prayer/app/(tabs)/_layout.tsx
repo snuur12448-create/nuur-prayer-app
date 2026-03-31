@@ -27,6 +27,8 @@ function MiniPlayer() {
     selectedReciter,
     stopAudio,
     togglePlayPause,
+    skipNext,
+    skipPrevious,
   } = useQuranPlayer();
 
   const insets = useSafeAreaInsets();
@@ -66,11 +68,17 @@ function MiniPlayer() {
         </Text>
       </View>
       <View style={styles.miniControls}>
+        <TouchableOpacity onPress={() => skipPrevious()} hitSlop={12} style={styles.miniSkipBtn}>
+          <Feather name="skip-back" size={14} color={colors.textSecondary} />
+        </TouchableOpacity>
         <TouchableOpacity onPress={handlePlayPause} style={[styles.miniBtn, { backgroundColor: colors.tint + "20" }]} hitSlop={10}>
           <Feather name={playState === "playing" ? "pause" : "play"} size={16} color={colors.tint} />
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => skipNext()} hitSlop={12} style={styles.miniSkipBtn}>
+          <Feather name="skip-forward" size={14} color={colors.textSecondary} />
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => stopAudio()} style={styles.miniStopBtn} hitSlop={10}>
-          <Feather name="x" size={16} color={colors.textSecondary} />
+          <Feather name="x" size={14} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
     </Pressable>
@@ -250,9 +258,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   miniStopBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  miniSkipBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
