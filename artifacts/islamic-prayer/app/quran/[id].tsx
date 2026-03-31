@@ -19,6 +19,7 @@ import { useAppContext } from "@/context/AppContext";
 import { useQuranPlayer } from "@/context/QuranPlayerContext";
 import { SURAHS } from "@/utils/islamicData";
 import { RECITERS, getVerseAudioUrl, Reciter } from "@/utils/audioData";
+import AyahShareSheet from "@/components/AyahShareSheet";
 
 interface Verse {
   number: number;
@@ -40,6 +41,7 @@ interface VerseCardProps {
   colors: Record<string, string>;
   onPlay: () => void;
   onCopy: () => void;
+  onShare: () => void;
 }
 
 const VerseCard = React.memo(function VerseCard({
@@ -53,6 +55,7 @@ const VerseCard = React.memo(function VerseCard({
   colors,
   onPlay,
   onCopy,
+  onShare,
 }: VerseCardProps) {
   return (
     <View
@@ -93,6 +96,13 @@ const VerseCard = React.memo(function VerseCard({
               size={12}
               color={isCopied ? colors.gold : colors.textSecondary}
             />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onShare}
+            style={[styles.copyBtn, { backgroundColor: "transparent" }]}
+            hitSlop={8}
+          >
+            <Feather name="share-2" size={12} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
         <View style={[styles.verseNumberBadge, { backgroundColor: isActive ? colors.tint : colors.prayerCard }]}>
@@ -140,6 +150,7 @@ export default function QuranDetailScreen() {
   const [showTranslation, setShowTranslation] = useState(true);
   const [showTransliteration, setShowTransliteration] = useState(false);
   const [copiedVerse, setCopiedVerse] = useState<number | null>(null);
+  const [shareVerse, setShareVerse] = useState<Verse | null>(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [verses, setVerses] = useState<Verse[] | null>(null);
   const [loadingVerses, setLoadingVerses] = useState(false);
@@ -375,6 +386,7 @@ export default function QuranDetailScreen() {
         colors={colors}
         onPlay={() => togglePlayPause(verse)}
         onCopy={() => copyVerse(verse)}
+        onShare={() => setShareVerse(verse)}
       />
     ),
     [playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, colors, togglePlayPause, copyVerse]
@@ -676,6 +688,20 @@ export default function QuranDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ── Ayah share sheet ────────────────────────────────────────────── */}
+      {shareVerse && (
+        <AyahShareSheet
+          visible={shareVerse !== null}
+          verseNumber={shareVerse.number}
+          arabicText={shareVerse.text}
+          translation={shareVerse.translation}
+          surahName={surah.name}
+          surahEnglish={surah.englishName}
+          surahNumber={surahNumber}
+          onClose={() => setShareVerse(null)}
+        />
+      )}
 
       {/* ── Speed picker modal ──────────────────────────────────────────── */}
       <Modal
