@@ -28,6 +28,7 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="quran/[id]" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="calendar" options={{ headerShown: false, presentation: "modal" }} />
     </Stack>
   );
 }

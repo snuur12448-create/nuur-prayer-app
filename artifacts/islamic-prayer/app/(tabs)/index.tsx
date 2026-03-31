@@ -1,4 +1,5 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -172,9 +173,17 @@ export default function PrayerScreen() {
                 </Text>
                 <Feather name="chevron-down" size={11} color={colors.textSecondary} />
               </TouchableOpacity>
-              <Text style={[styles.islamicDate, { color: colors.gold }]} numberOfLines={1} adjustsFontSizeToFit>
-                {islamicDate.day} {islamicDate.month} {islamicDate.year} AH
-              </Text>
+              <TouchableOpacity
+                onPress={() => router.push("/calendar")}
+                activeOpacity={0.7}
+                hitSlop={8}
+                style={styles.islamicDateBtn}
+              >
+                <Text style={[styles.islamicDate, { color: colors.gold }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {islamicDate.day} {islamicDate.month} {islamicDate.year} AH
+                </Text>
+                <Feather name="calendar" size={12} color={colors.gold + "90"} style={{ marginLeft: 5, marginTop: 1 }} />
+              </TouchableOpacity>
             </View>
             <View style={styles.headerRight}>
               <Text style={[styles.currentTime, { color: colors.text }]} numberOfLines={1}>{formatCurrentTime()}</Text>
@@ -455,6 +464,10 @@ const styles = StyleSheet.create({
   locationLabel: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
+  },
+  islamicDateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   islamicDate: {
     fontSize: 13,
