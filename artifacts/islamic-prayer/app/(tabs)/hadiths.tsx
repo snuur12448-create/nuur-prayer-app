@@ -1,8 +1,9 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Clipboard,
   FlatList,
   Platform,
@@ -17,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { HADITHS, HADITH_TOPICS, Hadith } from "@/utils/hadithData";
+import { useSavedItems } from "@/utils/useSavedItems";
 import ContentShareSheet from "@/components/ContentShareSheet";
 
 const SUNNAH_API_KEY = "SqD712P3E82xnwOAEOkGd5JZH8s9wRR24TqNFzjk";
@@ -69,7 +71,7 @@ export default function HadithsScreen() {
   const [liveHadith, setLiveHadith] = useState<LiveHadith | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [liveError, setLiveError] = useState("");
-  const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
+  const { savedIds: bookmarks, toggle: toggleBookmark } = useSavedItems("nuur_saved_hadiths");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [shareHadith, setShareHadith] = useState<Hadith | LiveHadith | null>(null);
 
@@ -108,8 +110,10 @@ export default function HadithsScreen() {
     fetchLiveHadith();
   }, []);
 
+  const isSaved = activeTopic === "Saved";
   const filteredHadiths = HADITHS.filter((h) => {
-    const matchTopic = activeTopic === "All" || h.topic === activeTopic;
+    if (isSaved && !bookmarks.has(h.id)) return false;
+    const matchTopic = isSaved || activeTopic === "All" || h.topic === activeTopic;
     const matchCollection =
       activeCollection === "all" ||
       h.collection === activeCollection ||
@@ -133,14 +137,6 @@ export default function HadithsScreen() {
     }
     setCopiedId(h.id);
     setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const toggleBookmark = (id: string) => {
-    setBookmarks((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
   };
 
   return (
@@ -206,30 +202,48 @@ export default function HadithsScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
-            {/* Topic pills */}
+            {/* Topic pills — Saved first, then all topics */}
             <FlatList
-              data={HADITH_TOPICS}
+              data={["Saved", ...HADITH_TOPICS]}
               keyExtractor={(t) => t}
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.topicList}
               contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingVertical: 12 }}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => setActiveTopic(item)}
-                  style={[
-                    styles.topicChip,
-                    {
-                      backgroundColor: activeTopic === item ? colors.tint : colors.surface,
-                      borderColor: activeTopic === item ? colors.tint : colors.border,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.topicChipText, { color: activeTopic === item ? "#fff" : colors.textSecondary }]}>
-                    {item}
-                  </Text>
-                </Pressable>
-              )}
+              renderItem={({ item }) => {
+                const isActive = activeTopic === item;
+                const isSavedChip = item === "Saved";
+                return (
+                  <Pressable
+                    onPress={() => setActiveTopic(item)}
+                    style={[
+                      styles.topicChip,
+                      {
+                        backgroundColor: isActive
+                          ? (isSavedChip ? colors.gold : colors.tint)
+                          : colors.surface,
+                        borderColor: isActive
+                          ? (isSavedChip ? colors.gold : colors.tint)
+                          : colors.border,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 5,
+                      },
+                    ]}
+                  >
+                    {isSavedChip && (
+                      <MaterialCommunityIcons
+                        name="bookmark"
+                        size={12}
+                        color={isActive ? "#fff" : colors.textSecondary}
+                      />
+                    )}
+                    <Text style={[styles.topicChipText, { color: isActive ? "#fff" : colors.textSecondary }]}>
+                      {item}
+                    </Text>
+                  </Pressable>
+                );
+              }}
             />
 
             {/* Live Sunnah.com hadith */}
@@ -264,8 +278,19 @@ export default function HadithsScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Text style={{ fontSize: 32 }}>📖</Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No hadiths match your filters</Text>
+            {isSaved ? (
+              <>
+                <MaterialCommunityIcons name="bookmark-outline" size={44} color={colors.border} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  No saved hadiths yet. Tap the bookmark icon on any hadith to save your favourites.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={{ fontSize: 32 }}>📖</Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No hadiths match your filters</Text>
+              </>
+            )}
           </View>
         }
       />
@@ -284,6 +309,28 @@ export default function HadithsScreen() {
         />
       )}
     </View>
+  );
+}
+
+function BookmarkBtn({ bookmarked, onPress, gold, grey }: { bookmarked: boolean; onPress: () => void; gold: string; grey: string }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 1.45, duration: 90, useNativeDriver: false }),
+      Animated.spring(scale, { toValue: 1, friction: 3, tension: 120, useNativeDriver: false }),
+    ]).start();
+    onPress();
+  };
+  return (
+    <TouchableOpacity onPress={handlePress} hitSlop={12}>
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <MaterialCommunityIcons
+          name={bookmarked ? "bookmark" : "bookmark-outline"}
+          size={19}
+          color={bookmarked ? gold : grey}
+        />
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
@@ -310,11 +357,19 @@ function LiveHadithCard({
             <Feather name="globe" size={9} color={colors.gold} />
             <Text style={[styles.liveBadgeText, { color: colors.gold }]}>LIVE FROM SUNNAH.COM</Text>
           </View>
-          <TouchableOpacity onPress={onRefresh} hitSlop={10} disabled={loading}>
-            {loading
-              ? <ActivityIndicator size="small" color={colors.gold} />
-              : <Feather name="refresh-cw" size={15} color={colors.gold} />}
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <BookmarkBtn
+              bookmarked={bookmarked}
+              onPress={onBookmark}
+              gold={colors.gold}
+              grey={colors.textSecondary}
+            />
+            <TouchableOpacity onPress={onRefresh} hitSlop={10} disabled={loading}>
+              {loading
+                ? <ActivityIndicator size="small" color={colors.gold} />
+                : <Feather name="refresh-cw" size={15} color={colors.gold} />}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {error ? (
@@ -337,12 +392,6 @@ function LiveHadithCard({
                 <Feather name={copied ? "check" : "copy"} size={14} color={copied ? colors.tint : colors.textSecondary} />
                 <Text style={[styles.actionBtnText, { color: copied ? colors.tint : colors.textSecondary }]}>
                   {copied ? "Copied" : "Copy"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={onBookmark} style={[styles.actionBtn, { backgroundColor: colors.surface }]} hitSlop={8}>
-                <Feather name={bookmarked ? "bookmark" : "bookmark"} size={14} color={bookmarked ? colors.gold : colors.textSecondary} />
-                <Text style={[styles.actionBtnText, { color: bookmarked ? colors.gold : colors.textSecondary }]}>
-                  {bookmarked ? "Saved" : "Save"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={onShare} style={[styles.actionBtn, { backgroundColor: colors.surface }]} hitSlop={8}>
@@ -411,7 +460,15 @@ function HadithCard({
               </Text>
             </View>
           </View>
-          <Feather name={expanded ? "chevron-up" : "chevron-down"} size={15} color={colors.textSecondary} />
+          <View style={styles.hadithTopRight}>
+            <BookmarkBtn
+              bookmarked={bookmarked}
+              onPress={onBookmark}
+              gold={colors.gold}
+              grey={colors.textSecondary}
+            />
+            <Feather name={expanded ? "chevron-up" : "chevron-down"} size={15} color={colors.textSecondary} />
+          </View>
         </View>
 
         {/* Arabic */}
@@ -442,12 +499,6 @@ function HadithCard({
               <Feather name={copied ? "check" : "copy"} size={13} color={copied ? colors.tint : colors.textSecondary} />
               <Text style={[styles.actionBtnText, { color: copied ? colors.tint : colors.textSecondary }]}>
                 {copied ? "Copied" : "Copy"}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onBookmark} style={[styles.actionBtn, { backgroundColor: colors.prayerCard }]} hitSlop={8}>
-              <Feather name="bookmark" size={13} color={bookmarked ? colors.gold : colors.textSecondary} />
-              <Text style={[styles.actionBtnText, { color: bookmarked ? colors.gold : colors.textSecondary }]}>
-                {bookmarked ? "Saved" : "Save"}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onShare} style={[styles.actionBtn, { backgroundColor: colors.prayerCard }]} hitSlop={8}>
@@ -606,6 +657,12 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 8,
+  },
+  hadithTopRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
   },
   topicTagRow: { flexDirection: "row", gap: 6, flexWrap: "wrap", flex: 1 },
   topicTag: {

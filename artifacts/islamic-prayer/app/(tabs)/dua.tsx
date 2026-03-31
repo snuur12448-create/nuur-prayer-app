@@ -1,7 +1,8 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   Clipboard,
   FlatList,
   Platform,
@@ -17,15 +18,40 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { ALL_DUA_CATEGORIES, DuaItem, searchDuas } from "@/utils/duaData";
+import { useSavedItems } from "@/utils/useSavedItems";
 import ContentShareSheet from "@/components/ContentShareSheet";
+
+function BookmarkBtn({ bookmarked, onPress, gold, grey }: { bookmarked: boolean; onPress: () => void; gold: string; grey: string }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 1.45, duration: 90, useNativeDriver: false }),
+      Animated.spring(scale, { toValue: 1, friction: 3, tension: 120, useNativeDriver: false }),
+    ]).start();
+    onPress();
+  };
+  return (
+    <TouchableOpacity onPress={handlePress} hitSlop={12}>
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <MaterialCommunityIcons
+          name={bookmarked ? "bookmark" : "bookmark-outline"}
+          size={19}
+          color={bookmarked ? gold : grey}
+        />
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
 
 interface DuaCardProps {
   item: DuaItem & { categoryName?: string };
   colors: any;
   accentColor?: string;
   showCategory?: boolean;
+  bookmarked: boolean;
   onCopyDua: (item: DuaItem) => void;
   onShareDua: (item: DuaItem) => void;
+  onBookmarkDua: (item: DuaItem) => void;
   collapseKey: string;
 }
 
@@ -34,8 +60,10 @@ const DuaCard = React.memo(function DuaCard({
   colors,
   accentColor,
   showCategory,
+  bookmarked,
   onCopyDua,
   onShareDua,
+  onBookmarkDua,
   collapseKey,
 }: DuaCardProps) {
   const [expanded, setExpanded] = useState(false);
@@ -86,6 +114,12 @@ const DuaCard = React.memo(function DuaCard({
                 <Text style={[styles.repeatText, { color: accentColor ?? colors.tint }]}>{(item as any).repeat}</Text>
               </View>
             )}
+            <BookmarkBtn
+              bookmarked={bookmarked}
+              onPress={() => onBookmarkDua(item)}
+              gold={colors.gold}
+              grey={colors.textSecondary}
+            />
             <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textSecondary} />
           </View>
         </View>
@@ -161,6 +195,7 @@ export default function DuaScreen() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [shareDua, setShareDua] = useState<(DuaItem & { categoryName?: string }) | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { savedIds: savedDuaIds, toggle: toggleDua } = useSavedItems("nuur_saved_duas");
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -173,11 +208,16 @@ export default function DuaScreen() {
     [selectedCategoryId]
   );
 
+  const allDuasFlat = useMemo(
+    () => ALL_DUA_CATEGORIES.flatMap(c => c.duas.map(d => ({ ...d, categoryId: c.id }))),
+    []
+  );
+
   const trimmed = debouncedQuery.trim();
   const isSearching = trimmed.length > 0;
   const searchResults = useMemo(() => (isSearching ? searchDuas(trimmed) : []), [trimmed, isSearching]);
 
-  const collapseKey = `${selectedCategoryId}:${trimmed}`;
+  const collapseKey = `${selectedCategoryId}:${trimmed}:${savedDuaIds.size}`;
 
   const copyDua = useCallback((item: DuaItem) => {
     const text = `${item.arabic}\n\n${item.transliteration}\n\n"${item.translation}"${item.reference ? `\n— ${item.reference}` : ""}`;
@@ -194,6 +234,10 @@ export default function DuaScreen() {
 
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
+  const bookmarkDua = useCallback((item: DuaItem) => {
+    toggleDua(item.id);
+  }, [toggleDua]);
+
   const renderDua = useCallback(
     ({ item }: { item: DuaItem & { categoryName?: string; categoryId?: string } }) => {
       const catId = (item as any).categoryId ?? selectedCategoryId;
@@ -203,19 +247,25 @@ export default function DuaScreen() {
           item={item}
           colors={colors}
           accentColor={cat?.accentColor}
-          showCategory={isSearching}
+          showCategory={isSearching || selectedCategoryId === "saved"}
+          bookmarked={savedDuaIds.has(item.id)}
           onCopyDua={copyDua}
           onShareDua={shareDuaItem}
+          onBookmarkDua={bookmarkDua}
           collapseKey={collapseKey}
         />
       );
     },
-    [colors, selectedCategoryId, isSearching, copyDua, shareDuaItem, collapseKey]
+    [colors, selectedCategoryId, isSearching, copyDua, shareDuaItem, bookmarkDua, collapseKey, savedDuaIds]
   );
 
   const keyExtractor = useCallback((item: DuaItem) => item.id, []);
 
-  const listData = isSearching ? searchResults : selectedCategory.duas;
+  const listData = useMemo(() => {
+    if (isSearching) return searchResults;
+    if (selectedCategoryId === "saved") return allDuasFlat.filter(d => savedDuaIds.has(d.id));
+    return selectedCategory.duas as (DuaItem & { categoryName?: string })[];
+  }, [isSearching, searchResults, selectedCategoryId, allDuasFlat, savedDuaIds, selectedCategory]);
   const totalDuas = useMemo(
     () => ALL_DUA_CATEGORIES.reduce((sum, c) => sum + c.duas.length, 0),
     []
@@ -271,6 +321,28 @@ export default function DuaScreen() {
       {!isSearching && (
         <View style={[styles.categoryRow, { borderBottomColor: colors.border }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryList}>
+            {/* Saved chip */}
+            {(() => {
+              const isSelected = selectedCategoryId === "saved";
+              return (
+                <TouchableOpacity
+                  key="saved"
+                  style={[
+                    styles.categoryTab,
+                    {
+                      backgroundColor: isSelected ? colors.gold : "transparent",
+                      borderColor: isSelected ? colors.gold : colors.gold + "66",
+                    },
+                  ]}
+                  onPress={() => setSelectedCategoryId("saved")}
+                >
+                  <MaterialCommunityIcons name="bookmark" size={13} color={isSelected ? "#fff" : colors.gold} />
+                  <Text style={[styles.categoryTabText, { color: isSelected ? "#fff" : colors.gold }]}>
+                    Saved
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
             {ALL_DUA_CATEGORIES.map((cat) => {
               const isSelected = selectedCategoryId === cat.id;
               return (
@@ -321,6 +393,19 @@ export default function DuaScreen() {
                   : `${searchResults.length} dua${searchResults.length === 1 ? "" : "s"} found`}
               </Text>
             </View>
+          ) : selectedCategoryId === "saved" ? (
+            <View style={styles.listHeader}>
+              <View style={styles.sectionDivider}>
+                <View style={[styles.sectionDividerLine, { backgroundColor: colors.border }]} />
+                <View style={[styles.sectionLabel, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "55" }]}>
+                  <MaterialCommunityIcons name="bookmark" size={11} color={colors.gold} />
+                  <Text style={[styles.sectionLabelText, { color: colors.gold }]}>
+                    Saved Duas · {savedDuaIds.size}
+                  </Text>
+                </View>
+                <View style={[styles.sectionDividerLine, { backgroundColor: colors.border }]} />
+              </View>
+            </View>
           ) : (
             <View style={styles.listHeader}>
               <View style={styles.sectionDivider}>
@@ -343,6 +428,14 @@ export default function DuaScreen() {
               <Text style={[styles.emptyTitle, { color: colors.text }]}>No matches found</Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                 Try searching in English — e.g. "breaking fast", "anxiety", "sleep", "travel"
+              </Text>
+            </View>
+          ) : selectedCategoryId === "saved" ? (
+            <View style={styles.emptyWrap}>
+              <MaterialCommunityIcons name="bookmark-outline" size={40} color={colors.border} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No saved duas yet</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                Tap the bookmark icon on any dua to save it here for quick access.
               </Text>
             </View>
           ) : null
