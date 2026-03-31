@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { HADITHS, HADITH_TOPICS, Hadith } from "@/utils/hadithData";
+import ContentShareSheet from "@/components/ContentShareSheet";
 
 const SUNNAH_API_KEY = "SqD712P3E82xnwOAEOkGd5JZH8s9wRR24TqNFzjk";
 const SUNNAH_RANDOM_URL = "https://api.sunnah.com/v1/hadiths/random";
@@ -70,6 +71,7 @@ export default function HadithsScreen() {
   const [liveError, setLiveError] = useState("");
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [shareHadith, setShareHadith] = useState<Hadith | LiveHadith | null>(null);
 
   const fetchLiveHadith = useCallback(async () => {
     setLiveLoading(true);
@@ -240,6 +242,7 @@ export default function HadithsScreen() {
               bookmarked={liveHadith ? bookmarks.has(liveHadith.id) : false}
               onCopy={() => liveHadith && handleCopy(liveHadith)}
               onBookmark={() => liveHadith && toggleBookmark(liveHadith.id)}
+              onShare={() => liveHadith && setShareHadith(liveHadith)}
               colors={colors}
             />
 
@@ -255,6 +258,7 @@ export default function HadithsScreen() {
             bookmarked={bookmarks.has(item.id)}
             onCopy={() => handleCopy(item)}
             onBookmark={() => toggleBookmark(item.id)}
+            onShare={() => setShareHadith(item)}
             colors={colors}
           />
         )}
@@ -265,12 +269,26 @@ export default function HadithsScreen() {
           </View>
         }
       />
+
+      {shareHadith && (
+        <ContentShareSheet
+          visible={true}
+          onClose={() => setShareHadith(null)}
+          theme="hadith"
+          sheetTitle="Share Hadith"
+          shareTitle={shareHadith.source}
+          label={`${shareHadith.collection.toUpperCase()}  ·  ${shareHadith.topic.toUpperCase()}`}
+          arabicText={shareHadith.arabic || undefined}
+          bodyText={shareHadith.translation}
+          source={shareHadith.source}
+        />
+      )}
     </View>
   );
 }
 
 function LiveHadithCard({
-  hadith, loading, error, onRefresh, copied, bookmarked, onCopy, onBookmark, colors,
+  hadith, loading, error, onRefresh, copied, bookmarked, onCopy, onBookmark, onShare, colors,
 }: {
   hadith: LiveHadith | null;
   loading: boolean;
@@ -280,6 +298,7 @@ function LiveHadithCard({
   bookmarked: boolean;
   onCopy: () => void;
   onBookmark: () => void;
+  onShare: () => void;
   colors: any;
 }) {
   return (
@@ -326,6 +345,10 @@ function LiveHadithCard({
                   {bookmarked ? "Saved" : "Save"}
                 </Text>
               </TouchableOpacity>
+              <TouchableOpacity onPress={onShare} style={[styles.actionBtn, { backgroundColor: colors.surface }]} hitSlop={8}>
+                <Feather name="share" size={14} color={colors.textSecondary} />
+                <Text style={[styles.actionBtnText, { color: colors.textSecondary }]}>Share</Text>
+              </TouchableOpacity>
             </View>
           </>
         ) : null}
@@ -335,13 +358,14 @@ function LiveHadithCard({
 }
 
 function HadithCard({
-  hadith, copied, bookmarked, onCopy, onBookmark, colors,
+  hadith, copied, bookmarked, onCopy, onBookmark, onShare, colors,
 }: {
   hadith: Hadith;
   copied: boolean;
   bookmarked: boolean;
   onCopy: () => void;
   onBookmark: () => void;
+  onShare: () => void;
   colors: any;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -425,6 +449,10 @@ function HadithCard({
               <Text style={[styles.actionBtnText, { color: bookmarked ? colors.gold : colors.textSecondary }]}>
                 {bookmarked ? "Saved" : "Save"}
               </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onShare} style={[styles.actionBtn, { backgroundColor: colors.prayerCard }]} hitSlop={8}>
+              <Feather name="share" size={13} color={colors.textSecondary} />
+              <Text style={[styles.actionBtnText, { color: colors.textSecondary }]}>Share</Text>
             </TouchableOpacity>
           </View>
         )}

@@ -18,6 +18,7 @@ import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { ALL_DUA_CATEGORIES, DuaItem, searchDuas } from "@/utils/duaData";
 import { getDailyHadith, Hadith } from "@/utils/hadithData";
+import ContentShareSheet from "@/components/ContentShareSheet";
 
 const DAILY_HADITH = getDailyHadith();
 
@@ -96,6 +97,7 @@ interface DuaCardProps {
   accentColor?: string;
   showCategory?: boolean;
   onCopyDua: (item: DuaItem) => void;
+  onShareDua: (item: DuaItem) => void;
   collapseKey: string;
 }
 
@@ -105,6 +107,7 @@ const DuaCard = React.memo(function DuaCard({
   accentColor,
   showCategory,
   onCopyDua,
+  onShareDua,
   collapseKey,
 }: DuaCardProps) {
   const [expanded, setExpanded] = useState(false);
@@ -125,6 +128,10 @@ const DuaCard = React.memo(function DuaCard({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [item, onCopyDua]);
+
+  const handleShare = useCallback(() => {
+    onShareDua(item);
+  }, [item, onShareDua]);
 
   return (
     <Pressable
@@ -187,16 +194,26 @@ const DuaCard = React.memo(function DuaCard({
                   </Text>
                 </View>
               )}
-              <TouchableOpacity
-                onPress={handleCopy}
-                style={[styles.copyBtn, { backgroundColor: copied ? colors.gold + "20" : colors.surfaceElevated }]}
-                hitSlop={8}
-              >
-                <Feather name={copied ? "check" : "copy"} size={13} color={copied ? colors.gold : colors.textSecondary} />
-                <Text style={[styles.copyText, { color: copied ? colors.gold : colors.textSecondary }]}>
-                  {copied ? "Copied!" : "Copy"}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.footerActions}>
+                <TouchableOpacity
+                  onPress={handleCopy}
+                  style={[styles.copyBtn, { backgroundColor: copied ? colors.gold + "20" : colors.surfaceElevated }]}
+                  hitSlop={8}
+                >
+                  <Feather name={copied ? "check" : "copy"} size={13} color={copied ? colors.gold : colors.textSecondary} />
+                  <Text style={[styles.copyText, { color: copied ? colors.gold : colors.textSecondary }]}>
+                    {copied ? "Copied!" : "Copy"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleShare}
+                  style={[styles.copyBtn, { backgroundColor: colors.surfaceElevated }]}
+                  hitSlop={8}
+                >
+                  <Feather name="share" size={13} color={colors.textSecondary} />
+                  <Text style={[styles.copyText, { color: colors.textSecondary }]}>Share</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         )}
@@ -214,6 +231,7 @@ export default function DuaScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = useState(ALL_DUA_CATEGORIES[0].id);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [shareDua, setShareDua] = useState<(DuaItem & { categoryName?: string }) | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -242,6 +260,10 @@ export default function DuaScreen() {
     }
   }, []);
 
+  const shareDuaItem = useCallback((item: DuaItem & { categoryName?: string }) => {
+    setShareDua(item);
+  }, []);
+
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
   const renderDua = useCallback(
@@ -255,11 +277,12 @@ export default function DuaScreen() {
           accentColor={cat?.accentColor}
           showCategory={isSearching}
           onCopyDua={copyDua}
+          onShareDua={shareDuaItem}
           collapseKey={collapseKey}
         />
       );
     },
-    [colors, selectedCategoryId, isSearching, copyDua, collapseKey]
+    [colors, selectedCategoryId, isSearching, copyDua, shareDuaItem, collapseKey]
   );
 
   const keyExtractor = useCallback((item: DuaItem) => item.id, []);
@@ -398,6 +421,26 @@ export default function DuaScreen() {
           ) : null
         }
       />
+
+      {shareDua && (() => {
+        const catId = (shareDua as any).categoryId ?? selectedCategoryId;
+        const cat = ALL_DUA_CATEGORIES.find((c) => c.id === catId);
+        const catName = shareDua.categoryName ?? cat?.name ?? "Dua";
+        return (
+          <ContentShareSheet
+            visible={true}
+            onClose={() => setShareDua(null)}
+            theme="dua"
+            sheetTitle="Share Du'a"
+            shareTitle={shareDua.title}
+            label={`${catName.toUpperCase()}  ·  ${shareDua.title.toUpperCase()}`}
+            arabicText={shareDua.arabic}
+            bodyItalic={shareDua.transliteration}
+            bodyText={shareDua.translation}
+            source={shareDua.reference}
+          />
+        );
+      })()}
     </View>
   );
 }
@@ -516,6 +559,7 @@ const styles = StyleSheet.create({
   expandedFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4, flexWrap: "wrap", gap: 8 },
   referenceBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, flex: 1 },
   referenceText: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  footerActions: { flexDirection: "row", alignItems: "center", gap: 6 },
   copyBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   copyText: { fontSize: 12, fontFamily: "Inter_500Medium" },
 });

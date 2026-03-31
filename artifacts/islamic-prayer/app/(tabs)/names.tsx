@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { ALLAH_NAMES, AllahName } from "@/utils/namesData";
+import ContentShareSheet from "@/components/ContentShareSheet";
 
 const { width } = Dimensions.get("window");
 const NUM_COLS = width >= 600 ? 3 : 2;
@@ -63,7 +64,7 @@ function NameCard({ item, colors, onPress }: { item: AllahName; colors: any; onP
   );
 }
 
-function DetailSheet({ item, colors, onClose, miniPlayerH = 0 }: { item: AllahName; colors: any; onClose: () => void; miniPlayerH?: number }) {
+function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item: AllahName; colors: any; onClose: () => void; onShare: () => void; miniPlayerH?: number }) {
   const slideY = useRef(new Animated.Value(80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -118,13 +119,23 @@ function DetailSheet({ item, colors, onClose, miniPlayerH = 0 }: { item: AllahNa
           <Text style={[styles.sheetDesc, { color: colors.text }]}>{item.description}</Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.sheetCloseBtn, { backgroundColor: colors.tint }]}
-          onPress={handleClose}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.sheetCloseBtnText}>Close</Text>
-        </TouchableOpacity>
+        <View style={styles.sheetBtnRow}>
+          <TouchableOpacity
+            style={[styles.sheetShareBtn, { borderColor: colors.tint }]}
+            onPress={onShare}
+            activeOpacity={0.82}
+          >
+            <Feather name="share" size={15} color={colors.tint} />
+            <Text style={[styles.sheetShareBtnText, { color: colors.tint }]}>Share Card</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sheetCloseBtn, { backgroundColor: colors.tint }]}
+            onPress={handleClose}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.sheetCloseBtnText}>Close</Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
     </Animated.View>
   );
@@ -135,6 +146,7 @@ export default function NamesScreen() {
   const { themeColors: colors } = useAppContext();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<AllahName | null>(null);
+  const [shareItem, setShareItem] = useState<AllahName | null>(null);
 
   const topInset = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const miniPlayerH = useMiniPlayerHeight();
@@ -225,7 +237,28 @@ export default function NamesScreen() {
 
       {/* Detail Sheet */}
       {selected && (
-        <DetailSheet item={selected} colors={colors} onClose={() => setSelected(null)} miniPlayerH={miniPlayerH} />
+        <DetailSheet
+          item={selected}
+          colors={colors}
+          onClose={() => setSelected(null)}
+          onShare={() => setShareItem(selected)}
+          miniPlayerH={miniPlayerH}
+        />
+      )}
+
+      {shareItem && (
+        <ContentShareSheet
+          visible={true}
+          onClose={() => setShareItem(null)}
+          theme="name"
+          sheetTitle="Share Name"
+          shareTitle={shareItem.transliteration}
+          label={`NAME #${shareItem.number}  ·  ASMA AL-HUSNA`}
+          secondaryTitle={shareItem.transliteration}
+          arabicText={shareItem.arabic}
+          bodyItalic={shareItem.pronunciation}
+          bodyText={`${shareItem.meaning}\n\n${shareItem.description}`}
+        />
       )}
     </View>
   );
@@ -343,11 +376,28 @@ const styles = StyleSheet.create({
   sheetDescTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 },
   sheetDesc: { fontSize: 14, lineHeight: 21 },
 
+  sheetBtnRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 4,
+    alignSelf: "stretch",
+    justifyContent: "center",
+  },
+  sheetShareBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderWidth: 1.5,
+  },
+  sheetShareBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   sheetCloseBtn: {
     borderRadius: 20,
     paddingHorizontal: 32,
     paddingVertical: 12,
-    marginTop: 4,
   },
   sheetCloseBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
 
