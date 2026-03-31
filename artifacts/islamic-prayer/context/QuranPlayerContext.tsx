@@ -104,9 +104,13 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
           },
         });
         tpReadyRef.current = true;
-      } catch {
-        // setupPlayer throws "Already been initialized" on hot reload — safe to ignore
-        tpReadyRef.current = true;
+      } catch (e: any) {
+        // "Already been initialized" on hot reload — still usable
+        const msg = e?.message ?? "";
+        if (msg.includes("already") || msg.includes("initialized")) {
+          tpReadyRef.current = true;
+        }
+        // Otherwise native module is missing (e.g. Expo Go) — leave tpReadyRef false
       }
     })();
   }, []);
@@ -135,44 +139,52 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
     if (Platform.OS === "web") return;
     let subs: Array<{ remove(): void }> = [];
     (async () => {
-      const TrackPlayer = (await import("react-native-track-player")).default;
-      const { Event, State } = await import("react-native-track-player");
+      try {
+        const TrackPlayer = (await import("react-native-track-player")).default;
+        const { Event, State } = await import("react-native-track-player");
 
-      subs.push(
-        TrackPlayer.addEventListener(Event.PlaybackState, ({ state }: { state: any }) => {
-          if (state === State.Playing) setPlayState("playing");
-          else if (state === State.Paused) setPlayState("paused");
-          else if (state === State.Loading || state === State.Buffering)
-            setPlayState("loading");
-          else if (state === State.Stopped || state === State.None)
-            setPlayState("idle");
-          else if (state === State.Ended) {
-            setPlayState("idle");
+        // Guard: only subscribe if the native module initialised successfully
+        if (!TrackPlayer || typeof TrackPlayer.addEventListener !== "function") return;
+
+        subs.push(
+          TrackPlayer.addEventListener(Event.PlaybackState, ({ state }: { state: any }) => {
+            if (state === State.Playing) setPlayState("playing");
+            else if (state === State.Paused) setPlayState("paused");
+            else if (state === State.Loading || state === State.Buffering)
+              setPlayState("loading");
+            else if (state === State.Stopped || state === State.None)
+              setPlayState("idle");
+            else if (state === State.Ended) {
+              setPlayState("idle");
+              setPlayingVerse(null);
+            }
+          })
+        );
+
+        subs.push(
+          TrackPlayer.addEventListener(Event.PlaybackTrackChanged, async ({ nextTrack }: { nextTrack: any }) => {
+            if (nextTrack !== null && nextTrack !== undefined) {
+              try {
+                const track = await TrackPlayer.getActiveTrack();
+                if (track?.id) setPlayingVerse(Number(track.id));
+              } catch {}
+            }
+          })
+        );
+
+        subs.push(
+          TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
             setPlayingVerse(null);
-          }
-        })
-      );
-
-      subs.push(
-        TrackPlayer.addEventListener(Event.PlaybackTrackChanged, async ({ nextTrack }: { nextTrack: any }) => {
-          if (nextTrack !== null && nextTrack !== undefined) {
-            try {
-              const track = await TrackPlayer.getActiveTrack();
-              if (track?.id) setPlayingVerse(Number(track.id));
-            } catch {}
-          }
-        })
-      );
-
-      subs.push(
-        TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
-          setPlayingVerse(null);
-          setPlayState("idle");
-          setCurrentSurahNum(null);
-          setCurrentSurahName(null);
-          setCurrentSurahArabic(null);
-        })
-      );
+            setPlayState("idle");
+            setCurrentSurahNum(null);
+            setCurrentSurahName(null);
+            setCurrentSurahArabic(null);
+          })
+        );
+      } catch {
+        // react-native-track-player native module unavailable (e.g. Expo Go)
+        // Audio playback via TrackPlayer is disabled; app continues without it
+      }
     })();
 
     return () => { subs.forEach((s) => s.remove()); };
