@@ -7,6 +7,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -38,9 +39,9 @@ const MID_BG = "#16352A";
 const CREAM = "#F5ECD7";
 const CREAM_DIM = "rgba(245, 236, 215, 0.70)";
 
-function CardBackground({ size }: { size: number }) {
+function CardBackground({ size, height }: { size: number; height: number }) {
   return (
-    <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+    <Svg width={size} height={height} style={StyleSheet.absoluteFill}>
       <Defs>
         <RadialGradient id="rbg" cx="50%" cy="48%" r="62%" fx="50%" fy="48%">
           <Stop offset="0%" stopColor={MID_BG} stopOpacity="1" />
@@ -48,12 +49,12 @@ function CardBackground({ size }: { size: number }) {
           <Stop offset="100%" stopColor={DARK_BG} stopOpacity="1" />
         </RadialGradient>
       </Defs>
-      <Rect width={size} height={size} fill="url(#rbg)" />
+      <Rect width={size} height={height} fill="url(#rbg)" />
     </Svg>
   );
 }
 
-function GeometricPattern({ size }: { size: number }) {
+function GeometricPattern({ size, height }: { size: number; height: number }) {
   const T = 56;
   const cx = T / 2;
   const cy = T / 2;
@@ -69,7 +70,7 @@ function GeometricPattern({ size }: { size: number }) {
   const star = pts8.join(" ");
 
   return (
-    <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+    <Svg width={size} height={height} style={StyleSheet.absoluteFill}>
       <Defs>
         <SvgPattern id="geo" x="0" y="0" width={T} height={T} patternUnits="userSpaceOnUse">
           <Polygon points={star} fill="none" stroke={GOLD} strokeWidth="0.7" opacity="0.13" />
@@ -86,7 +87,7 @@ function GeometricPattern({ size }: { size: number }) {
           <Circle cx={T} cy={T} r={T * 0.12} fill="none" stroke={GOLD} strokeWidth="0.4" opacity="0.07" />
         </SvgPattern>
       </Defs>
-      <Rect width={size} height={size} fill="url(#geo)" />
+      <Rect width={size} height={height} fill="url(#geo)" />
     </Svg>
   );
 }
@@ -188,9 +189,7 @@ export default function AyahShareSheet({
   const cardRef = useRef<View>(null);
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
-
-  const truncated =
-    translation.length > 230 ? translation.slice(0, 227) + "\u2026" : translation;
+  const [cardH, setCardH] = useState(CARD_SIZE);
 
   const captureCard = async (): Promise<string | null> => {
     if (Platform.OS === "web") {
@@ -259,23 +258,31 @@ export default function AyahShareSheet({
             </TouchableOpacity>
           </View>
 
+          {/* ── Scrollable area: card + actions ──────────────────── */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 8 }}
+            keyboardShouldPersistTaps="handled"
+          >
+
           {/* ── Card preview ─────────────────────────────────────── */}
           <View style={styles.cardOuter}>
             <View
               ref={cardRef}
-              style={{ width: CARD_SIZE, height: CARD_SIZE, borderRadius: 20, overflow: "hidden" }}
+              style={{ width: CARD_SIZE, borderRadius: 20, overflow: "hidden" }}
               collapsable={false}
+              onLayout={(e) => setCardH(e.nativeEvent.layout.height)}
             >
-              <CardBackground size={CARD_SIZE} />
-              <GeometricPattern size={CARD_SIZE} />
+              <CardBackground size={CARD_SIZE} height={cardH} />
+              <GeometricPattern size={CARD_SIZE} height={cardH} />
 
               {/* Full outer border */}
-              <Svg width={CARD_SIZE} height={CARD_SIZE} style={StyleSheet.absoluteFill}>
+              <Svg width={CARD_SIZE} height={cardH} style={StyleSheet.absoluteFill}>
                 <Rect
                   x={10}
                   y={10}
                   width={CARD_SIZE - 20}
-                  height={CARD_SIZE - 20}
+                  height={cardH - 20}
                   rx={12}
                   fill="none"
                   stroke={GOLD}
@@ -311,7 +318,7 @@ export default function AyahShareSheet({
 
                 {/* Arabic text */}
                 <View style={s.arabicWrap}>
-                  <Text style={s.arabicTxt} numberOfLines={7} adjustsFontSizeToFit>
+                  <Text style={s.arabicTxt}>
                     {arabicText}
                   </Text>
                 </View>
@@ -321,13 +328,13 @@ export default function AyahShareSheet({
                   <OrnamentalDivider width={CARD_SIZE - 56} />
                 </View>
 
-                {/* English translation */}
-                <Text style={s.translTxt} numberOfLines={6}>
-                  {truncated}
+                {/* English translation — full text, no truncation */}
+                <Text style={s.translTxt}>
+                  {translation}
                 </Text>
 
                 {/* Brand separator */}
-                <Svg width={CARD_SIZE - 56} height={1} style={{ marginTop: 10, marginBottom: 8, alignSelf: "center" }}>
+                <Svg width={CARD_SIZE - 56} height={1} style={{ marginTop: 14, marginBottom: 8, alignSelf: "center" }}>
                   <Line x1={0} y1={0.5} x2={CARD_SIZE - 56} y2={0.5} stroke={GOLD} strokeWidth="0.5" opacity="0.3" />
                 </Svg>
 
@@ -372,6 +379,8 @@ export default function AyahShareSheet({
               <Text style={styles.shareTxt}>{sharing ? "Opening…" : "Share"}</Text>
             </TouchableOpacity>
           </View>
+
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -385,12 +394,10 @@ const s = StyleSheet.create({
   cBL: { bottom: 12, left: 12 },
   cBR: { bottom: 12, right: 12 },
   cardInner: {
-    flex: 1,
     paddingHorizontal: 22,
     paddingTop: 16,
-    paddingBottom: 14,
+    paddingBottom: 20,
     alignItems: "center",
-    justifyContent: "space-between",
   },
   refRow: {
     flexDirection: "row",
@@ -420,10 +427,9 @@ const s = StyleSheet.create({
   },
   arabicWrap: {
     width: "100%",
-    flex: 1,
-    justifyContent: "center",
     paddingHorizontal: 4,
-    marginTop: 8,
+    marginTop: 10,
+    marginBottom: 4,
   },
   arabicTxt: {
     color: GOLD_LIGHT,
@@ -480,9 +486,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#111",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingBottom: 40,
+    maxHeight: Dimensions.get("window").height * 0.92,
     paddingTop: 12,
     paddingHorizontal: 16,
+    paddingBottom: 36,
   },
   handle: {
     width: 36,
