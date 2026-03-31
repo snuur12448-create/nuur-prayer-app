@@ -107,19 +107,18 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
           </View>
           <View style={styles.sheetTopActions}>
             <TouchableOpacity
-              style={[styles.sheetShareBtn, { borderColor: colors.tint }]}
+              style={[styles.sheetIconBtn, { borderColor: colors.tint }]}
               onPress={onShare}
               activeOpacity={0.82}
             >
-              <Feather name="share-2" size={14} color={colors.tint} />
-              <Text style={[styles.sheetShareBtnText, { color: colors.tint }]}>Share</Text>
+              <Feather name="share-2" size={16} color={colors.tint} />
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.sheetCloseBtn, { backgroundColor: colors.tint }]}
+              style={[styles.sheetIconBtn, { backgroundColor: colors.tint, borderColor: colors.tint }]}
               onPress={handleClose}
               activeOpacity={0.85}
             >
-              <Text style={styles.sheetCloseBtnText}>Close</Text>
+              <Feather name="x" size={16} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -350,14 +349,16 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     paddingTop: 12,
     paddingHorizontal: 24,
-    maxHeight: "88%",
+    minHeight: "78%",
+    maxHeight: "93%",
   },
   sheetTopBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     width: "100%",
-    paddingVertical: 10,
+    paddingVertical: 6,
+    marginBottom: 4,
   },
   sheetTopActions: {
     flexDirection: "row",
@@ -406,22 +407,14 @@ const styles = StyleSheet.create({
   sheetDescTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 },
   sheetDesc: { fontSize: 14, lineHeight: 21 },
 
-  sheetShareBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  sheetIconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  sheetShareBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  sheetCloseBtn: {
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-  },
-  sheetCloseBtnText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold" },
 
   emptyBox: { alignItems: "center", paddingTop: 60 },
   emptyText: { fontSize: 16 },
