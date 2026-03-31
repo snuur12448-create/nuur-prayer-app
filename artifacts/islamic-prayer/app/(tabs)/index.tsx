@@ -133,11 +133,14 @@ export default function PrayerScreen() {
   };
 
   const formatCurrentTime = () => {
-    return currentTime.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: timeFormat === "12h",
-    });
+    const h24 = currentTime.getHours();
+    const mm = String(currentTime.getMinutes()).padStart(2, "0");
+    if (timeFormat === "24h") {
+      return `${String(h24).padStart(2, "0")}:${mm}`;
+    }
+    const period = h24 >= 12 ? "PM" : "AM";
+    const h12 = h24 % 12 || 12;
+    return `${h12}:${mm} ${period}`;
   };
 
   const formatDate = () => {
