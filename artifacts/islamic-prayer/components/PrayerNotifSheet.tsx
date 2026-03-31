@@ -19,6 +19,9 @@ import {
   DAY_LABELS,
   formatDays,
   NOTIF_TYPES,
+  SUNRISE_NOTIF_TYPES,
+  SUNRISE_MINUTES_OPTIONS,
+  SunriseMinutesBefore,
   NotifTypeInfo,
   PRAYER_ARABIC,
   PRAYER_EMOJI,
@@ -49,21 +52,27 @@ export function PrayerNotifSheet({
   const slideY = useRef(new Animated.Value(600)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
+  const isSunrise = prayerKey === "sunrise";
+
   // Local editable state
   const [enabled, setEnabled] = useState(settings.enabled);
   const [type, setType] = useState(settings.type);
   const [adhanStyleId, setAdhanStyleId] = useState(settings.adhanStyleId);
   const [adhanMode, setAdhanMode] = useState(settings.adhanMode);
   const [days, setDays] = useState<number[]>(settings.days);
+  const [minutesBefore, setMinutesBefore] = useState<SunriseMinutesBefore>(
+    (settings.minutesBefore as SunriseMinutesBefore) ?? 20
+  );
 
   // Reset local state when opened
   useEffect(() => {
     if (visible) {
       setEnabled(settings.enabled);
-      setType(settings.type);
+      setType(isSunrise ? (settings.type === "adhan" ? "notification" : settings.type) : settings.type);
       setAdhanStyleId(settings.adhanStyleId);
       setAdhanMode(settings.adhanMode);
       setDays([...settings.days]);
+      setMinutesBefore((settings.minutesBefore as SunriseMinutesBefore) ?? 20);
       Animated.parallel([
         Animated.spring(slideY, { toValue: 0, useNativeDriver: false, tension: 65, friction: 11 }),
         Animated.timing(backdropOpacity, { toValue: 1, duration: 220, useNativeDriver: false }),
@@ -80,7 +89,14 @@ export function PrayerNotifSheet({
 
   const handleSave = () => {
     const newDays = days.length === 0 ? [...ALL_DAYS] : days;
-    onSave({ enabled, type, adhanStyleId, adhanMode, days: newDays });
+    onSave({
+      enabled,
+      type,
+      adhanStyleId,
+      adhanMode,
+      days: newDays,
+      ...(isSunrise ? { minutesBefore } : {}),
+    });
     handleClose();
   };
 
@@ -95,6 +111,8 @@ export function PrayerNotifSheet({
   const emoji = PRAYER_EMOJI[prayerKey];
   const arabic = PRAYER_ARABIC[prayerKey];
   const GOLD = colors.gold ?? "#C9933A";
+
+  const typeOptions = isSunrise ? SUNRISE_NOTIF_TYPES : NOTIF_TYPES;
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose} statusBarTranslucent>
@@ -117,7 +135,6 @@ export function PrayerNotifSheet({
           {/* Header */}
           <View style={[styles.headerBar, { borderBottomColor: colors.border }]}>
             <View style={styles.headerLeft}>
-              {/* Gold crescent-star badge */}
               <View style={[styles.prayerBadge, { backgroundColor: GOLD + "22", borderColor: GOLD + "55" }]}>
                 <Text style={styles.prayerEmoji}>{emoji}</Text>
               </View>
@@ -136,6 +153,16 @@ export function PrayerNotifSheet({
             contentContainerStyle={styles.scrollContent}
             bounces={false}
           >
+            {/* ── Purpose hint for sunrise ── */}
+            {isSunrise && (
+              <View style={[styles.hintBox, { backgroundColor: GOLD + "12", borderColor: GOLD + "35" }]}>
+                <Feather name="sunrise" size={14} color={GOLD} />
+                <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+                  Get a reminder before sunrise so you can complete Fajr prayer in time.
+                </Text>
+              </View>
+            )}
+
             {/* ── Master toggle ── */}
             <View style={[styles.toggleRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
               <View style={styles.toggleLeft}>
@@ -160,11 +187,48 @@ export function PrayerNotifSheet({
 
             {enabled && (
               <>
+                {/* ── Minutes before (sunrise only) ── */}
+                {isSunrise && (
+                  <View style={styles.sectionBlock}>
+                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Remind Me Before Sunrise</Text>
+                    <View style={styles.minutesRow}>
+                      {SUNRISE_MINUTES_OPTIONS.map((min) => {
+                        const sel = minutesBefore === min;
+                        return (
+                          <TouchableOpacity
+                            key={min}
+                            onPress={() => setMinutesBefore(min)}
+                            activeOpacity={0.75}
+                            style={[
+                              styles.minutesChip,
+                              {
+                                backgroundColor: sel ? GOLD + "18" : colors.background,
+                                borderColor: sel ? GOLD : colors.border,
+                                borderWidth: sel ? 1.5 : 1,
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.minutesNum, { color: sel ? GOLD : colors.text }]}>{min}</Text>
+                            <Text style={[styles.minutesUnit, { color: sel ? GOLD : colors.textSecondary }]}>min</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    {/* Preview message */}
+                    <View style={[styles.previewBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                      <Feather name="message-square" size={12} color={colors.textSecondary} />
+                      <Text style={[styles.previewText, { color: colors.textSecondary }]}>
+                        "Fajr ends in {minutesBefore} minutes — pray before sunrise"
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
                 {/* ── Alert type cards ── */}
                 <View style={styles.sectionBlock}>
                   <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Alert Type</Text>
                   <View style={styles.typeCards}>
-                    {NOTIF_TYPES.map((t: NotifTypeInfo) => {
+                    {typeOptions.map((t: NotifTypeInfo) => {
                       const selected = type === t.id;
                       return (
                         <TouchableOpacity
@@ -195,8 +259,8 @@ export function PrayerNotifSheet({
                   </View>
                 </View>
 
-                {/* ── Adhan options (only when type=adhan) ── */}
-                {type === "adhan" && (
+                {/* ── Adhan options (only when type=adhan, never for sunrise) ── */}
+                {!isSunrise && type === "adhan" && (
                   <>
                     {/* Reciter picker */}
                     <View style={styles.sectionBlock}>
@@ -285,7 +349,6 @@ export function PrayerNotifSheet({
                       );
                     })}
                   </View>
-                  {/* Friday highlight */}
                   {days.includes(5) && (
                     <View style={[styles.jummahBadge, { backgroundColor: GOLD + "18", borderColor: GOLD + "44" }]}>
                       <Text style={[styles.jummahText, { color: GOLD }]}>☾  Friday — Jumu'ah included</Text>
@@ -383,6 +446,22 @@ const styles = StyleSheet.create({
     gap: 20,
   },
 
+  /* Sunrise hint */
+  hintBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+  },
+  hintText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 19,
+  },
+
   /* Master toggle */
   toggleRow: {
     flexDirection: "row",
@@ -423,6 +502,51 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     textTransform: "uppercase",
     letterSpacing: 0.9,
+  },
+
+  /* Minutes before (sunrise) */
+  minutesRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  minutesChip: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+  },
+  minutesNum: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: -0.5,
+    fontVariant: ["tabular-nums"],
+    includeFontPadding: false,
+  },
+  minutesUnit: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+
+  /* Preview message */
+  previewBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  previewText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    fontStyle: "italic",
+    lineHeight: 18,
   },
 
   /* Type cards */

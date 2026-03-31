@@ -297,8 +297,9 @@ export default function PrayerScreen() {
               const isActive = prayer ? isActivePrayer(prayer.name) : false;
               const isPast = prayer ? (prayer.time < new Date() && !isActive) : false;
 
-              const isBellPrayer = key !== "sunrise";
-              const notifSettings = (isBellPrayer && prayer) ? prayerNotifConfig[key as PrayerKey] : null;
+              // All 6 rows (including Sunrise) get a notification bell.
+              // Sunrise opens its own sheet variant (no adhan, minutes-before picker).
+              const notifSettings = prayer ? prayerNotifConfig[key as PrayerKey] : null;
               const notifOn = notifSettings?.enabled ?? false;
               const GOLD = colors.gold ?? "#C9933A";
 
@@ -348,33 +349,31 @@ export default function PrayerScreen() {
                     ]}>
                       {prayer?.timeString ?? "--:--"}
                     </Text>
-                    {isBellPrayer && (
-                      <TouchableOpacity
-                        onPress={() => setNotifSheetKey(key as PrayerKey)}
-                        hitSlop={10}
-                        style={[
-                          styles.bellBtn,
-                          {
-                            backgroundColor: notifOn
-                              ? (isActive ? colors.background + "33" : GOLD + "22")
-                              : (isActive ? colors.background + "22" : colors.border),
-                            borderColor: notifOn
-                              ? (isActive ? colors.background + "66" : GOLD + "66")
-                              : "transparent",
-                          },
-                        ]}
-                      >
-                        <Feather
-                          name={notifOn ? "bell" : "bell-off"}
-                          size={13}
-                          color={
-                            notifOn
-                              ? (isActive ? colors.background : GOLD)
-                              : (isActive ? colors.background + "99" : colors.textSecondary)
-                          }
-                        />
-                      </TouchableOpacity>
-                    )}
+                    <TouchableOpacity
+                      onPress={() => setNotifSheetKey(key as PrayerKey)}
+                      hitSlop={10}
+                      style={[
+                        styles.bellBtn,
+                        {
+                          backgroundColor: notifOn
+                            ? (isActive ? colors.background + "33" : GOLD + "22")
+                            : (isActive ? colors.background + "22" : colors.border),
+                          borderColor: notifOn
+                            ? (isActive ? colors.background + "66" : GOLD + "66")
+                            : "transparent",
+                        },
+                      ]}
+                    >
+                      <Feather
+                        name={notifOn ? "bell" : "bell-off"}
+                        size={13}
+                        color={
+                          notifOn
+                            ? (isActive ? colors.background : GOLD)
+                            : (isActive ? colors.background + "99" : colors.textSecondary)
+                        }
+                      />
+                    </TouchableOpacity>
                   </View>
                 </View>
               );
