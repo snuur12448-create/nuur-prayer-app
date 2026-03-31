@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Clipboard,
@@ -157,6 +157,54 @@ export default function QuranDetailScreen() {
   const [versesError, setVersesError] = useState(false);
   const [highlightedVerse, setHighlightedVerse] = useState<number | null>(null);
 
+  // ── getItemLayout constants ────────────────────────────────────────────────
+  // Pre-computed card heights let FlatList jump directly to any verse without
+  // measuring preceding items. Values derived from stylesheet dimensions:
+  //   card: padding 16 top + 16 bottom + marginBottom 12 = 44px chrome
+  //   verseHeader: 30px height + 12px marginBottom = 42px
+  //   arabicVerse: lineHeight 40, avg 3 lines = 120px
+  //   translationVerse: marginTop 10 + paddingTop 10 + lineHeight 22 × 4 lines = 108px
+  //   transliterationVerse: similar ~96px when visible
+  //   Base (Arabic only): 44 + 42 + 120 = 206px
+  //   +translation: 206 + 108 = 314px → use 300 as round estimate
+  //   ListHeader: contentPaddingTop 16 + bismillah (lineHeight 36 + marginBottom 20) = 72px
+  const ITEM_H_AR_ONLY = 206;
+  const ITEM_H_TRANSLIT = 96;
+  const ITEM_H_TRANSLATION = 108;
+  const LIST_HEADER_H = 72;
+
+  // The estimated height of one verse card given current toggle state.
+  // Recomputed whenever toggles change so the offset calculation stays accurate.
+  const estimatedItemHeight = useMemo(() => {
+    let h = ITEM_H_AR_ONLY;
+    if (showTranslation) h += ITEM_H_TRANSLATION;
+    if (showTransliteration) h += ITEM_H_TRANSLIT;
+    return h;
+  }, [showTranslation, showTransliteration]);
+
+  // Which FlatList index to jump to on first render (search navigation).
+  // undefined → start at top (normal navigation).
+  const targetIndex = useMemo(() => {
+    if (!initialVerseNum || !verses) return undefined;
+    const idx = verses.findIndex((v) => v.number === initialVerseNum);
+    return idx > 0 ? idx : undefined;
+  }, [initialVerseNum, verses]);
+
+  // getItemLayout: tells FlatList exactly where each item is so it can jump
+  // instantly without measuring.  Called with the current estimatedItemHeight
+  // via a ref so it stays stable and doesn't force FlatList remounts.
+  const estimatedItemHeightRef = useRef(estimatedItemHeight);
+  useEffect(() => { estimatedItemHeightRef.current = estimatedItemHeight; }, [estimatedItemHeight]);
+
+  const getItemLayout = useCallback(
+    (_data: Verse[] | null, index: number) => ({
+      length: estimatedItemHeightRef.current,
+      offset: LIST_HEADER_H + estimatedItemHeightRef.current * index,
+      index,
+    }),
+    []
+  );
+
   // Audio — lifted to global QuranPlayerContext so playback outlives navigation
   const {
     playState,
@@ -240,41 +288,14 @@ export default function QuranDetailScreen() {
     return () => clearTimeout(t);
   }, [verses, playingVerse, playingSurahNum, surahNumber]);
 
-  // Scroll to a specific verse when opened from search results
+  // Flash-highlight the target verse after search navigation.
+  // initialScrollIndex already positions the FlatList at the right verse on
+  // first render — no scroll-through needed. Just apply the gold highlight.
   useEffect(() => {
     if (!verses || !initialVerseNum) return;
-    const idx = verses.findIndex((v) => v.number === initialVerseNum);
-    if (idx < 0) return;
-
-    // Step 1: jump to estimated offset so FlatList virtualises items near the target
-    // (average verse card ≈ 200px; this moves the render window into position)
-    const ESTIMATE = 200;
-    const t1 = setTimeout(() => {
-      flatListRef.current?.scrollToOffset({
-        offset: idx * ESTIMATE,
-        animated: false,
-      });
-    }, 350);
-
-    // Step 2: precise scrollToIndex once items around that offset are rendered,
-    // then flash the target verse gold so the user can easily spot it
-    const t2 = setTimeout(() => {
-      flatListRef.current?.scrollToIndex({
-        index: idx,
-        animated: true,
-        viewPosition: 0.15,
-      });
-      setHighlightedVerse(initialVerseNum);
-    }, 650);
-
-    // Step 3: clear the gold highlight after 2.5 s
-    const t3 = setTimeout(() => setHighlightedVerse(null), 3150);
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
+    const t1 = setTimeout(() => setHighlightedVerse(initialVerseNum), 300);
+    const t2 = setTimeout(() => setHighlightedVerse(null), 2800);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [verses, initialVerseNum]);
 
   useEffect(() => {
@@ -514,23 +535,25 @@ export default function QuranDetailScreen() {
           data={verses}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
+          getItemLayout={getItemLayout}
+          initialScrollIndex={targetIndex}
           contentContainerStyle={{ padding: 16, paddingBottom: isWeb ? 34 : insets.bottom + 20 }}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={12}
-          maxToRenderPerBatch={8}
+          initialNumToRender={10}
+          maxToRenderPerBatch={6}
           windowSize={5}
-          updateCellsBatchingPeriod={50}
+          updateCellsBatchingPeriod={30}
           removeClippedSubviews={Platform.OS !== "web"}
-          onScrollToIndexFailed={({ index, averageItemLength }) => {
-            // Jump to estimated offset first so the FlatList renders items near the target,
-            // then retry the precise scroll
+          onScrollToIndexFailed={({ index }) => {
+            // Safety net — should rarely fire now that getItemLayout is set.
+            // Jump to the estimated offset so items near the target render, then retry.
             flatListRef.current?.scrollToOffset({
-              offset: averageItemLength * index,
+              offset: LIST_HEADER_H + estimatedItemHeightRef.current * index,
               animated: false,
             });
             setTimeout(() => {
-              flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.15 });
-            }, 350);
+              flatListRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0.15 });
+            }, 200);
           }}
           ListHeaderComponent={
             <>
