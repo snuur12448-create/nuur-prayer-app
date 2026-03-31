@@ -17,79 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { ALL_DUA_CATEGORIES, DuaItem, searchDuas } from "@/utils/duaData";
-import { getDailyHadith, Hadith } from "@/utils/hadithData";
 import ContentShareSheet from "@/components/ContentShareSheet";
-
-const DAILY_HADITH = getDailyHadith();
-
-function HadithCard({ hadith, colors }: { hadith: Hadith; colors: any }) {
-  const [expanded, setExpanded] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    const text = `${hadith.arabic}\n\n"${hadith.translation}"\n\n— ${hadith.narrator}\n${hadith.source}`;
-    if (Platform.OS === "web") {
-      navigator.clipboard?.writeText(text).catch(() => {});
-    } else {
-      Clipboard.setString(text);
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <Pressable
-      style={[styles.hadithCard, { backgroundColor: colors.prayerCard, borderColor: colors.gold + "44" }]}
-      onPress={() => setExpanded((v) => !v)}
-    >
-      <View style={[styles.hadithAccent, { backgroundColor: colors.gold }]} />
-      <View style={styles.hadithInner}>
-        <View style={styles.hadithLabelRow}>
-          <View style={styles.hadithLabelLeft}>
-            <View style={[styles.hadithBadge, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "55" }]}>
-              <Feather name="sun" size={10} color={colors.gold} />
-              <Text style={[styles.hadithBadgeText, { color: colors.gold }]}>HADITH OF THE DAY</Text>
-            </View>
-            <Text style={[styles.hadithTopic, { color: colors.textSecondary }]}>{hadith.topic}</Text>
-          </View>
-          <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textSecondary} />
-        </View>
-        <Text style={[styles.hadithArabic, { color: colors.text }]}>{hadith.arabic}</Text>
-        <Text style={[styles.hadithTranslation, { color: colors.textSecondary }]}>"{hadith.translation}"</Text>
-        {expanded && (
-          <View style={styles.hadithExpandedSection}>
-            <View style={[styles.hadithDivider, { backgroundColor: colors.gold + "33" }]} />
-            {hadith.transliteration ? (
-              <Text style={[styles.hadithTranslit, { color: colors.gold }]}>{hadith.transliteration}</Text>
-            ) : null}
-            <View style={styles.hadithMetaRow}>
-              <Feather name="user" size={11} color={colors.textSecondary} />
-              <Text style={[styles.hadithMeta, { color: colors.textSecondary }]}>{hadith.narrator}</Text>
-            </View>
-            <View style={styles.hadithFooter}>
-              <View style={[styles.hadithSourceBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-                <Feather name="book-open" size={10} color={colors.textSecondary} />
-                <Text style={[styles.hadithSourceText, { color: colors.textSecondary }]}>{hadith.source}</Text>
-              </View>
-              <View style={styles.hadithFooterRight}>
-                <View style={[styles.hadithGradeBadge, { backgroundColor: colors.tint + "22", borderColor: colors.tint + "55" }]}>
-                  <Text style={[styles.hadithGradeText, { color: colors.tint }]}>{hadith.grade}</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={handleCopy}
-                  style={[styles.hadithCopyBtn, { backgroundColor: copied ? colors.gold + "22" : colors.surfaceElevated }]}
-                  hitSlop={8}
-                >
-                  <Feather name={copied ? "check" : "copy"} size={12} color={copied ? colors.gold : colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
-      </View>
-    </Pressable>
-  );
-}
 
 interface DuaCardProps {
   item: DuaItem & { categoryName?: string };
@@ -395,7 +323,6 @@ export default function DuaScreen() {
             </View>
           ) : (
             <View style={styles.listHeader}>
-              <HadithCard hadith={DAILY_HADITH} colors={colors} />
               <View style={styles.sectionDivider}>
                 <View style={[styles.sectionDividerLine, { backgroundColor: colors.border }]} />
                 <View style={[styles.sectionLabel, { backgroundColor: selectedCategory.accentColor + "22", borderColor: selectedCategory.accentColor + "55" }]}>
@@ -507,30 +434,6 @@ const styles = StyleSheet.create({
   emptyWrap: { alignItems: "center", paddingTop: 60, paddingHorizontal: 32, gap: 12 },
   emptyTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold", textAlign: "center" },
   emptyText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
-
-  /* Hadith Card */
-  hadithCard: { borderRadius: 18, borderWidth: 1, flexDirection: "row", overflow: "hidden", marginBottom: 20 },
-  hadithAccent: { width: 4 },
-  hadithInner: { flex: 1, padding: 16, gap: 12 },
-  hadithLabelRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
-  hadithLabelLeft: { gap: 4 },
-  hadithBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, alignSelf: "flex-start" },
-  hadithBadgeText: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1 },
-  hadithTopic: { fontSize: 12, fontFamily: "Inter_500Medium", marginLeft: 2 },
-  hadithArabic: { fontSize: 22, textAlign: "right", lineHeight: 38, writingDirection: "rtl" },
-  hadithTranslation: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 22, fontStyle: "italic" },
-  hadithExpandedSection: { gap: 10 },
-  hadithDivider: { height: 1 },
-  hadithTranslit: { fontSize: 13, fontFamily: "Inter_500Medium", fontStyle: "italic", lineHeight: 20 },
-  hadithMetaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  hadithMeta: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
-  hadithFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 },
-  hadithSourceBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, flex: 1 },
-  hadithSourceText: { fontSize: 10, fontFamily: "Inter_400Regular" },
-  hadithFooterRight: { flexDirection: "row", alignItems: "center", gap: 6 },
-  hadithGradeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
-  hadithGradeText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
-  hadithCopyBtn: { width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center" },
 
   /* Section divider */
   sectionDivider: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },

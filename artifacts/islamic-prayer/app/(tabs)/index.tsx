@@ -18,7 +18,9 @@ import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { LocationModal } from "@/components/LocationModal";
 import { PrayerNotifSheet } from "@/components/PrayerNotifSheet";
-import { getIslamicDate, getTodaysReminder } from "@/utils/islamicData";
+import { getIslamicDate } from "@/utils/islamicData";
+import { getDailyAyah } from "@/utils/ayahData";
+import { getDailyHadith } from "@/utils/hadithData";
 import { calculatePrayerTimes, getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
 import { PrayerKey } from "@/utils/prayerNotifData";
 import { GuideSection } from "@/components/GuideSection";
@@ -59,10 +61,8 @@ export default function PrayerScreen() {
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
   const islamicDate = getIslamicDate();
-  // Recomputed every minute (currentTime updates) — passes today's Maghrib
-  // time so the reminder rolls over at sunset, not midnight.
-  const maghribTime = prayerTimes?.maghrib?.time;
-  const reminder = getTodaysReminder(maghribTime);
+  const dailyAyah = getDailyAyah();
+  const dailyHadith = getDailyHadith();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -399,18 +399,47 @@ export default function PrayerScreen() {
           )}
         </View>
 
-        {/* Daily Reminder */}
-        <View style={[styles.reminderCard, { backgroundColor: colors.surface, borderColor: colors.border, marginHorizontal: 16 }]}>
-          <View style={styles.reminderHeader}>
-            <MaterialCommunityIcons name="bookmark-outline" size={16} color={colors.gold} />
-            <Text style={[styles.reminderLabel, { color: colors.gold }]}>Daily Reminder</Text>
+        {/* Ayah of the Day */}
+        <View style={[styles.dailyCard, { backgroundColor: colors.surface, borderColor: colors.tint + "44", marginHorizontal: 16 }]}>
+          <View style={[styles.dailyAccent, { backgroundColor: colors.tint }]} />
+          <View style={styles.dailyInner}>
+            <View style={styles.dailyBadgeRow}>
+              <View style={[styles.dailyBadge, { backgroundColor: colors.tint + "22", borderColor: colors.tint + "55" }]}>
+                <MaterialCommunityIcons name="book-open-variant" size={10} color={colors.tint} />
+                <Text style={[styles.dailyBadgeText, { color: colors.tint }]}>AYAH OF THE DAY</Text>
+              </View>
+              <Text style={[styles.dailyRef, { color: colors.textSecondary }]}>
+                {dailyAyah.surahName} {dailyAyah.surahNumber}:{dailyAyah.ayahNumber}
+              </Text>
+            </View>
+            <Text style={[styles.dailyArabic, { color: colors.text }]}>{dailyAyah.arabic}</Text>
+            <Text style={[styles.dailyTranslation, { color: colors.textSecondary }]}>"{dailyAyah.translation}"</Text>
           </View>
-          <Text style={[styles.reminderText, { color: colors.text }]}>
-            "{reminder.text}"
-          </Text>
-          <Text style={[styles.reminderSource, { color: colors.textSecondary }]}>
-            — {reminder.source}
-          </Text>
+        </View>
+
+        {/* Hadith of the Day */}
+        <View style={[styles.dailyCard, { backgroundColor: colors.surface, borderColor: colors.gold + "44", marginHorizontal: 16, marginTop: 10 }]}>
+          <View style={[styles.dailyAccent, { backgroundColor: colors.gold }]} />
+          <View style={styles.dailyInner}>
+            <View style={styles.dailyBadgeRow}>
+              <View style={[styles.dailyBadge, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "55" }]}>
+                <MaterialCommunityIcons name="star-crescent" size={10} color={colors.gold} />
+                <Text style={[styles.dailyBadgeText, { color: colors.gold }]}>HADITH OF THE DAY</Text>
+              </View>
+              <Text style={[styles.dailyRef, { color: colors.textSecondary }]}>{dailyHadith.grade}</Text>
+            </View>
+            <Text style={[styles.dailyArabic, { color: colors.text }]}>{dailyHadith.arabic}</Text>
+            <Text style={[styles.dailyTranslation, { color: colors.textSecondary }]}>"{dailyHadith.translation}"</Text>
+            <View style={[styles.dailySourceRow, { borderTopColor: colors.border }]}>
+              <Feather name="user" size={10} color={colors.textSecondary} />
+              <Text style={[styles.dailySourceText, { color: colors.textSecondary }]} numberOfLines={1}>
+                {dailyHadith.narrator}
+              </Text>
+              <View style={[styles.dailySourceBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                <Text style={[styles.dailySourceBadgeText, { color: colors.textSecondary }]}>{dailyHadith.source}</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Wudhu & Prayer Guide */}
@@ -672,33 +701,78 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     flex: 1,
   },
-  reminderCard: {
-    borderRadius: 16,
-    padding: 16,
+  dailyCard: {
+    borderRadius: 18,
     borderWidth: 1,
-    marginBottom: 16,
+    flexDirection: "row",
+    overflow: "hidden",
+    marginBottom: 0,
   },
-  reminderHeader: {
+  dailyAccent: {
+    width: 4,
+  },
+  dailyInner: {
+    flex: 1,
+    padding: 14,
+    gap: 10,
+  },
+  dailyBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  dailyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignSelf: "flex-start",
+  },
+  dailyBadgeText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.8,
+  },
+  dailyRef: {
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+  },
+  dailyArabic: {
+    fontSize: 20,
+    textAlign: "right",
+    lineHeight: 36,
+    writingDirection: "rtl",
+  },
+  dailyTranslation: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+    fontStyle: "italic",
+  },
+  dailySourceRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    flexWrap: "wrap",
   },
-  reminderLabel: {
+  dailySourceText: {
     fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
-  reminderText: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-    lineHeight: 22,
-    marginBottom: 8,
-    fontStyle: "italic",
-  },
-  reminderSource: {
-    fontSize: 12,
     fontFamily: "Inter_400Regular",
+    flex: 1,
+  },
+  dailySourceBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  dailySourceBadgeText: {
+    fontSize: 9,
+    fontFamily: "Inter_500Medium",
   },
 });
