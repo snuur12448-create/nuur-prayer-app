@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { NuurLogo } from "@/components/NuurLogo";
 
 const LOGO_GOLD = "#C9933A";
@@ -28,6 +29,7 @@ export default function MoreScreen() {
   const { themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
+  const miniPlayerH = useMiniPlayerHeight();
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
   const items: MoreItem[] = [
@@ -88,7 +90,7 @@ export default function MoreScreen() {
           styles.scroll,
           {
             paddingTop: topPad + 12,
-            paddingBottom: insets.bottom + 100,
+            paddingBottom: insets.bottom + 100 + miniPlayerH,
           },
         ]}
         showsVerticalScrollIndicator={false}

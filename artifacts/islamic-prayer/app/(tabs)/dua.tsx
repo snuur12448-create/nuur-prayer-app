@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { ALL_DUA_CATEGORIES, DuaItem, searchDuas } from "@/utils/duaData";
 import { getDailyHadith, Hadith } from "@/utils/hadithData";
 
@@ -208,6 +209,7 @@ export default function DuaScreen() {
   const { themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
+  const miniPlayerH = useMiniPlayerHeight();
 
   const [selectedCategoryId, setSelectedCategoryId] = useState(ALL_DUA_CATEGORIES[0].id);
   const [searchQuery, setSearchQuery] = useState("");
@@ -350,7 +352,7 @@ export default function DuaScreen() {
         renderItem={renderDua}
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: isWeb ? 34 + 84 : 100 + insets.bottom },
+          { paddingBottom: isWeb ? 34 + 84 : 100 + insets.bottom + miniPlayerH },
         ]}
         showsVerticalScrollIndicator={false}
         initialNumToRender={8}

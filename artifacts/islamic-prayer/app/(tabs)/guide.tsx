@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { router } from "expo-router";
 
 interface GuideStep {
@@ -216,6 +217,7 @@ export default function GuideScreen() {
   const { themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
+  const miniPlayerH = useMiniPlayerHeight();
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
   const [activeTab, setActiveTab] = useState<Tab>("wudhu");
 
@@ -268,7 +270,7 @@ export default function GuideScreen() {
       {/* Steps list */}
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 + miniPlayerH }]}
         showsVerticalScrollIndicator={false}
       >
         {steps.map((step, idx) => (

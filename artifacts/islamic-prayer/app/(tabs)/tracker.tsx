@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { calculatePrayerTimes, PrayerTimesResult } from "@/utils/prayerTimes";
 import { getIslamicDateForDate } from "@/utils/islamicData";
 
@@ -118,6 +119,7 @@ function CheckBox({ checked, color, onPress }: { checked: boolean; color: string
 
 export default function TrackerScreen() {
   const insets = useSafeAreaInsets();
+  const miniPlayerH = useMiniPlayerHeight();
   const { themeColors: colors, location, calcMethod, madhab, highLatRule, timeFormat } = useAppContext();
   const [selectedKey, setSelectedKey] = useState(todayKey());
   const [trackerData, setTrackerData] = useState<TrackerData>({});
@@ -186,7 +188,7 @@ export default function TrackerScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 + miniPlayerH }}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Header ── */}

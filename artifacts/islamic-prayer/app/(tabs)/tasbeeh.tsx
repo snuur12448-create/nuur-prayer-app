@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 
 interface DhikrPreset {
   id: string;
@@ -87,6 +88,7 @@ export default function TasbeehScreen() {
   const { themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
+  const miniPlayerH = useMiniPlayerHeight();
 
   const [selectedDhikr, setSelectedDhikr] = useState<DhikrPreset>(DHIKR_PRESETS[0]);
   const [count, setCount] = useState(0);
@@ -210,7 +212,7 @@ export default function TasbeehScreen() {
         </View>
       </View>
 
-      <View style={[styles.content, { paddingBottom: isWeb ? 34 + 84 : 100 + insets.bottom }]}>
+      <View style={[styles.content, { paddingBottom: isWeb ? 34 + 84 : 100 + insets.bottom + miniPlayerH }]}>
         {/* Dhikr selector */}
         <Pressable
           style={[styles.dhikrSelector, { backgroundColor: colors.surface, borderColor: colors.border }]}

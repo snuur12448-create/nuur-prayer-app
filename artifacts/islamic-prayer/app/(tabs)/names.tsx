@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { ALLAH_NAMES, AllahName } from "@/utils/namesData";
 
 const { width } = Dimensions.get("window");
@@ -62,7 +63,7 @@ function NameCard({ item, colors, onPress }: { item: AllahName; colors: any; onP
   );
 }
 
-function DetailSheet({ item, colors, onClose }: { item: AllahName; colors: any; onClose: () => void }) {
+function DetailSheet({ item, colors, onClose, miniPlayerH = 0 }: { item: AllahName; colors: any; onClose: () => void; miniPlayerH?: number }) {
   const slideY = useRef(new Animated.Value(80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -89,7 +90,7 @@ function DetailSheet({ item, colors, onClose }: { item: AllahName; colors: any; 
       <Animated.View
         style={[
           styles.sheet,
-          { backgroundColor: colors.surface, transform: [{ translateY: slideY }] },
+          { backgroundColor: colors.surface, transform: [{ translateY: slideY }], paddingBottom: 40 + miniPlayerH },
         ]}
       >
         <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
@@ -136,6 +137,7 @@ export default function NamesScreen() {
   const [selected, setSelected] = useState<AllahName | null>(null);
 
   const topInset = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
+  const miniPlayerH = useMiniPlayerHeight();
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -202,7 +204,7 @@ export default function NamesScreen() {
         keyExtractor={(item) => String(item.number)}
         numColumns={NUM_COLS}
         key={NUM_COLS}
-        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 + miniPlayerH }]}
         showsVerticalScrollIndicator={false}
         columnWrapperStyle={NUM_COLS > 1 ? styles.row : undefined}
         initialNumToRender={16}
@@ -223,7 +225,7 @@ export default function NamesScreen() {
 
       {/* Detail Sheet */}
       {selected && (
-        <DetailSheet item={selected} colors={colors} onClose={() => setSelected(null)} />
+        <DetailSheet item={selected} colors={colors} onClose={() => setSelected(null)} miniPlayerH={miniPlayerH} />
       )}
     </View>
   );
@@ -301,7 +303,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 24,
-    paddingBottom: 40,
     alignItems: "center",
     gap: 12,
     maxHeight: "80%",

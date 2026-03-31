@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { HADITHS, Hadith } from "@/utils/hadithData";
 
 const SUNNAH_API_KEY = "SqD712P3E82xnwOAEOkGd5JZH8s9wRR24TqNFzjk";
@@ -65,6 +66,7 @@ export default function HadithsScreen() {
   const { themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
+  const miniPlayerH = useMiniPlayerHeight();
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
   const [activeTopic, setActiveTopic] = useState("All");
@@ -205,7 +207,7 @@ export default function HadithsScreen() {
       <FlatList
         data={filteredHadiths}
         keyExtractor={(h) => h.id}
-        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 + miniPlayerH }]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>

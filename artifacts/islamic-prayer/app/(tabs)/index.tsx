@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { LocationModal } from "@/components/LocationModal";
 import { getIslamicDate, getTodaysReminder } from "@/utils/islamicData";
 import { calculatePrayerTimes, getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
@@ -30,6 +31,7 @@ export default function PrayerScreen() {
   } = useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
+  const miniPlayerH = useMiniPlayerHeight();
   const [nextPrayer, setNextPrayer] = useState<PrayerTime | null>(null);
   const [currentPrayer, setCurrentPrayer] = useState<PrayerTime | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
@@ -135,7 +137,7 @@ export default function PrayerScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: isWeb ? 34 + 84 : 100 + insets.bottom }}
+        contentContainerStyle={{ paddingBottom: isWeb ? 34 + 84 : 100 + insets.bottom + miniPlayerH }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gold} />}
       >

@@ -13,6 +13,7 @@ import {
 import Svg, { Ellipse, Path, Rect } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 
 // ── Haversine distance in km ──────────────────────────────────────────────────
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -331,6 +332,7 @@ export default function MosquesScreen() {
     useAppContext();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
+  const miniPlayerH = useMiniPlayerHeight();
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
   const [mosques, setMosques] = useState<Mosque[]>([]);
@@ -492,7 +494,7 @@ export default function MosquesScreen() {
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={[
             styles.list,
-            { paddingBottom: insets.bottom + 100 },
+            { paddingBottom: insets.bottom + 100 + miniPlayerH },
           ]}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={

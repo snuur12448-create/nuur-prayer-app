@@ -350,3 +350,18 @@ export function useQuranPlayer() {
   if (!ctx) throw new Error("useQuranPlayer must be used within QuranPlayerProvider");
   return ctx;
 }
+
+/** Height of the mini player bar when it is visible. */
+export const MINI_PLAYER_HEIGHT = 64;
+
+/**
+ * Returns the extra bottom offset that scrollable content must add so the
+ * mini player never obscures the last item.  Returns 0 when the player is idle.
+ */
+export function useMiniPlayerHeight(): number {
+  const { playState, currentSurahNum } = useQuranPlayer();
+  const isVisible =
+    (playState === "playing" || playState === "paused") &&
+    currentSurahNum !== null;
+  return isVisible ? MINI_PLAYER_HEIGHT : 0;
+}
