@@ -957,12 +957,13 @@ export const ALL_DUA_CATEGORIES: DuaCategoryData[] = [
       },
       {
         id: "hl6",
-        title: "When in Pain — 3 times",
-        arabic: "بِسْمِ اللهِ",
-        transliteration: "Bismillah (3×) then: A'udhu billahi wa qudratihi...",
-        translation: "Say Bismillah 3 times, then: I seek refuge in Allah and His power from the evil of what I am feeling and what I am afraid of — 7 times.",
+        title: "When in Pain — Full Sequence",
+        arabic: "بِسْمِ اللهِ ❋ بِسْمِ اللهِ ❋ بِسْمِ اللهِ\n\nأَعُوذُ بِاللهِ وَقُدْرَتِهِ مِنْ شَرِّ مَا أَجِدُ وَأُحَاذِرُ",
+        transliteration: "Bismillah (×3) — then: A'udhu billahi wa qudratihi min sharri ma ajidu wa uhadhir (×7)",
+        translation: "In the name of Allah (3 times) — then: I seek refuge in Allah and His power from the evil of what I am feeling and what I am afraid of (7 times).",
         reference: "Muslim 2202",
-        repeat: "3× Bismillah + 7× A'udhu...",
+        repeat: "3× Bismillah then 7× A'udhu",
+        virtue: "Place your hand on the area of pain while reciting.",
       },
       {
         id: "hl7",
