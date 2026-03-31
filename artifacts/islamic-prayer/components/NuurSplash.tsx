@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 
@@ -12,25 +12,30 @@ const GOLD_DIM = "#C9933A44";
 const GOLD_FAINT = "#C9933A18";
 
 export function NuurSplash({ onComplete }: Props) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  // Container starts fully opaque and only fades OUT when exiting — never transparent on mount.
+  const exitAnim = useRef(new Animated.Value(1)).current;
+  // Logo content fades/scales IN after mount.
+  const contentFade = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.82)).current;
   const glowScale = useRef(new Animated.Value(1)).current;
   const glowOpacity = useRef(new Animated.Value(0.55)).current;
   const textFade = useRef(new Animated.Value(0)).current;
 
-  // Hide the native OS splash screen now that our custom splash is painted —
-  // this prevents any blank-frame flash between the two.
+  // Hide the native splash immediately — our container is already opaque so nothing bleeds through.
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => {});
   }, []);
 
   useEffect(() => {
+    // Fade + scale the logo content in.
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: false }),
+      Animated.timing(contentFade, { toValue: 1, duration: 450, useNativeDriver: false }),
       Animated.spring(scaleAnim, { toValue: 1, tension: 55, friction: 8, useNativeDriver: false }),
     ]).start(() => {
+      // Text appears after logo settles.
       Animated.timing(textFade, { toValue: 1, duration: 400, useNativeDriver: false }).start();
 
+      // Glow pulse loop.
       Animated.loop(
         Animated.sequence([
           Animated.parallel([
@@ -44,18 +49,27 @@ export function NuurSplash({ onComplete }: Props) {
         ])
       ).start();
 
+      // After display time, fade the whole container OUT and signal completion.
       setTimeout(() => {
-        Animated.timing(fadeAnim, { toValue: 0, duration: 550, useNativeDriver: false }).start(
-          () => onComplete()
-        );
+        Animated.timing(exitAnim, {
+          toValue: 0,
+          duration: 550,
+          useNativeDriver: false,
+        }).start(() => onComplete());
       }, 2200);
     });
   }, []);
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+    // exitAnim drives the fade-out; starts at 1 so the dark bg is instant on mount.
+    <Animated.View style={[styles.container, { opacity: exitAnim }]}>
       {/* Logo mark */}
-      <Animated.View style={[styles.logoArea, { transform: [{ scale: scaleAnim }] }]}>
+      <Animated.View
+        style={[
+          styles.logoArea,
+          { opacity: contentFade, transform: [{ scale: scaleAnim }] },
+        ]}
+      >
         {/* Outer glow ring */}
         <Animated.View
           style={[
@@ -86,7 +100,6 @@ export function NuurSplash({ onComplete }: Props) {
 
         {/* Inner circle */}
         <View style={styles.innerCircle}>
-          {/* Arabic nun — نور initial */}
           <Text style={styles.coreGlyph}>ن</Text>
         </View>
       </Animated.View>
@@ -113,7 +126,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     zIndex: 9999,
-    gap: 0,
   },
   logoArea: {
     width: 160,
