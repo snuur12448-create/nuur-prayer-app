@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   cardNum: { fontSize: 11, fontFamily: "Inter_700Bold" },
-  cardArabic: { fontSize: 26, fontFamily: "Inter_700Bold", textAlign: "center", marginTop: 16 },
+  cardArabic: { fontSize: 26, fontFamily: "Inter_700Bold", textAlign: "center", marginTop: 16, paddingTop: 10, lineHeight: 42 },
   cardTranslit: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" },
   cardDivider: { width: 36, height: 1, borderRadius: 1 },
   cardMeaning: { fontSize: 11, textAlign: "center", lineHeight: 15 },
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   sheetHandle: { width: 40, height: 4, borderRadius: 2, marginBottom: 4 },
   sheetNumBadge: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
   sheetNum: { fontSize: 13, fontFamily: "Inter_700Bold" },
-  sheetArabic: { fontSize: 52, fontFamily: "Inter_700Bold", textAlign: "center", lineHeight: 70 },
+  sheetArabic: { fontSize: 52, fontFamily: "Inter_700Bold", textAlign: "center", lineHeight: 80, paddingTop: 14 },
   sheetTranslit: { fontSize: 20, fontFamily: "Inter_700Bold", textAlign: "center" },
 
   sheetPronRow: {
