@@ -8,6 +8,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -407,22 +408,60 @@ export default function PrayerScreen() {
           )}
         </View>
 
-        {/* Ayah of the Day */}
-        <View style={[styles.dailyCard, { backgroundColor: colors.surface, borderColor: colors.tint + "44", marginHorizontal: 16 }]}>
-          <View style={[styles.dailyAccent, { backgroundColor: colors.tint }]} />
-          <View style={styles.dailyInner}>
-            <View style={styles.dailyBadgeRow}>
-              <View style={[styles.dailyBadge, { backgroundColor: colors.tint + "22", borderColor: colors.tint + "55" }]}>
-                <MaterialCommunityIcons name="book-open-variant" size={10} color={colors.tint} />
-                <Text style={[styles.dailyBadgeText, { color: colors.tint }]}>AYAH OF THE DAY</Text>
+        {/* ── Verse of the Day Widget ── */}
+        <View style={[styles.votdWidget, { backgroundColor: colors.surface, borderColor: colors.tint + "35" }]}>
+          {/* Header row: badge + share */}
+          <View style={styles.votdHeader}>
+            <View style={styles.votdHeaderLeft}>
+              <View style={[styles.votdBadge, { backgroundColor: colors.tint + "20", borderColor: colors.tint + "50" }]}>
+                <MaterialCommunityIcons name="book-open-variant" size={9} color={colors.tint} />
+                <Text style={[styles.votdBadgeText, { color: colors.tint }]}>VERSE OF THE DAY</Text>
               </View>
-              <Text style={[styles.dailyRef, { color: colors.textSecondary }]}>
-                {dailyAyah.surahName} {dailyAyah.surahNumber}:{dailyAyah.ayahNumber}
+              <Text style={[styles.votdRef, { color: colors.textSecondary }]}>
+                {dailyAyah.surahName} · {dailyAyah.surahNumber}:{dailyAyah.ayahNumber}
               </Text>
             </View>
-            <Text style={[styles.dailyArabic, { color: colors.text }]}>{dailyAyah.arabic}</Text>
-            <Text style={[styles.dailyTranslation, { color: colors.textSecondary }]}>"{dailyAyah.translation}"</Text>
+            <TouchableOpacity
+              onPress={() =>
+                Share.share({
+                  message: `${dailyAyah.arabic}\n\n"${dailyAyah.translation}"\n\n— ${dailyAyah.surahName} ${dailyAyah.surahNumber}:${dailyAyah.ayahNumber}\n\nShared from Nuur · نور`,
+                })
+              }
+              hitSlop={12}
+              style={[styles.votdShareBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+            >
+              <Feather name="share-2" size={13} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
+
+          {/* Arabic hero text */}
+          <Text style={[styles.votdArabic, { color: colors.text }]}>{dailyAyah.arabic}</Text>
+
+          {/* Ornamental divider */}
+          <View style={styles.votdOrnRow}>
+            <View style={[styles.votdOrnLine, { backgroundColor: colors.gold + "35" }]} />
+            <Text style={[styles.votdOrnStar, { color: colors.gold + "80" }]}>✦</Text>
+            <View style={[styles.votdOrnLine, { backgroundColor: colors.gold + "35" }]} />
+          </View>
+
+          {/* Transliteration */}
+          <Text style={[styles.votdTranslit, { color: colors.gold }]}>{dailyAyah.transliteration}</Text>
+
+          {/* Translation */}
+          <Text style={[styles.votdTranslation, { color: colors.textSecondary }]}>
+            "{dailyAyah.translation}"
+          </Text>
+
+          {/* Footer: open in Quran */}
+          <TouchableOpacity
+            style={[styles.votdReadBtn, { borderColor: colors.tint + "40", backgroundColor: colors.tint + "12" }]}
+            onPress={() => router.push({ pathname: "/quran/[id]", params: { id: String(dailyAyah.surahNumber) } })}
+            activeOpacity={0.75}
+          >
+            <Feather name="book-open" size={12} color={colors.tint} />
+            <Text style={[styles.votdReadText, { color: colors.tint }]}>Read full Surah</Text>
+            <Feather name="arrow-right" size={12} color={colors.tint} />
+          </TouchableOpacity>
         </View>
 
         {/* Hadith of the Day */}
@@ -711,6 +750,102 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     flex: 1,
   },
+  // ── Verse of the Day Widget ──────────────────────────────────────────────
+  votdWidget: {
+    marginHorizontal: 16,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 18,
+    gap: 14,
+  },
+  votdHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+  votdHeaderLeft: {
+    gap: 5,
+    flex: 1,
+  },
+  votdBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignSelf: "flex-start",
+  },
+  votdBadgeText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.9,
+  },
+  votdRef: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    marginTop: 1,
+  },
+  votdShareBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+    flexShrink: 0,
+  },
+  votdArabic: {
+    fontSize: 26,
+    textAlign: "center",
+    lineHeight: 48,
+    writingDirection: "rtl",
+    letterSpacing: 0.5,
+  },
+  votdOrnRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  votdOrnLine: {
+    flex: 1,
+    height: 1,
+  },
+  votdOrnStar: {
+    fontSize: 12,
+  },
+  votdTranslit: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 18,
+    fontStyle: "italic",
+  },
+  votdTranslation: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 22,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  votdReadBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 2,
+  },
+  votdReadText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  // ─────────────────────────────────────────────────────────────────────────
+
   dailyCard: {
     borderRadius: 18,
     borderWidth: 1,
