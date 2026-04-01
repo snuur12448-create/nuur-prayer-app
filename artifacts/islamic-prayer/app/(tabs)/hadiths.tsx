@@ -302,7 +302,7 @@ export default function HadithsScreen() {
           theme="hadith"
           sheetTitle="Share Hadith"
           shareTitle={shareHadith.source}
-          label={`${shareHadith.collection.toUpperCase()}  ·  ${shareHadith.topic.toUpperCase()}`}
+          label={`HADITH  ·  ${shareHadith.topic.toUpperCase()}`}
           arabicText={shareHadith.arabic || undefined}
           bodyText={shareHadith.translation}
           source={shareHadith.source}
