@@ -5,6 +5,7 @@ import {
   Inter_700Bold,
   useFonts,
 } from "@expo-google-fonts/inter";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -16,6 +17,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AdhanOverlay } from "@/components/AdhanOverlay";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NuurSplash } from "@/components/NuurSplash";
+import { Onboarding, ONBOARDING_KEY } from "@/components/Onboarding";
 import { AppProvider, useAppContext } from "@/context/AppContext";
 import { QuranPlayerProvider } from "@/context/QuranPlayerContext";
 
@@ -62,16 +64,27 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
-  // Two-gate system: splash hides only when BOTH the animation AND fonts are done.
+  // Three-gate system: splash hides only when animation, fonts, AND onboarding
+  // status are all resolved — prevents a flash between splash and onboarding.
   const [animDone, setAnimDone] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const fontsReady = fontsLoaded || !!fontError;
 
+  // Load onboarding status from storage immediately on mount.
   useEffect(() => {
-    if (animDone && fontsReady) {
+    AsyncStorage.getItem(ONBOARDING_KEY).then((v) => {
+      setOnboardingDone(v === "true");
+    }).catch(() => {
+      setOnboardingDone(true); // fail open — don't block the app
+    });
+  }, []);
+
+  useEffect(() => {
+    if (animDone && fontsReady && onboardingDone !== null) {
       setSplashDone(true);
     }
-  }, [animDone, fontsReady]);
+  }, [animDone, fontsReady, onboardingDone]);
 
   return (
     <SafeAreaProvider>
@@ -84,7 +97,11 @@ export default function RootLayout() {
                   {/* Main app — always rendered so contexts warm up during splash */}
                   <RootLayoutNav />
                   <AdhanGate />
-                  {/* Custom splash overlay — covers app until animation + fonts ready */}
+                  {/* Onboarding overlay — shown once after first-launch splash */}
+                  {splashDone && onboardingDone === false && (
+                    <Onboarding onComplete={() => setOnboardingDone(true)} />
+                  )}
+                  {/* Custom splash overlay — covers everything until all gates pass */}
                   {!splashDone && (
                     <NuurSplash onComplete={() => setAnimDone(true)} />
                   )}
