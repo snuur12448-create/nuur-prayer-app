@@ -1,4 +1,5 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -29,6 +30,35 @@ interface Verse {
   numberInQuran: number;
 }
 
+// ── Hafidh Mode placeholder — gold dashes simulating hidden Arabic lines ───────
+function HafidhPlaceholder({ colors, lineCount = 3 }: { colors: Record<string, string>; lineCount?: number }) {
+  const allLines = [
+    [22, 14, 18, 10, 20, 12, 16, 8],
+    [18, 12, 24, 8, 14, 20, 10],
+    [10, 18, 8, 14],
+  ];
+  const lines = allLines.slice(0, Math.min(lineCount, 3));
+  return (
+    <View style={{ gap: 10, paddingVertical: 10, paddingHorizontal: 2 }}>
+      {lines.map((widths, i) => (
+        <View key={i} style={{ flexDirection: "row", justifyContent: "flex-end", gap: 6 }}>
+          {widths.map((w, j) => (
+            <View
+              key={j}
+              style={{
+                width: w,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: colors.gold + (i === 0 ? "60" : i === 1 ? "40" : "25"),
+              }}
+            />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ── Memoized verse card — prevents full-list re-renders on playback/copy state changes ──
 interface VerseCardProps {
   verse: Verse;
@@ -42,6 +72,10 @@ interface VerseCardProps {
   onPlay: () => void;
   onCopy: () => void;
   onShare: () => void;
+  hafidhMode: boolean;
+  hafidhDifficulty: "easy" | "medium" | "hard";
+  isRevealed: boolean;
+  onReveal: () => void;
 }
 
 const VerseCard = React.memo(function VerseCard({
@@ -56,69 +90,112 @@ const VerseCard = React.memo(function VerseCard({
   onPlay,
   onCopy,
   onShare,
+  hafidhMode,
+  hafidhDifficulty,
+  isRevealed,
+  onReveal,
 }: VerseCardProps) {
+  const isHidden = hafidhMode && !isRevealed;
+  const firstWord = verse.text.trim().split(/\s+/)[0] ?? "";
+
   return (
     <View
       style={[
         styles.verseCard,
         {
           backgroundColor: isActive ? colors.tint + "18" : isHighlighted ? "#C9933A18" : colors.surface,
-          borderColor: isActive ? colors.tint + "60" : isHighlighted ? "#C9933A" : isCopied ? colors.gold : colors.border,
+          borderColor: isActive
+            ? colors.tint + "60"
+            : isHighlighted
+            ? "#C9933A"
+            : isCopied
+            ? colors.gold
+            : hafidhMode
+            ? colors.gold + "30"
+            : colors.border,
           borderWidth: isHighlighted ? 2 : 1,
         },
       ]}
     >
       <View style={styles.verseHeader}>
         <View style={styles.verseHeaderLeft}>
-          <TouchableOpacity
-            style={[
-              styles.playBtn,
-              {
-                backgroundColor: isActive ? colors.tint : colors.surfaceElevated,
-                borderColor: isActive ? colors.tint : colors.border,
-              },
-            ]}
-            onPress={onPlay}
-          >
-            {playIcon === "loader" ? (
-              <ActivityIndicator size="small" color={isActive ? "#fff" : colors.tint} />
-            ) : (
-              <Feather name={playIcon as any} size={11} color={isActive ? "#fff" : colors.tint} />
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onCopy}
-            style={[styles.copyBtn, { backgroundColor: isCopied ? colors.gold + "20" : "transparent" }]}
-            hitSlop={8}
-          >
-            <Feather
-              name={isCopied ? "check" : "copy"}
-              size={12}
-              color={isCopied ? colors.gold : colors.textSecondary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onShare}
-            style={[styles.copyBtn, { backgroundColor: "transparent" }]}
-            hitSlop={8}
-          >
-            <Feather name="share-2" size={12} color={colors.textSecondary} />
-          </TouchableOpacity>
+          {hafidhDifficulty !== "hard" && (
+            <TouchableOpacity
+              style={[
+                styles.playBtn,
+                {
+                  backgroundColor: isActive ? colors.tint : colors.surfaceElevated,
+                  borderColor: isActive ? colors.tint : colors.border,
+                },
+              ]}
+              onPress={onPlay}
+            >
+              {playIcon === "loader" ? (
+                <ActivityIndicator size="small" color={isActive ? "#fff" : colors.tint} />
+              ) : (
+                <Feather name={playIcon as any} size={11} color={isActive ? "#fff" : colors.tint} />
+              )}
+            </TouchableOpacity>
+          )}
+          {!hafidhMode && (
+            <>
+              <TouchableOpacity
+                onPress={onCopy}
+                style={[styles.copyBtn, { backgroundColor: isCopied ? colors.gold + "20" : "transparent" }]}
+                hitSlop={8}
+              >
+                <Feather name={isCopied ? "check" : "copy"} size={12} color={isCopied ? colors.gold : colors.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onShare} style={[styles.copyBtn, { backgroundColor: "transparent" }]} hitSlop={8}>
+                <Feather name="share-2" size={12} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
-        <View style={[styles.verseNumberBadge, { backgroundColor: isActive ? colors.tint : colors.prayerCard }]}>
-          <Text style={[styles.verseNumber, { color: isActive ? "#fff" : colors.gold }]}>{verse.number}</Text>
+
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          {isHidden && hafidhDifficulty !== "hard" && (
+            <TouchableOpacity
+              onPress={onReveal}
+              hitSlop={10}
+              style={[styles.eyeBtn, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "15" }]}
+            >
+              <Feather name="eye" size={13} color={colors.gold} />
+            </TouchableOpacity>
+          )}
+          {isRevealed && hafidhMode && (
+            <View style={[styles.revealedBadge, { backgroundColor: colors.tint + "20", borderColor: colors.tint + "50" }]}>
+              <Feather name="check" size={10} color={colors.tint} />
+            </View>
+          )}
+          <View style={[styles.verseNumberBadge, { backgroundColor: isActive ? colors.tint : hafidhMode ? colors.gold + "25" : colors.prayerCard }]}>
+            <Text style={[styles.verseNumber, { color: isActive ? "#fff" : colors.gold }]}>{verse.number}</Text>
+          </View>
         </View>
       </View>
 
-      <Text style={[styles.arabicVerse, { color: colors.text }]}>{verse.text}</Text>
+      {/* Arabic text or hafidh placeholder */}
+      {isHidden ? (
+        hafidhDifficulty === "easy" && firstWord ? (
+          <View>
+            <Text style={[styles.arabicVerse, { color: colors.text }]}>{firstWord}</Text>
+            <HafidhPlaceholder colors={colors} lineCount={2} />
+          </View>
+        ) : (
+          <HafidhPlaceholder colors={colors} lineCount={3} />
+        )
+      ) : (
+        <Text style={[styles.arabicVerse, { color: colors.text }]}>{verse.text}</Text>
+      )}
 
-      {showTransliteration && verse.transliteration ? (
+      {/* Transliteration & translation — always hidden in hafidh mode */}
+      {!hafidhMode && showTransliteration && verse.transliteration ? (
         <Text style={[styles.transliterationVerse, { color: colors.gold, borderTopColor: colors.border }]}>
           {verse.transliteration}
         </Text>
       ) : null}
 
-      {showTranslation && (
+      {!hafidhMode && showTranslation && (
         <Text style={[styles.translationVerse, { color: colors.textSecondary, borderTopColor: colors.border }]}>
           {verse.translation}
         </Text>
@@ -156,6 +233,11 @@ export default function QuranDetailScreen() {
   const [loadingVerses, setLoadingVerses] = useState(false);
   const [versesError, setVersesError] = useState(false);
   const [highlightedVerse, setHighlightedVerse] = useState<number | null>(null);
+
+  // ── Hafidh Mode ────────────────────────────────────────────────────────────
+  const [hafidhMode, setHafidhMode] = useState(false);
+  const [hafidhDifficulty, setHafidhDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [revealedAyahs, setRevealedAyahs] = useState<Set<number>>(new Set());
 
   // ── getItemLayout constants ────────────────────────────────────────────────
   // Pre-computed card heights let FlatList jump directly to any verse without
@@ -303,6 +385,15 @@ export default function QuranDetailScreen() {
     return () => { stopPreview(); };
   }, []);
 
+  // Load persisted hafidh difficulty on mount
+  useEffect(() => {
+    AsyncStorage.getItem("nuur_hafidh_difficulty").then((val) => {
+      if (val === "easy" || val === "medium" || val === "hard") {
+        setHafidhDifficulty(val);
+      }
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (showReciterModal) {
       setReciterListAtBottom(false);
@@ -394,6 +485,29 @@ export default function QuranDetailScreen() {
     return "play";
   };
 
+  const revealAyah = useCallback((verseNum: number) => {
+    setRevealedAyahs((prev) => new Set([...prev, verseNum]));
+  }, []);
+
+  const resetHafidh = useCallback(() => {
+    setRevealedAyahs(new Set());
+  }, []);
+
+  const toggleHafidhMode = useCallback(() => {
+    setHafidhMode((v) => {
+      if (!v) setRevealedAyahs(new Set());
+      return !v;
+    });
+  }, []);
+
+  const updateDifficulty = useCallback((level: "easy" | "medium" | "hard") => {
+    setHafidhDifficulty(level);
+    setRevealedAyahs(new Set());
+    AsyncStorage.setItem("nuur_hafidh_difficulty", level).catch(() => {});
+  }, []);
+
+  const hafidhProgress = verses && verses.length > 0 ? revealedAyahs.size / verses.length : 0;
+
   const renderItem = useCallback(
     ({ item: verse }: { item: Verse }) => (
       <VerseCard
@@ -408,9 +522,13 @@ export default function QuranDetailScreen() {
         onPlay={() => togglePlayPause(verse)}
         onCopy={() => copyVerse(verse)}
         onShare={() => setShareVerse(verse)}
+        hafidhMode={hafidhMode}
+        hafidhDifficulty={hafidhDifficulty}
+        isRevealed={revealedAyahs.has(verse.number)}
+        onReveal={() => revealAyah(verse.number)}
       />
     ),
-    [playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, colors, togglePlayPause, copyVerse]
+    [playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah]
   );
 
   const keyExtractor = useCallback((v: Verse) => String(v.number), []);
@@ -471,7 +589,17 @@ export default function QuranDetailScreen() {
         </TouchableOpacity>
 
         <View style={styles.controlsRight}>
-          {verses && (
+          {/* Hafidh Mode toggle */}
+          <TouchableOpacity
+            style={[styles.hafidhToggleBtn, {
+              backgroundColor: hafidhMode ? colors.gold + "22" : colors.surfaceElevated,
+              borderColor: hafidhMode ? colors.gold : colors.border,
+            }]}
+            onPress={toggleHafidhMode}
+          >
+            <MaterialCommunityIcons name="brain" size={16} color={hafidhMode ? colors.gold : colors.textSecondary} />
+          </TouchableOpacity>
+          {!hafidhMode && verses && (
             <TouchableOpacity
               style={[styles.playAllBtn, { backgroundColor: colors.tint }]}
               onPress={playAllVerses}
@@ -483,39 +611,109 @@ export default function QuranDetailScreen() {
             </TouchableOpacity>
           )}
           {/* Speed selector */}
-          <TouchableOpacity
-            style={[styles.toggleChip, {
-              backgroundColor: playbackRate !== 1.0 ? colors.tint + "20" : colors.surfaceElevated,
-              borderColor: playbackRate !== 1.0 ? colors.tint + "60" : colors.border,
-            }]}
-            onPress={() => setShowSpeedMenu(true)}
-          >
-            <Text style={[styles.toggleChipText, { color: playbackRate !== 1.0 ? colors.tint : colors.textSecondary }]}>
-              {playbackRate === 0.75 ? "¾×" : playbackRate === 1.0 ? "1×" : `${playbackRate}×`}
-            </Text>
-          </TouchableOpacity>
-          {/* Transliteration toggle */}
-          <TouchableOpacity
-            style={[styles.toggleChip, {
-              backgroundColor: showTransliteration ? colors.gold + "20" : colors.surfaceElevated,
-              borderColor: showTransliteration ? colors.gold + "60" : colors.border,
-            }]}
-            onPress={() => setShowTransliteration((v) => !v)}
-          >
-            <Text style={[styles.toggleChipText, { color: showTransliteration ? colors.gold : colors.textSecondary }]}>
-              A-B-C
-            </Text>
-          </TouchableOpacity>
-          {/* Translation toggle */}
-          <Pressable
-            style={[styles.toggle, { backgroundColor: showTranslation ? colors.tint : colors.border }]}
-            onPress={() => setShowTranslation((v) => !v)}
-          >
-            <View style={[styles.toggleThumb, { transform: [{ translateX: showTranslation ? 20 : 0 }] }]} />
-          </Pressable>
-          <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>EN</Text>
+          {!hafidhMode && (
+            <TouchableOpacity
+              style={[styles.toggleChip, {
+                backgroundColor: playbackRate !== 1.0 ? colors.tint + "20" : colors.surfaceElevated,
+                borderColor: playbackRate !== 1.0 ? colors.tint + "60" : colors.border,
+              }]}
+              onPress={() => setShowSpeedMenu(true)}
+            >
+              <Text style={[styles.toggleChipText, { color: playbackRate !== 1.0 ? colors.tint : colors.textSecondary }]}>
+                {playbackRate === 0.75 ? "¾×" : playbackRate === 1.0 ? "1×" : `${playbackRate}×`}
+              </Text>
+            </TouchableOpacity>
+          )}
+          {/* Transliteration toggle — hidden in hafidh mode */}
+          {!hafidhMode && (
+            <TouchableOpacity
+              style={[styles.toggleChip, {
+                backgroundColor: showTransliteration ? colors.gold + "20" : colors.surfaceElevated,
+                borderColor: showTransliteration ? colors.gold + "60" : colors.border,
+              }]}
+              onPress={() => setShowTransliteration((v) => !v)}
+            >
+              <Text style={[styles.toggleChipText, { color: showTransliteration ? colors.gold : colors.textSecondary }]}>
+                A-B-C
+              </Text>
+            </TouchableOpacity>
+          )}
+          {/* Translation toggle — hidden in hafidh mode */}
+          {!hafidhMode && (
+            <>
+              <Pressable
+                style={[styles.toggle, { backgroundColor: showTranslation ? colors.tint : colors.border }]}
+                onPress={() => setShowTranslation((v) => !v)}
+              >
+                <View style={[styles.toggleThumb, { transform: [{ translateX: showTranslation ? 20 : 0 }] }]} />
+              </Pressable>
+              <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>EN</Text>
+            </>
+          )}
         </View>
       </View>
+
+      {/* Hafidh Mode banner */}
+      {hafidhMode && (
+        <View style={[styles.hafidhBanner, { backgroundColor: colors.surface, borderBottomColor: colors.gold + "40" }]}>
+          {/* Top row: label + difficulty chips */}
+          <View style={styles.hafidhTopRow}>
+            <View style={styles.hafidhLabelRow}>
+              <MaterialCommunityIcons name="brain" size={14} color={colors.gold} />
+              <Text style={[styles.hafidhModeLabel, { color: colors.gold }]}>HAFIDH MODE</Text>
+            </View>
+            <View style={styles.hafidhChips}>
+              {(["easy", "medium", "hard"] as const).map((level) => (
+                <TouchableOpacity
+                  key={level}
+                  onPress={() => updateDifficulty(level)}
+                  style={[
+                    styles.hafidhChip,
+                    {
+                      backgroundColor: hafidhDifficulty === level ? colors.gold : "transparent",
+                      borderColor: hafidhDifficulty === level ? colors.gold : colors.gold + "55",
+                    },
+                  ]}
+                >
+                  <Text style={[styles.hafidhChipText, { color: hafidhDifficulty === level ? "#fff" : colors.gold }]}>
+                    {level.charAt(0).toUpperCase() + level.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Bottom row: progress bar + count + reset */}
+          <View style={styles.hafidhProgressRow}>
+            {hafidhDifficulty !== "hard" ? (
+              <>
+                <View style={[styles.hafidhProgressTrack, { backgroundColor: colors.gold + "22" }]}>
+                  <View
+                    style={[
+                      styles.hafidhProgressFill,
+                      { backgroundColor: colors.gold, width: `${hafidhProgress * 100}%` as any },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.hafidhProgressText, { color: colors.textSecondary }]}>
+                  {revealedAyahs.size} of {verses?.length ?? 0} revealed
+                </Text>
+              </>
+            ) : (
+              <Text style={[styles.hafidhProgressText, { color: colors.textSecondary, flex: 1 }]}>
+                Pure memory — no hints, no reveals
+              </Text>
+            )}
+            <TouchableOpacity
+              onPress={resetHafidh}
+              style={[styles.hafidhResetBtn, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "12" }]}
+            >
+              <Feather name="refresh-cw" size={11} color={colors.gold} />
+              <Text style={[styles.hafidhResetText, { color: colors.gold }]}>Reset</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Body */}
       {loadingVerses ? (
@@ -879,6 +1077,101 @@ const styles = StyleSheet.create({
     color: "rgba(0,0,0,0.5)",
   },
   errorText: { fontSize: 16, fontFamily: "Inter_400Regular", textAlign: "center", margin: 20 },
+
+  /* ── Hafidh Mode ──────────────────────────────────────────────── */
+  hafidhToggleBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hafidhBanner: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    gap: 8,
+  },
+  hafidhTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  hafidhLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  hafidhModeLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.4,
+  },
+  hafidhChips: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  hafidhChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  hafidhChipText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  hafidhProgressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  hafidhProgressTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  hafidhProgressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  hafidhProgressText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
+  hafidhResetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  hafidhResetText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  eyeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  revealedBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
   modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingTop: 12, gap: 4 },
   modalHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 12 },
