@@ -922,11 +922,7 @@ export default function QuranDetailScreen() {
           style={[styles.reciterBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
           onPress={() => setShowReciterModal(true)}
         >
-          <Feather name="mic" size={13} color={colors.tint} />
-          <Text style={[styles.reciterBtnText, { color: colors.text }]} numberOfLines={1}>
-            {selectedReciter.name.split(" ").slice(0, 2).join(" ")}
-          </Text>
-          <Feather name="chevron-down" size={13} color={colors.textSecondary} />
+          <Feather name="mic" size={15} color={colors.tint} />
         </TouchableOpacity>
 
         <View style={styles.controlsRight}>
@@ -1368,17 +1364,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   reciterBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    width: 32,
+    height: 32,
     borderRadius: 10,
     borderWidth: 1,
-    flex: 1,
-    maxWidth: 180,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  reciterBtnText: { fontSize: 13, fontFamily: "Inter_500Medium", flex: 1 },
   controlsRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   playAllBtn: {
     flexDirection: "row",
