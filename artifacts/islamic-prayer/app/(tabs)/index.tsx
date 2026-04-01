@@ -1,14 +1,14 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Clipboard,
   Platform,
   Pressable,
   RefreshControl,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -19,6 +19,8 @@ import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { LocationModal } from "@/components/LocationModal";
 import { PrayerNotifSheet } from "@/components/PrayerNotifSheet";
+import AyahShareSheet from "@/components/AyahShareSheet";
+import ContentShareSheet from "@/components/ContentShareSheet";
 import { getIslamicDate } from "@/utils/islamicData";
 import { getDailyAyah } from "@/utils/ayahData";
 import { getDailyHadith } from "@/utils/hadithData";
@@ -49,6 +51,10 @@ export default function PrayerScreen() {
   } = useAppContext();
 
   const [notifSheetKey, setNotifSheetKey] = useState<PrayerKey | null>(null);
+  const [showAyahShare, setShowAyahShare] = useState(false);
+  const [showHadithShare, setShowHadithShare] = useState(false);
+  const [ayahCopied, setAyahCopied] = useState(false);
+  const [hadithCopied, setHadithCopied] = useState(false);
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const miniPlayerH = useMiniPlayerHeight();
@@ -64,6 +70,28 @@ export default function PrayerScreen() {
   const islamicDate = getIslamicDate();
   const dailyAyah = getDailyAyah();
   const dailyHadith = getDailyHadith();
+
+  const handleCopyAyah = useCallback(() => {
+    const text = `${dailyAyah.arabic}\n\n"${dailyAyah.translation}"\n\n— ${dailyAyah.surahName} ${dailyAyah.surahNumber}:${dailyAyah.ayahNumber}\n\nNuur · نور`;
+    if (Platform.OS === "web") {
+      navigator.clipboard?.writeText(text).catch(() => {});
+    } else {
+      Clipboard.setString(text);
+    }
+    setAyahCopied(true);
+    setTimeout(() => setAyahCopied(false), 2000);
+  }, [dailyAyah]);
+
+  const handleCopyHadith = useCallback(() => {
+    const text = `${dailyHadith.arabic}\n\n"${dailyHadith.translation}"\n\n— ${dailyHadith.narrator}\n${dailyHadith.source}\n\nNuur · نور`;
+    if (Platform.OS === "web") {
+      navigator.clipboard?.writeText(text).catch(() => {});
+    } else {
+      Clipboard.setString(text);
+    }
+    setHadithCopied(true);
+    setTimeout(() => setHadithCopied(false), 2000);
+  }, [dailyHadith]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -421,17 +449,22 @@ export default function PrayerScreen() {
                 {dailyAyah.surahName} · {dailyAyah.surahNumber}:{dailyAyah.ayahNumber}
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={() =>
-                Share.share({
-                  message: `${dailyAyah.arabic}\n\n"${dailyAyah.translation}"\n\n— ${dailyAyah.surahName} ${dailyAyah.surahNumber}:${dailyAyah.ayahNumber}\n\nShared from Nuur · نور`,
-                })
-              }
-              hitSlop={12}
-              style={[styles.votdShareBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-            >
-              <Feather name="share-2" size={13} color={colors.textSecondary} />
-            </TouchableOpacity>
+            <View style={styles.votdActionRow}>
+              <TouchableOpacity
+                onPress={handleCopyAyah}
+                hitSlop={12}
+                style={[styles.votdShareBtn, { backgroundColor: colors.surfaceElevated, borderColor: ayahCopied ? colors.tint + "60" : colors.border }]}
+              >
+                <Feather name={ayahCopied ? "check" : "copy"} size={13} color={ayahCopied ? colors.tint : colors.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowAyahShare(true)}
+                hitSlop={12}
+                style={[styles.votdShareBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              >
+                <Feather name="share-2" size={13} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Arabic hero text */}
@@ -480,17 +513,22 @@ export default function PrayerScreen() {
                 <Text style={[styles.votdRef, { color: colors.textSecondary }]}>{dailyHadith.collection}</Text>
               </View>
             </View>
-            <TouchableOpacity
-              onPress={() =>
-                Share.share({
-                  message: `${dailyHadith.arabic}\n\n"${dailyHadith.translation}"\n\n— ${dailyHadith.narrator}\n${dailyHadith.source}\n\nShared from Nuur · نور`,
-                })
-              }
-              hitSlop={12}
-              style={[styles.votdShareBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-            >
-              <Feather name="share-2" size={13} color={colors.textSecondary} />
-            </TouchableOpacity>
+            <View style={styles.votdActionRow}>
+              <TouchableOpacity
+                onPress={handleCopyHadith}
+                hitSlop={12}
+                style={[styles.votdShareBtn, { backgroundColor: colors.surfaceElevated, borderColor: hadithCopied ? colors.gold + "60" : colors.border }]}
+              >
+                <Feather name={hadithCopied ? "check" : "copy"} size={13} color={hadithCopied ? colors.gold : colors.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowHadithShare(true)}
+                hitSlop={12}
+                style={[styles.votdShareBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              >
+                <Feather name="share-2" size={13} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Arabic hero text */}
@@ -551,6 +589,29 @@ export default function PrayerScreen() {
           onClose={() => setNotifSheetKey(null)}
         />
       )}
+
+      <AyahShareSheet
+        visible={showAyahShare}
+        onClose={() => setShowAyahShare(false)}
+        verseNumber={dailyAyah.ayahNumber}
+        arabicText={dailyAyah.arabic}
+        translation={dailyAyah.translation}
+        surahName={dailyAyah.surahName}
+        surahEnglish={dailyAyah.surahName}
+        surahNumber={dailyAyah.surahNumber}
+      />
+
+      <ContentShareSheet
+        visible={showHadithShare}
+        onClose={() => setShowHadithShare(false)}
+        theme="hadith"
+        sheetTitle="Share Hadith"
+        shareTitle={dailyHadith.source}
+        label={`HADITH OF THE DAY  ·  ${dailyHadith.collection.toUpperCase()}`}
+        arabicText={dailyHadith.arabic || undefined}
+        bodyText={dailyHadith.translation}
+        source={`${dailyHadith.narrator} — ${dailyHadith.source}`}
+      />
     </View>
   );
 }
@@ -823,6 +884,12 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     marginTop: 1,
   },
+  votdActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
+  },
   votdShareBtn: {
     width: 32,
     height: 32,
@@ -830,7 +897,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 8,
     flexShrink: 0,
   },
   votdArabic: {
