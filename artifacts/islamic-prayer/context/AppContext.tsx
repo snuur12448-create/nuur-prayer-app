@@ -199,7 +199,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Hadith of the Day reminder
   const [hadithReminderEnabled, setHadithReminderEnabledState] = useState(false);
-  const [hadithReminderHour, setHadithReminderHourState] = useState(8);
+  const [hadithReminderHour, setHadithReminderHourState] = useState(9);
   const [hadithReminderMinute, setHadithReminderMinuteState] = useState(0);
 
   // Adhan state
