@@ -189,7 +189,15 @@ export default function PrayerScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.headerRight}>
-              <Text style={[styles.currentTime, { color: colors.text }]} numberOfLines={1}>{formatCurrentTime()}</Text>
+              <Text
+                style={[styles.currentTime, { color: colors.text }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+                allowFontScaling={false}
+              >
+                {formatCurrentTime()}
+              </Text>
               {!isWeb && (
                 <Pressable
                   onPress={toggleNotifications}
@@ -512,7 +520,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 4,
     flexShrink: 0,
-    minWidth: 130,
+    width: 110,
   },
   paletteBtn: {
     width: 34,
@@ -522,11 +530,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   currentTime: {
-    fontSize: 28,
+    fontSize: 26,
     fontFamily: "Inter_700Bold",
-    fontVariant: ["tabular-nums"],
-    textAlign: "right",
     includeFontPadding: false,
+    textAlign: "right",
+    width: "100%",
   },
   gregorianDate: {
     fontSize: 14,
