@@ -123,6 +123,7 @@ interface VerseCardProps {
   onReveal: () => void;
   words: WordInfo[];
   onWordTap: (w: WordInfo) => void;
+  showWordByWord: boolean;
 }
 
 const VerseCard = React.memo(function VerseCard({
@@ -143,6 +144,7 @@ const VerseCard = React.memo(function VerseCard({
   onReveal,
   words,
   onWordTap,
+  showWordByWord,
 }: VerseCardProps) {
   const isHidden = hafidhMode && !isRevealed;
   const firstWord = verse.text.trim().split(/\s+/)[0] ?? "";
@@ -237,8 +239,8 @@ const VerseCard = React.memo(function VerseCard({
         <Text style={[styles.arabicVerse, { color: colors.text }]}>{verse.text}</Text>
       )}
 
-      {/* Word-by-word chips — Reading Mode only (hidden in Hafidh Mode) */}
-      {!hafidhMode && !isHidden && words.length > 0 && (
+      {/* Word-by-word chips — Reading Mode only, shown when toggle is on */}
+      {!hafidhMode && !isHidden && showWordByWord && words.length > 0 && (
         <View
           style={{
             flexDirection: "row",
@@ -460,6 +462,7 @@ export default function QuranDetailScreen() {
 
   const [showTranslation, setShowTranslation] = useState(true);
   const [showTransliteration, setShowTransliteration] = useState(false);
+  const [showWordByWord, setShowWordByWord] = useState(false);
   const [copiedVerse, setCopiedVerse] = useState<number | null>(null);
   const [shareVerse, setShareVerse] = useState<Verse | null>(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
@@ -863,9 +866,10 @@ export default function QuranDetailScreen() {
         onReveal={() => revealAyah(verse.number)}
         words={wordsByVerse[verse.number] ?? []}
         onWordTap={handleWordTap}
+        showWordByWord={showWordByWord}
       />
     ),
-    [playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah, wordsByVerse, handleWordTap]
+    [playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, showWordByWord, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah, wordsByVerse, handleWordTap]
   );
 
   const keyExtractor = useCallback((v: Verse) => String(v.number), []);
@@ -972,6 +976,20 @@ export default function QuranDetailScreen() {
             >
               <Text style={[styles.toggleChipText, { color: showTransliteration ? colors.gold : colors.textSecondary }]}>
                 A-B-C
+              </Text>
+            </TouchableOpacity>
+          )}
+          {/* Word-by-word toggle — hidden in hafidh mode */}
+          {!hafidhMode && (
+            <TouchableOpacity
+              style={[styles.toggleChip, {
+                backgroundColor: showWordByWord ? colors.gold + "20" : colors.surfaceElevated,
+                borderColor: showWordByWord ? colors.gold + "60" : colors.border,
+              }]}
+              onPress={() => setShowWordByWord((v) => !v)}
+            >
+              <Text style={[styles.toggleChipText, { color: showWordByWord ? colors.gold : colors.textSecondary }]}>
+                W·W
               </Text>
             </TouchableOpacity>
           )}
