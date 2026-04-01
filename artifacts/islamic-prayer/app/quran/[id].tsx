@@ -30,6 +30,14 @@ interface Verse {
   numberInQuran: number;
 }
 
+interface WordInfo {
+  position: number;
+  location: string;
+  arabic: string;
+  transliteration: string;
+  meaning: string;
+}
+
 // ── Hafidh Mode placeholder — gold dashes simulating hidden Arabic lines ───────
 function HafidhPlaceholder({ colors, lineCount = 3 }: { colors: Record<string, string>; lineCount?: number }) {
   const allLines = [
@@ -59,6 +67,43 @@ function HafidhPlaceholder({ colors, lineCount = 3 }: { colors: Record<string, s
   );
 }
 
+// ── Word-by-word chip ─────────────────────────────────────────────────────────
+function WordChip({
+  word,
+  colors,
+  onTap,
+}: {
+  word: WordInfo;
+  colors: Record<string, string>;
+  onTap: (w: WordInfo) => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={() => onTap(word)}
+      activeOpacity={0.72}
+      style={{
+        paddingHorizontal: 9,
+        paddingVertical: 6,
+        borderRadius: 8,
+        backgroundColor: colors.gold + "18",
+        borderWidth: 1,
+        borderColor: colors.gold + "3C",
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: "Inter_400Regular",
+          fontSize: 16,
+          color: colors.gold,
+          writingDirection: "rtl",
+        }}
+      >
+        {word.arabic}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 // ── Memoized verse card — prevents full-list re-renders on playback/copy state changes ──
 interface VerseCardProps {
   verse: Verse;
@@ -76,6 +121,8 @@ interface VerseCardProps {
   hafidhDifficulty: "easy" | "medium" | "hard";
   isRevealed: boolean;
   onReveal: () => void;
+  words: WordInfo[];
+  onWordTap: (w: WordInfo) => void;
 }
 
 const VerseCard = React.memo(function VerseCard({
@@ -94,6 +141,8 @@ const VerseCard = React.memo(function VerseCard({
   hafidhDifficulty,
   isRevealed,
   onReveal,
+  words,
+  onWordTap,
 }: VerseCardProps) {
   const isHidden = hafidhMode && !isRevealed;
   const firstWord = verse.text.trim().split(/\s+/)[0] ?? "";
@@ -188,6 +237,25 @@ const VerseCard = React.memo(function VerseCard({
         <Text style={[styles.arabicVerse, { color: colors.text }]}>{verse.text}</Text>
       )}
 
+      {/* Word-by-word chips — Reading Mode only (hidden in Hafidh Mode) */}
+      {!hafidhMode && !isHidden && words.length > 0 && (
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 6,
+            marginTop: 12,
+            paddingTop: 12,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+          }}
+        >
+          {words.map((w) => (
+            <WordChip key={w.position} word={w} colors={colors} onTap={onWordTap} />
+          ))}
+        </View>
+      )}
+
       {/* Transliteration & translation — always hidden in hafidh mode */}
       {!hafidhMode && showTransliteration && verse.transliteration ? (
         <Text style={[styles.transliterationVerse, { color: colors.gold, borderTopColor: colors.border }]}>
@@ -202,6 +270,172 @@ const VerseCard = React.memo(function VerseCard({
       )}
     </View>
   );
+});
+
+// ── Word-by-word bottom sheet ──────────────────────────────────────────────────
+function WordSheet({
+  word,
+  root,
+  rootLoading,
+  colors,
+  bottomInset,
+  onClose,
+  onAudio,
+}: {
+  word: WordInfo | null;
+  root: string | null;
+  rootLoading: boolean;
+  colors: Record<string, string>;
+  bottomInset: number;
+  onClose: () => void;
+  onAudio: () => void;
+}) {
+  if (!word) return null;
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.modalOverlay} onPress={onClose}>
+        <Pressable
+          style={[
+            styles.modalSheet,
+            {
+              backgroundColor: colors.prayerCard,
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+              paddingBottom: Math.max(bottomInset, 20) + 12,
+              gap: 0,
+            },
+          ]}
+          onPress={() => {}}
+        >
+          <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+
+          {/* Close */}
+          <TouchableOpacity
+            onPress={onClose}
+            hitSlop={10}
+            style={{ position: "absolute", top: 18, right: 20 }}
+          >
+            <Feather name="x" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          {/* Arabic word */}
+          <Text style={[wbwStyles.sheetArabic, { color: colors.gold }]}>
+            {word.arabic}
+          </Text>
+
+          {/* Transliteration */}
+          {!!word.transliteration && (
+            <Text style={[wbwStyles.sheetTranslit, { color: colors.gold }]}>
+              {word.transliteration}
+            </Text>
+          )}
+
+          {/* Meaning */}
+          {!!word.meaning && (
+            <Text style={[wbwStyles.sheetMeaning, { color: colors.text }]}>
+              {word.meaning}
+            </Text>
+          )}
+
+          {/* Divider */}
+          <View style={[wbwStyles.sheetDivider, { backgroundColor: colors.border }]} />
+
+          {/* Root */}
+          <View style={wbwStyles.sheetRootRow}>
+            <Text style={[wbwStyles.sheetRootLabel, { color: colors.textSecondary }]}>
+              Root
+            </Text>
+            {rootLoading ? (
+              <ActivityIndicator size="small" color={colors.gold} />
+            ) : (
+              <Text style={[wbwStyles.sheetRootValue, { color: colors.text }]}>
+                {root ?? "—"}
+              </Text>
+            )}
+          </View>
+
+          {/* Audio button */}
+          <TouchableOpacity
+            onPress={onAudio}
+            activeOpacity={0.8}
+            style={[
+              wbwStyles.sheetAudioBtn,
+              { backgroundColor: colors.gold + "20", borderColor: colors.gold + "55" },
+            ]}
+          >
+            <Feather name="volume-2" size={16} color={colors.gold} />
+            <Text style={[wbwStyles.sheetAudioText, { color: colors.gold }]}>
+              Hear word
+            </Text>
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const wbwStyles = StyleSheet.create({
+  sheetArabic: {
+    fontSize: 36,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+    marginTop: 4,
+    marginBottom: 8,
+    writingDirection: "rtl",
+  },
+  sheetTranslit: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    fontStyle: "italic",
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  sheetMeaning: {
+    fontSize: 18,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    marginBottom: 18,
+  },
+  sheetDivider: {
+    width: 56,
+    height: 1,
+    alignSelf: "center",
+    marginBottom: 14,
+  },
+  sheetRootRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginBottom: 22,
+  },
+  sheetRootLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  sheetRootValue: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 2,
+    writingDirection: "rtl",
+  },
+  sheetAudioBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignSelf: "center",
+  },
+  sheetAudioText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
 });
 
 function stripBismillah(text: string, surahNum: number, verseNum: number): string {
@@ -238,6 +472,13 @@ export default function QuranDetailScreen() {
   const [hafidhMode, setHafidhMode] = useState(false);
   const [hafidhDifficulty, setHafidhDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [revealedAyahs, setRevealedAyahs] = useState<Set<number>>(new Set());
+
+  // ── Word-by-word ────────────────────────────────────────────────────────────
+  const [wordsByVerse, setWordsByVerse] = useState<Record<number, WordInfo[]>>({});
+  const [wordSheetWord, setWordSheetWord] = useState<WordInfo | null>(null);
+  const [wordRoot, setWordRoot] = useState<string | null>(null);
+  const [wordRootLoading, setWordRootLoading] = useState(false);
+  const wordAudioRef = useRef<any>(null);
 
   // ── getItemLayout constants ────────────────────────────────────────────────
   // Pre-computed card heights let FlatList jump directly to any verse without
@@ -356,6 +597,34 @@ export default function QuranDetailScreen() {
       controller.abort();
       isMountedRef.current = false;
     };
+  }, [surahNumber]);
+
+  // Fetch word-by-word data from Quran.com API (separate from main verse fetch)
+  useEffect(() => {
+    setWordsByVerse({});
+    const ctrl = new AbortController();
+    fetch(
+      `https://api.qurancdn.com/api/qdc/verses/by_chapter/${surahNumber}?words=true&word_fields=text_uthmani,transliteration,translation&per_page=300&page=1`,
+      { signal: ctrl.signal },
+    )
+      .then((r) => r.json())
+      .then((json) => {
+        const byVerse: Record<number, WordInfo[]> = {};
+        (json.verses ?? []).forEach((v: any) => {
+          byVerse[v.verse_number] = (v.words ?? [])
+            .filter((w: any) => w.char_type_name === "word")
+            .map((w: any) => ({
+              position: w.position,
+              location: w.location ?? `${surahNumber}:${v.verse_number}:${w.position}`,
+              arabic: w.text_uthmani ?? w.text ?? "",
+              transliteration: w.transliteration?.text ?? "",
+              meaning: w.translation?.text ?? "",
+            }));
+        });
+        setWordsByVerse(byVerse);
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
   }, [surahNumber]);
 
   // After verses load, scroll to the currently playing verse if this is the active surah
@@ -508,6 +777,72 @@ export default function QuranDetailScreen() {
 
   const hafidhProgress = verses && verses.length > 0 ? revealedAyahs.size / verses.length : 0;
 
+  // ── Word-by-word callbacks ─────────────────────────────────────────────────
+  const handleWordTap = useCallback(async (w: WordInfo) => {
+    setWordSheetWord(w);
+    setWordRoot(null);
+    setWordRootLoading(true);
+    try {
+      const r = await fetch(`https://api.qurancdn.com/api/qdc/morphology/${w.location}`);
+      const json = await r.json();
+      // Try multiple paths the API might return the root at
+      const root =
+        json?.words?.[0]?.word_segments?.[0]?.root_arabic ??
+        json?.words?.[0]?.root_arabic ??
+        json?.root_arabic ??
+        null;
+      setWordRoot(root);
+    } catch {
+      setWordRoot(null);
+    }
+    setWordRootLoading(false);
+  }, []);
+
+  const closeWordSheet = useCallback(() => {
+    setWordSheetWord(null);
+    setWordRoot(null);
+    // Stop any playing word audio
+    try {
+      if (Platform.OS === "web") {
+        wordAudioRef.current?.pause();
+      } else {
+        wordAudioRef.current?.stopAsync?.();
+        wordAudioRef.current?.unloadAsync?.();
+      }
+    } catch {}
+    wordAudioRef.current = null;
+  }, []);
+
+  const playWordAudio = useCallback(async () => {
+    if (!wordSheetWord) return;
+    const [ch, v, w] = wordSheetWord.location.split(":").map((n) => n.padStart(3, "0"));
+    const url = `https://audio.qurancdn.com/wbw/${ch}_${v}_${w}.mp3`;
+    // Stop previous word audio
+    try {
+      if (Platform.OS === "web") {
+        wordAudioRef.current?.pause();
+      } else {
+        wordAudioRef.current?.stopAsync?.();
+        wordAudioRef.current?.unloadAsync?.();
+      }
+    } catch {}
+    wordAudioRef.current = null;
+    if (Platform.OS === "web") {
+      const audio = new Audio(url);
+      wordAudioRef.current = audio;
+      audio.play().catch(() => {});
+    } else {
+      try {
+        const { Sound } = await import("expo-av");
+        const { sound } = await Sound.createAsync({ uri: url }, { shouldPlay: true });
+        wordAudioRef.current = sound;
+        sound.setOnPlaybackStatusUpdate((s: any) => {
+          if (s.didJustFinish) sound.unloadAsync().catch(() => {});
+        });
+      } catch {}
+    }
+  }, [wordSheetWord]);
+
   const renderItem = useCallback(
     ({ item: verse }: { item: Verse }) => (
       <VerseCard
@@ -526,9 +861,11 @@ export default function QuranDetailScreen() {
         hafidhDifficulty={hafidhDifficulty}
         isRevealed={revealedAyahs.has(verse.number)}
         onReveal={() => revealAyah(verse.number)}
+        words={wordsByVerse[verse.number] ?? []}
+        onWordTap={handleWordTap}
       />
     ),
-    [playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah]
+    [playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah, wordsByVerse, handleWordTap]
   );
 
   const keyExtractor = useCallback((v: Verse) => String(v.number), []);
@@ -909,6 +1246,17 @@ export default function QuranDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ── Word-by-word sheet ──────────────────────────────────────────── */}
+      <WordSheet
+        word={wordSheetWord}
+        root={wordRoot}
+        rootLoading={wordRootLoading}
+        colors={colors}
+        bottomInset={insets.bottom}
+        onClose={closeWordSheet}
+        onAudio={playWordAudio}
+      />
 
       {/* ── Ayah share sheet ────────────────────────────────────────────── */}
       {shareVerse && (
