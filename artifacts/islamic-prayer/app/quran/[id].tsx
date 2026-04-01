@@ -1080,6 +1080,7 @@ export default function QuranDetailScreen() {
         </View>
       ) : (
         <FlatList
+          style={styles.verseList}
           ref={flatListRef}
           data={verses}
           keyExtractor={keyExtractor}
@@ -1338,6 +1339,7 @@ export default function QuranDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  verseList: { flex: 1 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   loadingText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   errorTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold" },
