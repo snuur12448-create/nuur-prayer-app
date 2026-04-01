@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
 import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -19,6 +20,18 @@ import { calculatePrayerTimes, PrayerTimesResult } from "@/utils/prayerTimes";
 import { getIslamicDateForDate } from "@/utils/islamicData";
 
 const STORAGE_KEY = "nuur_prayer_tracker";
+const MILESTONE_KEY = "nuur_streak_milestones";
+
+const MILESTONE_DAYS = [3, 7, 14, 30, 60, 100] as const;
+const MILESTONE_MESSAGES: Record<number, string> = {
+  3:   "MashaAllah! 🌟 3 day prayer streak — keep going!",
+  7:   "Subhanallah! 🔥 One full week of prayers — you're building a beautiful habit",
+  14:  "AlhamduliLlah! ✨ Two weeks strong — consistency is worship",
+  30:  "MashaAllah! 🏆 30 day streak — a full month of dedication",
+  60:  "Subhanallah! 💫 60 days — you are truly committed",
+  100: "AlhamduliLlah! 👑 100 day streak — this is remarkable dedication",
+};
+
 const PRAYERS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
 type PrayerKey = typeof PRAYERS[number];
 type DayRecord = Partial<Record<PrayerKey, boolean>>;
@@ -125,6 +138,7 @@ export default function TrackerScreen() {
   const [trackerData, setTrackerData] = useState<TrackerData>({});
   const [loaded, setLoaded] = useState(false);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimesResult | null>(null);
+  const [firedMilestones, setFiredMilestones] = useState<number[]>([]);
 
   const today = todayKey();
   const isToday = selectedKey === today;
@@ -141,12 +155,44 @@ export default function TrackerScreen() {
       if (raw) setTrackerData(JSON.parse(raw));
       setLoaded(true);
     });
+    AsyncStorage.getItem(MILESTONE_KEY).then((raw) => {
+      if (raw) setFiredMilestones(JSON.parse(raw));
+    });
   }, []);
 
   useEffect(() => {
     if (!loaded) return;
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(trackerData));
   }, [trackerData, loaded]);
+
+  // ── Streak milestone notifications ──
+  useEffect(() => {
+    if (!loaded || Platform.OS === "web") return;
+    const currentStreak = calcStreak(trackerData);
+    const newMilestones = MILESTONE_DAYS.filter(
+      (m) => currentStreak >= m && !firedMilestones.includes(m),
+    );
+    if (newMilestones.length === 0) return;
+
+    newMilestones.forEach((milestone, idx) => {
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Prayer Streak 🕌",
+          body: MILESTONE_MESSAGES[milestone],
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: 1 + idx * 3,
+          repeats: false,
+        },
+      }).catch(() => {});
+    });
+
+    const next = [...firedMilestones, ...newMilestones];
+    setFiredMilestones(next);
+    AsyncStorage.setItem(MILESTONE_KEY, JSON.stringify(next)).catch(() => {});
+  }, [trackerData, loaded, firedMilestones]);
 
   useEffect(() => {
     if (!location) return;
