@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import { useAppContext } from "@/context/AppContext";
 import { THEMES, ThemeName, DisplayMode } from "@/constants/themes";
@@ -309,6 +309,7 @@ export default function SettingsScreen() {
     highLatRule, setHighLatRule,
     timeFormat, setTimeFormat,
     notificationsEnabled, toggleNotifications,
+    jummahReminderEnabled, jummahMinutesBefore, setJummahReminder,
     adhanEnabled, toggleAdhan,
     adhanStyleId, setAdhanStyleId,
     adhanMode, setAdhanMode,
@@ -604,6 +605,49 @@ export default function SettingsScreen() {
                   thumbColor={notificationsEnabled ? colors.tint : colors.textSecondary}
                 />
               </View>
+
+              <RowSeparator colors={colors} />
+
+              {/* Jummah Reminder */}
+              <View style={styles.cardRow}>
+                <View style={styles.rowLeft}>
+                  <MaterialCommunityIcons name="star-crescent" size={16} color={colors.tint} style={styles.rowIcon} />
+                  <View>
+                    <Text style={[styles.rowLabel, { color: colors.text }]}>Jummah Reminder</Text>
+                    <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                      Notify before Friday Dhuhr prayer
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={jummahReminderEnabled}
+                  onValueChange={(v) => setJummahReminder(v, jummahMinutesBefore)}
+                  trackColor={{ false: colors.border, true: colors.tint + "80" }}
+                  thumbColor={jummahReminderEnabled ? colors.tint : colors.textSecondary}
+                />
+              </View>
+
+              {jummahReminderEnabled && (
+                <>
+                  <RowSeparator colors={colors} />
+                  <View style={styles.cardRow}>
+                    <View style={styles.rowLeft}>
+                      <Feather name="clock" size={16} color={colors.tint} style={styles.rowIcon} />
+                      <Text style={[styles.rowLabel, { color: colors.text }]}>Minutes Before</Text>
+                    </View>
+                    <SegmentControl<string>
+                      options={[
+                        { value: "15", label: "15 min" },
+                        { value: "30", label: "30 min" },
+                        { value: "60", label: "60 min" },
+                      ]}
+                      value={String(jummahMinutesBefore)}
+                      onChange={(v) => setJummahReminder(jummahReminderEnabled, Number(v))}
+                      colors={colors}
+                    />
+                  </View>
+                </>
+              )}
             </View>
           </>
         )}

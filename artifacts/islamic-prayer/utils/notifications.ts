@@ -32,13 +32,16 @@ export async function schedulePrayerNotifications(
   lat: number,
   lng: number,
   tz: number,
-  city: string
+  city: string,
+  jummahEnabled = false,
+  jummahMinutesBefore = 30,
 ): Promise<void> {
   if (Platform.OS === "web") return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 
   const now = new Date();
 
+  // ── Prayer notifications (next 7 days) ──
   for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
     const targetDate = new Date(now);
     targetDate.setDate(now.getDate() + dayOffset);
@@ -55,6 +58,33 @@ export async function schedulePrayerNotifications(
             sound: true,
           },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: prayer.time },
+        });
+      }
+    }
+  }
+
+  // ── Jummah reminder (next 4 Fridays = 28-day scan) ──
+  if (jummahEnabled) {
+    for (let dayOffset = 0; dayOffset < 28; dayOffset++) {
+      const targetDate = new Date(now);
+      targetDate.setDate(now.getDate() + dayOffset);
+      if (targetDate.getDay() !== 5) continue; // skip non-Fridays
+
+      const times = calculatePrayerTimes(lat, lng, tz, targetDate);
+      const reminderTime = new Date(
+        times.dhuhr.time.getTime() - jummahMinutesBefore * 60_000,
+      );
+      if (reminderTime > now) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Jummah Mubarak 🕌",
+            body: `Friday prayer begins soon`,
+            sound: true,
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: reminderTime,
+          },
         });
       }
     }

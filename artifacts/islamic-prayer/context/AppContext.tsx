@@ -92,6 +92,9 @@ interface AppContextType {
   stopAdhan: () => Promise<void>;
   prayerNotifConfig: PrayerNotifConfig;
   setPrayerNotifSettings: (key: PrayerKey, settings: PrayerNotifSettings) => Promise<void>;
+  jummahReminderEnabled: boolean;
+  jummahMinutesBefore: number;
+  setJummahReminder: (enabled: boolean, minutes: number) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -110,6 +113,8 @@ const STORAGE_KEYS = {
   ADHAN_STYLE: "adhan_style",
   ADHAN_MODE: "adhan_mode",
   PRAYER_NOTIF_CONFIG: "prayer_notif_config",
+  JUMMAH_REMINDER: "jummah_reminder_enabled",
+  JUMMAH_MINUTES: "jummah_minutes_before",
 };
 
 function getTimezoneOffset(): number {
@@ -169,6 +174,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Per-prayer notification config
   const [prayerNotifConfig, setPrayerNotifConfigState] = useState<PrayerNotifConfig>(DEFAULT_PRAYER_NOTIF_CONFIG);
 
+  // Jummah reminder
+  const [jummahReminderEnabled, setJummahReminderEnabledState] = useState(true);
+  const [jummahMinutesBefore, setJummahMinutesBeforeState] = useState(30);
+
   // Adhan state
   const [adhanEnabled, setAdhanEnabled] = useState(false);
   const [adhanStyleId, setAdhanStyleIdState] = useState<string>(DEFAULT_ADHAN_STYLE_ID);
@@ -184,6 +193,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const highLatRuleRef = useRef(highLatRule);
   const timeFormatRef = useRef(timeFormat);
   const notificationsRef = useRef(notificationsEnabled);
+  const jummahReminderRef = useRef(jummahReminderEnabled);
+  const jummahMinutesRef = useRef(jummahMinutesBefore);
   const adhanEnabledRef = useRef(adhanEnabled);
   const adhanStyleIdRef = useRef(adhanStyleId);
   const adhanModeRef = useRef(adhanMode);
@@ -195,6 +206,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { highLatRuleRef.current = highLatRule; }, [highLatRule]);
   useEffect(() => { timeFormatRef.current = timeFormat; }, [timeFormat]);
   useEffect(() => { notificationsRef.current = notificationsEnabled; }, [notificationsEnabled]);
+  useEffect(() => { jummahReminderRef.current = jummahReminderEnabled; }, [jummahReminderEnabled]);
+  useEffect(() => { jummahMinutesRef.current = jummahMinutesBefore; }, [jummahMinutesBefore]);
   useEffect(() => { adhanEnabledRef.current = adhanEnabled; }, [adhanEnabled]);
   useEffect(() => { adhanStyleIdRef.current = adhanStyleId; }, [adhanStyleId]);
   useEffect(() => { adhanModeRef.current = adhanMode; }, [adhanMode]);
@@ -292,7 +305,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPreferences = async () => {
     try {
-      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw] =
+      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.THEME),
           AsyncStorage.getItem(STORAGE_KEYS.DISPLAY_MODE),
@@ -305,6 +318,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(STORAGE_KEYS.ADHAN_STYLE),
           AsyncStorage.getItem(STORAGE_KEYS.ADHAN_MODE),
           AsyncStorage.getItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG),
+          AsyncStorage.getItem(STORAGE_KEYS.JUMMAH_REMINDER),
+          AsyncStorage.getItem(STORAGE_KEYS.JUMMAH_MINUTES),
         ]);
       if (theme && theme in THEMES) setThemeNameState(theme as ThemeName);
       if (mode === "auto" || mode === "dark" || mode === "light") setDisplayModeState(mode);
@@ -325,6 +340,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(prayerNotifRaw) as PrayerNotifConfig;
           setPrayerNotifConfigState({ ...DEFAULT_PRAYER_NOTIF_CONFIG, ...parsed });
         } catch {}
+      }
+      // jummahRaw null = never saved → default true; "false" → disabled
+      if (jummahRaw === "false") setJummahReminderEnabledState(false);
+      if (jummahMinsRaw) {
+        const mins = Number(jummahMinsRaw);
+        if (mins === 15 || mins === 30 || mins === 60) setJummahMinutesBeforeState(mins);
       }
     } catch {}
   };
@@ -385,7 +406,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "true");
       if (location) {
         await schedulePrayerNotifications(
-          location.latitude, location.longitude, location.timezone, location.city
+          location.latitude, location.longitude, location.timezone, location.city,
+          jummahReminderRef.current, jummahMinutesRef.current,
         );
       }
     } else {
@@ -425,6 +447,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
   }, []);
+
+  const setJummahReminder = useCallback(async (enabled: boolean, minutes: number) => {
+    setJummahReminderEnabledState(enabled);
+    setJummahMinutesBeforeState(minutes);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.JUMMAH_REMINDER, enabled ? "true" : "false");
+      await AsyncStorage.setItem(STORAGE_KEYS.JUMMAH_MINUTES, String(minutes));
+    } catch {}
+    if (notificationsRef.current && location) {
+      await schedulePrayerNotifications(
+        location.latitude, location.longitude, location.timezone, location.city,
+        enabled, minutes,
+      );
+    }
+  }, [location]);
 
   const stopAdhan = useCallback(async () => {
     await stopAdhanAudio();
@@ -472,7 +509,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateLocation(locationData);
       await AsyncStorage.setItem(STORAGE_KEYS.LOCATION, JSON.stringify(locationData));
       if (Platform.OS !== "web" && notificationsRef.current) {
-        await schedulePrayerNotifications(latitude, longitude, tz, locationData.city);
+        await schedulePrayerNotifications(
+          latitude, longitude, tz, locationData.city,
+          jummahReminderRef.current, jummahMinutesRef.current,
+        );
       }
     } catch {
       if (showLoading) {
@@ -576,6 +616,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         stopAdhan,
         prayerNotifConfig,
         setPrayerNotifSettings,
+        jummahReminderEnabled,
+        jummahMinutesBefore,
+        setJummahReminder,
       }}
     >
       {children}
