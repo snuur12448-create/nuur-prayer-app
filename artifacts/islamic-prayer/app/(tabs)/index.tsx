@@ -443,7 +443,9 @@ export default function PrayerScreen() {
         </View>
 
         {/* Wudhu & Prayer Guide */}
-        <GuideSection colors={colors} />
+        <View style={{ marginTop: 10 }}>
+          <GuideSection colors={colors} />
+        </View>
       </ScrollView>
 
       <LocationModal
