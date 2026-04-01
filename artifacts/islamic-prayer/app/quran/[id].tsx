@@ -733,15 +733,15 @@ export default function QuranDetailScreen() {
           data={verses}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
-          getItemLayout={getItemLayout}
-          initialScrollIndex={targetIndex}
+          getItemLayout={hafidhMode ? undefined : getItemLayout}
+          initialScrollIndex={hafidhMode ? undefined : targetIndex}
           contentContainerStyle={{ padding: 16, paddingBottom: isWeb ? 34 : insets.bottom + 20 }}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={10}
-          maxToRenderPerBatch={6}
-          windowSize={5}
+          initialNumToRender={hafidhMode ? 50 : 10}
+          maxToRenderPerBatch={hafidhMode ? 20 : 6}
+          windowSize={hafidhMode ? 21 : 5}
           updateCellsBatchingPeriod={30}
-          removeClippedSubviews={Platform.OS !== "web"}
+          removeClippedSubviews={!hafidhMode && Platform.OS !== "web"}
           onScrollToIndexFailed={({ index }) => {
             // Safety net — should rarely fire now that getItemLayout is set.
             // Jump to the estimated offset so items near the target render, then retry.
