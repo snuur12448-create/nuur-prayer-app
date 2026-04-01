@@ -521,6 +521,7 @@ export default function SettingsScreen() {
     jummahReminderEnabled, jummahMinutesBefore, setJummahReminder,
     ayahReminderEnabled, ayahReminderHour, ayahReminderMinute, setAyahReminder,
     hadithReminderEnabled, hadithReminderHour, hadithReminderMinute, setHadithReminder,
+    islamicEventsEnabled, setIslamicEventsReminder,
     adhanEnabled, toggleAdhan,
     adhanStyleId, setAdhanStyleId,
     adhanMode, setAdhanMode,
@@ -942,6 +943,39 @@ export default function SettingsScreen() {
                       </Text>
                       <Feather name="chevron-right" size={14} color={colors.tint} />
                     </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
+              <RowSeparator colors={colors} />
+
+              {/* Islamic Calendar Events */}
+              <View style={styles.cardRow}>
+                <View style={styles.rowLeft}>
+                  <MaterialCommunityIcons name="calendar-star" size={16} color={colors.tint} style={styles.rowIcon} />
+                  <View>
+                    <Text style={[styles.rowLabel, { color: colors.text }]}>Islamic Events</Text>
+                    <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                      Eid, Ramadan, Laylatul Qadr & more
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={islamicEventsEnabled}
+                  onValueChange={(v) => setIslamicEventsReminder(v)}
+                  trackColor={{ false: colors.border, true: colors.tint + "80" }}
+                  thumbColor={islamicEventsEnabled ? colors.tint : colors.textSecondary}
+                />
+              </View>
+
+              {islamicEventsEnabled && (
+                <>
+                  <RowSeparator colors={colors} />
+                  <View style={[styles.adhanInfoRow, { backgroundColor: colors.gold + "0C" }]}>
+                    <MaterialCommunityIcons name="calendar-check" size={12} color={colors.gold} />
+                    <Text style={[styles.adhanInfoText, { color: colors.textSecondary }]}>
+                      Day-of reminders at 7 am · Eve reminders at 8 pm for major events · Laylatul Qadr alerts at 9 pm
+                    </Text>
                   </View>
                 </>
               )}

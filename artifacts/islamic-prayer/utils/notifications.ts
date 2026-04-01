@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import { calculatePrayerTimes } from "./prayerTimes";
 import { getDailyAyahForDate } from "./ayahData";
 import { getDailyHadithForDate } from "./hadithData";
+import { RAW_EVENTS as ISLAMIC_RAW_EVENTS, hijriToJD, jdToDate, gregorianToHijri } from "./hijriCalendar";
 
 const PRAYER_KEYS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
 
@@ -34,6 +35,28 @@ function truncate(text: string, max: number): string {
   return text.length <= max ? text : text.slice(0, max - 1) + "…";
 }
 
+const EVENT_EMOJI: Record<string, string> = {
+  "Islamic New Year": "🌙",
+  "Day of Ashura": "💧",
+  "Mawlid al-Nabi ﷺ": "💛",
+  "Laylat al-Mi'raj": "🌟",
+  "Laylat al-Bara'ah": "✨",
+  "First Day of Ramadan": "🌙",
+  "Possible Laylatul Qadr": "✨",
+  "Eid ul-Fitr": "🎉",
+  "Day of Arafah": "🤲",
+  "Eid ul-Adha": "🎉",
+};
+
+const MAJOR_EVENTS = new Set([
+  "First Day of Ramadan",
+  "Eid ul-Fitr",
+  "Eid ul-Adha",
+  "Day of Arafah",
+  "Islamic New Year",
+  "Day of Ashura",
+]);
+
 export async function schedulePrayerNotifications(
   lat: number,
   lng: number,
@@ -47,6 +70,7 @@ export async function schedulePrayerNotifications(
   hadithEnabled = false,
   hadithHour = 8,
   hadithMinute = 0,
+  islamicEventsEnabled = false,
 ): Promise<void> {
   if (Platform.OS === "web") return;
   await Notifications.cancelAllScheduledNotificationsAsync();
@@ -144,6 +168,85 @@ export async function schedulePrayerNotifications(
             date: targetDate,
           },
         });
+      }
+    }
+  }
+
+  // ── Islamic Calendar Events (next ~12 months) ──
+  if (islamicEventsEnabled) {
+    const { hYear: currentHijriYear } = gregorianToHijri(now);
+    const maxFutureMs = 370 * 24 * 60 * 60 * 1000;
+    const scheduledEventKeys = new Set<string>();
+
+    for (const yearOffset of [0, 1]) {
+      const hijriYear = currentHijriYear + yearOffset;
+
+      for (const event of ISLAMIC_RAW_EVENTS) {
+        const eventKey = `${hijriYear}-${event.month}-${event.day}`;
+        if (scheduledEventKeys.has(eventKey)) continue;
+
+        const eventDateUTC = jdToDate(hijriToJD(hijriYear, event.month, event.day));
+        const isNightEvent = event.name.startsWith("Laylat") || event.name.includes("Laylatul");
+
+        if (isNightEvent) {
+          // Night events: notify at 9pm on the same calendar date
+          const nightTime = new Date(eventDateUTC);
+          nightTime.setHours(21, 0, 0, 0);
+          if (nightTime > now && nightTime.getTime() - now.getTime() <= maxFutureMs) {
+            scheduledEventKeys.add(eventKey);
+            const emoji = EVENT_EMOJI[event.name] ?? "🌙";
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: `${emoji} ${event.name}`,
+                body: `${event.arabic} — Seek forgiveness and worship tonight`,
+                sound: false,
+              },
+              trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.DATE,
+                date: nightTime,
+              },
+            });
+          }
+        } else {
+          // Day events: notify at 7am on the day
+          const morningTime = new Date(eventDateUTC);
+          morningTime.setHours(7, 0, 0, 0);
+          if (morningTime > now && morningTime.getTime() - now.getTime() <= maxFutureMs) {
+            scheduledEventKeys.add(eventKey);
+            const emoji = EVENT_EMOJI[event.name] ?? "🌙";
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: `${emoji} ${event.name}`,
+                body: event.arabic,
+                sound: false,
+              },
+              trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.DATE,
+                date: morningTime,
+              },
+            });
+
+            // Major events also get an evening reminder the night before
+            if (MAJOR_EVENTS.has(event.name)) {
+              const eveTime = new Date(eventDateUTC);
+              eveTime.setDate(eveTime.getDate() - 1);
+              eveTime.setHours(20, 0, 0, 0);
+              if (eveTime > now && eveTime.getTime() - now.getTime() <= maxFutureMs) {
+                await Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: `🌙 Tomorrow: ${event.name}`,
+                    body: "Prepare your heart, intentions, and du'a",
+                    sound: false,
+                  },
+                  trigger: {
+                    type: Notifications.SchedulableTriggerInputTypes.DATE,
+                    date: eveTime,
+                  },
+                });
+              }
+            }
+          }
+        }
       }
     }
   }

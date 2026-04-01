@@ -85,7 +85,7 @@ interface RawEvent {
   color?: string;
 }
 
-const RAW_EVENTS: RawEvent[] = [
+export const RAW_EVENTS: RawEvent[] = [
   { month: 1,  day: 1,  name: "Islamic New Year",        arabic: "رأس السنة الهجرية",        color: "#C9933A" },
   { month: 1,  day: 10, name: "Day of Ashura",           arabic: "يوم عاشوراء",              color: "#6BAF92" },
   { month: 3,  day: 12, name: "Mawlid al-Nabi ﷺ",       arabic: "المولد النبوي الشريف",      color: "#C9933A" },
