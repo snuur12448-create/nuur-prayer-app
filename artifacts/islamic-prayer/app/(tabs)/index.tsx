@@ -464,28 +464,64 @@ export default function PrayerScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Hadith of the Day */}
-        <View style={[styles.dailyCard, { backgroundColor: colors.surface, borderColor: colors.gold + "44", marginHorizontal: 16, marginTop: 10 }]}>
-          <View style={[styles.dailyAccent, { backgroundColor: colors.gold }]} />
-          <View style={styles.dailyInner}>
-            <View style={styles.dailyBadgeRow}>
-              <View style={[styles.dailyBadge, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "55" }]}>
-                <MaterialCommunityIcons name="star-crescent" size={10} color={colors.gold} />
-                <Text style={[styles.dailyBadgeText, { color: colors.gold }]}>HADITH OF THE DAY</Text>
+        {/* ── Hadith of the Day Widget ── */}
+        <View style={[styles.votdWidget, { backgroundColor: colors.surface, borderColor: colors.gold + "40", marginTop: 10 }]}>
+          {/* Header row: badge + share */}
+          <View style={styles.votdHeader}>
+            <View style={styles.votdHeaderLeft}>
+              <View style={[styles.votdBadge, { backgroundColor: colors.gold + "20", borderColor: colors.gold + "50" }]}>
+                <MaterialCommunityIcons name="star-crescent" size={9} color={colors.gold} />
+                <Text style={[styles.votdBadgeText, { color: colors.gold }]}>HADITH OF THE DAY</Text>
               </View>
-              <Text style={[styles.dailyRef, { color: colors.textSecondary }]}>{dailyHadith.grade}</Text>
-            </View>
-            <Text style={[styles.dailyArabic, { color: colors.text }]}>{dailyHadith.arabic}</Text>
-            <Text style={[styles.dailyTranslation, { color: colors.textSecondary }]}>"{dailyHadith.translation}"</Text>
-            <View style={[styles.dailySourceRow, { borderTopColor: colors.border }]}>
-              <Feather name="user" size={10} color={colors.textSecondary} />
-              <Text style={[styles.dailySourceText, { color: colors.textSecondary }]} numberOfLines={1}>
-                {dailyHadith.narrator}
-              </Text>
-              <View style={[styles.dailySourceBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-                <Text style={[styles.dailySourceBadgeText, { color: colors.textSecondary }]}>{dailyHadith.source}</Text>
+              <View style={styles.hadithGradeRow}>
+                <View style={[styles.hadithGradePill, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "45" }]}>
+                  <Text style={[styles.hadithGradeText, { color: colors.gold }]}>{dailyHadith.grade}</Text>
+                </View>
+                <Text style={[styles.votdRef, { color: colors.textSecondary }]}>{dailyHadith.collection}</Text>
               </View>
             </View>
+            <TouchableOpacity
+              onPress={() =>
+                Share.share({
+                  message: `${dailyHadith.arabic}\n\n"${dailyHadith.translation}"\n\n— ${dailyHadith.narrator}\n${dailyHadith.source}\n\nShared from Nuur · نور`,
+                })
+              }
+              hitSlop={12}
+              style={[styles.votdShareBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+            >
+              <Feather name="share-2" size={13} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Arabic hero text */}
+          <Text style={[styles.votdArabic, { color: colors.text, fontSize: 22, lineHeight: 42 }]}>{dailyHadith.arabic}</Text>
+
+          {/* Ornamental divider */}
+          <View style={styles.votdOrnRow}>
+            <View style={[styles.votdOrnLine, { backgroundColor: colors.gold + "35" }]} />
+            <MaterialCommunityIcons name="star-crescent" size={11} color={colors.gold + "70"} />
+            <View style={[styles.votdOrnLine, { backgroundColor: colors.gold + "35" }]} />
+          </View>
+
+          {/* Translation */}
+          <Text style={[styles.votdTranslation, { color: colors.textSecondary }]}>
+            "{dailyHadith.translation}"
+          </Text>
+
+          {/* Narrator footer */}
+          <View style={[styles.hadithNarratorRow, { borderTopColor: colors.border }]}>
+            <Feather name="user" size={11} color={colors.textSecondary} />
+            <Text style={[styles.hadithNarratorText, { color: colors.textSecondary }]} numberOfLines={2}>
+              {dailyHadith.narrator}
+            </Text>
+          </View>
+
+          {/* Source pill */}
+          <View style={[styles.hadithSourcePill, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <MaterialCommunityIcons name="book-open-page-variant" size={11} color={colors.textSecondary} />
+            <Text style={[styles.hadithSourceText, { color: colors.textSecondary }]} numberOfLines={1}>
+              {dailyHadith.source}
+            </Text>
           </View>
         </View>
 
@@ -843,6 +879,51 @@ const styles = StyleSheet.create({
   votdReadText: {
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
+  },
+  // ── Hadith widget extras ──────────────────────────────────────────────────
+  hadithGradeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 1,
+  },
+  hadithGradePill: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+    borderWidth: 1,
+  },
+  hadithGradeText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
+  },
+  hadithNarratorRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  hadithNarratorText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
+    lineHeight: 18,
+  },
+  hadithSourcePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 9,
+    borderWidth: 1,
+  },
+  hadithSourceText: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    flex: 1,
   },
   // ─────────────────────────────────────────────────────────────────────────
 
