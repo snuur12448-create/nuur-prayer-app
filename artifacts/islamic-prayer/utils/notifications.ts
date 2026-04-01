@@ -1,6 +1,8 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { calculatePrayerTimes } from "./prayerTimes";
+import { getDailyAyahForDate } from "./ayahData";
+import { getDailyHadithForDate } from "./hadithData";
 
 const PRAYER_KEYS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
 
@@ -28,6 +30,10 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return status === "granted";
 }
 
+function truncate(text: string, max: number): string {
+  return text.length <= max ? text : text.slice(0, max - 1) + "…";
+}
+
 export async function schedulePrayerNotifications(
   lat: number,
   lng: number,
@@ -35,6 +41,12 @@ export async function schedulePrayerNotifications(
   city: string,
   jummahEnabled = false,
   jummahMinutesBefore = 30,
+  ayahEnabled = false,
+  ayahHour = 8,
+  ayahMinute = 0,
+  hadithEnabled = false,
+  hadithHour = 8,
+  hadithMinute = 0,
 ): Promise<void> {
   if (Platform.OS === "web") return;
   await Notifications.cancelAllScheduledNotificationsAsync();
@@ -68,7 +80,7 @@ export async function schedulePrayerNotifications(
     for (let dayOffset = 0; dayOffset < 28; dayOffset++) {
       const targetDate = new Date(now);
       targetDate.setDate(now.getDate() + dayOffset);
-      if (targetDate.getDay() !== 5) continue; // skip non-Fridays
+      if (targetDate.getDay() !== 5) continue;
 
       const times = calculatePrayerTimes(lat, lng, tz, targetDate);
       const reminderTime = new Date(
@@ -84,6 +96,52 @@ export async function schedulePrayerNotifications(
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.DATE,
             date: reminderTime,
+          },
+        });
+      }
+    }
+  }
+
+  // ── Ayah of the Day (next 7 days) ──
+  if (ayahEnabled) {
+    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+      const targetDate = new Date(now);
+      targetDate.setDate(now.getDate() + dayOffset);
+      targetDate.setHours(ayahHour, ayahMinute, 0, 0);
+      if (targetDate > now) {
+        const ayah = getDailyAyahForDate(targetDate);
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "☀️ Ayah of the Day",
+            body: `${truncate(ayah.translation, 110)} — ${ayah.surahName} ${ayah.surahNumber}:${ayah.ayahNumber}`,
+            sound: false,
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: targetDate,
+          },
+        });
+      }
+    }
+  }
+
+  // ── Hadith of the Day (next 7 days) ──
+  if (hadithEnabled) {
+    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+      const targetDate = new Date(now);
+      targetDate.setDate(now.getDate() + dayOffset);
+      targetDate.setHours(hadithHour, hadithMinute, 0, 0);
+      if (targetDate > now) {
+        const hadith = getDailyHadithForDate(targetDate);
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "📖 Hadith of the Day",
+            body: `${truncate(hadith.translation, 110)} — ${hadith.source}`,
+            sound: false,
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: targetDate,
           },
         });
       }

@@ -1,7 +1,9 @@
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback, useLayoutEffect } from "react";
 import {
   Modal,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -296,6 +298,213 @@ function AdhanStyleModal({
   );
 }
 
+// ── Time Picker Components ────────────────────────────────────────────────────
+
+const WHEEL_ITEM_H = 46;
+const WHEEL_VISIBLE = 5;
+const WHEEL_H = WHEEL_ITEM_H * WHEEL_VISIBLE;
+const WHEEL_PAD = WHEEL_ITEM_H * Math.floor(WHEEL_VISIBLE / 2);
+
+const HOUR_LABELS = ["12", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"];
+const MINUTE_LABELS = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
+
+function hour24ToWheel(h24: number): { hourIdx: number; isPM: boolean } {
+  const isPM = h24 >= 12;
+  const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
+  const hourIdx = h12 === 12 ? 0 : h12;
+  return { hourIdx, isPM };
+}
+
+function wheelToHour24(hourIdx: number, isPM: boolean): number {
+  const h12 = hourIdx === 0 ? 12 : hourIdx;
+  if (isPM) return h12 === 12 ? 12 : h12 + 12;
+  return h12 === 12 ? 0 : h12;
+}
+
+function WheelPicker({
+  items,
+  selectedIndex,
+  onChangeIndex,
+  colors,
+  width = 72,
+}: {
+  items: string[];
+  selectedIndex: number;
+  onChangeIndex: (i: number) => void;
+  colors: any;
+  width?: number;
+}) {
+  const scrollRef = useRef<ScrollView>(null);
+  const indexRef = useRef(selectedIndex);
+
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ y: selectedIndex * WHEEL_ITEM_H, animated: false });
+  }, []);
+
+  const onScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const raw = e.nativeEvent.contentOffset.y;
+      const idx = Math.max(0, Math.min(items.length - 1, Math.round(raw / WHEEL_ITEM_H)));
+      if (idx !== indexRef.current) {
+        indexRef.current = idx;
+        onChangeIndex(idx);
+      }
+    },
+    [items.length, onChangeIndex],
+  );
+
+  return (
+    <View style={{ height: WHEEL_H, width, position: "relative", overflow: "hidden" }}>
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: WHEEL_PAD,
+          left: 4,
+          right: 4,
+          height: WHEEL_ITEM_H,
+          backgroundColor: colors.tint + "22",
+          borderRadius: 10,
+          borderWidth: 1,
+          borderColor: colors.tint + "55",
+        }}
+      />
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={WHEEL_ITEM_H}
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingVertical: WHEEL_PAD }}
+        onMomentumScrollEnd={onScroll}
+        onScrollEndDrag={onScroll}
+      >
+        {items.map((label, i) => {
+          const active = i === selectedIndex;
+          return (
+            <TouchableOpacity
+              key={i}
+              activeOpacity={0.7}
+              onPress={() => {
+                indexRef.current = i;
+                onChangeIndex(i);
+                scrollRef.current?.scrollTo({ y: i * WHEEL_ITEM_H, animated: true });
+              }}
+              style={{ height: WHEEL_ITEM_H, alignItems: "center", justifyContent: "center" }}
+            >
+              <Text
+                style={{
+                  fontSize: active ? 22 : 16,
+                  fontWeight: active ? "700" : "400",
+                  color: active ? colors.tint : colors.textSecondary,
+                  opacity: active ? 1 : 0.45,
+                }}
+              >
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+function TimePickerModal({
+  visible,
+  title,
+  hour24,
+  minute,
+  onConfirm,
+  onClose,
+  colors,
+}: {
+  visible: boolean;
+  title: string;
+  hour24: number;
+  minute: number;
+  onConfirm: (h24: number, min: number) => void;
+  onClose: () => void;
+  colors: any;
+}) {
+  const init = hour24ToWheel(hour24);
+  const [hourIdx, setHourIdx] = useState(init.hourIdx);
+  const [minIdx, setMinIdx] = useState(Math.round(minute / 5) % 12);
+  const [isPM, setIsPM] = useState(init.isPM);
+
+  const handleConfirm = () => {
+    onConfirm(wheelToHour24(hourIdx, isPM), minIdx * 5);
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.timeOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={[styles.timeSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.timeSheetTitle, { color: colors.text }]}>{title}</Text>
+
+              {/* Wheels */}
+              <View style={styles.timeWheelRow}>
+                <WheelPicker
+                  key={visible ? `h${hour24}` : "h-hidden"}
+                  items={HOUR_LABELS}
+                  selectedIndex={hourIdx}
+                  onChangeIndex={setHourIdx}
+                  colors={colors}
+                />
+                <Text style={[styles.timeColon, { color: colors.text }]}>:</Text>
+                <WheelPicker
+                  key={visible ? `m${minute}` : "m-hidden"}
+                  items={MINUTE_LABELS}
+                  selectedIndex={minIdx}
+                  onChangeIndex={setMinIdx}
+                  colors={colors}
+                />
+              </View>
+
+              {/* AM / PM */}
+              <View style={styles.ampmRow}>
+                {(["AM", "PM"] as const).map((period) => {
+                  const active = isPM === (period === "PM");
+                  return (
+                    <TouchableOpacity
+                      key={period}
+                      onPress={() => setIsPM(period === "PM")}
+                      style={[
+                        styles.ampmBtn,
+                        { backgroundColor: active ? colors.tint : colors.surfaceElevated, borderColor: colors.border },
+                      ]}
+                    >
+                      <Text style={[styles.ampmLabel, { color: active ? "#fff" : colors.textSecondary }]}>
+                        {period}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Done */}
+              <TouchableOpacity
+                onPress={handleConfirm}
+                style={[styles.timeDoneBtn, { backgroundColor: colors.tint }]}
+              >
+                <Text style={styles.timeDoneLabel}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}
+
+function fmt12h(h24: number, minute: number): string {
+  const isPM = h24 >= 12;
+  const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
+  const mm = String(minute).padStart(2, "0");
+  return `${h12}:${mm} ${isPM ? "PM" : "AM"}`;
+}
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
@@ -310,6 +519,8 @@ export default function SettingsScreen() {
     timeFormat, setTimeFormat,
     notificationsEnabled, toggleNotifications,
     jummahReminderEnabled, jummahMinutesBefore, setJummahReminder,
+    ayahReminderEnabled, ayahReminderHour, ayahReminderMinute, setAyahReminder,
+    hadithReminderEnabled, hadithReminderHour, hadithReminderMinute, setHadithReminder,
     adhanEnabled, toggleAdhan,
     adhanStyleId, setAdhanStyleId,
     adhanMode, setAdhanMode,
@@ -318,6 +529,8 @@ export default function SettingsScreen() {
 
   const [showMethodModal, setShowMethodModal] = useState(false);
   const [showAdhanModal, setShowAdhanModal] = useState(false);
+  const [showAyahTimePicker, setShowAyahTimePicker] = useState(false);
+  const [showHadithTimePicker, setShowHadithTimePicker] = useState(false);
 
   const currentMethod = CALC_METHODS.find((m) => m.id === calcMethod);
 
@@ -648,9 +861,113 @@ export default function SettingsScreen() {
                   </View>
                 </>
               )}
+
+              <RowSeparator colors={colors} />
+
+              {/* Ayah of the Day */}
+              <View style={styles.cardRow}>
+                <View style={styles.rowLeft}>
+                  <Feather name="book" size={16} color={colors.tint} style={styles.rowIcon} />
+                  <View>
+                    <Text style={[styles.rowLabel, { color: colors.text }]}>Ayah of the Day</Text>
+                    <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                      Daily verse reminder
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={ayahReminderEnabled}
+                  onValueChange={(v) => setAyahReminder(v, ayahReminderHour, ayahReminderMinute)}
+                  trackColor={{ false: colors.border, true: colors.tint + "80" }}
+                  thumbColor={ayahReminderEnabled ? colors.tint : colors.textSecondary}
+                />
+              </View>
+
+              {ayahReminderEnabled && (
+                <>
+                  <RowSeparator colors={colors} />
+                  <View style={styles.cardRow}>
+                    <View style={styles.rowLeft}>
+                      <Feather name="clock" size={16} color={colors.tint} style={styles.rowIcon} />
+                      <Text style={[styles.rowLabel, { color: colors.text }]}>Reminder Time</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setShowAyahTimePicker(true)}
+                      style={[styles.timeChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                    >
+                      <Text style={[styles.timeChipText, { color: colors.tint }]}>
+                        {fmt12h(ayahReminderHour, ayahReminderMinute)}
+                      </Text>
+                      <Feather name="chevron-right" size={14} color={colors.tint} />
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
+              <RowSeparator colors={colors} />
+
+              {/* Hadith of the Day */}
+              <View style={styles.cardRow}>
+                <View style={styles.rowLeft}>
+                  <MaterialCommunityIcons name="book-open-variant" size={16} color={colors.tint} style={styles.rowIcon} />
+                  <View>
+                    <Text style={[styles.rowLabel, { color: colors.text }]}>Hadith of the Day</Text>
+                    <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                      Daily hadith reminder
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={hadithReminderEnabled}
+                  onValueChange={(v) => setHadithReminder(v, hadithReminderHour, hadithReminderMinute)}
+                  trackColor={{ false: colors.border, true: colors.tint + "80" }}
+                  thumbColor={hadithReminderEnabled ? colors.tint : colors.textSecondary}
+                />
+              </View>
+
+              {hadithReminderEnabled && (
+                <>
+                  <RowSeparator colors={colors} />
+                  <View style={styles.cardRow}>
+                    <View style={styles.rowLeft}>
+                      <Feather name="clock" size={16} color={colors.tint} style={styles.rowIcon} />
+                      <Text style={[styles.rowLabel, { color: colors.text }]}>Reminder Time</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setShowHadithTimePicker(true)}
+                      style={[styles.timeChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                    >
+                      <Text style={[styles.timeChipText, { color: colors.tint }]}>
+                        {fmt12h(hadithReminderHour, hadithReminderMinute)}
+                      </Text>
+                      <Feather name="chevron-right" size={14} color={colors.tint} />
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </View>
           </>
         )}
+
+        {/* Time Picker Modals */}
+        <TimePickerModal
+          visible={showAyahTimePicker}
+          title="Ayah Reminder Time"
+          hour24={ayahReminderHour}
+          minute={ayahReminderMinute}
+          onConfirm={(h, m) => { setAyahReminder(true, h, m); setShowAyahTimePicker(false); }}
+          onClose={() => setShowAyahTimePicker(false)}
+          colors={colors}
+        />
+        <TimePickerModal
+          visible={showHadithTimePicker}
+          title="Hadith Reminder Time"
+          hour24={hadithReminderHour}
+          minute={hadithReminderMinute}
+          onConfirm={(h, m) => { setHadithReminder(true, h, m); setShowHadithTimePicker(false); }}
+          onClose={() => setShowHadithTimePicker(false)}
+          colors={colors}
+        />
 
         {/* ── ABOUT ── */}
         <SectionHeader title="ABOUT" colors={colors} />
@@ -906,4 +1223,69 @@ const styles = StyleSheet.create({
     width: 30, height: 30, borderRadius: 8,
     borderWidth: 1, alignItems: "center", justifyContent: "center",
   },
+
+  // Time chip (row button showing selected time)
+  timeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  timeChipText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+
+  // TimePickerModal
+  timeOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  timeSheet: {
+    width: "100%",
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 24,
+  },
+  timeSheetTitle: {
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  timeWheelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  timeColon: {
+    fontSize: 28,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  ampmRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+  },
+  ampmBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  ampmLabel: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  timeDoneBtn: {
+    marginTop: 14,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  timeDoneLabel: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
 });

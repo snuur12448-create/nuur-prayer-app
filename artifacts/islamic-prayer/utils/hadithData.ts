@@ -2247,8 +2247,12 @@ export const HADITH_TOPICS = [
 ];
 
 export function getDailyHadith(): Hadith {
+  return getDailyHadithForDate(new Date());
+}
+
+export function getDailyHadithForDate(date: Date): Hadith {
   const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+    (date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000
   );
   return HADITHS[dayOfYear % HADITHS.length];
 }

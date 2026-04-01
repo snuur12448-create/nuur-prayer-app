@@ -95,6 +95,14 @@ interface AppContextType {
   jummahReminderEnabled: boolean;
   jummahMinutesBefore: number;
   setJummahReminder: (enabled: boolean, minutes: number) => Promise<void>;
+  ayahReminderEnabled: boolean;
+  ayahReminderHour: number;
+  ayahReminderMinute: number;
+  setAyahReminder: (enabled: boolean, hour: number, minute: number) => Promise<void>;
+  hadithReminderEnabled: boolean;
+  hadithReminderHour: number;
+  hadithReminderMinute: number;
+  setHadithReminder: (enabled: boolean, hour: number, minute: number) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -115,6 +123,12 @@ const STORAGE_KEYS = {
   PRAYER_NOTIF_CONFIG: "prayer_notif_config",
   JUMMAH_REMINDER: "jummah_reminder_enabled",
   JUMMAH_MINUTES: "jummah_minutes_before",
+  AYAH_REMINDER: "ayah_reminder_enabled",
+  AYAH_HOUR: "ayah_reminder_hour",
+  AYAH_MINUTE: "ayah_reminder_minute",
+  HADITH_REMINDER: "hadith_reminder_enabled",
+  HADITH_HOUR: "hadith_reminder_hour",
+  HADITH_MINUTE: "hadith_reminder_minute",
 };
 
 function getTimezoneOffset(): number {
@@ -178,6 +192,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [jummahReminderEnabled, setJummahReminderEnabledState] = useState(true);
   const [jummahMinutesBefore, setJummahMinutesBeforeState] = useState(30);
 
+  // Ayah of the Day reminder
+  const [ayahReminderEnabled, setAyahReminderEnabledState] = useState(false);
+  const [ayahReminderHour, setAyahReminderHourState] = useState(8);
+  const [ayahReminderMinute, setAyahReminderMinuteState] = useState(0);
+
+  // Hadith of the Day reminder
+  const [hadithReminderEnabled, setHadithReminderEnabledState] = useState(false);
+  const [hadithReminderHour, setHadithReminderHourState] = useState(8);
+  const [hadithReminderMinute, setHadithReminderMinuteState] = useState(0);
+
   // Adhan state
   const [adhanEnabled, setAdhanEnabled] = useState(false);
   const [adhanStyleId, setAdhanStyleIdState] = useState<string>(DEFAULT_ADHAN_STYLE_ID);
@@ -195,6 +219,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const notificationsRef = useRef(notificationsEnabled);
   const jummahReminderRef = useRef(jummahReminderEnabled);
   const jummahMinutesRef = useRef(jummahMinutesBefore);
+  const ayahReminderRef = useRef(ayahReminderEnabled);
+  const ayahHourRef = useRef(ayahReminderHour);
+  const ayahMinuteRef = useRef(ayahReminderMinute);
+  const hadithReminderRef = useRef(hadithReminderEnabled);
+  const hadithHourRef = useRef(hadithReminderHour);
+  const hadithMinuteRef = useRef(hadithReminderMinute);
   const adhanEnabledRef = useRef(adhanEnabled);
   const adhanStyleIdRef = useRef(adhanStyleId);
   const adhanModeRef = useRef(adhanMode);
@@ -208,6 +238,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { notificationsRef.current = notificationsEnabled; }, [notificationsEnabled]);
   useEffect(() => { jummahReminderRef.current = jummahReminderEnabled; }, [jummahReminderEnabled]);
   useEffect(() => { jummahMinutesRef.current = jummahMinutesBefore; }, [jummahMinutesBefore]);
+  useEffect(() => { ayahReminderRef.current = ayahReminderEnabled; }, [ayahReminderEnabled]);
+  useEffect(() => { ayahHourRef.current = ayahReminderHour; }, [ayahReminderHour]);
+  useEffect(() => { ayahMinuteRef.current = ayahReminderMinute; }, [ayahReminderMinute]);
+  useEffect(() => { hadithReminderRef.current = hadithReminderEnabled; }, [hadithReminderEnabled]);
+  useEffect(() => { hadithHourRef.current = hadithReminderHour; }, [hadithReminderHour]);
+  useEffect(() => { hadithMinuteRef.current = hadithReminderMinute; }, [hadithReminderMinute]);
   useEffect(() => { adhanEnabledRef.current = adhanEnabled; }, [adhanEnabled]);
   useEffect(() => { adhanStyleIdRef.current = adhanStyleId; }, [adhanStyleId]);
   useEffect(() => { adhanModeRef.current = adhanMode; }, [adhanMode]);
@@ -305,7 +341,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPreferences = async () => {
     try {
-      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw] =
+      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.THEME),
           AsyncStorage.getItem(STORAGE_KEYS.DISPLAY_MODE),
@@ -320,6 +356,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG),
           AsyncStorage.getItem(STORAGE_KEYS.JUMMAH_REMINDER),
           AsyncStorage.getItem(STORAGE_KEYS.JUMMAH_MINUTES),
+          AsyncStorage.getItem(STORAGE_KEYS.AYAH_REMINDER),
+          AsyncStorage.getItem(STORAGE_KEYS.AYAH_HOUR),
+          AsyncStorage.getItem(STORAGE_KEYS.AYAH_MINUTE),
+          AsyncStorage.getItem(STORAGE_KEYS.HADITH_REMINDER),
+          AsyncStorage.getItem(STORAGE_KEYS.HADITH_HOUR),
+          AsyncStorage.getItem(STORAGE_KEYS.HADITH_MINUTE),
         ]);
       if (theme && theme in THEMES) setThemeNameState(theme as ThemeName);
       if (mode === "auto" || mode === "dark" || mode === "light") setDisplayModeState(mode);
@@ -347,6 +389,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const mins = Number(jummahMinsRaw);
         if (mins === 15 || mins === 30 || mins === 60) setJummahMinutesBeforeState(mins);
       }
+      if (ayahRaw === "true") setAyahReminderEnabledState(true);
+      if (ayahHrRaw) { const h = Number(ayahHrRaw); if (h >= 0 && h <= 23) setAyahReminderHourState(h); }
+      if (ayahMinRaw) { const m = Number(ayahMinRaw); if (m >= 0 && m <= 55) setAyahReminderMinuteState(m); }
+      if (hadithRaw === "true") setHadithReminderEnabledState(true);
+      if (hadithHrRaw) { const h = Number(hadithHrRaw); if (h >= 0 && h <= 23) setHadithReminderHourState(h); }
+      if (hadithMinRaw) { const m = Number(hadithMinRaw); if (m >= 0 && m <= 55) setHadithReminderMinuteState(m); }
     } catch {}
   };
 
@@ -408,6 +456,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await schedulePrayerNotifications(
           location.latitude, location.longitude, location.timezone, location.city,
           jummahReminderRef.current, jummahMinutesRef.current,
+          ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
+          hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
         );
       }
     } else {
@@ -459,6 +509,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await schedulePrayerNotifications(
         location.latitude, location.longitude, location.timezone, location.city,
         enabled, minutes,
+        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
+        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
+      );
+    }
+  }, [location]);
+
+  const setAyahReminder = useCallback(async (enabled: boolean, hour: number, minute: number) => {
+    setAyahReminderEnabledState(enabled);
+    setAyahReminderHourState(hour);
+    setAyahReminderMinuteState(minute);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.AYAH_REMINDER, enabled ? "true" : "false");
+      await AsyncStorage.setItem(STORAGE_KEYS.AYAH_HOUR, String(hour));
+      await AsyncStorage.setItem(STORAGE_KEYS.AYAH_MINUTE, String(minute));
+    } catch {}
+    if (notificationsRef.current && location) {
+      await schedulePrayerNotifications(
+        location.latitude, location.longitude, location.timezone, location.city,
+        jummahReminderRef.current, jummahMinutesRef.current,
+        enabled, hour, minute,
+        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
+      );
+    }
+  }, [location]);
+
+  const setHadithReminder = useCallback(async (enabled: boolean, hour: number, minute: number) => {
+    setHadithReminderEnabledState(enabled);
+    setHadithReminderHourState(hour);
+    setHadithReminderMinuteState(minute);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.HADITH_REMINDER, enabled ? "true" : "false");
+      await AsyncStorage.setItem(STORAGE_KEYS.HADITH_HOUR, String(hour));
+      await AsyncStorage.setItem(STORAGE_KEYS.HADITH_MINUTE, String(minute));
+    } catch {}
+    if (notificationsRef.current && location) {
+      await schedulePrayerNotifications(
+        location.latitude, location.longitude, location.timezone, location.city,
+        jummahReminderRef.current, jummahMinutesRef.current,
+        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
+        enabled, hour, minute,
       );
     }
   }, [location]);
@@ -512,6 +602,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await schedulePrayerNotifications(
           latitude, longitude, tz, locationData.city,
           jummahReminderRef.current, jummahMinutesRef.current,
+          ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
+          hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
         );
       }
     } catch {
@@ -619,6 +711,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         jummahReminderEnabled,
         jummahMinutesBefore,
         setJummahReminder,
+        ayahReminderEnabled,
+        ayahReminderHour,
+        ayahReminderMinute,
+        setAyahReminder,
+        hadithReminderEnabled,
+        hadithReminderHour,
+        hadithReminderMinute,
+        setHadithReminder,
       }}
     >
       {children}

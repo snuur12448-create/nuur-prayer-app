@@ -395,8 +395,12 @@ export const DAILY_AYAHS: DailyAyah[] = [
 ];
 
 export function getDailyAyah(): DailyAyah {
+  return getDailyAyahForDate(new Date());
+}
+
+export function getDailyAyahForDate(date: Date): DailyAyah {
   const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+    (date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000
   );
   return DAILY_AYAHS[dayOfYear % DAILY_AYAHS.length];
 }
