@@ -39,25 +39,25 @@ interface WordInfo {
 }
 
 // ── Hafidh Mode placeholder — gold dashes simulating hidden Arabic lines ───────
-function HafidhPlaceholder({ colors, lineCount = 3 }: { colors: Record<string, string>; lineCount?: number }) {
-  const allLines = [
-    [22, 14, 18, 10, 20, 12, 16, 8],
-    [18, 12, 24, 8, 14, 20, 10],
-    [10, 18, 8, 14],
+function HafidhPlaceholder({ colors }: { colors: Record<string, string> }) {
+  const lines = [
+    { widths: [55, 40, 70, 50, 35, 60], opacity: "70" },
+    { widths: [45, 65, 30, 55, 45, 40], opacity: "55" },
+    { widths: [60, 35, 50, 40, 65],     opacity: "40" },
+    { widths: [30, 55, 45, 35, 50, 30], opacity: "30" },
   ];
-  const lines = allLines.slice(0, Math.min(lineCount, 3));
   return (
-    <View style={{ gap: 10, paddingVertical: 10, paddingHorizontal: 2 }}>
-      {lines.map((widths, i) => (
-        <View key={i} style={{ flexDirection: "row", justifyContent: "flex-end", gap: 6 }}>
-          {widths.map((w, j) => (
+    <View style={{ gap: 14, paddingVertical: 14, paddingHorizontal: 2, minHeight: 100 }}>
+      {lines.map((line, i) => (
+        <View key={i} style={{ flexDirection: "row", justifyContent: "flex-end", flexWrap: "wrap", gap: 8 }}>
+          {line.widths.map((w, j) => (
             <View
               key={j}
               style={{
                 width: w,
-                height: 4,
-                borderRadius: 2,
-                backgroundColor: colors.gold + (i === 0 ? "60" : i === 1 ? "40" : "25"),
+                height: 9,
+                borderRadius: 4,
+                backgroundColor: colors.gold + line.opacity,
               }}
             />
           ))}
@@ -230,10 +230,10 @@ const VerseCard = React.memo(function VerseCard({
         hafidhDifficulty === "easy" && firstWord ? (
           <View>
             <Text style={[styles.arabicVerse, { color: colors.text }]}>{firstWord}</Text>
-            <HafidhPlaceholder colors={colors} lineCount={2} />
+            <HafidhPlaceholder colors={colors} />
           </View>
         ) : (
-          <HafidhPlaceholder colors={colors} lineCount={3} />
+          <HafidhPlaceholder colors={colors} />
         )
       ) : (
         <Text style={[styles.arabicVerse, { color: colors.text }]}>{verse.text}</Text>
