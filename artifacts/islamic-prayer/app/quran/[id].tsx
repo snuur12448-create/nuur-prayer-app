@@ -483,18 +483,11 @@ export default function QuranDetailScreen() {
   const [wordRootLoading, setWordRootLoading] = useState(false);
   const wordAudioRef = useRef<any>(null);
 
-  // ── getItemLayout constants ────────────────────────────────────────────────
-  // Pre-computed card heights let FlatList jump directly to any verse without
-  // measuring preceding items. Values derived from stylesheet dimensions:
-  //   card: padding 16 top + 16 bottom + marginBottom 12 = 44px chrome
-  //   verseHeader: 30px height + 12px marginBottom = 42px
-  //   arabicVerse: lineHeight 40, avg 3 lines = 120px
-  //   translationVerse: marginTop 10 + paddingTop 10 + lineHeight 22 × 4 lines = 108px
-  //   transliterationVerse: similar ~96px when visible
-  //   Base (Arabic only): 44 + 42 + 120 = 206px
-  //   +translation: 206 + 108 = 314px → use 300 as round estimate
-  //   ListHeader: contentPaddingTop 16 + bismillah (lineHeight 36 + marginBottom 20) = 72px
-  //   Hafidh hidden card: card chrome 46 + verseHeader 44 + placeholder 110 ≈ 200px
+  // ── Item height constants ──────────────────────────────────────────────────
+  // Used for the onScrollToIndexFailed fallback offset estimation (rough guess),
+  // and as a fixed getItemLayout for Hafidh mode (all cards are uniform).
+  // Reading mode no longer uses getItemLayout — FlatList measures each card
+  // naturally, which prevents scroll jumps caused by varying verse lengths.
   const ITEM_H_AR_ONLY = 206;
   const ITEM_H_TRANSLIT = 96;
   const ITEM_H_TRANSLATION = 108;
@@ -518,20 +511,9 @@ export default function QuranDetailScreen() {
     return idx > 0 ? idx : undefined;
   }, [initialVerseNum, verses]);
 
-  // getItemLayout: tells FlatList exactly where each item is so it can jump
-  // instantly without measuring.  Called with the current estimatedItemHeight
-  // via a ref so it stays stable and doesn't force FlatList remounts.
+  // estimatedItemHeightRef is kept for the onScrollToIndexFailed fallback offset calculation.
   const estimatedItemHeightRef = useRef(estimatedItemHeight);
   useEffect(() => { estimatedItemHeightRef.current = estimatedItemHeight; }, [estimatedItemHeight]);
-
-  const getItemLayout = useCallback(
-    (_data: Verse[] | null, index: number) => ({
-      length: estimatedItemHeightRef.current,
-      offset: LIST_HEADER_H + estimatedItemHeightRef.current * index,
-      index,
-    }),
-    []
-  );
 
   const getHafidhItemLayout = useCallback(
     (_data: Verse[] | null, index: number) => ({
@@ -647,12 +629,23 @@ export default function QuranDetailScreen() {
     return () => clearTimeout(t);
   }, [verses, playingVerse, playingSurahNum, surahNumber]);
 
-  // Flash-highlight the target verse after search navigation.
-  // initialScrollIndex already positions the FlatList at the right verse on
-  // first render — no scroll-through needed. Just apply the gold highlight.
+  // Scroll to the target verse after search navigation, then flash-highlight it.
+  // We do this via a useEffect (not initialScrollIndex) so that FlatList has no
+  // getItemLayout dependency in reading mode — avoiding scroll jumps caused by
+  // height estimation errors.
+  useEffect(() => {
+    if (!verses || !targetIndex || hafidhMode) return;
+    const doScroll = () => {
+      flatListRef.current?.scrollToIndex({ index: targetIndex, animated: false, viewPosition: 0.15 });
+    };
+    // Wait for the first render batch to complete before jumping
+    const t = setTimeout(doScroll, 300);
+    return () => clearTimeout(t);
+  }, [verses, targetIndex, hafidhMode]);
+
   useEffect(() => {
     if (!verses || !initialVerseNum) return;
-    const t1 = setTimeout(() => setHighlightedVerse(initialVerseNum), 300);
+    const t1 = setTimeout(() => setHighlightedVerse(initialVerseNum), 400);
     const t2 = setTimeout(() => setHighlightedVerse(null), 2800);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [verses, initialVerseNum]);
@@ -1091,17 +1084,15 @@ export default function QuranDetailScreen() {
           data={verses}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
-          getItemLayout={hafidhMode ? getHafidhItemLayout : getItemLayout}
-          initialScrollIndex={hafidhMode ? undefined : targetIndex}
+          getItemLayout={hafidhMode ? getHafidhItemLayout : undefined}
           contentContainerStyle={{ padding: 16, paddingBottom: isWeb ? 34 : insets.bottom + 20 }}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={hafidhMode ? 15 : 10}
-          maxToRenderPerBatch={hafidhMode ? 20 : 6}
-          windowSize={hafidhMode ? 11 : 5}
-          updateCellsBatchingPeriod={30}
-          removeClippedSubviews={!hafidhMode && Platform.OS !== "web"}
+          initialNumToRender={hafidhMode ? 15 : 12}
+          maxToRenderPerBatch={hafidhMode ? 20 : 15}
+          windowSize={hafidhMode ? 11 : 21}
+          updateCellsBatchingPeriod={50}
+          removeClippedSubviews={false}
           onScrollToIndexFailed={({ index }) => {
-            // Safety net — should rarely fire now that getItemLayout is set.
             // Jump to the estimated offset so items near the target render, then retry.
             flatListRef.current?.scrollToOffset({
               offset: LIST_HEADER_H + estimatedItemHeightRef.current * index,
