@@ -573,12 +573,6 @@ export default function QuranDetailScreen() {
     setVersesError(false);
     setLoadingVerses(true);
 
-    // Only stop audio when switching to a DIFFERENT surah.
-    // If the mini player navigated us here and this surah is already playing, keep it going.
-    if (playingSurahNum !== surahNumber) {
-      stopAudio();
-    }
-
     const controller = new AbortController();
     fetch(
       `https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,en.sahih,en.transliteration`,
