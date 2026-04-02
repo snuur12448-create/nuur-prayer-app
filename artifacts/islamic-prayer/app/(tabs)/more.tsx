@@ -50,19 +50,11 @@ export default function MoreScreen() {
       accentColor: "#B39DDB",
     },
     {
-      label: "Post-Prayer Dhikr",
-      arabic: "أذكار بعد الصلاة",
-      description: "Step-by-step guided adhkār: Istighfar, Āyat al-Kursī, Tasbīḥ, and closing duas",
-      route: "/(tabs)/dhikr",
-      icon: <MaterialCommunityIcons name="hands-pray" size={26} color="#A5D6A7" />,
-      accentColor: "#A5D6A7",
-    },
-    {
-      label: "Tasbeeh Counter",
-      arabic: "التسبيح",
-      description: "Digital dhikr counter with preset phrases, round tracking, and haptic feedback",
+      label: "Tasbeeh & Dhikr Guide",
+      arabic: "التسبيح وأذكار الصلاة",
+      description: "Dhikr counter with preset phrases, plus step-by-step post-prayer adhkār guide",
       route: "/(tabs)/tasbeeh",
-      icon: <MaterialCommunityIcons name="circle-multiple-outline" size={26} color="#80CBC4" />,
+      icon: <MaterialCommunityIcons name="hands-pray" size={26} color="#80CBC4" />,
       accentColor: "#80CBC4",
     },
     {
