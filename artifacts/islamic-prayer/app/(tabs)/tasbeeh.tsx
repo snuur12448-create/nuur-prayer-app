@@ -181,7 +181,7 @@ const CORE_GUIDE_STEPS: GuideStep[] = [
     arabic: "اللَّهُ أَكْبَرُ",
     transliteration: "Allāhu Akbar",
     translation: "Allah is the Greatest",
-    target: 33,
+    target: 34,
     color: "#9C88D4",
   },
   {
