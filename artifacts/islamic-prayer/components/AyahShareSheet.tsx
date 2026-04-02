@@ -314,8 +314,6 @@ export default function AyahShareSheet({
                   </Text>
                   <View style={s.refDot} />
                 </View>
-                <Text style={s.surahAr}>{surahName}</Text>
-
                 {/* Arabic text */}
                 <View style={s.arabicWrap}>
                   <Text style={s.arabicTxt}>
