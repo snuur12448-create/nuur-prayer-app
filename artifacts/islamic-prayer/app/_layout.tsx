@@ -94,8 +94,10 @@ export default function RootLayout() {
             <KeyboardProvider>
               <AppProvider>
                 <QuranPlayerProvider>
-                  {/* Main app — always rendered so contexts warm up during splash */}
-                  <RootLayoutNav />
+                  {/* Main app — only rendered once fonts are ready to prevent FOUT.
+                      Contexts (AppProvider, QuranPlayerProvider) warm up above this,
+                      so data loading is NOT blocked — only screen rendering is. */}
+                  {fontsReady && <RootLayoutNav />}
                   <AdhanGate />
                   {/* Onboarding overlay — shown once after first-launch splash */}
                   {splashDone && onboardingDone === false && (

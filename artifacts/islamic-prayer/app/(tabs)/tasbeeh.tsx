@@ -954,13 +954,13 @@ const gs = StyleSheet.create({
 
   // Prayer selector
   selectorContainer: { paddingHorizontal: 20, paddingTop: 28, paddingBottom: 16, gap: 4, alignItems: "center" },
-  selectorTitle: { fontSize: 28, fontFamily: "Amiri_700Bold", textAlign: "center", marginBottom: 6 },
+  selectorTitle: { fontSize: 28, fontFamily: "Inter_700Bold", textAlign: "center", marginBottom: 6 },
   selectorSubtitle: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", marginBottom: 28 },
   prayerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "center", width: "100%", marginBottom: 28 },
   prayerBtn: { width: "44%", borderRadius: 16, borderWidth: 1.5, paddingVertical: 18, paddingHorizontal: 12, alignItems: "center", gap: 4 },
   prayerEmoji: { fontSize: 26, marginBottom: 4 },
   prayerBtnName: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
-  prayerBtnArabic: { fontSize: 14, fontFamily: "Amiri_400Regular", marginTop: 2 },
+  prayerBtnArabic: { fontSize: 14, fontFamily: "Inter_400Regular", marginTop: 2 },
   infoBox: { flexDirection: "row", gap: 8, borderRadius: 12, borderWidth: 1, padding: 12, alignItems: "flex-start", width: "100%" },
   infoText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
 
@@ -995,7 +995,7 @@ const gs = StyleSheet.create({
   // Completion
   completionContainer: { flex: 1, alignItems: "center", paddingHorizontal: 24, paddingTop: 40, gap: 12 },
   completionEmoji: { fontSize: 52 },
-  completionTitle: { fontSize: 26, fontFamily: "Amiri_700Bold", textAlign: "center" },
+  completionTitle: { fontSize: 26, fontFamily: "Inter_700Bold", textAlign: "center" },
   completionSubtitle: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 24 },
   closingDuaBox: { width: "100%", borderRadius: 16, borderWidth: 1, padding: 20, gap: 8, alignItems: "center", marginTop: 8 },
   closingDuaArabic: { fontSize: 20, textAlign: "center", lineHeight: 36 },
