@@ -494,10 +494,12 @@ export default function QuranDetailScreen() {
   //   Base (Arabic only): 44 + 42 + 120 = 206px
   //   +translation: 206 + 108 = 314px → use 300 as round estimate
   //   ListHeader: contentPaddingTop 16 + bismillah (lineHeight 36 + marginBottom 20) = 72px
+  //   Hafidh hidden card: card chrome 46 + verseHeader 44 + placeholder 110 ≈ 200px
   const ITEM_H_AR_ONLY = 206;
   const ITEM_H_TRANSLIT = 96;
   const ITEM_H_TRANSLATION = 108;
   const LIST_HEADER_H = 72;
+  const ITEM_H_HAFIDH = 200;
 
   // The estimated height of one verse card given current toggle state.
   // Recomputed whenever toggles change so the offset calculation stays accurate.
@@ -526,6 +528,15 @@ export default function QuranDetailScreen() {
     (_data: Verse[] | null, index: number) => ({
       length: estimatedItemHeightRef.current,
       offset: LIST_HEADER_H + estimatedItemHeightRef.current * index,
+      index,
+    }),
+    []
+  );
+
+  const getHafidhItemLayout = useCallback(
+    (_data: Verse[] | null, index: number) => ({
+      length: ITEM_H_HAFIDH,
+      offset: LIST_HEADER_H + ITEM_H_HAFIDH * index,
       index,
     }),
     []
@@ -1080,18 +1091,19 @@ export default function QuranDetailScreen() {
         </View>
       ) : (
         <FlatList
+          key={hafidhMode ? "hafidh" : "reading"}
           style={styles.verseList}
           ref={flatListRef}
           data={verses}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
-          getItemLayout={hafidhMode ? undefined : getItemLayout}
+          getItemLayout={hafidhMode ? getHafidhItemLayout : getItemLayout}
           initialScrollIndex={hafidhMode ? undefined : targetIndex}
           contentContainerStyle={{ padding: 16, paddingBottom: isWeb ? 34 : insets.bottom + 20 }}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={hafidhMode ? 50 : 10}
+          initialNumToRender={hafidhMode ? 15 : 10}
           maxToRenderPerBatch={hafidhMode ? 20 : 6}
-          windowSize={hafidhMode ? 21 : 5}
+          windowSize={hafidhMode ? 11 : 5}
           updateCellsBatchingPeriod={30}
           removeClippedSubviews={!hafidhMode && Platform.OS !== "web"}
           onScrollToIndexFailed={({ index }) => {
