@@ -1,6 +1,6 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFonts } from "expo-font";
+import * as Font from "expo-font";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -463,11 +463,11 @@ export default function QuranDetailScreen() {
   const initialVerseNum = initialVerse ? parseInt(initialVerse, 10) : null;
   const surah = SURAHS.find((s) => s.number === surahNumber);
 
-  // Confirm the Uthmanic font is ready — loaded globally in _layout so this
-  // returns true immediately, but acts as a strict guard inside this screen.
-  const [quranFontLoaded] = useFonts({
-    KFGQPCUthmanicScriptHafs: require("../../assets/fonts/KFGQPCUthmanicScriptHafs.ttf"),
-  });
+  // Synchronous check — the font was already loaded in _layout.tsx before any
+  // screen rendered. Font.isLoaded() reads the cached registry immediately,
+  // unlike useFonts() which always returns false on the first native render
+  // before its async effect has had a chance to update state.
+  const quranFontLoaded = Font.isLoaded("KFGQPCUthmanicScriptHafs");
 
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
