@@ -158,7 +158,9 @@ export function LocationModal({
       </TouchableWithoutFeedback>
 
       <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={[styles.handle, { backgroundColor: colors.border }]} />
+        <Pressable onPress={onClose} hitSlop={16} style={styles.handleArea}>
+          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+        </Pressable>
 
         {/* Header */}
         <View style={[styles.headerRow, { borderBottomColor: colors.border }]}>
@@ -289,13 +291,16 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     paddingHorizontal: 20,
   },
+  handleArea: {
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 8,
+    paddingHorizontal: 60,
+  },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    alignSelf: "center",
-    marginTop: 10,
-    marginBottom: 6,
   },
   headerRow: {
     flexDirection: "row",

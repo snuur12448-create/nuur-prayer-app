@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -87,6 +88,31 @@ export function PrayerNotifSheet({
     ]).start(() => onClose());
   };
 
+  // Swipe-down-to-dismiss: attach panHandlers to the drag-handle area so the
+  // user can grab the pill and pull the sheet down to close it.
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gs) => gs.dy > 4,
+      onPanResponderMove: (_, gs) => {
+        if (gs.dy > 0) slideY.setValue(gs.dy);
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy > 60 || gs.vy > 0.5) {
+          Animated.parallel([
+            Animated.timing(slideY, { toValue: 700, duration: 220, useNativeDriver: false }),
+            Animated.timing(backdropOpacity, { toValue: 0, duration: 180, useNativeDriver: false }),
+          ]).start(() => onClose());
+        } else {
+          Animated.spring(slideY, { toValue: 0, useNativeDriver: false, tension: 65, friction: 11 }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(slideY, { toValue: 0, useNativeDriver: false, tension: 65, friction: 11 }).start();
+      },
+    })
+  ).current;
+
   const handleSave = () => {
     const newDays = days.length === 0 ? [...ALL_DAYS] : days;
     onSave({
@@ -129,8 +155,12 @@ export function PrayerNotifSheet({
         ]}
       >
         <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
-          {/* Drag handle */}
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+          {/* Drag handle — tap or swipe down to dismiss */}
+          <View style={styles.handleArea} {...panResponder.panHandlers}>
+            <Pressable onPress={handleClose} hitSlop={16}>
+              <View style={[styles.handle, { backgroundColor: colors.border }]} />
+            </Pressable>
+          </View>
 
           {/* Header */}
           <View style={[styles.headerBar, { borderBottomColor: colors.border }]}>
@@ -392,13 +422,16 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     maxHeight: "92%",
   },
+  handleArea: {
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 8,
+    paddingHorizontal: 60,
+  },
   handle: {
     width: 40,
     height: 4,
     borderRadius: 2,
-    alignSelf: "center",
-    marginTop: 12,
-    marginBottom: 4,
   },
 
   /* Header */

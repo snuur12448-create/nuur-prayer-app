@@ -250,7 +250,9 @@ export default function AyahShareSheet({
       <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.sheet}>
-          <View style={styles.handle} />
+          <Pressable onPress={onClose} hitSlop={16} style={styles.handleArea}>
+            <View style={styles.handle} />
+          </Pressable>
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Share Ayah</Text>
             <TouchableOpacity onPress={onClose} hitSlop={12}>
@@ -489,13 +491,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 36,
   },
+  handleArea: {
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 8,
+    paddingHorizontal: 60,
+  },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
     backgroundColor: "#444",
-    alignSelf: "center",
-    marginBottom: 14,
   },
   sheetHeader: {
     flexDirection: "row",
