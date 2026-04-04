@@ -1,6 +1,8 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import {
+  ActionSheetIOS,
+  Alert,
   Linking,
   Platform,
   StyleSheet,
@@ -26,19 +28,46 @@ function fmtDist(km: number) {
   return `${Math.round(km)} km`;
 }
 
-function openDirections(lat: number, lon: number, name: string) {
+function openGoogleMaps(lat: number, lon: number) {
   const dest = `${lat},${lon}`;
-  const label = encodeURIComponent(name);
-  if (Platform.OS === "ios") {
-    Linking.openURL(`maps://maps.apple.com/?daddr=${dest}&dirflg=d`).catch(() =>
-      Linking.openURL(`https://maps.apple.com/?daddr=${dest}`)
-    );
-  } else {
+  // Try the Google Maps app first; fall back to the website.
+  Linking.openURL(
+    `comgooglemaps://?daddr=${dest}&directionsmode=driving`
+  ).catch(() =>
     Linking.openURL(
       `https://www.google.com/maps/dir/?api=1&destination=${dest}`
-    ).catch(() =>
-      Linking.openURL(`geo:${lat},${lon}?q=${dest}(${label})`)
+    )
+  );
+}
+
+function openAppleMaps(lat: number, lon: number) {
+  const dest = `${lat},${lon}`;
+  Linking.openURL(`maps://?daddr=${dest}&dirflg=d`).catch(() =>
+    Linking.openURL(`https://maps.apple.com/?daddr=${dest}`)
+  );
+}
+
+function showDirectionsSheet(lat: number, lon: number, name: string) {
+  if (Platform.OS === "ios") {
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        title: "Get Directions",
+        message: name,
+        options: ["Google Maps", "Apple Maps", "Cancel"],
+        cancelButtonIndex: 2,
+      },
+      (index) => {
+        if (index === 0) openGoogleMaps(lat, lon);
+        else if (index === 1) openAppleMaps(lat, lon);
+      }
     );
+  } else {
+    // Android — use Alert as an action-sheet substitute.
+    Alert.alert("Get Directions", name, [
+      { text: "Google Maps", onPress: () => openGoogleMaps(lat, lon) },
+      { text: "Apple Maps", onPress: () => openAppleMaps(lat, lon) },
+      { text: "Cancel", style: "cancel" },
+    ]);
   }
 }
 
@@ -78,7 +107,7 @@ export default function MosqueMapView({
             coordinate={{ latitude: mosque.lat, longitude: mosque.lon }}
             tracksViewChanges={false}
             onCalloutPress={() =>
-              openDirections(mosque.lat, mosque.lon, mosque.name)
+              showDirectionsSheet(mosque.lat, mosque.lon, mosque.name)
             }
           >
             {/* Custom gold pin */}
@@ -92,7 +121,7 @@ export default function MosqueMapView({
             <Callout
               tooltip
               onPress={() =>
-                openDirections(mosque.lat, mosque.lon, mosque.name)
+                showDirectionsSheet(mosque.lat, mosque.lon, mosque.name)
               }
             >
               <View style={styles.callout}>
@@ -122,7 +151,7 @@ export default function MosqueMapView({
                   style={[styles.calloutDirBtn, { backgroundColor: GOLD }]}
                   activeOpacity={0.8}
                   onPress={() =>
-                    openDirections(mosque.lat, mosque.lon, mosque.name)
+                    showDirectionsSheet(mosque.lat, mosque.lon, mosque.name)
                   }
                 >
                   <Feather name="navigation" size={12} color="#fff" />
