@@ -1,4 +1,4 @@
-export type CdnType = "verses-quran" | "islamic-network" | "mp3quran-net";
+export type CdnType = "verses-quran" | "islamic-network" | "mp3quran-net" | "everyayah";
 
 export interface Reciter {
   id: string;
@@ -19,6 +19,12 @@ export interface Reciter {
    * full surah as a single track when this CDN type is used.
    */
   mp3QuranFolder?: string;
+  /**
+   * Folder name on everyayah.com e.g. "Nasser_Alqatami_128kbps".
+   * Files are per-verse: everyayah.com/data/{everyayahFolder}/{surah}{verse}.mp3
+   * where surah and verse are zero-padded to 3 digits.
+   */
+  everyayahFolder?: string;
 }
 
 export const RECITERS: Reciter[] = [
@@ -96,6 +102,69 @@ export const RECITERS: Reciter[] = [
     mp3QuranFolder: "lhdan",
   },
   {
+    id: "shatri",
+    name: "Abu Bakr Al-Shatri",
+    arabicName: "أبو بكر الشاطري",
+    style: "Murattal",
+    language: "arabic",
+    cdnType: "verses-quran",
+    folder: "Shatri/mp3",
+  },
+  {
+    id: "abdulbasit-mujawwad",
+    name: "Abdul Basit (Mujawwad)",
+    arabicName: "عبد الباسط عبد الصمد",
+    style: "Mujawwad",
+    language: "arabic",
+    cdnType: "verses-quran",
+    folder: "AbdulBaset/Mujawwad/mp3",
+  },
+  {
+    id: "minshawi-mujawwad",
+    name: "Al-Minshawi (Mujawwad)",
+    arabicName: "محمد صديق المنشاوي",
+    style: "Mujawwad",
+    language: "arabic",
+    cdnType: "verses-quran",
+    folder: "Minshawi/Mujawwad/mp3",
+  },
+  {
+    id: "jibreel",
+    name: "Muhammad Jibreel",
+    arabicName: "محمد جبريل",
+    style: "Murattal",
+    language: "arabic",
+    cdnType: "verses-quran",
+    folder: "Jibreel/mp3",
+  },
+  {
+    id: "qatami",
+    name: "Nasser Al-Qatami",
+    arabicName: "ناصر القطامي",
+    style: "Murattal",
+    language: "arabic",
+    cdnType: "everyayah",
+    everyayahFolder: "Nasser_Alqatami_128kbps",
+  },
+  {
+    id: "dossari",
+    name: "Yasser Al-Dossari",
+    arabicName: "ياسر الدوسري",
+    style: "Murattal",
+    language: "arabic",
+    cdnType: "everyayah",
+    everyayahFolder: "Yasser_Ad-Dussary_128kbps",
+  },
+  {
+    id: "hani-rifai",
+    name: "Hani Ar-Rifai",
+    arabicName: "هاني الرفاعي",
+    style: "Murattal",
+    language: "arabic",
+    cdnType: "everyayah",
+    everyayahFolder: "Hani_Rifai_192kbps",
+  },
+  {
     id: "walk",
     name: "Ibrahim Walk",
     arabicName: "English Translation",
@@ -140,6 +209,11 @@ export function getVerseAudioUrl(
   if (reciter.cdnType === "mp3quran-net" && reciter.mp3QuranFolder) {
     const s = String(surahNumber).padStart(3, "0");
     return `https://server8.mp3quran.net/${reciter.mp3QuranFolder}/${s}.mp3`;
+  }
+  if (reciter.cdnType === "everyayah" && reciter.everyayahFolder) {
+    const s = String(surahNumber).padStart(3, "0");
+    const v = String(verseNumber).padStart(3, "0");
+    return `https://everyayah.com/data/${reciter.everyayahFolder}/${s}${v}.mp3`;
   }
   // Fallback
   const s = String(surahNumber).padStart(3, "0");
