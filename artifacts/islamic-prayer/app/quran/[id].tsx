@@ -1,5 +1,6 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFonts } from "expo-font";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -124,6 +125,7 @@ interface VerseCardProps {
   words: WordInfo[];
   onWordTap: (w: WordInfo) => void;
   showWordByWord: boolean;
+  quranFontLoaded: boolean;
 }
 
 const VerseCard = React.memo(function VerseCard({
@@ -145,6 +147,7 @@ const VerseCard = React.memo(function VerseCard({
   words,
   onWordTap,
   showWordByWord,
+  quranFontLoaded,
 }: VerseCardProps) {
   const isHidden = hafidhMode && !isRevealed;
   const firstWord = verse.text.trim().split(/\s+/)[0] ?? "";
@@ -225,8 +228,12 @@ const VerseCard = React.memo(function VerseCard({
         </View>
       </View>
 
-      {/* Arabic text or hafidh placeholder */}
-      {isHidden ? (
+      {/* Arabic text or hafidh placeholder.
+          When the Uthmanic font hasn't finished loading, show the shimmer
+          placeholder so there is zero chance of rendering text in a fallback font. */}
+      {!quranFontLoaded ? (
+        <HafidhPlaceholder colors={colors} />
+      ) : isHidden ? (
         hafidhDifficulty === "easy" && firstWord ? (
           <View>
             <Text style={[styles.arabicVerse, { color: colors.text }]}>{firstWord}</Text>
@@ -455,6 +462,12 @@ export default function QuranDetailScreen() {
   const surahNumber = parseInt(id || "1", 10);
   const initialVerseNum = initialVerse ? parseInt(initialVerse, 10) : null;
   const surah = SURAHS.find((s) => s.number === surahNumber);
+
+  // Confirm the Uthmanic font is ready — loaded globally in _layout so this
+  // returns true immediately, but acts as a strict guard inside this screen.
+  const [quranFontLoaded] = useFonts({
+    KFGQPCUthmanicScriptHafs: require("../../assets/fonts/KFGQPCUthmanicScriptHafs.ttf"),
+  });
 
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
@@ -898,9 +911,10 @@ export default function QuranDetailScreen() {
         words={wordsByVerse[verse.number] ?? []}
         onWordTap={handleWordTap}
         showWordByWord={showWordByWord}
+        quranFontLoaded={!!quranFontLoaded}
       />
     ),
-    [playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, showWordByWord, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah, wordsByVerse, handleWordTap]
+    [playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, showWordByWord, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah, wordsByVerse, handleWordTap, quranFontLoaded]
   );
 
   const keyExtractor = useCallback((v: Verse) => String(v.number), []);
@@ -1152,7 +1166,7 @@ export default function QuranDetailScreen() {
                   </TouchableOpacity>
                 </View>
               )}
-              {surahNumber !== 9 && surahNumber !== 1 && (
+              {surahNumber !== 9 && surahNumber !== 1 && quranFontLoaded && (
                 <Text style={[styles.bismillah, { color: colors.text }]}>
                   بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
                 </Text>
@@ -1441,7 +1455,7 @@ const styles = StyleSheet.create({
   nowPlayingLeft: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
   playingDot: { width: 7, height: 7, borderRadius: 4 },
   nowPlayingText: { fontSize: 12, fontFamily: "Inter_500Medium", flex: 1 },
-  bismillah: { fontSize: 22, textAlign: "center", marginBottom: 20, lineHeight: 36 },
+  bismillah: { fontSize: 22, textAlign: "center", marginBottom: 20, lineHeight: 44, fontFamily: "KFGQPCUthmanicScriptHafs" },
   verseCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
   verseHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   verseHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -1449,7 +1463,7 @@ const styles = StyleSheet.create({
   copyBtn: { width: 26, height: 26, borderRadius: 6, alignItems: "center", justifyContent: "center" },
   verseNumberBadge: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   verseNumber: { fontSize: 12, fontFamily: "Inter_700Bold" },
-  arabicVerse: { fontSize: 22, textAlign: "right", lineHeight: 40, letterSpacing: 0.3, writingDirection: "rtl" },
+  arabicVerse: { fontSize: 22, textAlign: "right", lineHeight: 44, letterSpacing: 0, writingDirection: "rtl", fontFamily: "KFGQPCUthmanicScriptHafs" },
   transliterationVerse: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",

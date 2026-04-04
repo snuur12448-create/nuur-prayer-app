@@ -62,6 +62,7 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    KFGQPCUthmanicScriptHafs: require("../assets/fonts/KFGQPCUthmanicScriptHafs.ttf"),
   });
 
   // Three-gate system: splash hides only when animation, fonts, AND onboarding
