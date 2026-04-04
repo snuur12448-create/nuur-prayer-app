@@ -92,6 +92,7 @@ interface AppContextType {
   stopAdhan: () => Promise<void>;
   prayerNotifConfig: PrayerNotifConfig;
   setPrayerNotifSettings: (key: PrayerKey, settings: PrayerNotifSettings) => Promise<void>;
+  toggleMasterPrayerBell: () => Promise<void>;
   jummahReminderEnabled: boolean;
   jummahMinutesBefore: number;
   setJummahReminder: (enabled: boolean, minutes: number) => Promise<void>;
@@ -236,6 +237,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const adhanStyleIdRef = useRef(adhanStyleId);
   const adhanModeRef = useRef(adhanMode);
   const prayerTimesRef = useRef(prayerTimes);
+  const prayerNotifConfigRef = useRef(prayerNotifConfig);
   const lastPlayedRef = useRef<string>(""); // "prayerKey_YYYY-MM-DD"
 
   useEffect(() => { calcMethodRef.current = calcMethod; }, [calcMethod]);
@@ -256,6 +258,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { adhanStyleIdRef.current = adhanStyleId; }, [adhanStyleId]);
   useEffect(() => { adhanModeRef.current = adhanMode; }, [adhanMode]);
   useEffect(() => { prayerTimesRef.current = prayerTimes; }, [prayerTimes]);
+  useEffect(() => { prayerNotifConfigRef.current = prayerNotifConfig; }, [prayerNotifConfig]);
 
   const effectiveDisplayMode: "dark" | "light" =
     displayMode === "auto"
@@ -540,6 +543,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Master bell: toggles all 5 prayer notifications (excludes Sunrise).
+  // If all 5 are on → turns all off.
+  // If any are off (mixed or all off) → turns all on, enabling global
+  // notifications first if they were off.
+  const FIVE_PRAYER_KEYS: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+
+  const toggleMasterPrayerBell = useCallback(async () => {
+    if (Platform.OS === "web") return;
+    const cfg = prayerNotifConfigRef.current;
+    const allOn = FIVE_PRAYER_KEYS.every((k) => cfg[k].enabled);
+    const nextEnabled = !allOn; // all-on → turn off; anything else → turn all on
+
+    // If enabling and global notifications aren't on yet, request permission
+    if (nextEnabled && !notificationsRef.current) {
+      const granted = await requestNotificationPermission();
+      if (!granted) return;
+      setNotificationsEnabled(true);
+      await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "true");
+    }
+
+    // Update the 5 prayer enabled flags in one state update
+    setPrayerNotifConfigState((prev) => {
+      const next = { ...prev };
+      for (const k of FIVE_PRAYER_KEYS) {
+        next[k] = { ...prev[k], enabled: nextEnabled };
+      }
+      AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+
+    // Reschedule if notifications are (or just became) active
+    const notifsActive = nextEnabled ? true : notificationsRef.current;
+    if (notifsActive && location) {
+      await schedulePrayerNotifications(
+        location.latitude, location.longitude, location.timezone, location.city,
+        jummahReminderRef.current, jummahMinutesRef.current,
+        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
+        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
+        islamicEventsRef.current,
+      );
+    }
+  }, [location]);
+
   const setJummahReminder = useCallback(async (enabled: boolean, minutes: number) => {
     setJummahReminderEnabledState(enabled);
     setJummahMinutesBeforeState(minutes);
@@ -768,6 +814,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         stopAdhan,
         prayerNotifConfig,
         setPrayerNotifSettings,
+        toggleMasterPrayerBell,
         jummahReminderEnabled,
         jummahMinutesBefore,
         setJummahReminder,

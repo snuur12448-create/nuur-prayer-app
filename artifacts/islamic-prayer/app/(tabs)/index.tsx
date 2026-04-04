@@ -45,10 +45,16 @@ export default function PrayerScreen() {
   const {
     prayerTimes, location, isLoadingLocation, locationError,
     refreshPrayerTimes, requestLocation, setManualLocation,
-    themeColors: colors, notificationsEnabled, toggleNotifications,
+    themeColors: colors, notificationsEnabled,
     timeFormat, calcMethod, madhab, highLatRule,
-    prayerNotifConfig, setPrayerNotifSettings,
+    prayerNotifConfig, setPrayerNotifSettings, toggleMasterPrayerBell,
   } = useAppContext();
+
+  // ── Master bell state (5 prayers only, Sunrise excluded) ──────────────────
+  const FIVE_PRAYER_KEYS: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+  const allPrayersOn  = FIVE_PRAYER_KEYS.every((k) => prayerNotifConfig[k].enabled);
+  const allPrayersOff = FIVE_PRAYER_KEYS.every((k) => !prayerNotifConfig[k].enabled);
+  const mixedPrayers  = !allPrayersOn && !allPrayersOff;
 
   const [notifSheetKey, setNotifSheetKey] = useState<PrayerKey | null>(null);
   const [showAyahShare, setShowAyahShare] = useState(false);
@@ -229,18 +235,39 @@ export default function PrayerScreen() {
               </Text>
               {!isWeb && (
                 <Pressable
-                  onPress={toggleNotifications}
+                  onPress={toggleMasterPrayerBell}
                   style={[
                     styles.paletteBtn,
-                    { backgroundColor: notificationsEnabled ? colors.tint + "33" : colors.border },
+                    {
+                      backgroundColor: allPrayersOn
+                        ? colors.tint + "33"
+                        : mixedPrayers
+                          ? colors.tint + "1A"
+                          : colors.border,
+                    },
                   ]}
                   hitSlop={10}
                 >
                   <Feather
-                    name={notificationsEnabled ? "bell" : "bell-off"}
+                    name={allPrayersOff ? "bell-off" : "bell"}
                     size={18}
-                    color={notificationsEnabled ? colors.tint : colors.textSecondary}
+                    color={allPrayersOff ? colors.textSecondary : colors.tint}
                   />
+                  {mixedPrayers && (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: 5,
+                        right: 5,
+                        width: 7,
+                        height: 7,
+                        borderRadius: 4,
+                        backgroundColor: colors.tint,
+                        borderWidth: 1.5,
+                        borderColor: colors.surface,
+                      }}
+                    />
+                  )}
                 </Pressable>
               )}
             </View>
