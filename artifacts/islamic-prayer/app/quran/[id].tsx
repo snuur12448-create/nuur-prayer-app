@@ -545,6 +545,38 @@ export default function QuranDetailScreen() {
   const isMountedRef = useRef(true);
   const flatListRef = useRef<FlatList>(null);
 
+  // ── Last-read position ─────────────────────────────────────────────────────
+  const LAST_READ_KEY = "nuur_last_read_position";
+  const saveLastRead = useCallback(
+    (ayahNum: number) => {
+      if (!surah) return;
+      const pos = {
+        surahNum: surahNumber,
+        surahNameEn: surah.englishName,
+        surahNameAr: surah.name,
+        ayahNum,
+      };
+      AsyncStorage.setItem(LAST_READ_KEY, JSON.stringify(pos)).catch(() => {});
+    },
+    [surah, surahNumber]
+  );
+
+  // Stable refs required by FlatList for onViewableItemsChanged
+  const saveLastReadRef = useRef(saveLastRead);
+  useEffect(() => { saveLastReadRef.current = saveLastRead; }, [saveLastRead]);
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ item: Verse; isViewable: boolean }> }) => {
+      if (viewableItems.length === 0) return;
+      const topVisible = viewableItems[0];
+      if (topVisible?.isViewable && topVisible.item) {
+        saveLastReadRef.current(topVisible.item.number);
+      }
+    }
+  ).current;
+
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
   const isBookmarked = bookmarkedSurahs.includes(surahNumber);
 
@@ -723,9 +755,10 @@ export default function QuranDetailScreen() {
   const togglePlayPause = useCallback(
     async (verse: Verse) => {
       if (!surah) return;
+      saveLastRead(verse.number);
       await ctxTogglePlayPause(verse, surahNumber, surah.name, surah.englishName, verses ?? []);
     },
-    [ctxTogglePlayPause, surah, surahNumber, verses]
+    [ctxTogglePlayPause, surah, surahNumber, verses, saveLastRead]
   );
 
   const playAllVerses = useCallback(async () => {
@@ -1092,6 +1125,8 @@ export default function QuranDetailScreen() {
           windowSize={hafidhMode ? 11 : 21}
           updateCellsBatchingPeriod={50}
           removeClippedSubviews={false}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
           onScrollToIndexFailed={({ index }) => {
             // Jump to the estimated offset so items near the target render, then retry.
             flatListRef.current?.scrollToOffset({

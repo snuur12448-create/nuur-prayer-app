@@ -1,5 +1,6 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
   Platform,
@@ -11,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useAppContext } from "@/context/AppContext";
 import { SURAHS, Surah } from "@/utils/islamicData";
 import {
@@ -20,6 +21,15 @@ import {
   QuranSearchResult,
 } from "@/utils/quranSearch";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
+
+const LAST_READ_KEY = "nuur_last_read_position";
+
+interface LastReadPos {
+  surahNum: number;
+  surahNameEn: string;
+  surahNameAr: string;
+  ayahNum: number;
+}
 
 const GOLD = "#C9933A";
 const MIN_VERSE_QUERY = 2;
@@ -71,6 +81,19 @@ export default function QuranScreen() {
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "bookmarked">("all");
+  const [lastRead, setLastRead] = useState<LastReadPos | null>(null);
+
+  // Reload last-read position every time this tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem(LAST_READ_KEY)
+        .then((raw) => {
+          if (!raw) { setLastRead(null); return; }
+          try { setLastRead(JSON.parse(raw)); } catch { setLastRead(null); }
+        })
+        .catch(() => setLastRead(null));
+    }, [])
+  );
 
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
@@ -270,6 +293,44 @@ export default function QuranScreen() {
     </Pressable>
   );
 
+  const renderContinueReading = () => {
+    if (!lastRead || isSearchMode) return null;
+    return (
+      <Pressable
+        style={({ pressed }) => [
+          crStyles.card,
+          {
+            backgroundColor: colors.tint,
+            borderColor: `${GOLD}55`,
+            opacity: pressed ? 0.88 : 1,
+          },
+        ]}
+        onPress={() =>
+          router.push({
+            pathname: "/quran/[id]",
+            params: {
+              id: lastRead.surahNum.toString(),
+              initialVerse: lastRead.ayahNum.toString(),
+            },
+          })
+        }
+      >
+        <View style={crStyles.iconWrap}>
+          <Feather name="bookmark" size={22} color={GOLD} />
+        </View>
+        <View style={crStyles.textCol}>
+          <Text style={crStyles.label}>Continue Reading</Text>
+          <View style={crStyles.nameRow}>
+            <Text style={crStyles.nameEn}>{lastRead.surahNameEn}</Text>
+            <Text style={crStyles.nameAr}>{lastRead.surahNameAr}</Text>
+          </View>
+          <Text style={[crStyles.ayah, { color: GOLD }]}>Ayah {lastRead.ayahNum}</Text>
+        </View>
+        <Feather name="chevron-right" size={20} color={`${GOLD}99`} />
+      </Pressable>
+    );
+  };
+
   const renderItem = ({ item }: { item: ListItem }) => {
     if (item.type === "surah") return renderSurah(item.surah);
 
@@ -406,6 +467,7 @@ export default function QuranScreen() {
           return `${item.type}-${index}`;
         }}
         renderItem={renderItem}
+        ListHeaderComponent={renderContinueReading()}
         contentContainerStyle={[
           styles.listContent,
           {
@@ -678,5 +740,55 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
+  },
+});
+
+const crStyles = StyleSheet.create({
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+    gap: 12,
+  },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(201,147,58,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  textCol: {
+    flex: 1,
+    gap: 2,
+  },
+  label: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    color: "rgba(255,255,255,0.65)",
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  nameEn: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+  },
+  nameAr: {
+    fontSize: 15,
+    color: "rgba(255,255,255,0.75)",
+  },
+  ayah: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
   },
 });
