@@ -14,6 +14,7 @@ import Svg, { Ellipse, Path, Rect } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
+import MosqueMapView from "@/components/MosqueMapView";
 
 // ── Haversine distance in km ──────────────────────────────────────────────────
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -353,6 +354,7 @@ export default function MosquesScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   const [radiusKm, setRadiusKm] = useState(8);
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
   const search = useCallback(
     async (km = radiusKm) => {
@@ -459,6 +461,34 @@ export default function MosquesScreen() {
         ))}
       </View>
 
+      {/* List / Map toggle */}
+      <View style={[styles.toggleRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View style={[styles.toggleWrap, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+          {(["list", "map"] as const).map((mode) => {
+            const active = viewMode === mode;
+            return (
+              <Pressable
+                key={mode}
+                onPress={() => setViewMode(mode)}
+                style={[
+                  styles.toggleBtn,
+                  active && { backgroundColor: colors.tint },
+                ]}
+              >
+                <Feather
+                  name={mode === "list" ? "list" : "map"}
+                  size={13}
+                  color={active ? "#fff" : colors.textSecondary}
+                />
+                <Text style={[styles.toggleBtnText, { color: active ? "#fff" : colors.textSecondary }]}>
+                  {mode === "list" ? "List" : "Map"}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
       {/* Content */}
       {isLoadingLocation || (loading && mosques.length === 0) ? (
         <View style={styles.centred}>
@@ -493,7 +523,7 @@ export default function MosquesScreen() {
             <Text style={[styles.retryText, { color: colors.tint }]}>Enable Location</Text>
           </Pressable>
         </View>
-      ) : searched && mosques.length === 0 ? (
+      ) : searched && mosques.length === 0 && viewMode === "list" ? (
         <View style={styles.centred}>
           <Text style={{ fontSize: 40 }}>🕌</Text>
           <Text style={[styles.stateTitle, { color: colors.text }]}>No mosques found</Text>
@@ -501,6 +531,14 @@ export default function MosquesScreen() {
             Try increasing the search radius
           </Text>
         </View>
+      ) : viewMode === "map" && location && !usingDefaultLocation ? (
+        <MosqueMapView
+          mosques={mosques}
+          userLat={location.latitude}
+          userLon={location.longitude}
+          colors={colors}
+          bottomPad={insets.bottom + miniPlayerH}
+        />
       ) : (
         <FlatList
           data={mosques}
@@ -602,6 +640,32 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     flexWrap: "wrap",
+  },
+
+  /* View toggle */
+  toggleRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    alignItems: "center",
+  },
+  toggleWrap: {
+    flexDirection: "row",
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: "hidden",
+    alignSelf: "center",
+  },
+  toggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 7,
+  },
+  toggleBtnText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
   },
   radiusLabel: {
     fontSize: 12,
