@@ -349,7 +349,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPreferences = async () => {
     try {
-      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw, islamicEventsRaw] =
+      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw, islamicEventsRaw, locationRaw] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.THEME),
           AsyncStorage.getItem(STORAGE_KEYS.DISPLAY_MODE),
@@ -371,6 +371,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(STORAGE_KEYS.HADITH_HOUR),
           AsyncStorage.getItem(STORAGE_KEYS.HADITH_MINUTE),
           AsyncStorage.getItem(STORAGE_KEYS.ISLAMIC_EVENTS_REMINDER),
+          AsyncStorage.getItem(STORAGE_KEYS.LOCATION),
         ]);
       if (theme && theme in THEMES) setThemeNameState(theme as ThemeName);
       if (mode === "auto" || mode === "dark" || mode === "light") setDisplayModeState(mode);
@@ -405,6 +406,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (hadithHrRaw) { const h = Number(hadithHrRaw); if (h >= 0 && h <= 23) setHadithReminderHourState(h); }
       if (hadithMinRaw) { const m = Number(hadithMinRaw); if (m >= 0 && m <= 55) setHadithReminderMinuteState(m); }
       if (islamicEventsRaw === "true") setIslamicEventsEnabledState(true);
+
+      // ── Startup reschedule ───────────────────────────────────────────────────
+      // Reschedule immediately using the just-parsed local values rather than
+      // refs, which aren't updated until after the next React render.  This
+      // eliminates the race condition where fetchGpsLocation fires before refs
+      // reflect the stored settings, causing Ayah/Hadith notifications to be
+      // skipped. Using the cached location means this always works even when
+      // GPS is unavailable (indoors, permission denied, etc.).
+      if (Platform.OS !== "web" && notifs === "true" && locationRaw) {
+        try {
+          const loc: LocationData = JSON.parse(locationRaw);
+          const jEnabled = jummahRaw !== "false"; // null = never saved → default true
+          const jMins    = (jummahMinsRaw && [15, 30, 60].includes(Number(jummahMinsRaw)))
+                           ? Number(jummahMinsRaw) : 30;
+          const ayEnabled = ayahRaw === "true";
+          const ayHr      = ayahHrRaw  ? Math.min(23, Math.max(0, Number(ayahHrRaw)))  : 8;
+          const ayMin     = ayahMinRaw ? Math.min(55, Math.max(0, Number(ayahMinRaw))) : 0;
+          const hdEnabled = hadithRaw === "true";
+          const hdHr      = hadithHrRaw  ? Math.min(23, Math.max(0, Number(hadithHrRaw)))  : 9;
+          const hdMin     = hadithMinRaw ? Math.min(55, Math.max(0, Number(hadithMinRaw))) : 0;
+          const evEnabled = islamicEventsRaw === "true";
+          await schedulePrayerNotifications(
+            loc.latitude, loc.longitude, loc.timezone, loc.city,
+            jEnabled, jMins,
+            ayEnabled, ayHr, ayMin,
+            hdEnabled, hdHr, hdMin,
+            evEnabled,
+          );
+        } catch {}
+      }
     } catch {}
   };
 
