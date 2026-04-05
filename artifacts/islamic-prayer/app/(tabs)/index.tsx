@@ -111,9 +111,11 @@ export default function PrayerScreen() {
   useEffect(() => {
     if (prayerTimes) {
       const now = Date.now();
-      const pList = [prayerTimes.fajr, prayerTimes.dhuhr, prayerTimes.asr, prayerTimes.maghrib, prayerTimes.isha];
+      // Include Sunrise so that after 06:28 the active period switches from
+      // Fajr to Sunrise (counting down to Dhuhr), not staying on Fajr all morning.
+      const pList = [prayerTimes.fajr, prayerTimes.sunrise, prayerTimes.dhuhr, prayerTimes.asr, prayerTimes.maghrib, prayerTimes.isha];
 
-      // Current prayer = most recently started obligatory prayer
+      // Current period = most recently started entry
       const prev = [...pList].reverse().find((p) => p.time.getTime() <= now) ?? null;
       setCurrentPrayer(prev);
 
