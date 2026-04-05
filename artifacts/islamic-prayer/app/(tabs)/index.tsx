@@ -66,6 +66,7 @@ export default function PrayerScreen() {
   const miniPlayerH = useMiniPlayerHeight();
   const [nextPrayer, setNextPrayer] = useState<PrayerTime | null>(null);
   const [currentPrayer, setCurrentPrayer] = useState<PrayerTime | null>(null);
+  const [progressEndPrayer, setProgressEndPrayer] = useState<PrayerTime | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [progress, setProgress] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -136,13 +137,20 @@ export default function PrayerScreen() {
       setNextPrayer(next);
 
       if (prev && next) {
-        setTimeRemaining(getTimeUntilPrayer(next));
-        const total = next.time.getTime() - prev.time.getTime();
+        // Fajr's window ends at Sunrise, not at Dhuhr.
+        // All other prayers end at the start of the next obligatory prayer.
+        const isFajr = prev.name === "Fajr";
+        const endPrayer =
+          isFajr && prayerTimes.sunrise ? prayerTimes.sunrise : next;
+        setProgressEndPrayer(endPrayer);
+        setTimeRemaining(getTimeUntilPrayer(endPrayer));
+        const total = endPrayer.time.getTime() - prev.time.getTime();
         const elapsed = now - prev.time.getTime();
         setProgress(Math.min(1, Math.max(0, elapsed / total)));
       } else if (next) {
         // Before today's Fajr — nothing has started yet
         setTimeRemaining(getTimeUntilPrayer(next));
+        setProgressEndPrayer(next);
         setProgress(0);
       }
     }
@@ -331,9 +339,9 @@ export default function PrayerScreen() {
                 </View>
                 <View style={styles.progressFooter}>
                   <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>{Math.round(progress * 100)}% elapsed</Text>
-                  {nextPrayer && (
+                  {progressEndPrayer && (
                     <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
-                      Next: {nextPrayer.name} at {nextPrayer.timeString}
+                      Next: {progressEndPrayer.name} at {progressEndPrayer.timeString}
                     </Text>
                   )}
                 </View>
