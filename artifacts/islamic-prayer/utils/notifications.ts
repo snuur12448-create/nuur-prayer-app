@@ -4,8 +4,10 @@ import { calculatePrayerTimes } from "./prayerTimes";
 import { getDailyAyahForDate } from "./ayahData";
 import { getDailyHadithForDate } from "./hadithData";
 import { RAW_EVENTS as ISLAMIC_RAW_EVENTS, hijriToJD, jdToDate, gregorianToHijri } from "./hijriCalendar";
+import { getAdhanStyle } from "./adhanData";
+import { PrayerNotifConfig, PrayerKey } from "./prayerNotifData";
 
-const PRAYER_KEYS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
+const PRAYER_KEYS: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
 
 const PRAYER_EMOJI: Record<string, string> = {
   Fajr: "🌙",
@@ -33,6 +35,33 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
 function truncate(text: string, max: number): string {
   return text.length <= max ? text : text.slice(0, max - 1) + "…";
+}
+
+/**
+ * Resolve the iOS notification sound for a prayer based on its per-prayer config.
+ *
+ * Rules (iOS only — .caf files bundled via expo-notifications plugin):
+ *   type === "silent"            → false  (vibrate only, no sound)
+ *   type === "notification"      → true   (default system sound)
+ *   type === "adhan"
+ *     adhanMode === "silent"     → false  (adhan is silenced)
+ *     adhanMode === "short"|"full" → "<id>.caf"  (28 s bundled clip)
+ *       Full Adhan: notification plays the short clip; foreground still plays
+ *       the full streaming adhan via react-native-track-player (unchanged).
+ *
+ * Android ignores this value and always uses its own channel sound.
+ */
+function resolveNotifSound(
+  type: "silent" | "notification" | "adhan",
+  adhanMode: "full" | "short" | "silent",
+  adhanStyleId: string,
+): boolean | string {
+  if (type === "silent") return false;
+  if (type === "notification") return true;
+  // type === "adhan"
+  if (adhanMode === "silent") return false;
+  const style = getAdhanStyle(adhanStyleId);
+  return style.cafFilename; // e.g. "adhan_makkah.caf"
 }
 
 const EVENT_EMOJI: Record<string, string> = {
@@ -71,6 +100,7 @@ export async function schedulePrayerNotifications(
   hadithHour = 8,
   hadithMinute = 0,
   islamicEventsEnabled = false,
+  prayerNotifConfig?: PrayerNotifConfig,
 ): Promise<void> {
   if (Platform.OS === "web") return;
   await Notifications.cancelAllScheduledNotificationsAsync();
@@ -86,7 +116,30 @@ export async function schedulePrayerNotifications(
 
     for (const key of PRAYER_KEYS) {
       const prayer = times[key];
-      if (prayer.time > now) {
+      if (prayer.time <= now) continue;
+
+      const cfg = prayerNotifConfig?.[key];
+
+      // If we have per-prayer config, respect it; fall back to plain sound: true
+      if (cfg) {
+        if (!cfg.enabled) continue;
+
+        // Day-of-week filter
+        const dow = prayer.time.getDay();
+        if (!cfg.days.includes(dow)) continue;
+
+        const sound = resolveNotifSound(cfg.type, cfg.adhanMode, cfg.adhanStyleId);
+
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `${PRAYER_EMOJI[prayer.name] ?? "🕌"} ${prayer.name} Prayer`,
+            body: `It is time for ${prayer.name} in ${city}`,
+            sound,
+          },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: prayer.time },
+        });
+      } else {
+        // Legacy fallback — no config saved yet, use default sound
         await Notifications.scheduleNotificationAsync({
           content: {
             title: `${PRAYER_EMOJI[prayer.name] ?? "🕌"} ${prayer.name} Prayer`,
@@ -95,6 +148,27 @@ export async function schedulePrayerNotifications(
           },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: prayer.time },
         });
+      }
+    }
+
+    // ── Sunrise reminder (X minutes before, if enabled) ──
+    const sunriseCfg = prayerNotifConfig?.sunrise;
+    if (sunriseCfg?.enabled) {
+      const minutesBefore = sunriseCfg.minutesBefore ?? 20;
+      const reminderTime = new Date(times.sunrise.time.getTime() - minutesBefore * 60_000);
+      if (reminderTime > now) {
+        const dow = reminderTime.getDay();
+        if (sunriseCfg.days.includes(dow)) {
+          const sound = resolveNotifSound(sunriseCfg.type, sunriseCfg.adhanMode, sunriseCfg.adhanStyleId);
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: `🌅 Sunrise in ${minutesBefore} minutes`,
+              body: `Sunrise at ${times.sunrise.timeString} in ${city}`,
+              sound,
+            },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderTime },
+          });
+        }
       }
     }
   }
@@ -189,7 +263,6 @@ export async function schedulePrayerNotifications(
         const isNightEvent = event.name.startsWith("Laylat") || event.name.includes("Laylatul");
 
         if (isNightEvent) {
-          // Night events: notify at 9pm on the same calendar date
           const nightTime = new Date(eventDateUTC);
           nightTime.setHours(21, 0, 0, 0);
           if (nightTime > now && nightTime.getTime() - now.getTime() <= maxFutureMs) {
@@ -208,7 +281,6 @@ export async function schedulePrayerNotifications(
             });
           }
         } else {
-          // Day events: notify at 7am on the day
           const morningTime = new Date(eventDateUTC);
           morningTime.setHours(7, 0, 0, 0);
           if (morningTime > now && morningTime.getTime() - now.getTime() <= maxFutureMs) {
@@ -226,7 +298,6 @@ export async function schedulePrayerNotifications(
               },
             });
 
-            // Major events also get an evening reminder the night before
             if (MAJOR_EVENTS.has(event.name)) {
               const eveTime = new Date(eventDateUTC);
               eveTime.setDate(eveTime.getDate() - 1);

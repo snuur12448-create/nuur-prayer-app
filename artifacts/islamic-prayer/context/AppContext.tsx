@@ -430,12 +430,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const hdHr      = hadithHrRaw  ? Math.min(23, Math.max(0, Number(hadithHrRaw)))  : 9;
           const hdMin     = hadithMinRaw ? Math.min(55, Math.max(0, Number(hadithMinRaw))) : 0;
           const evEnabled = islamicEventsRaw === "true";
+          const startupNotifConfig: PrayerNotifConfig = prayerNotifRaw
+            ? { ...DEFAULT_PRAYER_NOTIF_CONFIG, ...(JSON.parse(prayerNotifRaw) as PrayerNotifConfig) }
+            : DEFAULT_PRAYER_NOTIF_CONFIG;
           await schedulePrayerNotifications(
             loc.latitude, loc.longitude, loc.timezone, loc.city,
             jEnabled, jMins,
             ayEnabled, ayHr, ayMin,
             hdEnabled, hdHr, hdMin,
             evEnabled,
+            startupNotifConfig,
           );
         } catch {}
       }
@@ -503,6 +507,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
           hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
           islamicEventsRef.current,
+          prayerNotifConfigRef.current,
         );
       }
     } else {
@@ -536,12 +541,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setPrayerNotifSettings = useCallback(async (key: PrayerKey, settings: PrayerNotifSettings) => {
+    let nextConfig: PrayerNotifConfig;
     setPrayerNotifConfigState((prev) => {
-      const next = { ...prev, [key]: settings };
-      AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(next)).catch(() => {});
-      return next;
+      nextConfig = { ...prev, [key]: settings };
+      AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(nextConfig)).catch(() => {});
+      return nextConfig;
     });
-  }, []);
+    // Reschedule so the new sound/type/days take effect immediately
+    if (notificationsRef.current && location) {
+      // nextConfig is set synchronously by the setState updater before the
+      // await below; use a short timeout so state has flushed
+      setTimeout(async () => {
+        await schedulePrayerNotifications(
+          location.latitude, location.longitude, location.timezone, location.city,
+          jummahReminderRef.current, jummahMinutesRef.current,
+          ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
+          hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
+          islamicEventsRef.current,
+          prayerNotifConfigRef.current,
+        );
+      }, 50);
+    }
+  }, [location]);
 
   // Master bell: toggles all 5 prayer notifications (excludes Sunrise).
   // If all 5 are on → turns all off.
@@ -582,6 +603,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
         hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
         islamicEventsRef.current,
+        prayerNotifConfigRef.current,
       );
     }
   }, [location]);
@@ -600,6 +622,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
         hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
         islamicEventsRef.current,
+        prayerNotifConfigRef.current,
       );
     }
   }, [location]);
@@ -620,6 +643,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         enabled, hour, minute,
         hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
         islamicEventsRef.current,
+        prayerNotifConfigRef.current,
       );
     }
   }, [location]);
@@ -640,6 +664,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
         enabled, hour, minute,
         islamicEventsRef.current,
+        prayerNotifConfigRef.current,
       );
     }
   }, [location]);
@@ -654,6 +679,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
         hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
         enabled,
+        prayerNotifConfigRef.current,
       );
     }
   }, [location]);
@@ -710,6 +736,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
           hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
           islamicEventsRef.current,
+          prayerNotifConfigRef.current,
         );
       }
     } catch {

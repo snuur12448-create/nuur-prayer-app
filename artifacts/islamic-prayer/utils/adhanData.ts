@@ -12,6 +12,7 @@ export interface AdhanStyle {
   audioUrl: string;       // Full Adhan — Dhuhr/Asr/Maghrib/Isha (~2–3.5 min)
   fajrAudioUrl: string;   // Adhan Al-Fajr — includes "As-salatu khayrun minan nawm" (~3–5 min)
   shortAudioUrl: string;  // Short Adhan — condensed (~2 min)
+  cafFilename: string;    // Bundled .caf file for iOS background notifications (28s clip)
 }
 
 export const ADHAN_STYLES: AdhanStyle[] = [
@@ -25,6 +26,7 @@ export const ADHAN_STYLES: AdhanStyle[] = [
     audioUrl: "https://www.islamcan.com/audio/adhan/azan1.mp3",
     fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan9.mp3",
     shortAudioUrl: "https://www.islamcan.com/audio/adhan/azan6.mp3",
+    cafFilename: "adhan_makkah.caf",
   },
   {
     id: "madinah",
@@ -36,6 +38,7 @@ export const ADHAN_STYLES: AdhanStyle[] = [
     audioUrl: "https://www.islamcan.com/audio/adhan/azan2.mp3",
     fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan10.mp3",
     shortAudioUrl: "https://www.islamcan.com/audio/adhan/azan19.mp3",
+    cafFilename: "adhan_madinah.caf",
   },
   {
     id: "afasy",
@@ -47,6 +50,7 @@ export const ADHAN_STYLES: AdhanStyle[] = [
     audioUrl: "https://www.islamcan.com/audio/adhan/azan3.mp3",
     fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan12.mp3",
     shortAudioUrl: "https://www.islamcan.com/audio/adhan/azan8.mp3",
+    cafFilename: "adhan_afasy.caf",
   },
   {
     id: "egyptian",
@@ -58,6 +62,7 @@ export const ADHAN_STYLES: AdhanStyle[] = [
     audioUrl: "https://www.islamcan.com/audio/adhan/azan4.mp3",
     fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan14.mp3",
     shortAudioUrl: "https://www.islamcan.com/audio/adhan/azan17.mp3",
+    cafFilename: "adhan_egyptian.caf",
   },
   {
     id: "turkish",
@@ -69,6 +74,7 @@ export const ADHAN_STYLES: AdhanStyle[] = [
     audioUrl: "https://www.islamcan.com/audio/adhan/azan5.mp3",
     fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan18.mp3",
     shortAudioUrl: "https://www.islamcan.com/audio/adhan/azan20.mp3",
+    cafFilename: "adhan_turkish.caf",
   },
 ];
 
