@@ -25,6 +25,8 @@ function MiniPlayer() {
     currentSurahArabic,
     currentSurahName,
     selectedReciter,
+    autoAdvance,
+    setAutoAdvance,
     stopAudio,
     togglePlayPause,
     skipNext,
@@ -68,6 +70,13 @@ function MiniPlayer() {
         </Text>
       </View>
       <View style={styles.miniControls}>
+        <TouchableOpacity
+          onPress={() => setAutoAdvance(!autoAdvance)}
+          hitSlop={12}
+          style={[styles.miniRepeatBtn, autoAdvance && { backgroundColor: colors.tint + "20", borderRadius: 6 }]}
+        >
+          <Feather name="repeat" size={13} color={autoAdvance ? colors.tint : colors.textSecondary} />
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => skipPrevious()} hitSlop={12} style={styles.miniSkipBtn}>
           <Feather name="skip-back" size={14} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -268,6 +277,12 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  miniRepeatBtn: {
+    width: 26,
+    height: 26,
     alignItems: "center",
     justifyContent: "center",
   },

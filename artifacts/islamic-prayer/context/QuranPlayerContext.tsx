@@ -7,8 +7,11 @@ import React, {
   useState,
 } from "react";
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { DEFAULT_RECITER, getVerseAudioUrl, isSurahLevelReciter, Reciter } from "@/utils/audioData";
+
+const AUTO_ADVANCE_KEY = "nuur_quran_auto_advance";
 
 // react-native-track-player requires a custom native build and is NOT available
 // in Expo Go (executionEnvironment === "storeClient"). Importing it in Expo Go
@@ -51,6 +54,8 @@ interface QuranPlayerContextType {
   ) => Promise<void>;
   skipNext: () => Promise<void>;
   skipPrevious: () => Promise<void>;
+  autoAdvance: boolean;
+  setAutoAdvance: (value: boolean) => void;
   setSelectedReciter: (reciter: Reciter) => void;
   setPlaybackRate: (rate: number) => void;
 }
@@ -68,6 +73,8 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
   const [currentSurahNum, setCurrentSurahNum] = useState<number | null>(null);
   const [currentSurahName, setCurrentSurahName] = useState<string | null>(null);
   const [currentSurahArabic, setCurrentSurahArabic] = useState<string | null>(null);
+  const [autoAdvance, setAutoAdvanceState] = useState<boolean>(true);
+  const autoAdvanceRef = useRef<boolean>(true);
 
   // Web-only refs
   const webSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -229,6 +236,44 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [playbackRate]);
 
+  // ── 5. Load persisted autoAdvance preference ─────────────────────────────────
+  useEffect(() => {
+    AsyncStorage.getItem(AUTO_ADVANCE_KEY)
+      .then((val) => {
+        if (val === "false") {
+          autoAdvanceRef.current = false;
+          setAutoAdvanceState(false);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const setAutoAdvance = useCallback((value: boolean) => {
+    autoAdvanceRef.current = value;
+    setAutoAdvanceState(value);
+    AsyncStorage.setItem(AUTO_ADVANCE_KEY, String(value)).catch(() => {});
+    // When turning OFF on native TrackPlayer, reset the queue to single current verse
+    if (!value && Platform.OS !== "web" && !isExpoGo) {
+      (async () => {
+        try {
+          const TrackPlayer = (await import("react-native-track-player")).default;
+          const track = await TrackPlayer.getActiveTrack();
+          if (track) {
+            const queue = await TrackPlayer.getQueue();
+            const activeIdx = await TrackPlayer.getActiveTrackIndex();
+            if (activeIdx !== null && activeIdx !== undefined && queue.length > activeIdx + 1) {
+              // Remove all tracks after the current one
+              const removeCount = queue.length - activeIdx - 1;
+              for (let i = 0; i < removeCount; i++) {
+                try { await TrackPlayer.remove(activeIdx + 1); } catch {}
+              }
+            }
+          }
+        } catch {}
+      })();
+    }
+  }, []);
+
   // ── stopAudio ────────────────────────────────────────────────────────────────
   const stopAudio = useCallback(async () => {
     if (Platform.OS === "web") {
@@ -388,7 +433,7 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
           const curSurahArabic = surahArabicRef.current;
           const curSurahName = surahNameRef.current;
           const reciter = reciterRef.current;
-          if (!isSurahLevelReciter(reciter) && currentVerses) {
+          if (autoAdvanceRef.current && !isSurahLevelReciter(reciter) && currentVerses) {
             const next = currentVerses.find((v) => v.number === verse.number + 1);
             if (next) {
               playVerse(next, curSurahNum, curSurahArabic, curSurahName, currentVerses, true);
@@ -488,7 +533,7 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
               const curSurahArabic = surahArabicRef.current;
               const curSurahName = surahNameRef.current;
               const reciter = reciterRef.current;
-              if (!isSurahLevelReciter(reciter) && currentVerses) {
+              if (autoAdvanceRef.current && !isSurahLevelReciter(reciter) && currentVerses) {
                 const next = currentVerses.find((v) => v.number === verse.number + 1);
                 if (next) {
                   playVerse(next, curSurahNum, curSurahArabic, curSurahName, currentVerses, true);
@@ -527,7 +572,8 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
                 artwork: APP_ICON,
               },
             ];
-          } else {
+          } else if (autoAdvanceRef.current) {
+            // Queue all remaining verses so TrackPlayer advances automatically
             tracks = allVerses
               .filter((v) => v.number >= verse.number)
               .map((v) => ({
@@ -538,6 +584,18 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
                 album: "Quran · Nuur",
                 artwork: APP_ICON,
               }));
+          } else {
+            // Auto-advance is off — queue only the tapped verse
+            tracks = [
+              {
+                id: String(verse.number),
+                url,
+                title: `${surahArabic} — Ayah ${verse.number}`,
+                artist: reciter.name,
+                album: "Quran · Nuur",
+                artwork: APP_ICON,
+              },
+            ];
           }
 
           await TrackPlayer.reset();
@@ -625,6 +683,8 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
         togglePlayPause,
         skipNext,
         skipPrevious,
+        autoAdvance,
+        setAutoAdvance,
         setSelectedReciter,
         setPlaybackRate,
       }}

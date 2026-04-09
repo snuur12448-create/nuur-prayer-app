@@ -544,6 +544,8 @@ export default function QuranDetailScreen() {
     playbackRate,
     selectedReciter,
     currentSurahNum: playingSurahNum,
+    autoAdvance,
+    setAutoAdvance,
     playVerse: ctxPlayVerse,
     stopAudio,
     togglePlayPause: ctxTogglePlayPause,
@@ -1004,6 +1006,18 @@ export default function QuranDetailScreen() {
               <Text style={[styles.toggleChipText, { color: playbackRate !== 1.0 ? colors.tint : colors.textSecondary }]}>
                 {playbackRate === 0.75 ? "¾×" : playbackRate === 1.0 ? "1×" : `${playbackRate}×`}
               </Text>
+            </TouchableOpacity>
+          )}
+          {/* Auto-advance toggle */}
+          {!hafidhMode && (
+            <TouchableOpacity
+              style={[styles.toggleChip, {
+                backgroundColor: autoAdvance ? colors.tint + "20" : colors.surfaceElevated,
+                borderColor: autoAdvance ? colors.tint + "60" : colors.border,
+              }]}
+              onPress={() => setAutoAdvance(!autoAdvance)}
+            >
+              <Feather name="repeat" size={13} color={autoAdvance ? colors.tint : colors.textSecondary} />
             </TouchableOpacity>
           )}
           {/* Transliteration toggle — hidden in hafidh mode */}
