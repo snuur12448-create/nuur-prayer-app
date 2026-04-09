@@ -502,9 +502,9 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
           setPlayState("idle");
         }
       } else if (isExpoGo) {
-        // ── EXPO GO PATH (expo-av Sound — no lock-screen controls) ──────────
+        // ── EXPO GO PATH (expo-av Audio.Sound — no lock-screen controls) ──────
         try {
-          const { Sound } = await import("expo-av");
+          const { Audio } = await import("expo-av");
           // Unload any previous sound
           if (expoAvSoundRef.current) {
             try {
@@ -513,7 +513,7 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
             } catch {}
             expoAvSoundRef.current = null;
           }
-          const { sound } = await Sound.createAsync(
+          const { sound } = await Audio.Sound.createAsync(
             { uri: url },
             { shouldPlay: true, volume: 1.0 }
           );

@@ -146,10 +146,10 @@ function buildParams(methodId: CalcMethodId, madhabId: MadhabId, highLatRuleId: 
 
   switch (highLatRuleId) {
     case 'MiddleOfNight':
-      params.highLatitudeRule = HighLatitudeRule.MiddleOfNight;
+      params.highLatitudeRule = HighLatitudeRule.MiddleOfTheNight;
       break;
     case 'SeventhOfNight':
-      params.highLatitudeRule = HighLatitudeRule.SeventhOfNight;
+      params.highLatitudeRule = HighLatitudeRule.SeventhOfTheNight;
       break;
     case 'TwilightAngle':
       params.highLatitudeRule = HighLatitudeRule.TwilightAngle;

@@ -24,7 +24,7 @@ import ContentShareSheet from "@/components/ContentShareSheet";
 import { getIslamicDate } from "@/utils/islamicData";
 import { getDailyAyah } from "@/utils/ayahData";
 import { getDailyHadith } from "@/utils/hadithData";
-import { calculatePrayerTimes, getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
+import { calculatePrayerTimes, applyPrayerOffsets, getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
 import { PrayerKey } from "@/utils/prayerNotifData";
 import { GuideSection } from "@/components/GuideSection";
 
@@ -46,7 +46,7 @@ export default function PrayerScreen() {
     prayerTimes, location, isLoadingLocation, locationError,
     refreshPrayerTimes, requestLocation, setManualLocation,
     themeColors: colors, notificationsEnabled,
-    timeFormat, calcMethod, madhab, highLatRule,
+    timeFormat, calcMethod, madhab, highLatRule, prayerOffsets,
     prayerNotifConfig, setPrayerNotifSettings, toggleMasterPrayerBell,
   } = useAppContext();
 
@@ -132,7 +132,7 @@ export default function PrayerScreen() {
       if (!next && location) {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowTimes = calculatePrayerTimes(
+        const rawTomorrow = calculatePrayerTimes(
           location.latitude,
           location.longitude,
           location.timezone,
@@ -142,6 +142,7 @@ export default function PrayerScreen() {
           highLatRule,
           timeFormat,
         );
+        const tomorrowTimes = applyPrayerOffsets(rawTomorrow, prayerOffsets, location.timezone, timeFormat);
         next = tomorrowTimes.fajr;
       }
       setNextPrayer(next);
@@ -164,7 +165,7 @@ export default function PrayerScreen() {
         setProgress(0);
       }
     }
-  }, [prayerTimes, currentTime, location, calcMethod, madhab, highLatRule, timeFormat]);
+  }, [prayerTimes, currentTime, location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets]);
 
   useEffect(() => {
     const anim = Animated.loop(

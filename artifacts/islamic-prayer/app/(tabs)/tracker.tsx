@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
-import { calculatePrayerTimes, PrayerTimesResult } from "@/utils/prayerTimes";
+import { calculatePrayerTimes, applyPrayerOffsets, PrayerTimesResult } from "@/utils/prayerTimes";
 import { getIslamicDateForDate } from "@/utils/islamicData";
 
 const STORAGE_KEY = "nuur_prayer_tracker";
@@ -137,7 +137,7 @@ function CheckBox({ checked, color, onPress }: { checked: boolean; color: string
 export default function TrackerScreen() {
   const insets = useSafeAreaInsets();
   const miniPlayerH = useMiniPlayerHeight();
-  const { themeColors: colors, location, calcMethod, madhab, highLatRule, timeFormat } = useAppContext();
+  const { themeColors: colors, location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets } = useAppContext();
   const [selectedKey, setSelectedKey] = useState(todayKey());
   const [trackerData, setTrackerData] = useState<TrackerData>({});
   const [loaded, setLoaded] = useState(false);
@@ -204,12 +204,13 @@ export default function TrackerScreen() {
 
   useEffect(() => {
     if (!location) return;
-    const result = calculatePrayerTimes(
+    const raw = calculatePrayerTimes(
       location.latitude, location.longitude, location.timezone,
       selectedDate, calcMethod, madhab, highLatRule, timeFormat
     );
-    setPrayerTimes(result);
-  }, [selectedKey, location, calcMethod, madhab, highLatRule, timeFormat]);
+    const adjusted = applyPrayerOffsets(raw, prayerOffsets, location.timezone, timeFormat);
+    setPrayerTimes(adjusted);
+  }, [selectedKey, location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets]);
 
   const togglePrayer = useCallback((prayer: PrayerKey) => {
     setTrackerData((prev) => {

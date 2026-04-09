@@ -321,15 +321,16 @@ function CompassFace({
       {degreeLabels.map((deg) => {
         const rad = (deg - 90) * (Math.PI / 180);
         const r = OUTER_R - 24;
+        const DegText = SvgText as any;
         return (
-          <SvgText
+          <DegText
             key={deg}
             x={CX + r * Math.cos(rad)} y={CX + r * Math.sin(rad)}
             textAnchor="middle" dominantBaseline="central"
             fill={textColor} fontSize="8" opacity={0.6}
           >
             {deg}
-          </SvgText>
+          </DegText>
         );
       })}
 
@@ -337,15 +338,16 @@ function CompassFace({
       {intercardinals.map(({ label, angle }) => {
         const rad = (angle - 90) * (Math.PI / 180);
         const r = OUTER_R - 22;
+        const IntercardinalText = SvgText as any;
         return (
-          <SvgText
+          <IntercardinalText
             key={label}
             x={CX + r * Math.cos(rad)} y={CX + r * Math.sin(rad)}
             textAnchor="middle" dominantBaseline="central"
             fill={textColor} fontSize="9" opacity={0.75}
           >
             {label}
-          </SvgText>
+          </IntercardinalText>
         );
       })}
 
@@ -353,15 +355,16 @@ function CompassFace({
       {cardinalAngles.map(({ label, angle, color, size, weight }) => {
         const rad = (angle - 90) * (Math.PI / 180);
         const r = OUTER_R - 21;
+        const CardinalText = SvgText as any;
         return (
-          <SvgText
+          <CardinalText
             key={label}
             x={CX + r * Math.cos(rad)} y={CX + r * Math.sin(rad)}
             textAnchor="middle" dominantBaseline="central"
             fill={color} fontSize={size.toString()} fontWeight={weight}
           >
             {label}
-          </SvgText>
+          </CardinalText>
         );
       })}
 

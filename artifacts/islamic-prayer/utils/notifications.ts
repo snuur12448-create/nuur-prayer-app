@@ -27,6 +27,8 @@ Notifications.setNotificationHandler({
     const isPrayerAdhan = data?.type === "prayer" && data?.notifType === "adhan";
     return {
       shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: !isPrayerAdhan,
       shouldSetBadge: false,
     };

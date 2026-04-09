@@ -529,7 +529,7 @@ export default function QuranDetailScreen() {
   useEffect(() => { estimatedItemHeightRef.current = estimatedItemHeight; }, [estimatedItemHeight]);
 
   const getHafidhItemLayout = useCallback(
-    (_data: Verse[] | null, index: number) => ({
+    (_data: ArrayLike<Verse> | null | undefined, index: number) => ({
       length: ITEM_H_HAFIDH,
       offset: LIST_HEADER_H + ITEM_H_HAFIDH * index,
       index,
@@ -754,8 +754,8 @@ export default function QuranDetailScreen() {
     } else {
       (async () => {
         try {
-          const { Sound } = await import("expo-av");
-          const { sound } = await Sound.createAsync({ uri: url }, { shouldPlay: true });
+          const { Audio } = await import("expo-av");
+          const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
           previewAudioRef.current = sound;
           sound.setOnPlaybackStatusUpdate((status: any) => {
             if (status.didJustFinish) setPreviewingId(null);
@@ -883,8 +883,8 @@ export default function QuranDetailScreen() {
       audio.play().catch(() => {});
     } else {
       try {
-        const { Sound } = await import("expo-av");
-        const { sound } = await Sound.createAsync({ uri: url }, { shouldPlay: true });
+        const { Audio } = await import("expo-av");
+        const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
         wordAudioRef.current = sound;
         sound.setOnPlaybackStatusUpdate((s: any) => {
           if (s.didJustFinish) sound.unloadAsync().catch(() => {});
