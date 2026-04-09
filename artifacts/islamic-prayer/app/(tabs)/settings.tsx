@@ -31,7 +31,7 @@ import { ADHAN_STYLES, AdhanStyle, AdhanMode, ADHAN_MODE_INFO } from "@/utils/ad
 import { previewAdhan, stopAdhanAudio } from "@/utils/adhanPlayer";
 
 const isWeb = Platform.OS === "web";
-const THEME_ORDER: ThemeName[] = ["emerald", "midnight", "amber", "violet", "rose"];
+const THEME_ORDER: ThemeName[] = ["emerald", "midnight", "gold", "slate", "burgundy"];
 
 function SectionHeader({ title, colors }: { title: string; colors: any }) {
   return (

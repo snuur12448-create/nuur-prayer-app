@@ -12,7 +12,7 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import { THEMES, ThemeName } from "@/constants/themes";
 import { useAppContext } from "@/context/AppContext";
 
-const THEME_ORDER: ThemeName[] = ["emerald", "midnight", "amber", "violet", "rose"];
+const THEME_ORDER: ThemeName[] = ["emerald", "midnight", "gold", "slate", "burgundy"];
 
 function ThemeSwatch({
   name,
