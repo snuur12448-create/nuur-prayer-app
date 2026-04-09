@@ -1,10 +1,10 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import * as Clipboard from "expo-clipboard";
 import {
   ActivityIndicator,
   Animated,
-  Clipboard,
   FlatList,
   Platform,
   Pressable,
@@ -133,7 +133,7 @@ export default function HadithsScreen() {
     if (Platform.OS === "web") {
       navigator.clipboard?.writeText(text).catch(() => {});
     } else {
-      Clipboard.setString(text);
+      Clipboard.setStringAsync(text).catch(() => {});
     }
     setCopiedId(h.id);
     setTimeout(() => setCopiedId(null), 2000);

@@ -1,9 +1,9 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import * as Clipboard from "expo-clipboard";
 import {
   Animated,
-  Clipboard,
   FlatList,
   Platform,
   Pressable,
@@ -224,7 +224,7 @@ export default function DuaScreen() {
     if (Platform.OS === "web") {
       navigator.clipboard?.writeText(text).catch(() => {});
     } else {
-      Clipboard.setString(text);
+      Clipboard.setStringAsync(text).catch(() => {});
     }
   }, []);
 

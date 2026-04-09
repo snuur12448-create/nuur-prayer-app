@@ -74,7 +74,11 @@ function getWeekStrip(anchor: string): string[] {
 function calcStreak(data: TrackerData): number {
   const today = new Date();
   let streak = 0;
-  for (let i = 0; i < 365; i++) {
+  // If today isn't fully complete yet, start counting from yesterday so an
+  // in-progress day doesn't wipe out a multi-day streak.
+  const todayComplete = countCompleted(data[dateKey(today)] || {}) === 5;
+  const startOffset = todayComplete ? 0 : 1;
+  for (let i = startOffset; i < 365; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const k = dateKey(d);

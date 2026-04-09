@@ -3,9 +3,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Font from "expo-font";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import * as Clipboard from "expo-clipboard";
 import {
   ActivityIndicator,
-  Clipboard,
   FlatList,
   Modal,
   Platform,
@@ -788,7 +788,7 @@ export default function QuranDetailScreen() {
     if (Platform.OS === "web") {
       navigator.clipboard?.writeText(text).catch(() => {});
     } else {
-      Clipboard.setString(text);
+      Clipboard.setStringAsync(text).catch(() => {});
     }
     setCopiedVerse(verse.number);
     setTimeout(() => setCopiedVerse(null), 2000);

@@ -1,10 +1,10 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import * as Clipboard from "expo-clipboard";
 import {
   ActivityIndicator,
   Animated,
-  Clipboard,
   Platform,
   Pressable,
   RefreshControl,
@@ -83,7 +83,7 @@ export default function PrayerScreen() {
     if (Platform.OS === "web") {
       navigator.clipboard?.writeText(text).catch(() => {});
     } else {
-      Clipboard.setString(text);
+      Clipboard.setStringAsync(text).catch(() => {});
     }
     setAyahCopied(true);
     setTimeout(() => setAyahCopied(false), 2000);
@@ -94,16 +94,24 @@ export default function PrayerScreen() {
     if (Platform.OS === "web") {
       navigator.clipboard?.writeText(text).catch(() => {});
     } else {
-      Clipboard.setString(text);
+      Clipboard.setStringAsync(text).catch(() => {});
     }
     setHadithCopied(true);
     setTimeout(() => setHadithCopied(false), 2000);
   }, [dailyHadith]);
 
+  // Refresh prayer times only when the calendar date changes (i.e. at midnight),
+  // not every minute — the calculation for a given day is stable within that day.
+  const lastDateRef = useRef(new Date().toDateString());
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date());
-      refreshPrayerTimes();
+      const now = new Date();
+      setCurrentTime(now);
+      const todayStr = now.toDateString();
+      if (todayStr !== lastDateRef.current) {
+        lastDateRef.current = todayStr;
+        refreshPrayerTimes();
+      }
     }, 60000);
     return () => clearInterval(timer);
   }, [refreshPrayerTimes]);
@@ -159,12 +167,14 @@ export default function PrayerScreen() {
   }, [prayerTimes, currentTime, location, calcMethod, madhab, highLatRule, timeFormat]);
 
   useEffect(() => {
-    Animated.loop(
+    const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.08, duration: 1200, useNativeDriver: false }),
         Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: false }),
       ])
-    ).start();
+    );
+    anim.start();
+    return () => anim.stop();
   }, []);
 
   const onRefresh = async () => {
