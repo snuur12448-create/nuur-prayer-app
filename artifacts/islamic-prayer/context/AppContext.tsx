@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Platform, useColorScheme } from "react-native";
 import {
@@ -343,6 +344,63 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, []);
 
+  // ── Notification tap → adhan bridge ──
+  // When the user taps a prayer notification to open the app (background or cold
+  // start), the 15 s adhan watcher's window has usually already passed. This
+  // listener fires the in-app adhan playback so the user still hears it.
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+
+      // Only act on adhan-type prayer notifications
+      if (data?.type !== "prayer" || data?.notifType !== "adhan") return;
+
+      const mode = data.adhanMode as AdhanMode;
+      const styleId = data.adhanStyleId as string;
+      const key = data.key as string;
+
+      if (mode === "silent") return;
+
+      // Don't play adhan if the notification was delivered more than 10 minutes
+      // ago — playing the call to prayer long after the time has passed is jarring.
+      // `response.notification.date` is seconds since epoch on iOS.
+      const deliveredMs = response.notification.date * 1000;
+      if (Date.now() - deliveredMs > 10 * 60 * 1000) return;
+
+      const style = getAdhanStyle(styleId);
+      const isFajr = key === "fajr";
+      const url = resolveAdhanUrl(style, mode, isFajr);
+
+      // Derive prayer name from live prayer times if available, else from the key
+      const times = prayerTimesRef.current;
+      const prayerEntry = times?.[key as keyof PrayerTimesResult] as { name?: string; arabicName?: string } | undefined;
+      const prayerName = prayerEntry?.name ?? (key.charAt(0).toUpperCase() + key.slice(1));
+      const prayerArabicName = prayerEntry?.arabicName ?? "";
+
+      setAdhanPrayerName(prayerName);
+      setAdhanPrayerArabicName(prayerArabicName);
+      setAdhanIsSilent(false);
+      setAdhanPlaying(true);
+
+      const finish = () => {
+        setAdhanPlaying(false);
+        setAdhanIsSilent(false);
+        setAdhanPrayerName(null);
+        setAdhanPrayerArabicName(null);
+      };
+
+      if (url) {
+        playAdhanAudio(url, finish);
+      } else {
+        setTimeout(finish, 5000);
+      }
+    });
+
+    return () => sub.remove();
+  }, []);
+
   // ── Init ──
   useEffect(() => {
     loadPreferences();
@@ -541,16 +599,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setPrayerNotifSettings = useCallback(async (key: PrayerKey, settings: PrayerNotifSettings) => {
-    let nextConfig: PrayerNotifConfig;
+    // Capture the updated config synchronously inside the setState updater so
+    // the reschedule always uses the NEW value, not the stale ref.
+    let capturedConfig: PrayerNotifConfig = prayerNotifConfigRef.current; // safe default
     setPrayerNotifConfigState((prev) => {
-      nextConfig = { ...prev, [key]: settings };
-      AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(nextConfig)).catch(() => {});
-      return nextConfig;
+      capturedConfig = { ...prev, [key]: settings };
+      AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(capturedConfig)).catch(() => {});
+      return capturedConfig;
     });
-    // Reschedule so the new sound/type/days take effect immediately
     if (notificationsRef.current && location) {
-      // nextConfig is set synchronously by the setState updater before the
-      // await below; use a short timeout so state has flushed
       setTimeout(async () => {
         await schedulePrayerNotifications(
           location.latitude, location.longitude, location.timezone, location.city,
@@ -558,7 +615,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
           hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
           islamicEventsRef.current,
-          prayerNotifConfigRef.current,
+          capturedConfig, // the freshly-updated config, not the stale ref
         );
       }, 50);
     }

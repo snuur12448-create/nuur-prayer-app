@@ -59,8 +59,7 @@
             "./assets/sounds/adhan_madinah.caf",
             "./assets/sounds/adhan_afasy.caf",
             "./assets/sounds/adhan_egyptian.caf",
-            "./assets/sounds/adhan_turkish.caf",
-            "./assets/sounds/adhan_silent.caf"
+            "./assets/sounds/adhan_turkish.caf"
           ]
         }
       ],

@@ -18,11 +18,19 @@ const PRAYER_EMOJI: Record<string, string> = {
 };
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    // When the app is in the foreground, suppress the .caf sound for adhan-type
+    // prayer notifications — the in-app adhan watcher handles audio within 15 s
+    // of prayer time and we don't want both sounds playing at once.
+    // All other notification types (jummah, ayah, hadith, etc.) keep their sound.
+    const data = notification.request.content.data as Record<string, unknown> | undefined;
+    const isPrayerAdhan = data?.type === "prayer" && data?.notifType === "adhan";
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: !isPrayerAdhan,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -135,6 +143,18 @@ export async function schedulePrayerNotifications(
             title: `${PRAYER_EMOJI[prayer.name] ?? "🕌"} ${prayer.name} Prayer`,
             body: `It is time for ${prayer.name} in ${city}`,
             sound,
+            // Structured data used by:
+            //  • setNotificationHandler — suppresses .caf when adhan watcher
+            //    will play full audio in the foreground
+            //  • addNotificationResponseReceivedListener — plays adhan when
+            //    user taps the notification to open the app
+            data: {
+              type: "prayer",
+              key,
+              notifType: cfg.type,
+              adhanStyleId: cfg.adhanStyleId,
+              adhanMode: cfg.adhanMode,
+            },
           },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: prayer.time },
         });
@@ -145,6 +165,7 @@ export async function schedulePrayerNotifications(
             title: `${PRAYER_EMOJI[prayer.name] ?? "🕌"} ${prayer.name} Prayer`,
             body: `It is time for ${prayer.name} in ${city}`,
             sound: true,
+            data: { type: "prayer", key },
           },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: prayer.time },
         });
