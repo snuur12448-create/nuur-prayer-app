@@ -26,6 +26,7 @@ import {
   MadhabId,
   HighLatRuleId,
   TimeFormat,
+  PrayerOffsets,
 } from "@/utils/prayerTimes";
 import { ADHAN_STYLES, AdhanStyle, AdhanMode, ADHAN_MODE_INFO } from "@/utils/adhanData";
 import { previewAdhan, stopAdhanAudio } from "@/utils/adhanPlayer";
@@ -526,6 +527,7 @@ export default function SettingsScreen() {
     adhanStyleId, setAdhanStyleId,
     adhanMode, setAdhanMode,
     adhanCurrentStyle,
+    prayerOffsets, setPrayerOffsets,
   } = useAppContext();
 
   const [showMethodModal, setShowMethodModal] = useState(false);
@@ -656,6 +658,56 @@ export default function SettingsScreen() {
               })}
             </View>
           </View>
+
+          <RowSeparator colors={colors} />
+
+          {/* Prayer Time Adjustments */}
+          <View style={styles.cardRow}>
+            <View style={styles.rowLeft}>
+              <Feather name="sliders" size={16} color={colors.tint} style={styles.rowIcon} />
+              <View>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Prayer Time Adjustments</Text>
+                <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                  Fine-tune times ±15 min to match local mosque
+                </Text>
+              </View>
+            </View>
+          </View>
+          {(["fajr", "dhuhr", "asr", "maghrib", "isha"] as (keyof PrayerOffsets)[]).map((key) => {
+            const LABELS: Record<string, string> = {
+              fajr: "Fajr", dhuhr: "Dhuhr", asr: "Asr", maghrib: "Maghrib", isha: "Isha",
+            };
+            const val = prayerOffsets[key];
+            const label = val === 0 ? "0 min" : val > 0 ? `+${val} min` : `${val} min`;
+            return (
+              <View key={key} style={[styles.offsetRow, { borderTopColor: colors.border }]}>
+                <Text style={[styles.offsetPrayerLabel, { color: colors.text }]}>{LABELS[key]}</Text>
+                <View style={styles.offsetStepper}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const next = Math.max(-15, val - 1);
+                      setPrayerOffsets({ ...prayerOffsets, [key]: next });
+                    }}
+                    style={[styles.offsetBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                  >
+                    <Feather name="minus" size={14} color={val <= -15 ? colors.border : colors.tint} />
+                  </TouchableOpacity>
+                  <Text style={[styles.offsetValue, { color: val === 0 ? colors.textSecondary : colors.tint }]}>
+                    {label}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const next = Math.min(15, val + 1);
+                      setPrayerOffsets({ ...prayerOffsets, [key]: next });
+                    }}
+                    style={[styles.offsetBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                  >
+                    <Feather name="plus" size={14} color={val >= 15 ? colors.border : colors.tint} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
         </View>
 
         {/* ── DISPLAY ── */}
@@ -1322,4 +1374,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   timeDoneLabel: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
+
+  offsetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+  },
+  offsetPrayerLabel: { fontSize: 14, fontFamily: "Inter_500Medium", flex: 1 },
+  offsetStepper: { flexDirection: "row", alignItems: "center", gap: 10 },
+  offsetBtn: {
+    width: 30, height: 30, borderRadius: 8,
+    borderWidth: 1, alignItems: "center", justifyContent: "center",
+  },
+  offsetValue: { fontSize: 13, fontFamily: "Inter_600SemiBold", minWidth: 52, textAlign: "center" },
 });

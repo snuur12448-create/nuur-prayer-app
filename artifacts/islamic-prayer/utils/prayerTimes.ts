@@ -194,6 +194,49 @@ export function calculatePrayerTimes(
   };
 }
 
+// ── Prayer time offset types & helpers ───────────────────────────────────────
+
+export type PrayerOffsets = {
+  fajr: number;
+  sunrise: number;
+  dhuhr: number;
+  asr: number;
+  maghrib: number;
+  isha: number;
+};
+
+export const DEFAULT_PRAYER_OFFSETS: PrayerOffsets = {
+  fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0,
+};
+
+/**
+ * Returns a new PrayerTimesResult with each prayer's time and display string
+ * shifted by the corresponding minute offset.  Zero-offset prayers are
+ * returned unchanged (same object reference) so downstream memo comparisons
+ * don't trigger unnecessarily.
+ */
+export function applyPrayerOffsets(
+  result: PrayerTimesResult,
+  offsets: PrayerOffsets,
+  timezone: number,
+  timeFormat: TimeFormat = '12h',
+): PrayerTimesResult {
+  const shift = (pt: PrayerTime, mins: number): PrayerTime => {
+    if (mins === 0) return pt;
+    const shifted = new Date(pt.time.getTime() + mins * 60_000);
+    return { ...pt, time: shifted, timeString: fmtWithTz(shifted, timezone, timeFormat) };
+  };
+  return {
+    ...result,
+    fajr:    shift(result.fajr,    offsets.fajr),
+    sunrise: shift(result.sunrise, offsets.sunrise),
+    dhuhr:   shift(result.dhuhr,   offsets.dhuhr),
+    asr:     shift(result.asr,     offsets.asr),
+    maghrib: shift(result.maghrib, offsets.maghrib),
+    isha:    shift(result.isha,    offsets.isha),
+  };
+}
+
 export function getNextPrayer(prayers: PrayerTimesResult): PrayerTime | null {
   const now = new Date();
   const list = [prayers.fajr, prayers.dhuhr, prayers.asr, prayers.maghrib, prayers.isha];

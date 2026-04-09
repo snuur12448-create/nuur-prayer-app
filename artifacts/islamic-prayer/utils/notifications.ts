@@ -1,6 +1,6 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { calculatePrayerTimes } from "./prayerTimes";
+import { calculatePrayerTimes, applyPrayerOffsets, DEFAULT_PRAYER_OFFSETS, PrayerOffsets } from "./prayerTimes";
 import { getDailyAyahForDate } from "./ayahData";
 import { getDailyHadithForDate } from "./hadithData";
 import { RAW_EVENTS as ISLAMIC_RAW_EVENTS, hijriToJD, jdToDate, gregorianToHijri } from "./hijriCalendar";
@@ -109,18 +109,21 @@ export async function schedulePrayerNotifications(
   hadithMinute = 0,
   islamicEventsEnabled = false,
   prayerNotifConfig?: PrayerNotifConfig,
+  prayerOffsets?: PrayerOffsets,
 ): Promise<void> {
   if (Platform.OS === "web") return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 
   const now = new Date();
+  const offsets = prayerOffsets ?? DEFAULT_PRAYER_OFFSETS;
 
   // ── Prayer notifications (next 7 days) ──
   for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
     const targetDate = new Date(now);
     targetDate.setDate(now.getDate() + dayOffset);
 
-    const times = calculatePrayerTimes(lat, lng, tz, targetDate);
+    const raw = calculatePrayerTimes(lat, lng, tz, targetDate);
+    const times = applyPrayerOffsets(raw, offsets, tz, "12h");
 
     for (const key of PRAYER_KEYS) {
       const prayer = times[key];

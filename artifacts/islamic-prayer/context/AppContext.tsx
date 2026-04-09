@@ -5,7 +5,10 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { Platform, useColorScheme } from "react-native";
 import {
   calculatePrayerTimes,
+  applyPrayerOffsets,
   PrayerTimesResult,
+  PrayerOffsets,
+  DEFAULT_PRAYER_OFFSETS,
   CalcMethodId,
   MadhabId,
   HighLatRuleId,
@@ -107,6 +110,8 @@ interface AppContextType {
   setHadithReminder: (enabled: boolean, hour: number, minute: number) => Promise<void>;
   islamicEventsEnabled: boolean;
   setIslamicEventsReminder: (enabled: boolean) => Promise<void>;
+  prayerOffsets: PrayerOffsets;
+  setPrayerOffsets: (offsets: PrayerOffsets) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -134,6 +139,7 @@ const STORAGE_KEYS = {
   HADITH_HOUR: "hadith_reminder_hour",
   HADITH_MINUTE: "hadith_reminder_minute",
   ISLAMIC_EVENTS_REMINDER: "islamic_events_reminder",
+  PRAYER_OFFSETS: "prayer_offsets",
 };
 
 function getTimezoneOffset(): number {
@@ -210,6 +216,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Islamic Calendar Events reminder
   const [islamicEventsEnabled, setIslamicEventsEnabledState] = useState(false);
 
+  // Per-prayer manual time offsets (±15 min)
+  const [prayerOffsets, setPrayerOffsetsState] = useState<PrayerOffsets>(DEFAULT_PRAYER_OFFSETS);
+  const prayerOffsetsRef = useRef<PrayerOffsets>(DEFAULT_PRAYER_OFFSETS);
+
   // Adhan state
   const [adhanEnabled, setAdhanEnabled] = useState(false);
   const [adhanStyleId, setAdhanStyleIdState] = useState<string>(DEFAULT_ADHAN_STYLE_ID);
@@ -255,6 +265,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { hadithHourRef.current = hadithReminderHour; }, [hadithReminderHour]);
   useEffect(() => { hadithMinuteRef.current = hadithReminderMinute; }, [hadithReminderMinute]);
   useEffect(() => { islamicEventsRef.current = islamicEventsEnabled; }, [islamicEventsEnabled]);
+  useEffect(() => { prayerOffsetsRef.current = prayerOffsets; }, [prayerOffsets]);
   useEffect(() => { adhanEnabledRef.current = adhanEnabled; }, [adhanEnabled]);
   useEffect(() => { adhanStyleIdRef.current = adhanStyleId; }, [adhanStyleId]);
   useEffect(() => { adhanModeRef.current = adhanMode; }, [adhanMode]);
@@ -275,16 +286,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (location) {
       try {
-        const times = calculatePrayerTimes(
+        const raw = calculatePrayerTimes(
           location.latitude, location.longitude, location.timezone,
           new Date(), calcMethod, madhab, highLatRule, timeFormat,
         );
-        setPrayerTimes(times);
+        const adjusted = applyPrayerOffsets(raw, prayerOffsets, location.timezone, timeFormat);
+        setPrayerTimes(adjusted);
       } catch (e) {
         console.warn("Prayer time calculation failed:", e);
       }
     }
-  }, [location, calcMethod, madhab, highLatRule, timeFormat]);
+  }, [location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets]);
 
   // ── Adhan prayer-time watcher ──
   useEffect(() => {
@@ -410,7 +422,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPreferences = async () => {
     try {
-      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw, islamicEventsRaw, locationRaw] =
+      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw, islamicEventsRaw, locationRaw, prayerOffsetsRaw] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.THEME),
           AsyncStorage.getItem(STORAGE_KEYS.DISPLAY_MODE),
@@ -433,6 +445,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(STORAGE_KEYS.HADITH_MINUTE),
           AsyncStorage.getItem(STORAGE_KEYS.ISLAMIC_EVENTS_REMINDER),
           AsyncStorage.getItem(STORAGE_KEYS.LOCATION),
+          AsyncStorage.getItem(STORAGE_KEYS.PRAYER_OFFSETS),
         ]);
       if (theme && theme in THEMES) setThemeNameState(theme as ThemeName);
       if (mode === "auto" || mode === "dark" || mode === "light") setDisplayModeState(mode);
@@ -467,6 +480,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (hadithHrRaw) { const h = Number(hadithHrRaw); if (h >= 0 && h <= 23) setHadithReminderHourState(h); }
       if (hadithMinRaw) { const m = Number(hadithMinRaw); if (m >= 0 && m <= 55) setHadithReminderMinuteState(m); }
       if (islamicEventsRaw === "true") setIslamicEventsEnabledState(true);
+      if (prayerOffsetsRaw) {
+        try {
+          const parsed = JSON.parse(prayerOffsetsRaw) as PrayerOffsets;
+          const merged = { ...DEFAULT_PRAYER_OFFSETS, ...parsed };
+          setPrayerOffsetsState(merged);
+          prayerOffsetsRef.current = merged;
+        } catch {}
+      }
 
       // ── Startup reschedule ───────────────────────────────────────────────────
       // Reschedule immediately using the just-parsed local values rather than
@@ -498,6 +519,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             hdEnabled, hdHr, hdMin,
             evEnabled,
             startupNotifConfig,
+            prayerOffsetsRef.current,
           );
         } catch {}
       }
@@ -566,6 +588,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
           islamicEventsRef.current,
           prayerNotifConfigRef.current,
+          prayerOffsetsRef.current,
         );
       }
     } else {
@@ -616,6 +639,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
           islamicEventsRef.current,
           capturedConfig, // the freshly-updated config, not the stale ref
+          prayerOffsetsRef.current,
         );
       }, 50);
     }
@@ -661,6 +685,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
         islamicEventsRef.current,
         prayerNotifConfigRef.current,
+        prayerOffsetsRef.current,
       );
     }
   }, [location]);
@@ -680,6 +705,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
         islamicEventsRef.current,
         prayerNotifConfigRef.current,
+        prayerOffsetsRef.current,
       );
     }
   }, [location]);
@@ -701,6 +727,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
         islamicEventsRef.current,
         prayerNotifConfigRef.current,
+        prayerOffsetsRef.current,
       );
     }
   }, [location]);
@@ -722,6 +749,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         enabled, hour, minute,
         islamicEventsRef.current,
         prayerNotifConfigRef.current,
+        prayerOffsetsRef.current,
       );
     }
   }, [location]);
@@ -737,6 +765,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
         enabled,
         prayerNotifConfigRef.current,
+        prayerOffsetsRef.current,
       );
     }
   }, [location]);
@@ -794,6 +823,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
           islamicEventsRef.current,
           prayerNotifConfigRef.current,
+          prayerOffsetsRef.current,
         );
       }
     } catch {
@@ -840,7 +870,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshPrayerTimes = useCallback(() => {
     if (location) {
       try {
-        const times = calculatePrayerTimes(
+        const raw = calculatePrayerTimes(
           location.latitude, location.longitude, location.timezone,
           new Date(),
           calcMethodRef.current,
@@ -848,10 +878,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           highLatRuleRef.current,
           timeFormatRef.current,
         );
-        setPrayerTimes(times);
+        const adjusted = applyPrayerOffsets(raw, prayerOffsetsRef.current, location.timezone, timeFormatRef.current);
+        setPrayerTimes(adjusted);
       } catch (e) {
         console.warn("Prayer time refresh failed:", e);
       }
+    }
+  }, [location]);
+
+  const setPrayerOffsets = useCallback(async (offsets: PrayerOffsets) => {
+    setPrayerOffsetsState(offsets);
+    prayerOffsetsRef.current = offsets;
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.PRAYER_OFFSETS, JSON.stringify(offsets));
+    } catch {}
+    if (notificationsRef.current && location) {
+      await schedulePrayerNotifications(
+        location.latitude, location.longitude, location.timezone, location.city,
+        jummahReminderRef.current, jummahMinutesRef.current,
+        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
+        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
+        islamicEventsRef.current,
+        prayerNotifConfigRef.current,
+        offsets,
+      );
     }
   }, [location]);
 
@@ -912,6 +962,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setHadithReminder,
         islamicEventsEnabled,
         setIslamicEventsReminder,
+        prayerOffsets,
+        setPrayerOffsets,
       }}
     >
       {children}
