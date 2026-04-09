@@ -300,8 +300,8 @@ export default function QuranScreen() {
         style={({ pressed }) => [
           crStyles.card,
           {
-            backgroundColor: colors.tint,
-            borderColor: `${GOLD}55`,
+            backgroundColor: colors.surfaceElevated,
+            borderColor: colors.tint + "55",
             opacity: pressed ? 0.88 : 1,
           },
         ]}
@@ -315,18 +315,18 @@ export default function QuranScreen() {
           })
         }
       >
-        <View style={crStyles.iconWrap}>
-          <Feather name="bookmark" size={22} color={GOLD} />
+        <View style={[crStyles.iconWrap, { backgroundColor: colors.tint + "22" }]}>
+          <Feather name="bookmark" size={22} color={colors.tint} />
         </View>
         <View style={crStyles.textCol}>
-          <Text style={crStyles.label}>Continue Reading</Text>
+          <Text style={[crStyles.label, { color: colors.tint }]}>Continue Reading</Text>
           <View style={crStyles.nameRow}>
-            <Text style={crStyles.nameEn}>{lastRead.surahNameEn}</Text>
-            <Text style={crStyles.nameAr}>{lastRead.surahNameAr}</Text>
+            <Text style={[crStyles.nameEn, { color: colors.text }]}>{lastRead.surahNameEn}</Text>
+            <Text style={[crStyles.nameAr, { color: colors.textSecondary }]}>{lastRead.surahNameAr}</Text>
           </View>
           <Text style={[crStyles.ayah, { color: GOLD }]}>Ayah {lastRead.ayahNum}</Text>
         </View>
-        <Feather name="chevron-right" size={20} color={`${GOLD}99`} />
+        <Feather name="chevron-right" size={20} color={colors.tint + "AA"} />
       </Pressable>
     );
   };
@@ -758,7 +758,6 @@ const crStyles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: "rgba(201,147,58,0.18)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -769,7 +768,6 @@ const crStyles = StyleSheet.create({
   label: {
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
-    color: "rgba(255,255,255,0.65)",
     textTransform: "uppercase",
     letterSpacing: 0.7,
   },
@@ -781,11 +779,9 @@ const crStyles = StyleSheet.create({
   nameEn: {
     fontSize: 16,
     fontFamily: "Inter_700Bold",
-    color: "#fff",
   },
   nameAr: {
     fontSize: 15,
-    color: "rgba(255,255,255,0.75)",
   },
   ayah: {
     fontSize: 12,
