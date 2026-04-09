@@ -21,7 +21,7 @@ import { HADITHS, HADITH_TOPICS, Hadith } from "@/utils/hadithData";
 import { useSavedItems } from "@/utils/useSavedItems";
 import ContentShareSheet from "@/components/ContentShareSheet";
 
-const SUNNAH_API_KEY = "SqD712P3E82xnwOAEOkGd5JZH8s9wRR24TqNFzjk";
+const SUNNAH_API_KEY = process.env.EXPO_PUBLIC_SUNNAH_API_KEY ?? "";
 const SUNNAH_RANDOM_URL = "https://api.sunnah.com/v1/hadiths/random";
 
 const SAHIH_COLLECTIONS = ["bukhari", "muslim", "riyadussalihin", "nawawi40"];

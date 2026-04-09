@@ -156,11 +156,15 @@ export default function TrackerScreen() {
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      if (raw) setTrackerData(JSON.parse(raw));
+      if (raw) {
+        try { setTrackerData(JSON.parse(raw)); } catch { /* corrupted — start fresh */ }
+      }
       setLoaded(true);
     });
     AsyncStorage.getItem(MILESTONE_KEY).then((raw) => {
-      if (raw) setFiredMilestones(JSON.parse(raw));
+      if (raw) {
+        try { setFiredMilestones(JSON.parse(raw)); } catch { /* corrupted — start fresh */ }
+      }
     });
   }, []);
 
