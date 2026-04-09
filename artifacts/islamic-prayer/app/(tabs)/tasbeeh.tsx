@@ -1,9 +1,12 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Circle, Svg } from "react-native-svg";
 import {
+  Alert,
   Animated,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -16,6 +19,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
+
+const ADDED_DHIKR_KEY = "nuur_added_dhikr";
 
 // ─────────────────────────────────────────────
 // Types & data — Counter presets
@@ -86,6 +91,109 @@ const DHIKR_PRESETS: DhikrPreset[] = [
     translation: "Allah is sufficient for us and He is the best guardian",
     target: 99,
     color: "#7B1FA2",
+  },
+];
+
+// ─────────────────────────────────────────────
+// Dhikr Library — curated additions
+// ─────────────────────────────────────────────
+
+const DHIKR_LIBRARY: DhikrPreset[] = [
+  {
+    id: "la_ilaha_illallah",
+    arabic: "لَا إِلَهَ إِلَّا اللَّهُ",
+    transliteration: "La ilaha illallah",
+    translation: "There is no god but Allah",
+    target: 100,
+    color: "#1B4332",
+  },
+  {
+    id: "la_hawla",
+    arabic: "لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ",
+    transliteration: "La hawla wala quwwata illa billah",
+    translation: "There is no power except with Allah",
+    target: 100,
+    color: "#5C4033",
+  },
+  {
+    id: "lib_astaghfirullah",
+    arabic: "أَسْتَغْفِرُ اللَّهَ",
+    transliteration: "Astaghfirullah",
+    translation: "I seek forgiveness from Allah",
+    target: 100,
+    color: "#6B4226",
+  },
+  {
+    id: "lib_salawat",
+    arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ",
+    transliteration: "Allahumma salli ala Muhammad",
+    translation: "O Allah, send blessings upon Muhammad",
+    target: 100,
+    color: "#1565C0",
+  },
+  {
+    id: "bismillah",
+    arabic: "بِسْمِ اللَّهِ",
+    transliteration: "Bismillah",
+    translation: "In the name of Allah",
+    target: 33,
+    color: "#00695C",
+  },
+  {
+    id: "la_ilaha_illa_anta",
+    arabic: "لَا إِلَهَ إِلَّا أَنتَ سُبْحَانَكَ",
+    transliteration: "La ilaha illa anta subhanak",
+    translation: "There is no god but You, glory be to You",
+    target: 33,
+    color: "#4527A0",
+  },
+  {
+    id: "hasbiyallah",
+    arabic: "حَسْبِيَ اللَّهُ",
+    transliteration: "Hasbiyallah",
+    translation: "Allah is sufficient for me",
+    target: 33,
+    color: "#AD1457",
+  },
+  {
+    id: "ya_allah",
+    arabic: "يَا اللَّهُ",
+    transliteration: "Ya Allah",
+    translation: "O Allah",
+    target: 33,
+    color: "#2E7D32",
+  },
+  {
+    id: "ya_hayyu_ya_qayyum",
+    arabic: "يَا حَيُّ يَا قَيُّومُ",
+    transliteration: "Ya Hayyu Ya Qayyum",
+    translation: "O Ever-Living, O Self-Sustaining",
+    target: 33,
+    color: "#6A1B9A",
+  },
+  {
+    id: "inna_lillah",
+    arabic: "إِنَّا لِلَّهِ وَإِنَّا إِلَيْهِ رَاجِعُونَ",
+    transliteration: "Inna lillahi wa inna ilayhi raji'un",
+    translation: "Indeed we belong to Allah, and indeed to Him we will return",
+    target: 33,
+    color: "#37474F",
+  },
+  {
+    id: "rabbighfir",
+    arabic: "رَبِّ اغْفِرْ لِي",
+    transliteration: "Rabbighfir li",
+    translation: "My Lord, forgive me",
+    target: 33,
+    color: "#BF360C",
+  },
+  {
+    id: "salawat_ibrahim",
+    arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ",
+    transliteration: "Allahumma salli ala Muhammad wa ala ali Muhammad",
+    translation: "O Allah, send blessings upon Muhammad and upon the family of Muhammad",
+    target: 100,
+    color: "#01579B",
   },
 ];
 
@@ -444,6 +552,60 @@ export default function TasbeehScreen() {
   const [showSelector, setShowSelector] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
 
+  // ── Dhikr Library state ──
+  const [addedDhikr, setAddedDhikr] = useState<DhikrPreset[]>([]);
+  const [showLibrary, setShowLibrary] = useState(false);
+
+  // Load persisted added dhikr
+  useEffect(() => {
+    AsyncStorage.getItem(ADDED_DHIKR_KEY).then((raw) => {
+      if (raw) {
+        try { setAddedDhikr(JSON.parse(raw)); } catch {}
+      }
+    });
+  }, []);
+
+  const saveAddedDhikr = async (next: DhikrPreset[]) => {
+    setAddedDhikr(next);
+    try { await AsyncStorage.setItem(ADDED_DHIKR_KEY, JSON.stringify(next)); } catch {}
+  };
+
+  const addDhikrFromLibrary = (dhikr: DhikrPreset) => {
+    if (addedDhikr.some((d) => d.id === dhikr.id)) return;
+    saveAddedDhikr([...addedDhikr, dhikr]);
+  };
+
+  const removeDhikr = (id: string) => {
+    const next = addedDhikr.filter((d) => d.id !== id);
+    saveAddedDhikr(next);
+    if (selectedDhikr.id === id) {
+      setSelectedDhikr(DHIKR_PRESETS[0]);
+      setCount(0);
+      setRounds(0);
+    }
+  };
+
+  const handleLongPressAdded = (dhikr: DhikrPreset) => {
+    if (Platform.OS === "web") {
+      if (window.confirm(`Remove "${dhikr.transliteration}" from your list?`)) {
+        removeDhikr(dhikr.id);
+      }
+    } else {
+      Alert.alert(
+        "Remove Dhikr",
+        `Remove "${dhikr.transliteration}" from your list?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Remove", style: "destructive", onPress: () => removeDhikr(dhikr.id) },
+        ],
+      );
+    }
+  };
+
+  const addedDhikrIds = new Set(addedDhikr.map((d) => d.id));
+  const presetIds = new Set(DHIKR_PRESETS.map((d) => d.id));
+  const allDhikr = [...DHIKR_PRESETS, ...addedDhikr];
+
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const completionAnim = useRef(new Animated.Value(0)).current;
   const rippleAnim = useRef(new Animated.Value(0)).current;
@@ -577,13 +739,22 @@ export default function TasbeehScreen() {
           </View>
 
           {mode === "counter" ? (
-            <TouchableOpacity
-              style={[cs.fullResetBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={handleFullReset}
-            >
-              <Feather name="refresh-cw" size={14} color={colors.textSecondary} />
-              <Text style={[cs.fullResetText, { color: colors.textSecondary }]}>Reset All</Text>
-            </TouchableOpacity>
+            <View style={cs.headerRightRow}>
+              <TouchableOpacity
+                style={[cs.iconHeaderBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => { setShowSelector(false); setShowLibrary(true); }}
+                hitSlop={8}
+              >
+                <Feather name="plus" size={18} color={colors.tint} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[cs.fullResetBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={handleFullReset}
+              >
+                <Feather name="refresh-cw" size={14} color={colors.textSecondary} />
+                <Text style={[cs.fullResetText, { color: colors.textSecondary }]}>Reset All</Text>
+              </TouchableOpacity>
+            </View>
           ) : selectedPrayer ? (
             <TouchableOpacity
               style={[cs.fullResetBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -660,30 +831,41 @@ export default function TasbeehScreen() {
 
           {showSelector && (
             <View style={[cs.dhikrList, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              {DHIKR_PRESETS.map((dhikr) => (
-                <Pressable
-                  key={dhikr.id}
-                  style={[
-                    cs.dhikrOption,
-                    {
-                      backgroundColor: selectedDhikr.id === dhikr.id ? colors.surfaceElevated : "transparent",
-                      borderBottomColor: colors.border,
-                    },
-                  ]}
-                  onPress={() => selectDhikr(dhikr)}
-                >
-                  <View style={[cs.dhikrColorDot, { backgroundColor: dhikr.color }]} />
-                  <View style={cs.dhikrOptionText}>
-                    <Text style={[cs.dhikrOptionArabic, { color: colors.text }]}>{dhikr.arabic}</Text>
-                    <Text style={[cs.dhikrOptionTranslit, { color: colors.textSecondary }]}>
-                      {dhikr.transliteration} · {dhikr.target}×
-                    </Text>
-                  </View>
-                  {selectedDhikr.id === dhikr.id && (
-                    <Feather name="check" size={16} color={dhikr.color} />
-                  )}
-                </Pressable>
-              ))}
+              {allDhikr.map((dhikr, idx) => {
+                const isAdded = !presetIds.has(dhikr.id);
+                const isSelected = selectedDhikr.id === dhikr.id;
+                const isLast = idx === allDhikr.length - 1;
+                return (
+                  <TouchableOpacity
+                    key={dhikr.id}
+                    style={[
+                      cs.dhikrOption,
+                      {
+                        backgroundColor: isSelected ? colors.surfaceElevated : "transparent",
+                        borderBottomColor: isLast ? "transparent" : colors.border,
+                      },
+                    ]}
+                    onPress={() => selectDhikr(dhikr)}
+                    onLongPress={isAdded ? () => handleLongPressAdded(dhikr) : undefined}
+                    delayLongPress={500}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[cs.dhikrColorDot, { backgroundColor: dhikr.color }]} />
+                    <View style={cs.dhikrOptionText}>
+                      <Text style={[cs.dhikrOptionArabic, { color: colors.text }]}>{dhikr.arabic}</Text>
+                      <Text style={[cs.dhikrOptionTranslit, { color: colors.textSecondary }]}>
+                        {dhikr.transliteration} · {dhikr.target}×
+                      </Text>
+                    </View>
+                    {isAdded && (
+                      <Feather name="bookmark" size={13} color={colors.tint} style={{ marginRight: 4, opacity: 0.7 }} />
+                    )}
+                    {isSelected && (
+                      <Feather name="check" size={16} color={dhikr.color} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
 
@@ -750,6 +932,101 @@ export default function TasbeehScreen() {
           </View>
         </View>
       )}
+
+      {/* ══════════════════════════════════════
+          DHIKR LIBRARY MODAL
+      ══════════════════════════════════════ */}
+      <Modal
+        visible={showLibrary}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowLibrary(false)}
+      >
+        <View style={[cs.libraryContainer, { backgroundColor: colors.background }]}>
+          {/* Library header */}
+          <View style={[cs.libraryHeader, { borderBottomColor: colors.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[cs.libraryTitle, { color: colors.text }]}>Dhikr Library</Text>
+              <Text style={[cs.librarySubtitle, { color: colors.textSecondary }]}>
+                Tap Add to include in your Tasbeeh list
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowLibrary(false)}
+              style={[cs.libraryCloseBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              hitSlop={8}
+            >
+              <Feather name="x" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Library items */}
+          <ScrollView contentContainerStyle={cs.libraryScroll} showsVerticalScrollIndicator={false}>
+            {DHIKR_LIBRARY.map((dhikr) => {
+              const alreadyAdded = addedDhikrIds.has(dhikr.id);
+              const isPreset = presetIds.has(dhikr.id);
+              const unavailable = alreadyAdded || isPreset;
+              return (
+                <View
+                  key={dhikr.id}
+                  style={[cs.libraryItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
+                  <View style={[cs.libraryColorBar, { backgroundColor: dhikr.color }]} />
+                  <View style={cs.libraryItemBody}>
+                    <Text style={[cs.libraryArabic, { color: colors.text }]}>{dhikr.arabic}</Text>
+                    <Text style={[cs.libraryTranslit, { color: colors.tint }]}>{dhikr.transliteration}</Text>
+                    <Text style={[cs.libraryMeaning, { color: colors.textSecondary }]}>{dhikr.translation}</Text>
+                    <View style={cs.libraryMeta}>
+                      <View style={[cs.libraryTargetPill, { backgroundColor: dhikr.color + "18", borderColor: dhikr.color + "44" }]}>
+                        <Feather name="repeat" size={10} color={dhikr.color} />
+                        <Text style={[cs.libraryTargetText, { color: dhikr.color }]}>
+                          {dhikr.target}×
+                        </Text>
+                      </View>
+                      {isPreset && (
+                        <View style={[cs.libraryInListPill, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                          <Feather name="check-circle" size={10} color={colors.textSecondary} />
+                          <Text style={[cs.libraryInListText, { color: colors.textSecondary }]}>In presets</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => { if (!unavailable) addDhikrFromLibrary(dhikr); }}
+                    disabled={unavailable}
+                    style={[
+                      cs.libraryAddBtn,
+                      {
+                        backgroundColor: alreadyAdded
+                          ? colors.tint + "18"
+                          : isPreset
+                          ? colors.surfaceElevated
+                          : colors.tint,
+                        borderColor: unavailable ? colors.border : colors.tint,
+                      },
+                    ]}
+                  >
+                    {alreadyAdded ? (
+                      <>
+                        <Feather name="check" size={13} color={colors.tint} />
+                        <Text style={[cs.libraryAddBtnText, { color: colors.tint }]}>Added</Text>
+                      </>
+                    ) : isPreset ? (
+                      <Text style={[cs.libraryAddBtnText, { color: colors.textSecondary }]}>Preset</Text>
+                    ) : (
+                      <>
+                        <Feather name="plus" size={13} color="#fff" />
+                        <Text style={[cs.libraryAddBtnText, { color: "#fff" }]}>Add</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+            <View style={{ height: 32 }} />
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* ══════════════════════════════════════
           GUIDE MODE
@@ -944,6 +1221,61 @@ const cs = StyleSheet.create({
   translationDisplay: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: -8 },
   resetBtn: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
   resetText: { fontSize: 14, fontFamily: "Inter_500Medium" },
+
+  // Header right row (+ button + Reset All)
+  headerRightRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  iconHeaderBtn: {
+    width: 34, height: 34, borderRadius: 10, borderWidth: 1,
+    alignItems: "center", justifyContent: "center",
+  },
+
+  // Library modal
+  libraryContainer: { flex: 1 },
+  libraryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
+  libraryTitle: { fontSize: 20, fontFamily: "Inter_700Bold" },
+  librarySubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
+  libraryCloseBtn: {
+    width: 34, height: 34, borderRadius: 10, borderWidth: 1,
+    alignItems: "center", justifyContent: "center",
+  },
+  libraryScroll: { paddingHorizontal: 16, paddingTop: 16, gap: 12 },
+  libraryItem: {
+    flexDirection: "row",
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
+    alignItems: "center",
+  },
+  libraryColorBar: { width: 4, alignSelf: "stretch" },
+  libraryItemBody: { flex: 1, padding: 14, gap: 3 },
+  libraryArabic: { fontSize: 20, lineHeight: 34, textAlign: "left" },
+  libraryTranslit: { fontSize: 13, fontFamily: "Inter_500Medium", fontStyle: "italic" },
+  libraryMeaning: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  libraryMeta: { flexDirection: "row", gap: 6, marginTop: 6, alignItems: "center", flexWrap: "wrap" },
+  libraryTargetPill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1,
+  },
+  libraryTargetText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  libraryInListPill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1,
+  },
+  libraryInListText: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  libraryAddBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    marginRight: 12, paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 10, borderWidth: 1, minWidth: 72, justifyContent: "center",
+  },
+  libraryAddBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });
 
 // Guide-specific styles
