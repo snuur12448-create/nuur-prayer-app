@@ -781,9 +781,10 @@ export default function QuranDetailScreen() {
     if (playState === "playing" || playState === "loading") {
       await stopAudio();
     } else {
+      setAutoAdvance(true);
       await ctxPlayVerse(verses[0], surahNumber, surah.name, surah.englishName, verses);
     }
-  }, [verses, surah, surahNumber, playState, ctxPlayVerse, stopAudio]);
+  }, [verses, surah, surahNumber, playState, ctxPlayVerse, stopAudio, setAutoAdvance]);
 
   const copyVerse = (verse: Verse) => {
     const text = `${verse.text}\n\n${verse.translation}\n— ${surah?.englishName} ${surahNumber}:${verse.number}`;
