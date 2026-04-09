@@ -1,0 +1,43 @@
+Add the following authentic Dhikr phrases to the existing Dhikr Library in the Tasbeeh Counter screen:
+	1.	
+Arabic: سُبْحَانَ اللَّهِ وَبِحَمْدِهِ
+Transliteration: Subhanallahi wa bihamdihi
+Meaning: Glory be to Allah and His praise
+Target: 100
+Source: Sahih Bukhari — “light on the tongue, heavy on the scales”
+	2.	
+Arabic: سُبْحَانَ اللَّهِ الْعَظِيمِ
+Transliteration: Subhanallahil Azeem
+Meaning: Glory be to Allah the Magnificent
+Target: 33
+Source: Sahih Bukhari
+	3.	
+Arabic: لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ
+Transliteration: La ilaha illallahu wahdahu la sharika lahu lahul mulku wa lahul hamdu wa huwa ala kulli shay’in qadeer
+Meaning: There is no god but Allah alone, no partner has He, His is the dominion and His is the praise and He is over all things capable
+Target: 100
+Source: Sahih Bukhari — equals freeing 10 slaves
+	4.	
+Arabic: حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ
+Transliteration: Hasbunallahu wa ni’mal wakeel
+Meaning: Allah is sufficient for us and He is the best disposer of affairs
+Target: 33
+Source: Quran 3:173 — said by Ibrahim ﷺ
+	5.	
+Arabic: رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ
+Transliteration: Rabbana atina fid-dunya hasanatan wa fil-akhirati hasanatan wa qina azabannar
+Meaning: Our Lord give us good in this world and good in the next and protect us from the punishment of the Fire
+Target: 33
+Source: Quran 2:201
+	6.	
+Arabic: اللَّهُمَّ إِنَّكَ عَفُوٌّ تُحِبُّ الْعَفْوَ فَاعْفُ عَنِّي
+Transliteration: Allahumma innaka afuwwun tuhibbul afwa fa’fu anni
+Meaning: O Allah You are the Pardoner, You love to pardon, so pardon me
+Target: 33
+Source: Tirmidhi — recommended for Laylatul Qadr
+	7.	
+Arabic: رَضِيتُ بِاللَّهِ رَبًّا وَبِالْإِسْلَامِ دِينًا وَبِمُحَمَّدٍ نَبِيًّا
+Transliteration: Raditu billahi rabban wa bil-islami dinan wa bi-muhammadin nabiyya
+Meaning: I am pleased with Allah as my Lord, Islam as my religion and Muhammad as my Prophet
+Target: 3
+Source: Abu Dawud — said 3x in the morning
