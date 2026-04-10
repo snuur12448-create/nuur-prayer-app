@@ -1077,7 +1077,7 @@ export const HADITHS: Hadith[] = [
     id: "h101",
     topic: "Moderation",
     arabic: "خُذُوا مِنَ الأَعْمَالِ مَا تُطِيقُونَ فَإِنَّ اللَّهَ لاَ يَمَلُّ حَتَّى تَمَلُّوا",
-    translation: "Take up only those deeds that you are able to do, for Allah does not get tired until you get tired.",
+    translation: "Take up only those deeds that you are able to do, for Allah does not tire of rewarding, but you will tire (of doing good deeds).",
     narrator: "Narrated by ʿĀʾishah (رضي الله عنها)",
     source: "Ṣaḥīḥ al-Bukhārī 43 · Ṣaḥīḥ Muslim 785",
     grade: "Sahih",
