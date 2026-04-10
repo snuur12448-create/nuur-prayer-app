@@ -1,3 +1,4 @@
+import { AmiriQuran_400Regular } from "@expo-google-fonts/amiri-quran";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -62,7 +63,7 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
-    KFGQPCUthmanicScriptHafs: require("../assets/fonts/KFGQPCUthmanicScriptHafs.ttf"),
+    AmiriQuran_400Regular,
   });
 
   // Three-gate system: splash hides only when animation, fonts, AND onboarding

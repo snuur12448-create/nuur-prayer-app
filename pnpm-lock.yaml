@@ -130,6 +130,9 @@ importers:
 
   artifacts/islamic-prayer:
     dependencies:
+      '@expo-google-fonts/amiri-quran':
+        specifier: ^0.4.1
+        version: 0.4.1
       '@expo/cli':
         specifier: 54.0.23
         version: 54.0.23(expo-router@6.0.23)(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))
@@ -1508,6 +1511,9 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@expo-google-fonts/amiri-quran@0.4.1':
+    resolution: {integrity: sha512-SvDvVzHTlD2qcD3YJF6d7ZfkVK3dSLZSWswmwoZthd7kFzlNOvOkKu1ph2CcEpd4+AsumMJMoMpUiyjM4BG3OA==}
 
   '@expo-google-fonts/inter@0.4.2':
     resolution: {integrity: sha512-syfiImMaDmq7cFi0of+waE2M4uSCyd16zgyWxdPOY7fN2VBmSLKEzkfbZgeOjJq61kSqPBNNtXjggiQiSD6gMQ==}
@@ -7552,6 +7558,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.3':
     optional: true
+
+  '@expo-google-fonts/amiri-quran@0.4.1': {}
 
   '@expo-google-fonts/inter@0.4.2': {}
 

@@ -467,7 +467,7 @@ export default function QuranDetailScreen() {
   // screen rendered. Font.isLoaded() reads the cached registry immediately,
   // unlike useFonts() which always returns false on the first native render
   // before its async effect has had a chance to update state.
-  const quranFontLoaded = Font.isLoaded("KFGQPCUthmanicScriptHafs");
+  const quranFontLoaded = Font.isLoaded("AmiriQuran_400Regular");
 
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
@@ -1470,7 +1470,7 @@ const styles = StyleSheet.create({
   nowPlayingLeft: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
   playingDot: { width: 7, height: 7, borderRadius: 4 },
   nowPlayingText: { fontSize: 12, fontFamily: "Inter_500Medium", flex: 1 },
-  bismillah: { fontSize: 22, textAlign: "center", marginBottom: 20, lineHeight: 44, fontFamily: "KFGQPCUthmanicScriptHafs" },
+  bismillah: { fontSize: 26, textAlign: "center", marginBottom: 20, lineHeight: 52, fontFamily: "AmiriQuran_400Regular" },
   verseCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
   verseHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   verseHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -1478,7 +1478,7 @@ const styles = StyleSheet.create({
   copyBtn: { width: 26, height: 26, borderRadius: 6, alignItems: "center", justifyContent: "center" },
   verseNumberBadge: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   verseNumber: { fontSize: 12, fontFamily: "Inter_700Bold" },
-  arabicVerse: { fontSize: 22, textAlign: "right", lineHeight: 44, letterSpacing: 0, writingDirection: "rtl", fontFamily: "KFGQPCUthmanicScriptHafs" },
+  arabicVerse: { fontSize: 26, textAlign: "right", lineHeight: 52, letterSpacing: 0, writingDirection: "rtl", fontFamily: "AmiriQuran_400Regular" },
   transliterationVerse: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
