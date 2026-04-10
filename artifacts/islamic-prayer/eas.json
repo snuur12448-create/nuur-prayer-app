@@ -5,7 +5,9 @@
   },
   "build": {
     "base": {
-      "npmPackageManager": "npm"
+      "buildRootDirectory": "../..",
+      "npmPackageManager": "pnpm",
+      "prebuildCommand": "pnpm install --no-frozen-lockfile"
     },
     "preview": {
       "extends": "base",
