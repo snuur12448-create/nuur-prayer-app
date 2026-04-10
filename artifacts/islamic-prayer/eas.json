@@ -24,6 +24,11 @@
       "extends": "base",
       "android": {
         "buildType": "app-bundle"
+      },
+      "ios": {
+        "env": {
+          "PNPM_FLAGS": "--no-frozen-lockfile"
+        }
       }
     }
   },
