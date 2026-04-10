@@ -1,30 +1,16 @@
 {
   "cli": {
-    "version": ">= 18.0.0",
-    "appVersionSource": "local"
+    "version": ">= 5.9.1"
   },
   "build": {
-    "base": {
-      "buildRootDirectory": "../..",
-      "npmPackageManager": "pnpm",
-      "prebuildCommand": "pnpm install --no-frozen-lockfile"
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
     },
     "preview": {
-      "extends": "base",
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      },
-      "ios": {
-        "simulator": false
-      }
+      "distribution": "internal"
     },
-    "production": {
-      "extends": "base",
-      "android": {
-        "buildType": "app-bundle"
-      }
-    }
+    "production": {}
   },
   "submit": {
     "production": {}
