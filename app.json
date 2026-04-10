@@ -7,6 +7,12 @@
     },
     "android": {
       "package": "com.sxdaq.workspace"
+    },
+    "ios": {
+      "bundleIdentifier": "com.nuur.islamicplayer",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     }
   }
 }

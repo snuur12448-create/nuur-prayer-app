@@ -5,6 +5,7 @@
   },
   "build": {
     "base": {
+      "buildRootDirectory": "../..",
       "env": {
         "EXPO_MONOREPO_ROOT": "../.."
       }
