@@ -5,12 +5,7 @@
   },
   "build": {
     "base": {
-      "buildRootDirectory": "../..",
-      "npmPackageManager": "pnpm",
-      "prebuildCommand": "pnpm install --no-frozen-lockfile",
-      "env": {
-        "EXPO_MONOREPO_ROOT": "../.."
-      }
+      "npmPackageManager": "npm"
     },
     "preview": {
       "extends": "base",
@@ -26,11 +21,6 @@
       "extends": "base",
       "android": {
         "buildType": "app-bundle"
-      },
-      "ios": {
-        "env": {
-          "PNPM_FLAGS": "--no-frozen-lockfile"
-        }
       }
     }
   },
