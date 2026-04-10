@@ -6,6 +6,8 @@
   "build": {
     "base": {
       "buildRootDirectory": "../..",
+      "npmPackageManager": "pnpm",
+      "prebuildCommand": "pnpm install --no-frozen-lockfile",
       "env": {
         "EXPO_MONOREPO_ROOT": "../.."
       }
