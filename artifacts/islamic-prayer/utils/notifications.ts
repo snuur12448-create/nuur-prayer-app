@@ -17,6 +17,14 @@ const PRAYER_EMOJI: Record<string, string> = {
   Isha: "🌃",
 };
 
+const PRAYER_BODY: Record<string, string> = {
+  Fajr: "The best deed is prayer at its proper time (Bukhari). Rise and pray 🌙",
+  Dhuhr: "Beloved to Allah is prayer at its proper time (Muslim). Pray Dhuhr ☀️",
+  Asr: "Guard your prayers, especially the middle prayer — Quran 2:238 🕌",
+  Maghrib: "The Ummah remains upon goodness by not delaying Maghrib (Ahmad). Pray now 🌅",
+  Isha: "Whoever prays Isha in congregation gets the reward of half the night (Muslim). Pray Isha 🌙",
+};
+
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     // When the app is in the foreground, suppress the .caf sound for adhan-type
@@ -145,9 +153,10 @@ export async function schedulePrayerNotifications(
 
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: `${PRAYER_EMOJI[prayer.name] ?? "🕌"} ${prayer.name} Prayer`,
-            body: `It is time for ${prayer.name} in ${city}`,
+            title: `${PRAYER_EMOJI[prayer.name] ?? "🕌"} ${prayer.name} at ${prayer.timeString}`,
+            body: PRAYER_BODY[prayer.name] ?? `It is time for ${prayer.name} in ${city}`,
             sound,
+            interruptionLevel: "timeSensitive",
             // Structured data used by:
             //  • setNotificationHandler — suppresses .caf when adhan watcher
             //    will play full audio in the foreground
@@ -167,9 +176,10 @@ export async function schedulePrayerNotifications(
         // Legacy fallback — no config saved yet, use default sound
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: `${PRAYER_EMOJI[prayer.name] ?? "🕌"} ${prayer.name} Prayer`,
-            body: `It is time for ${prayer.name} in ${city}`,
+            title: `${PRAYER_EMOJI[prayer.name] ?? "🕌"} ${prayer.name} at ${prayer.timeString}`,
+            body: PRAYER_BODY[prayer.name] ?? `It is time for ${prayer.name} in ${city}`,
             sound: true,
+            interruptionLevel: "timeSensitive",
             data: { type: "prayer", key },
           },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: prayer.time },
@@ -188,9 +198,10 @@ export async function schedulePrayerNotifications(
           const sound = resolveNotifSound(sunriseCfg.type, sunriseCfg.adhanMode, sunriseCfg.adhanStyleId);
           await Notifications.scheduleNotificationAsync({
             content: {
-              title: `🌅 Sunrise in ${minutesBefore} minutes`,
-              body: `Sunrise at ${times.sunrise.timeString} in ${city}`,
+              title: `⏰ Sunrise in ${minutesBefore} minutes`,
+              body: "Fajr time is ending soon. Ensure you have prayed ⏰",
               sound,
+              interruptionLevel: "timeSensitive",
             },
             trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderTime },
           });
@@ -214,8 +225,9 @@ export async function schedulePrayerNotifications(
         await Notifications.scheduleNotificationAsync({
           content: {
             title: "Jummah Mubarak 🕌",
-            body: `Friday prayer begins soon`,
+            body: "The best day the sun rises upon is Friday (Abu Dawud). Prayer begins soon.",
             sound: true,
+            interruptionLevel: "timeSensitive",
           },
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.DATE,
