@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -355,19 +355,16 @@ export default function MosquesScreen() {
   const [searched, setSearched] = useState(false);
   const [radiusKm, setRadiusKm] = useState(8);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  // Bumped when user explicitly hits Refresh so the effect fires even if coords didn't change yet
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const search = useCallback(
-    async (km = radiusKm) => {
-      if (!location) return;
+    async (lat: number, lon: number, km = radiusKm) => {
       setLoading(true);
       setError(null);
       setSearched(true);
       try {
-        const results = await fetchNearbyMosques(
-          location.latitude,
-          location.longitude,
-          km * 1000
-        );
+        const results = await fetchNearbyMosques(lat, lon, km * 1000);
         setMosques(results);
       } catch (e: any) {
         setError("Could not reach mosque data servers. Please check your connection and try again.");
@@ -375,15 +372,27 @@ export default function MosquesScreen() {
         setLoading(false);
       }
     },
-    [location, radiusKm]
+    [radiusKm]
   );
 
-  // Auto-search when location is available
+  // Re-search whenever the GPS coordinates actually change, or the user taps Refresh
+  const prevCoordsRef = useRef<string>("");
   useEffect(() => {
-    if (location && !usingDefaultLocation && !searched) {
-      search();
-    }
-  }, [location, usingDefaultLocation, searched]);
+    if (!location || usingDefaultLocation) return;
+    const coordKey = `${location.latitude.toFixed(5)},${location.longitude.toFixed(5)},${radiusKm}`;
+    // Always run on refreshTick bump; otherwise only when coords/radius changed
+    if (coordKey === prevCoordsRef.current && refreshTick === 0) return;
+    prevCoordsRef.current = coordKey;
+    search(location.latitude, location.longitude, radiusKm);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location?.latitude, location?.longitude, usingDefaultLocation, radiusKm, refreshTick]);
+
+  // Refresh: ask device for a fresh GPS fix → location updates in context → effect above fires
+  const handleRefresh = useCallback(() => {
+    requestLocation();
+    // Also bump tick so a re-search fires even if the coords haven't changed yet
+    setRefreshTick((n) => n + 1);
+  }, [requestLocation]);
 
   const HEADER_H = 200;
 
@@ -422,7 +431,7 @@ export default function MosquesScreen() {
 
         {/* Location / refresh button */}
         <Pressable
-          onPress={usingDefaultLocation || !location ? requestLocation : () => search()}
+          onPress={usingDefaultLocation || !location ? requestLocation : handleRefresh}
           style={[styles.refreshBtn, { backgroundColor: colors.tint + "20", borderColor: colors.tint + "55" }]}
         >
           <Feather
@@ -444,7 +453,7 @@ export default function MosquesScreen() {
             key={km}
             onPress={() => {
               setRadiusKm(km);
-              if (location && !usingDefaultLocation) search(km);
+              if (location && !usingDefaultLocation) search(location.latitude, location.longitude, km);
             }}
             style={[
               styles.radiusChip,
@@ -502,7 +511,7 @@ export default function MosquesScreen() {
           <Feather name="wifi-off" size={36} color={colors.textSecondary} />
           <Text style={[styles.stateText, { color: colors.textSecondary }]}>{error}</Text>
           <Pressable
-            onPress={() => search()}
+            onPress={() => location && search(location.latitude, location.longitude)}
             style={[styles.retryBtn, { backgroundColor: colors.tint + "20", borderColor: colors.tint + "55" }]}
           >
             <Text style={[styles.retryText, { color: colors.tint }]}>Try Again</Text>
