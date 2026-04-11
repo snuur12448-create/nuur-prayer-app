@@ -204,17 +204,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [jummahMinutesBefore, setJummahMinutesBeforeState] = useState(30);
 
   // Ayah of the Day reminder
-  const [ayahReminderEnabled, setAyahReminderEnabledState] = useState(false);
+  const [ayahReminderEnabled, setAyahReminderEnabledState] = useState(true);
   const [ayahReminderHour, setAyahReminderHourState] = useState(8);
   const [ayahReminderMinute, setAyahReminderMinuteState] = useState(0);
 
   // Hadith of the Day reminder
-  const [hadithReminderEnabled, setHadithReminderEnabledState] = useState(false);
+  const [hadithReminderEnabled, setHadithReminderEnabledState] = useState(true);
   const [hadithReminderHour, setHadithReminderHourState] = useState(9);
   const [hadithReminderMinute, setHadithReminderMinuteState] = useState(0);
 
   // Islamic Calendar Events reminder
-  const [islamicEventsEnabled, setIslamicEventsEnabledState] = useState(false);
+  const [islamicEventsEnabled, setIslamicEventsEnabledState] = useState(true);
 
   // Per-prayer manual time offsets (±15 min)
   const [prayerOffsets, setPrayerOffsetsState] = useState<PrayerOffsets>(DEFAULT_PRAYER_OFFSETS);
@@ -473,13 +473,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const mins = Number(jummahMinsRaw);
         if (mins === 15 || mins === 30 || mins === 60) setJummahMinutesBeforeState(mins);
       }
-      if (ayahRaw === "true") setAyahReminderEnabledState(true);
+      // null = never saved → default true; "false" → disabled
+      if (ayahRaw === "false") setAyahReminderEnabledState(false);
       if (ayahHrRaw) { const h = Number(ayahHrRaw); if (h >= 0 && h <= 23) setAyahReminderHourState(h); }
       if (ayahMinRaw) { const m = Number(ayahMinRaw); if (m >= 0 && m <= 55) setAyahReminderMinuteState(m); }
-      if (hadithRaw === "true") setHadithReminderEnabledState(true);
+      if (hadithRaw === "false") setHadithReminderEnabledState(false);
       if (hadithHrRaw) { const h = Number(hadithHrRaw); if (h >= 0 && h <= 23) setHadithReminderHourState(h); }
       if (hadithMinRaw) { const m = Number(hadithMinRaw); if (m >= 0 && m <= 55) setHadithReminderMinuteState(m); }
-      if (islamicEventsRaw === "true") setIslamicEventsEnabledState(true);
+      if (islamicEventsRaw === "false") setIslamicEventsEnabledState(false);
       if (prayerOffsetsRaw) {
         try {
           const parsed = JSON.parse(prayerOffsetsRaw) as PrayerOffsets;
@@ -502,13 +503,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const jEnabled = jummahRaw !== "false"; // null = never saved → default true
           const jMins    = (jummahMinsRaw && [15, 30, 60].includes(Number(jummahMinsRaw)))
                            ? Number(jummahMinsRaw) : 30;
-          const ayEnabled = ayahRaw === "true";
+          const ayEnabled = ayahRaw !== "false";   // null = never saved → default true
           const ayHr      = ayahHrRaw  ? Math.min(23, Math.max(0, Number(ayahHrRaw)))  : 8;
           const ayMin     = ayahMinRaw ? Math.min(55, Math.max(0, Number(ayahMinRaw))) : 0;
-          const hdEnabled = hadithRaw === "true";
+          const hdEnabled = hadithRaw !== "false";  // null = never saved → default true
           const hdHr      = hadithHrRaw  ? Math.min(23, Math.max(0, Number(hadithHrRaw)))  : 9;
           const hdMin     = hadithMinRaw ? Math.min(55, Math.max(0, Number(hadithMinRaw))) : 0;
-          const evEnabled = islamicEventsRaw === "true";
+          const evEnabled = islamicEventsRaw !== "false"; // null = never saved → default true
           const startupNotifConfig: PrayerNotifConfig = prayerNotifRaw
             ? { ...DEFAULT_PRAYER_NOTIF_CONFIG, ...(JSON.parse(prayerNotifRaw) as PrayerNotifConfig) }
             : DEFAULT_PRAYER_NOTIF_CONFIG;
