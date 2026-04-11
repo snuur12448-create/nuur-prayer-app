@@ -71,6 +71,9 @@ export default function PrayerScreen() {
   const [progress, setProgress] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  // Separate fast-tick just for the displayed clock — updates every second so it
+  // never lags. currentTime stays on a 60s cycle for prayer-period calculations.
+  const [clockNow, setClockNow] = useState(new Date());
   const [showLocationModal, setShowLocationModal] = useState(false);
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
@@ -115,6 +118,13 @@ export default function PrayerScreen() {
     }, 60000);
     return () => clearInterval(timer);
   }, [refreshPrayerTimes]);
+
+  // Fast clock: fire immediately then every second so the display is always current.
+  useEffect(() => {
+    setClockNow(new Date()); // zero-delay initial sync
+    const id = setInterval(() => setClockNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (prayerTimes) {
@@ -189,8 +199,8 @@ export default function PrayerScreen() {
   };
 
   const formatCurrentTime = () => {
-    const h24 = currentTime.getHours();
-    const mm = String(currentTime.getMinutes()).padStart(2, "0");
+    const h24 = clockNow.getHours();
+    const mm = String(clockNow.getMinutes()).padStart(2, "0");
     if (timeFormat === "24h") {
       return `${String(h24).padStart(2, "0")}:${mm}`;
     }
@@ -200,7 +210,7 @@ export default function PrayerScreen() {
   };
 
   const formatDate = () => {
-    return currentTime.toLocaleDateString("en-US", {
+    return clockNow.toLocaleDateString("en-US", {
       weekday: "long",
       month: "long",
       day: "numeric",
