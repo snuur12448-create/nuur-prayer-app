@@ -71,40 +71,69 @@ export default function HadithsScreen() {
   const [liveHadith, setLiveHadith] = useState<LiveHadith | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [liveError, setLiveError] = useState("");
+  const [liveIsFeatured, setLiveIsFeatured] = useState(false);
   const { savedIds: bookmarks, toggle: toggleBookmark } = useSavedItems("nuur_saved_hadiths");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [shareHadith, setShareHadith] = useState<Hadith | LiveHadith | null>(null);
 
+  const showLocalFeatured = useCallback(() => {
+    setLiveIsFeatured(true);
+    setLiveError("");
+    const h = HADITHS[Math.floor(Math.random() * HADITHS.length)];
+    setLiveHadith({
+      id: `featured-${h.id}`,
+      arabic: h.arabic,
+      translation: h.translation,
+      narrator: h.narrator,
+      source: h.source,
+      topic: h.topic,
+      collection: h.collection === "Both" ? "Bukhari & Muslim" : `Sahih ${h.collection}`,
+      grade: "Sahih",
+      isLive: true,
+    });
+  }, []);
+
   const fetchLiveHadith = useCallback(async () => {
     setLiveLoading(true);
     setLiveError("");
-    try {
-      const res = await fetch(SUNNAH_RANDOM_URL, {
-        headers: { "x-api-key": SUNNAH_API_KEY },
-      });
-      const data = await res.json();
-      const en = data.hadith?.find((h: any) => h.lang === "en");
-      if (en && SAHIH_COLLECTIONS.includes(data.collection)) {
-        setLiveHadith({
-          id: `live-${data.hadithNumber}-${data.bookNumber}`,
-          arabic: "",
-          translation: stripHtml(en.body),
-          narrator: "",
-          source: `${collectionLabel(data.collection)} · Book ${data.bookNumber}, Hadith ${data.hadithNumber}`,
-          topic: en.chapterTitle ? stripHtml(en.chapterTitle).substring(0, 40) : "Hadith",
-          collection: collectionLabel(data.collection),
-          grade: "Sahih",
-          isLive: true,
-        });
-      } else {
-        setLiveError("The random result wasn't from a Sahih collection — tap again to try another.");
+    setLiveIsFeatured(false);
+
+    if (SUNNAH_API_KEY) {
+      // Try up to 4 times to land on a Sahih collection
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          const res = await fetch(SUNNAH_RANDOM_URL, {
+            headers: { "x-api-key": SUNNAH_API_KEY },
+          });
+          if (!res.ok) break; // 401 / server error — give up and fall back
+          const data = await res.json();
+          const en = data.hadith?.find((h: any) => h.lang === "en");
+          if (en && SAHIH_COLLECTIONS.includes(data.collection)) {
+            setLiveHadith({
+              id: `live-${data.hadithNumber}-${data.bookNumber}`,
+              arabic: "",
+              translation: stripHtml(en.body),
+              narrator: "",
+              source: `${collectionLabel(data.collection)} · Book ${data.bookNumber}, Hadith ${data.hadithNumber}`,
+              topic: en.chapterTitle ? stripHtml(en.chapterTitle).substring(0, 40) : "Hadith",
+              collection: collectionLabel(data.collection),
+              grade: "Sahih",
+              isLive: true,
+            });
+            setLiveLoading(false);
+            return;
+          }
+          // Not Sahih — retry silently
+        } catch {
+          break; // Network error — fall back to local
+        }
       }
-    } catch {
-      setLiveError("Couldn't reach Sunnah.com. Check your connection and try again.");
-    } finally {
-      setLiveLoading(false);
     }
-  }, []);
+
+    // Fallback: always show something — a random hadith from the curated collection
+    showLocalFeatured();
+    setLiveLoading(false);
+  }, [showLocalFeatured]);
 
   useEffect(() => {
     fetchLiveHadith();
@@ -246,12 +275,13 @@ export default function HadithsScreen() {
               }}
             />
 
-            {/* Live Sunnah.com hadith */}
+            {/* Featured / Live hadith card */}
             <LiveHadithCard
               hadith={liveHadith}
               loading={liveLoading}
               error={liveError}
-              onRefresh={fetchLiveHadith}
+              isFeatured={liveIsFeatured}
+              onRefresh={liveIsFeatured ? showLocalFeatured : fetchLiveHadith}
               copied={copiedId === liveHadith?.id}
               bookmarked={liveHadith ? bookmarks.has(liveHadith.id) : false}
               onCopy={() => liveHadith && handleCopy(liveHadith)}
@@ -335,11 +365,12 @@ function BookmarkBtn({ bookmarked, onPress, gold, grey }: { bookmarked: boolean;
 }
 
 function LiveHadithCard({
-  hadith, loading, error, onRefresh, copied, bookmarked, onCopy, onBookmark, onShare, colors,
+  hadith, loading, error, isFeatured, onRefresh, copied, bookmarked, onCopy, onBookmark, onShare, colors,
 }: {
   hadith: LiveHadith | null;
   loading: boolean;
   error: string;
+  isFeatured: boolean;
   onRefresh: () => void;
   copied: boolean;
   bookmarked: boolean;
@@ -348,14 +379,17 @@ function LiveHadithCard({
   onShare: () => void;
   colors: any;
 }) {
+  const accentColor = isFeatured ? colors.tint : colors.gold;
   return (
-    <View style={[styles.liveCard, { backgroundColor: colors.prayerCard, borderColor: colors.gold + "66" }]}>
-      <View style={[styles.liveAccent, { backgroundColor: colors.gold }]} />
+    <View style={[styles.liveCard, { backgroundColor: colors.prayerCard, borderColor: accentColor + "66" }]}>
+      <View style={[styles.liveAccent, { backgroundColor: accentColor }]} />
       <View style={styles.liveInner}>
         <View style={styles.liveTitleRow}>
-          <View style={[styles.liveBadge, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "55" }]}>
-            <Feather name="globe" size={9} color={colors.gold} />
-            <Text style={[styles.liveBadgeText, { color: colors.gold }]}>LIVE FROM SUNNAH.COM</Text>
+          <View style={[styles.liveBadge, { backgroundColor: accentColor + "22", borderColor: accentColor + "55" }]}>
+            <Feather name={isFeatured ? "star" : "globe"} size={9} color={accentColor} />
+            <Text style={[styles.liveBadgeText, { color: accentColor }]}>
+              {isFeatured ? "FEATURED HADITH" : "LIVE FROM SUNNAH.COM"}
+            </Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <BookmarkBtn
@@ -366,8 +400,8 @@ function LiveHadithCard({
             />
             <TouchableOpacity onPress={onRefresh} hitSlop={10} disabled={loading}>
               {loading
-                ? <ActivityIndicator size="small" color={colors.gold} />
-                : <Feather name="refresh-cw" size={15} color={colors.gold} />}
+                ? <ActivityIndicator size="small" color={accentColor} />
+                : <Feather name="refresh-cw" size={15} color={accentColor} />}
             </TouchableOpacity>
           </View>
         </View>
