@@ -5,6 +5,7 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -68,8 +69,9 @@ function NameCard({ item, colors, onPress }: { item: AllahName; colors: any; onP
 }
 
 function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item: AllahName; colors: any; onClose: () => void; onShare: () => void; miniPlayerH?: number }) {
-  const slideY = useRef(new Animated.Value(80)).current;
+  const slideY = useRef(new Animated.Value(SHEET_H)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const dragY = useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
     Animated.parallel([
@@ -78,29 +80,50 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
     ]).start();
   }, []);
 
-  const handleClose = () => {
+  const dismiss = () => {
     Animated.parallel([
-      Animated.timing(slideY, { toValue: 80, duration: 180, useNativeDriver: false }),
-      Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: false }),
+      Animated.timing(slideY, { toValue: SHEET_H, duration: 220, useNativeDriver: false }),
+      Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: false }),
     ]).start(() => onClose());
   };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) dragY.setValue(g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 80 || g.vy > 0.6) {
+          dismiss();
+        } else {
+          Animated.spring(dragY, { toValue: 0, useNativeDriver: false, speed: 25 }).start();
+        }
+      },
+    })
+  ).current;
+
+  const translateY = Animated.add(slideY, dragY);
 
   return (
     <Animated.View
       style={[styles.sheetOverlay, { opacity }]}
       pointerEvents="box-none"
     >
-      <TouchableOpacity style={styles.sheetBackdrop} onPress={handleClose} activeOpacity={1} />
+      <TouchableOpacity style={styles.sheetBackdrop} onPress={dismiss} activeOpacity={1} />
       <Animated.View
         style={[
           styles.sheet,
-          { backgroundColor: colors.surface, transform: [{ translateY: slideY }] },
+          { backgroundColor: colors.surface, transform: [{ translateY }] },
         ]}
       >
-        {/* Drag handle */}
-        <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+        {/* Drag handle — touch area is larger than the visual pill */}
+        <View {...panResponder.panHandlers} style={styles.sheetHandleArea}>
+          <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+        </View>
 
-        {/* Top action bar — always visible, no scroll needed */}
+        {/* Top action bar — always visible, outside scroll */}
         <View style={styles.sheetTopBar}>
           <View style={[styles.sheetNumBadge, { backgroundColor: colors.tint + "22" }]}>
             <Text style={[styles.sheetNum, { color: colors.tint }]}>#{item.number}</Text>
@@ -115,7 +138,7 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.sheetIconBtn, { backgroundColor: colors.tint, borderColor: colors.tint }]}
-              onPress={handleClose}
+              onPress={dismiss}
               activeOpacity={0.85}
             >
               <Feather name="x" size={16} color="#fff" />
@@ -123,11 +146,12 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
           </View>
         </View>
 
-        {/* Scrollable content */}
+        {/* Scrollable content — flex:1 so it fills remaining sheet height */}
         <ScrollView
+          style={styles.sheetScrollView}
           showsVerticalScrollIndicator={false}
-          bounces={false}
-          contentContainerStyle={[styles.sheetScroll, { paddingBottom: 24 + miniPlayerH }]}
+          bounces={true}
+          contentContainerStyle={[styles.sheetScroll, { paddingBottom: 32 + miniPlayerH }]}
         >
           <Text style={[styles.sheetArabic, { color: colors.text }]}>{item.arabic}</Text>
           <Text style={[styles.sheetTranslit, { color: colors.tint }]}>{item.transliteration}</Text>
@@ -139,12 +163,12 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
           </View>
 
           <View style={[styles.sheetMeaningBox, { backgroundColor: colors.background, borderColor: colors.tint + "33" }]}>
-            <Text style={[styles.sheetMeaningTitle, { color: colors.textSecondary }]}>Meaning</Text>
+            <Text style={[styles.sheetMeaningTitle, { color: colors.textSecondary }]}>MEANING</Text>
             <Text style={[styles.sheetMeaning, { color: colors.text }]}>{item.meaning}</Text>
           </View>
 
           <View style={[styles.sheetDescBox, { backgroundColor: colors.background }]}>
-            <Text style={[styles.sheetDescTitle, { color: colors.textSecondary }]}>Description</Text>
+            <Text style={[styles.sheetDescTitle, { color: colors.textSecondary }]}>DESCRIPTION</Text>
             <Text style={[styles.sheetDesc, { color: colors.text }]}>{item.description}</Text>
           </View>
         </ScrollView>
@@ -345,12 +369,20 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.55)",
   },
   sheet: {
+    height: SHEET_H,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingTop: 12,
     paddingHorizontal: 24,
-    minHeight: "78%",
-    maxHeight: "93%",
+    paddingTop: 0,
+    overflow: "hidden",
+  },
+  sheetHandleArea: {
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  sheetScrollView: {
+    flex: 1,
   },
   sheetTopBar: {
     flexDirection: "row",
