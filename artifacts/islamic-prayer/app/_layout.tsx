@@ -10,7 +10,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { AppState, AppStateStatus } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -21,6 +22,7 @@ import { NuurSplash } from "@/components/NuurSplash";
 import { Onboarding, ONBOARDING_KEY } from "@/components/Onboarding";
 import { AppProvider, useAppContext } from "@/context/AppContext";
 import { QuranPlayerProvider } from "@/context/QuranPlayerContext";
+import { recordFirstLaunch, maybeRequestReview } from "@/utils/reviewPrompt";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -34,6 +36,28 @@ function RootLayoutNav() {
       <Stack.Screen name="calendar" options={{ headerShown: false, presentation: "modal" }} />
     </Stack>
   );
+}
+
+function ReviewGate() {
+  const { prayerTimes } = useAppContext();
+  const hasTriggered = useRef(false);
+
+  useEffect(() => {
+    if (!prayerTimes || hasTriggered.current) return;
+    hasTriggered.current = true;
+    maybeRequestReview();
+  }, [prayerTimes]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state: AppStateStatus) => {
+      if (state === "active") {
+        maybeRequestReview();
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  return null;
 }
 
 function AdhanGate() {
@@ -75,6 +99,7 @@ export default function RootLayout() {
 
   // Load onboarding status from storage immediately on mount.
   useEffect(() => {
+    recordFirstLaunch();
     AsyncStorage.getItem(ONBOARDING_KEY).then((v) => {
       setOnboardingDone(v === "true");
     }).catch(() => {
@@ -100,6 +125,7 @@ export default function RootLayout() {
                       Contexts (AppProvider, QuranPlayerProvider) warm up above this,
                       so data loading is NOT blocked — only screen rendering is. */}
                   {fontsReady && <RootLayoutNav />}
+                  <ReviewGate />
                   <AdhanGate />
                   {/* Onboarding overlay — shown once after first-launch splash */}
                   {splashDone && onboardingDone === false && (

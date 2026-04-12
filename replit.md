@@ -133,6 +133,8 @@ Comprehensive Islamic prayer mobile app — **Nuur / نور** — built with Exp
 - `utils/islamicData.ts` — Quran surah list, Dua categories, Islamic reminders, Hijri date conversion
 - `utils/hadithData.ts` — 15 Sahih hadiths with Arabic, transliteration, translation, narrator, source, grade. `getDailyHadith()` rotates daily.
 - `utils/notifications.ts` — expo-notifications: schedules all 5 prayers for next 7 days
+- `utils/calcMethodByCountry.ts` — Maps 80+ ISO country codes → `CalcMethodId`. `suggestCalcMethod(isoCountryCode)` auto-selects the community-standard method on first GPS lock (one-time; never overrides manual choices). Dismissable banner shown on home screen.
+- `utils/reviewPrompt.ts` — `recordFirstLaunch()` stores install timestamp on first run; `maybeRequestReview()` triggers native App Store / Play Store review dialog after 5–7 days (once only, platform-gated via `StoreReview.isAvailableAsync()`). Called from `ReviewGate` in `_layout.tsx` on prayer-times load and on AppState `active` events.
 - `context/AppContext.tsx` — All app state: location, prayer times, bookmarks, theme, displayMode, calcMethod, madhab, highLatRule, timeFormat, notifications, adhan. All persisted to AsyncStorage.
 - `constants/themes.ts` — 5 `ThemeDefinition`s each with `colors` (dark) and `lightColors` (light). `DisplayMode = "dark" | "light"`.
 - `components/NuurSplash.tsx` — Branded splash with golden ن, rays, glow rings, "نور / NUUR" text. Shows on app open, fades out after ~2.5s.
