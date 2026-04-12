@@ -16,10 +16,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.nuur.islamicprayer",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "We need your location to calculate accurate prayer times for your area.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to calculate accurate prayer times for your area.",
-        "NSPhotoLibraryUsageDescription": "Nuur saves your shared ayah cards to your photo library.",
-        "NSPhotoLibraryAddUsageDescription": "Nuur saves your shared ayah cards to your photo library.",
+        "NSLocationWhenInUseUsageDescription": "Nuur uses your location to calculate accurate prayer times, determine your Qibla direction, and find nearby mosques.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Nuur uses your location to calculate accurate prayer times, determine your Qibla direction, and find nearby mosques.",
+        "NSPhotoLibraryUsageDescription": "Nuur saves Quranic verse cards you share to your Camera Roll.",
+        "NSPhotoLibraryAddUsageDescription": "Nuur saves Quranic verse cards you share to your Camera Roll.",
         "UIBackgroundModes": [
           "audio"
         ],
@@ -74,15 +74,15 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Nuur to access your location to calculate accurate prayer times.",
-          "locationAlwaysAndWhenInUsePermission": "Allow Nuur to access your location to calculate accurate prayer times."
+          "locationWhenInUsePermission": "Nuur uses your location to calculate accurate prayer times, determine your Qibla direction, and find nearby mosques.",
+          "locationAlwaysAndWhenInUsePermission": "Nuur uses your location to calculate accurate prayer times, determine your Qibla direction, and find nearby mosques."
         }
       ],
       [
         "expo-media-library",
         {
-          "photosPermission": "Nuur saves your shared ayah cards to your photo library.",
-          "savePhotosPermission": "Nuur saves your shared ayah cards to your photo library.",
+          "photosPermission": "Nuur saves Quranic verse cards you share to your Camera Roll.",
+          "savePhotosPermission": "Nuur saves Quranic verse cards you share to your Camera Roll.",
           "isAccessMediaLocationEnabled": true
         }
       ]
