@@ -18,6 +18,7 @@ import {
   DEFAULT_HIGH_LAT_RULE,
   DEFAULT_TIME_FORMAT,
 } from "@/utils/prayerTimes";
+import { suggestCalcMethod, getCalcMethodLabel } from "@/utils/calcMethodByCountry";
 import {
   DEFAULT_THEME,
   DEFAULT_DISPLAY_MODE,
@@ -77,6 +78,8 @@ interface AppContextType {
   toggleNotifications: () => Promise<void>;
   calcMethod: CalcMethodId;
   setCalcMethod: (method: CalcMethodId) => void;
+  calcMethodAutoSetLabel: string | null;
+  dismissCalcMethodNotice: () => void;
   madhab: MadhabId;
   setMadhab: (madhab: MadhabId) => void;
   highLatRule: HighLatRuleId;
@@ -194,6 +197,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [displayMode, setDisplayModeState] = useState<DisplayMode>(DEFAULT_DISPLAY_MODE);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [calcMethod, setCalcMethodState] = useState<CalcMethodId>(DEFAULT_CALC_METHOD);
+  const [calcMethodAutoSetLabel, setCalcMethodAutoSetLabel] = useState<string | null>(null);
+  const calcMethodSavedRef = useRef(false);
   const [madhab, setMadhabState] = useState<MadhabId>(DEFAULT_MADHAB);
   const [highLatRule, setHighLatRuleState] = useState<HighLatRuleId>(DEFAULT_HIGH_LAT_RULE);
   const [timeFormat, setTimeFormatState] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
@@ -452,7 +457,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (theme && theme in THEMES) setThemeNameState(theme as ThemeName);
       if (mode === "auto" || mode === "dark" || mode === "light") setDisplayModeState(mode);
       if (notifs === "true") setNotificationsEnabled(true);
-      if (method) setCalcMethodState(method as CalcMethodId);
+      if (method) { setCalcMethodState(method as CalcMethodId); calcMethodSavedRef.current = true; }
       if (madhabVal === "Hanafi" || madhabVal === "Shafi") setMadhabState(madhabVal);
       if (latRule) setHighLatRuleState(latRule as HighLatRuleId);
       if (fmt === "12h" || fmt === "24h") setTimeFormatState(fmt);
@@ -545,7 +550,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setCalcMethod = useCallback(async (method: CalcMethodId) => {
     setCalcMethodState(method);
+    calcMethodSavedRef.current = true;
+    setCalcMethodAutoSetLabel(null);
     try { await AsyncStorage.setItem(STORAGE_KEYS.CALC_METHOD, method); } catch {}
+  }, []);
+
+  const dismissCalcMethodNotice = useCallback(() => {
+    setCalcMethodAutoSetLabel(null);
   }, []);
 
   const setMadhab = useCallback(async (m: MadhabId) => {
@@ -834,11 +845,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const { latitude, longitude } = loc.coords;
       let cityName: string | null = null;
+      let detectedCountryCode: string | null = null;
       try {
         const [geocode] = await Location.reverseGeocodeAsync({ latitude, longitude });
         cityName = extractCity(geocode);
+        detectedCountryCode = geocode?.isoCountryCode ?? null;
       } catch {}
       if (!cityName) cityName = await nominatimCity(latitude, longitude);
+      if (detectedCountryCode && !calcMethodSavedRef.current) {
+        const suggested = suggestCalcMethod(detectedCountryCode);
+        if (suggested) {
+          setCalcMethodState(suggested);
+          calcMethodRef.current = suggested;
+          calcMethodSavedRef.current = true;
+          try { await AsyncStorage.setItem(STORAGE_KEYS.CALC_METHOD, suggested); } catch {}
+          setCalcMethodAutoSetLabel(getCalcMethodLabel(suggested));
+        }
+      }
       const tz = getTimezoneOffset();
       const locationData: LocationData = {
         latitude, longitude,
@@ -964,6 +987,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         toggleNotifications,
         calcMethod,
         setCalcMethod,
+        calcMethodAutoSetLabel,
+        dismissCalcMethodNotice,
         madhab,
         setMadhab,
         highLatRule,

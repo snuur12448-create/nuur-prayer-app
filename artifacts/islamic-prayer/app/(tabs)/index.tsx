@@ -49,6 +49,7 @@ export default function PrayerScreen() {
     themeColors: colors, notificationsEnabled,
     timeFormat, calcMethod, madhab, highLatRule, prayerOffsets,
     prayerNotifConfig, setPrayerNotifSettings, toggleMasterPrayerBell,
+    calcMethodAutoSetLabel, dismissCalcMethodNotice,
   } = useAppContext();
 
   // ── Master bell state (5 prayers only, Sunrise excluded) ──────────────────
@@ -511,6 +512,22 @@ export default function PrayerScreen() {
               <Text style={[styles.errorText, { color: colors.textSecondary }]}>{locationError}</Text>
             </View>
           ) : null}
+
+          {calcMethodAutoSetLabel && (
+            <View style={[styles.autoMethodBanner, { backgroundColor: colors.tint + "18", borderColor: colors.tint + "45" }]}>
+              <View style={styles.autoMethodBannerLeft}>
+                <MaterialCommunityIcons name="map-marker-check" size={15} color={colors.tint} />
+                <Text style={[styles.autoMethodText, { color: colors.text }]}>
+                  Prayer method set to{" "}
+                  <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.tint }}>{calcMethodAutoSetLabel}</Text>
+                  {" "}for your region
+                </Text>
+              </View>
+              <TouchableOpacity onPress={dismissCalcMethodNotice} hitSlop={8}>
+                <Feather name="x" size={14} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* ── Verse of the Day Widget ── */}
@@ -946,6 +963,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
     color: "#fff",
+  },
+  autoMethodBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: 11,
+    paddingHorizontal: 13,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 10,
+  },
+  autoMethodBannerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  autoMethodText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
+    lineHeight: 18,
   },
   errorBanner: {
     flexDirection: "row",
