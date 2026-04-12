@@ -22,7 +22,7 @@ export const SUNRISE_MINUTES_OPTIONS = [10, 20, 30] as const;
 export type SunriseMinutesBefore = typeof SUNRISE_MINUTES_OPTIONS[number];
 
 export const DEFAULT_PRAYER_NOTIF_SETTINGS: PrayerNotifSettings = {
-  enabled: false,
+  enabled: true,
   type: "adhan",
   adhanStyleId: DEFAULT_ADHAN_STYLE_ID,
   adhanMode: DEFAULT_ADHAN_MODE,

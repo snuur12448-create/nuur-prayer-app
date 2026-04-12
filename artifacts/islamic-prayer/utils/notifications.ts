@@ -104,6 +104,12 @@ const MAJOR_EVENTS = new Set([
   "Day of Ashura",
 ]);
 
+// iOS hard-limits scheduled local notifications to 64.
+// We use 60 as our cap so a few slots remain for system/other app use.
+// Notifications are scheduled in priority order: prayers first, then
+// Jummah, Ayah/Hadith, and Islamic events last.
+const IOS_NOTIF_CAP = 60;
+
 export async function schedulePrayerNotifications(
   lat: number,
   lng: number,
@@ -126,6 +132,16 @@ export async function schedulePrayerNotifications(
 
   const now = new Date();
   const offsets = prayerOffsets ?? DEFAULT_PRAYER_OFFSETS;
+  let scheduled = 0; // running count — stops scheduling when IOS_NOTIF_CAP is reached
+
+  // Helper: schedule one notification and track the count.
+  // Returns false if the cap has been reached (caller should stop scheduling).
+  const scheduleOne = async (req: Notifications.NotificationRequestInput): Promise<boolean> => {
+    if (Platform.OS === "ios" && scheduled >= IOS_NOTIF_CAP) return false;
+    await Notifications.scheduleNotificationAsync(req);
+    scheduled++;
+    return true;
+  };
 
   // ── Prayer notifications (next 7 days) ──
   for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
@@ -151,7 +167,7 @@ export async function schedulePrayerNotifications(
 
         const sound = resolveNotifSound(cfg.type, cfg.adhanMode, cfg.adhanStyleId);
 
-        await Notifications.scheduleNotificationAsync({
+        await scheduleOne({
           content: {
             title: `${PRAYER_EMOJI[prayer.name] ?? "🕌"} ${prayer.name} at ${prayer.timeString}`,
             body: PRAYER_BODY[prayer.name] ?? `It is time for ${prayer.name} in ${city}`,
@@ -174,7 +190,7 @@ export async function schedulePrayerNotifications(
         });
       } else {
         // Legacy fallback — no config saved yet, use default sound
-        await Notifications.scheduleNotificationAsync({
+        await scheduleOne({
           content: {
             title: `${PRAYER_EMOJI[prayer.name] ?? "🕌"} ${prayer.name} at ${prayer.timeString}`,
             body: PRAYER_BODY[prayer.name] ?? `It is time for ${prayer.name} in ${city}`,
@@ -196,7 +212,7 @@ export async function schedulePrayerNotifications(
         const dow = reminderTime.getDay();
         if (sunriseCfg.days.includes(dow)) {
           const sound = resolveNotifSound(sunriseCfg.type, sunriseCfg.adhanMode, sunriseCfg.adhanStyleId);
-          await Notifications.scheduleNotificationAsync({
+          await scheduleOne({
             content: {
               title: `⏰ Sunrise in ${minutesBefore} minutes`,
               body: "Fajr time is ending soon. Ensure you have prayed ⏰",
@@ -222,7 +238,7 @@ export async function schedulePrayerNotifications(
         times.dhuhr.time.getTime() - jummahMinutesBefore * 60_000,
       );
       if (reminderTime > now) {
-        await Notifications.scheduleNotificationAsync({
+        await scheduleOne({
           content: {
             title: "Jummah Mubarak 🕌",
             body: "The best day the sun rises upon is Friday (Abu Dawud). Prayer begins soon.",
@@ -246,7 +262,7 @@ export async function schedulePrayerNotifications(
       targetDate.setHours(ayahHour, ayahMinute, 0, 0);
       if (targetDate > now) {
         const ayah = getDailyAyahForDate(targetDate);
-        await Notifications.scheduleNotificationAsync({
+        await scheduleOne({
           content: {
             title: "☀️ Ayah of the Day",
             body: `${truncate(ayah.translation, 110)} — ${ayah.surahName} ${ayah.surahNumber}:${ayah.ayahNumber}`,
@@ -269,7 +285,7 @@ export async function schedulePrayerNotifications(
       targetDate.setHours(hadithHour, hadithMinute, 0, 0);
       if (targetDate > now) {
         const hadith = getDailyHadithForDate(targetDate);
-        await Notifications.scheduleNotificationAsync({
+        await scheduleOne({
           content: {
             title: "📖 Hadith of the Day",
             body: `${truncate(hadith.translation, 110)} — ${hadith.source}`,
@@ -306,7 +322,7 @@ export async function schedulePrayerNotifications(
           if (nightTime > now && nightTime.getTime() - now.getTime() <= maxFutureMs) {
             scheduledEventKeys.add(eventKey);
             const emoji = EVENT_EMOJI[event.name] ?? "🌙";
-            await Notifications.scheduleNotificationAsync({
+            await scheduleOne({
               content: {
                 title: `${emoji} ${event.name}`,
                 body: `${event.arabic} — Seek forgiveness and worship tonight`,
@@ -324,7 +340,7 @@ export async function schedulePrayerNotifications(
           if (morningTime > now && morningTime.getTime() - now.getTime() <= maxFutureMs) {
             scheduledEventKeys.add(eventKey);
             const emoji = EVENT_EMOJI[event.name] ?? "🌙";
-            await Notifications.scheduleNotificationAsync({
+            const ok = await scheduleOne({
               content: {
                 title: `${emoji} ${event.name}`,
                 body: event.arabic,
@@ -335,13 +351,14 @@ export async function schedulePrayerNotifications(
                 date: morningTime,
               },
             });
+            if (!ok) break; // cap reached — stop scheduling
 
             if (MAJOR_EVENTS.has(event.name)) {
               const eveTime = new Date(eventDateUTC);
               eveTime.setDate(eveTime.getDate() - 1);
               eveTime.setHours(20, 0, 0, 0);
               if (eveTime > now && eveTime.getTime() - now.getTime() <= maxFutureMs) {
-                await Notifications.scheduleNotificationAsync({
+                await scheduleOne({
                   content: {
                     title: `🌙 Tomorrow: ${event.name}`,
                     body: "Prepare your heart, intentions, and du'a",

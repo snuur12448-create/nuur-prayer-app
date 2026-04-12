@@ -666,28 +666,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "true");
     }
 
-    // Update the 5 prayer enabled flags in one state update
+    // Update the 5 prayer enabled flags in one state update.
+    // Capture the resulting config synchronously inside the setter so the
+    // reschedule below always uses the NEW value, not the stale ref
+    // (ref is only synced after the next render via useEffect).
+    let capturedConfig: PrayerNotifConfig = prayerNotifConfigRef.current;
     setPrayerNotifConfigState((prev) => {
       const next = { ...prev };
       for (const k of FIVE_PRAYER_KEYS) {
         next[k] = { ...prev[k], enabled: nextEnabled };
       }
+      capturedConfig = next;
       AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(next)).catch(() => {});
       return next;
     });
 
-    // Reschedule if notifications are (or just became) active
+    // Reschedule if notifications are (or just became) active.
+    // Use setTimeout so the setter runs before we schedule, and capturedConfig
+    // (not the stale ref) so we use the just-set enabled values.
     const notifsActive = nextEnabled ? true : notificationsRef.current;
     if (notifsActive && location) {
-      await schedulePrayerNotifications(
-        location.latitude, location.longitude, location.timezone, location.city,
-        jummahReminderRef.current, jummahMinutesRef.current,
-        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
-        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
-        islamicEventsRef.current,
-        prayerNotifConfigRef.current,
-        prayerOffsetsRef.current,
-      );
+      setTimeout(async () => {
+        await schedulePrayerNotifications(
+          location.latitude, location.longitude, location.timezone, location.city,
+          jummahReminderRef.current, jummahMinutesRef.current,
+          ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
+          hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
+          islamicEventsRef.current,
+          capturedConfig,
+          prayerOffsetsRef.current,
+        );
+      }, 50);
     }
   }, [location]);
 
