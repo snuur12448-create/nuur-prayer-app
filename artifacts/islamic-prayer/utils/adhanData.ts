@@ -15,29 +15,33 @@ export interface AdhanStyle {
   cafFilename: string;    // Bundled .caf file for iOS background notifications (28s clip)
 }
 
+// AlAdhan CDN — production-grade Islamic audio CDN (128–226 kbps)
+// https://aladhan.com/download-adhans
+const ALA = "https://cdn.aladhan.com/audio/adhans";
+
 export const ADHAN_STYLES: AdhanStyle[] = [
   {
     id: "makkah",
     name: "Makkah",
     arabic: "أذان مكة المكرمة",
-    reciter: "Sheikh Ali bin Abdurrahman Al-Huthaify",
+    reciter: "Masjid al-Haram",
     location: "Masjid al-Haram, Makkah",
     description: "The sacred call from the Grand Mosque of Makkah",
-    audioUrl: "https://www.islamcan.com/audio/adhan/azan1.mp3",
-    fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan9.mp3",
-    shortAudioUrl: "https://www.islamcan.com/audio/adhan/azan6.mp3",
+    audioUrl: `${ALA}/a8.mp3`,                                       // Masjid Al-Haram, 128 kbps
+    fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan9.mp3",  // Makkah Fajr (best available)
+    shortAudioUrl: `${ALA}/a11-mansour-al-zahrani.mp3`,              // Salah Mansoor Az-Zahrani, 204 kbps
     cafFilename: "adhan_makkah.caf",
   },
   {
     id: "madinah",
     name: "Madinah",
     arabic: "أذان المدينة المنورة",
-    reciter: "Sheikh Essam Bukhari",
+    reciter: "Ahmad al-Nafees",
     location: "Masjid an-Nabawi, Madinah",
     description: "The beloved call from the Prophet's Mosque",
-    audioUrl: "https://www.islamcan.com/audio/adhan/azan2.mp3",
-    fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan10.mp3",
-    shortAudioUrl: "https://www.islamcan.com/audio/adhan/azan19.mp3",
+    audioUrl: `${ALA}/a1.mp3`,                                        // Ahmad al-Nafees, 128 kbps
+    fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan10.mp3", // Madinah Fajr (best available)
+    shortAudioUrl: `${ALA}/a6.mp3`,                                   // Salah Mansoor Az-Zahrani, 128 kbps
     cafFilename: "adhan_madinah.caf",
   },
   {
@@ -47,33 +51,33 @@ export const ADHAN_STYLES: AdhanStyle[] = [
     reciter: "Sheikh Mishari Rashid Al-Afasy",
     location: "Kuwait",
     description: "The world-renowned Kuwaiti reciter's melodious adhan",
-    audioUrl: "https://www.islamcan.com/audio/adhan/azan3.mp3",
-    fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan12.mp3",
-    shortAudioUrl: "https://www.islamcan.com/audio/adhan/azan8.mp3",
+    audioUrl: `${ALA}/a9.mp3`,   // Mishary Rashid Alafasy, 128 kbps
+    fajrAudioUrl: `${ALA}/a4.mp3`, // Mishary Rashid Alafasy (Dubai One TV), 199 kbps — upgrade from 40 kbps!
+    shortAudioUrl: `${ALA}/a7.mp3`, // Mishary Rashid Alafasy (variant), 128 kbps
     cafFilename: "adhan_afasy.caf",
   },
   {
     id: "egyptian",
     name: "Egyptian",
     arabic: "الأذان المصري",
-    reciter: "Traditional Egyptian Style",
+    reciter: "Qari Abdul Karim",
     location: "Al-Azhar, Cairo",
     description: "The classical Egyptian maqam style passed through generations",
-    audioUrl: "https://www.islamcan.com/audio/adhan/azan4.mp3",
-    fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan14.mp3",
-    shortAudioUrl: "https://www.islamcan.com/audio/adhan/azan17.mp3",
+    audioUrl: `${ALA}/a10.mp3`,                                        // Qari Abdul Karim, 226 kbps
+    fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan14.mp3",  // Egyptian Fajr (best available)
+    shortAudioUrl: `${ALA}/a10.mp3`,                                   // Qari Abdul Karim, 226 kbps (concise)
     cafFilename: "adhan_egyptian.caf",
   },
   {
     id: "turkish",
     name: "Turkish",
     arabic: "الأذان العثماني",
-    reciter: "Diyanet İşleri Başkanlığı",
+    reciter: "Hafiz Mustafa Özcan",
     location: "Süleymaniye Mosque, Istanbul",
     description: "The majestic Ottoman-era style from Istanbul's grand mosques",
-    audioUrl: "https://www.islamcan.com/audio/adhan/azan5.mp3",
-    fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan18.mp3",
-    shortAudioUrl: "https://www.islamcan.com/audio/adhan/azan20.mp3",
+    audioUrl: `${ALA}/a2.mp3`,                                         // Hafiz Mustafa Özcan, 128 kbps
+    fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan18.mp3",  // Turkish Fajr (best available)
+    shortAudioUrl: `${ALA}/a10.mp3`,                                   // Qari Abdul Karim, 226 kbps (shorter)
     cafFilename: "adhan_turkish.caf",
   },
 ];
