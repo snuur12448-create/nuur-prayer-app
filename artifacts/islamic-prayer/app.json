@@ -15,6 +15,9 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.nuur.islamicprayer",
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true
+      },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Nuur uses your location to calculate accurate prayer times, determine your Qibla direction, and find nearby mosques.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Nuur uses your location to calculate accurate prayer times, determine your Qibla direction, and find nearby mosques.",

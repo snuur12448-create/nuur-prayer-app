@@ -188,6 +188,7 @@ export default function TrackerScreen() {
           title: "Prayer Streak 🕌",
           body: MILESTONE_MESSAGES[milestone],
           sound: true,
+          interruptionLevel: "timeSensitive",
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
