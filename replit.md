@@ -144,3 +144,22 @@ Comprehensive Islamic prayer mobile app — **Nuur / نور** — built with Exp
 - NuurUK: `CalculationMethod.NorthAmerica()` + `fajrAngle = 15.5` + `HighLatitudeRule.TwilightAngle`
 - `useNativeDriver: false` required for all Animated calls (web compatibility)
 - Bismillah stripping: drop first 4 whitespace-split words from verse 1 (surahs ≠ 1 and ≠ 9)
+
+## Deferred Features
+
+### iOS Home Screen / Lock Screen Widget
+Show next prayer name + countdown on the home screen and lock screen.
+
+**Plan:**
+- Use `expo-apple-targets` (community config plugin by Evan Bacon) to add a WidgetKit extension target
+- Write a SwiftUI `TimelineProvider` that refreshes the widget after each prayer time passes
+- Bridge data from JS → widget via `UserDefaults` with a shared App Group entitlement (write from JS using `@react-native-community/async-storage` is NOT enough — must use the native App Group `UserDefaults` suite)
+- Config plugin sets the App Group ID in both the main app and the widget extension entitlements
+- Support both small (next prayer + countdown) and medium (all 5 prayers for the day) widget sizes
+
+**Prerequisites before building:**
+- EAS Build must be configured (`eas.json`, Apple Developer account, provisioning profiles with App Groups entitlement)
+- Test on a real device — widgets cannot run in Expo Go or simulators without a signed build
+- Iterate via `eas build --profile development` + TestFlight
+
+**Why deferred:** the code is straightforward but cannot be validated without EAS + physical device. Build that infrastructure first, then add the widget as a focused follow-on.
