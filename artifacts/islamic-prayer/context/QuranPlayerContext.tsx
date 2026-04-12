@@ -6,12 +6,16 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { DEFAULT_RECITER, getVerseAudioUrl, isSurahLevelReciter, Reciter } from "@/utils/audioData";
 
 const AUTO_ADVANCE_KEY = "nuur_quran_auto_advance";
+const LAST_PLAYING_KEY = "nuur_quran_last_playing";
+// Max tracks to load into the TrackPlayer queue at one time. iOS becomes
+// unstable with hundreds of queued items; we add more dynamically as we play.
+const QUEUE_WINDOW = 40;
 
 // react-native-track-player requires a custom native build and is NOT available
 // in Expo Go (executionEnvironment === "storeClient"). Importing it in Expo Go
@@ -36,6 +40,9 @@ interface QuranPlayerContextType {
   currentSurahNum: number | null;
   currentSurahName: string | null;
   currentSurahArabic: string | null;
+  /** Last surah/verse that was playing — persisted across app restarts so the screen can scroll to it. */
+  lastPlayingSurahNum: number | null;
+  lastPlayingVerseNum: number | null;
   playVerse: (
     verse: PlayerVerse,
     surahNum: number,
@@ -75,6 +82,11 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
   const [currentSurahArabic, setCurrentSurahArabic] = useState<string | null>(null);
   const [autoAdvance, setAutoAdvanceState] = useState<boolean>(true);
   const autoAdvanceRef = useRef<boolean>(true);
+  const [lastPlayingSurahNum, setLastPlayingSurahNum] = useState<number | null>(null);
+  const [lastPlayingVerseNum, setLastPlayingVerseNum] = useState<number | null>(null);
+  // Tracks the highest verse number that has been loaded into the TrackPlayer
+  // queue for the current surah, so the dynamic window can add the right batch.
+  const queuedUpToVerseRef = useRef<number | null>(null);
 
   // Web-only refs
   const webSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -165,6 +177,26 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (Platform.OS === "web" || isExpoGo) return;
     let subs: Array<{ remove(): void }> = [];
+
+    // AppState listener — re-sync TrackPlayer state when the app comes to the
+    // foreground so the UI reflects the true playback state after the OS may
+    // have paused or stopped audio in the background.
+    const appStateSub = AppState.addEventListener("change", async (nextState) => {
+      if (nextState !== "active") return;
+      try {
+        const TrackPlayer = (await import("react-native-track-player")).default;
+        const { State } = await import("react-native-track-player");
+        const playerState = await TrackPlayer.getPlaybackState();
+        const state = (playerState as any)?.state ?? playerState;
+        if (state === State.Playing) setPlayState("playing");
+        else if (state === State.Paused) setPlayState("paused");
+        else if (state === State.Loading || state === State.Buffering) setPlayState("loading");
+        else setPlayState("idle");
+        const track = await TrackPlayer.getActiveTrack();
+        if (track?.id) setPlayingVerse(Number(track.id));
+      } catch {}
+    });
+
     (async () => {
       try {
         const TrackPlayer = (await import("react-native-track-player")).default;
@@ -193,7 +225,46 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
             if (nextTrack !== null && nextTrack !== undefined) {
               try {
                 const track = await TrackPlayer.getActiveTrack();
-                if (track?.id) setPlayingVerse(Number(track.id));
+                if (track?.id) {
+                  const verseNum = Number(track.id);
+                  setPlayingVerse(verseNum);
+
+                  // ── Dynamic queue expansion ──────────────────────────────
+                  // When we're within 10 tracks of the end of the current
+                  // window, append the next QUEUE_WINDOW batch so playback
+                  // never hits a wall for long surahs like al-Baqarah.
+                  const verses = versesRef.current;
+                  const reciter = reciterRef.current;
+                  const surahNum = surahNumRef.current;
+                  const surahArabic = surahArabicRef.current;
+                  const queuedUpTo = queuedUpToVerseRef.current;
+                  if (
+                    verses && surahNum && queuedUpTo &&
+                    !isSurahLevelReciter(reciter) &&
+                    autoAdvanceRef.current &&
+                    verseNum >= queuedUpTo - 10
+                  ) {
+                    const nextBatchStart = queuedUpTo + 1;
+                    const nextBatch = verses
+                      .filter((v) => v.number >= nextBatchStart && v.number < nextBatchStart + QUEUE_WINDOW)
+                      .map((v) => ({
+                        id: String(v.number),
+                        url: getVerseAudioUrl(reciter, surahNum, v.number, v.numberInQuran),
+                        title: `${surahArabic} — Ayah ${v.number}`,
+                        artist: reciter.name,
+                        album: "Quran · Nuur",
+                        artwork: APP_ICON,
+                      }));
+                    if (nextBatch.length > 0) {
+                      try {
+                        await TrackPlayer.add(nextBatch);
+                        queuedUpToVerseRef.current = nextBatch[nextBatch.length - 1].id
+                          ? Number(nextBatch[nextBatch.length - 1].id)
+                          : queuedUpTo;
+                      } catch {}
+                    }
+                  }
+                }
               } catch {}
             }
           })
@@ -214,7 +285,10 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
       }
     })();
 
-    return () => { subs.forEach((s) => s.remove()); };
+    return () => {
+      subs.forEach((s) => s.remove());
+      appStateSub.remove();
+    };
   }, []);
 
   // ── 4. Sync playback rate ────────────────────────────────────────────────────
@@ -236,7 +310,7 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [playbackRate]);
 
-  // ── 5. Load persisted autoAdvance preference ─────────────────────────────────
+  // ── 5. Load persisted preferences & last playing position ───────────────────
   useEffect(() => {
     AsyncStorage.getItem(AUTO_ADVANCE_KEY)
       .then((val) => {
@@ -244,6 +318,17 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
           autoAdvanceRef.current = false;
           setAutoAdvanceState(false);
         }
+      })
+      .catch(() => {});
+
+    AsyncStorage.getItem(LAST_PLAYING_KEY)
+      .then((raw) => {
+        if (!raw) return;
+        try {
+          const { surahNum, verseNum } = JSON.parse(raw);
+          if (surahNum) setLastPlayingSurahNum(surahNum);
+          if (verseNum) setLastPlayingVerseNum(verseNum);
+        } catch {}
       })
       .catch(() => {});
   }, []);
@@ -307,6 +392,7 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
         await TrackPlayer.reset();
       } catch {}
     }
+    queuedUpToVerseRef.current = null;
     setPlayingVerse(null);
     setPlayState("idle");
   }, []);
@@ -420,6 +506,10 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
       setCurrentSurahArabic(surahArabic);
       setCurrentSurahName(surahName);
       setPlayingVerse(verse.number);
+      // Persist last playing position so the screen can restore scroll on return
+      setLastPlayingSurahNum(surahNum);
+      setLastPlayingVerseNum(verse.number);
+      AsyncStorage.setItem(LAST_PLAYING_KEY, JSON.stringify({ surahNum, verseNum: verse.number })).catch(() => {});
       if (!isAutoAdvance) setPlayState("loading");
 
       const url = getVerseAudioUrl(reciterRef.current, surahNum, verse.number, verse.numberInQuran);
@@ -573,17 +663,24 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
               },
             ];
           } else if (autoAdvanceRef.current) {
-            // Queue all remaining verses so TrackPlayer advances automatically
-            tracks = allVerses
-              .filter((v) => v.number >= verse.number)
-              .map((v) => ({
-                id: String(v.number),
-                url: getVerseAudioUrl(reciter, surahNum, v.number, v.numberInQuran),
-                title: `${surahArabic} — Ayah ${v.number}`,
-                artist: reciter.name,
-                album: "Quran · Nuur",
-                artwork: APP_ICON,
-              }));
+            // Queue only the next QUEUE_WINDOW verses. The PlaybackTrackChanged
+            // handler will append the next batch dynamically before the queue
+            // runs out — this prevents iOS instability from large queues.
+            const windowVerses = allVerses.filter(
+              (v) => v.number >= verse.number && v.number < verse.number + QUEUE_WINDOW
+            );
+            tracks = windowVerses.map((v) => ({
+              id: String(v.number),
+              url: getVerseAudioUrl(reciter, surahNum, v.number, v.numberInQuran),
+              title: `${surahArabic} — Ayah ${v.number}`,
+              artist: reciter.name,
+              album: "Quran · Nuur",
+              artwork: APP_ICON,
+            }));
+            // Track the highest verse number in the initial window
+            queuedUpToVerseRef.current = windowVerses.length > 0
+              ? windowVerses[windowVerses.length - 1].number
+              : verse.number;
           } else {
             // Auto-advance is off — queue only the tapped verse
             tracks = [
@@ -678,6 +775,8 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
         currentSurahNum,
         currentSurahName,
         currentSurahArabic,
+        lastPlayingSurahNum,
+        lastPlayingVerseNum,
         playVerse,
         stopAudio,
         togglePlayPause,

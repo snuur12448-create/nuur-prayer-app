@@ -22,9 +22,10 @@ export async function PlaybackService() {
   });
 
   TrackPlayer.addEventListener(Event.RemoteDuck, async ({ permanent, paused }: { permanent: boolean; paused: boolean }) => {
-    if (permanent) {
-      TrackPlayer.stop();
-    } else if (paused) {
+    // Use pause (not stop) even for permanent interruptions so the queue and
+    // position are preserved. stop() destroys the queue and forces the user
+    // to start the surah over; pause() lets them resume from the same verse.
+    if (permanent || paused) {
       TrackPlayer.pause();
     } else {
       TrackPlayer.play();

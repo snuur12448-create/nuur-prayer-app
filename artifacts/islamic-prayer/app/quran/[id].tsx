@@ -544,6 +544,8 @@ export default function QuranDetailScreen() {
     playbackRate,
     selectedReciter,
     currentSurahNum: playingSurahNum,
+    lastPlayingSurahNum,
+    lastPlayingVerseNum,
     autoAdvance,
     setAutoAdvance,
     playVerse: ctxPlayVerse,
@@ -675,6 +677,22 @@ export default function QuranDetailScreen() {
     }, 350);
     return () => clearTimeout(t);
   }, [verses, playingVerse, playingSurahNum, surahNumber]);
+
+  // If audio has stopped (playingVerse is null) but we know the last verse that
+  // was playing in this surah, scroll there so the user picks up where they left
+  // off instead of seeing the top of the surah.
+  useEffect(() => {
+    if (!verses) return;
+    if (playingVerse) return; // active playback scroll takes priority
+    if (lastPlayingSurahNum !== surahNumber) return;
+    if (!lastPlayingVerseNum || lastPlayingVerseNum <= 1) return;
+    const idx = verses.findIndex((v) => v.number === lastPlayingVerseNum);
+    if (idx < 0) return;
+    const t = setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index: idx, animated: false, viewPosition: 0.3 });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [verses, playingVerse, lastPlayingSurahNum, lastPlayingVerseNum, surahNumber]);
 
   // Scroll to the target verse after search navigation, then flash-highlight it.
   // We do this via a useEffect (not initialScrollIndex) so that FlatList has no
