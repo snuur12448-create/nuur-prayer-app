@@ -1,6 +1,10 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { calculatePrayerTimes, applyPrayerOffsets, DEFAULT_PRAYER_OFFSETS, PrayerOffsets } from "./prayerTimes";
+import {
+  calculatePrayerTimes, applyPrayerOffsets, DEFAULT_PRAYER_OFFSETS, PrayerOffsets,
+  CalcMethodId, MadhabId, HighLatRuleId,
+  DEFAULT_CALC_METHOD, DEFAULT_MADHAB, DEFAULT_HIGH_LAT_RULE,
+} from "./prayerTimes";
 import { getDailyAyahForDate } from "./ayahData";
 import { getDailyHadithForDate } from "./hadithData";
 import { RAW_EVENTS as ISLAMIC_RAW_EVENTS, hijriToJD, jdToDate, gregorianToHijri } from "./hijriCalendar";
@@ -126,6 +130,9 @@ export async function schedulePrayerNotifications(
   islamicEventsEnabled = false,
   prayerNotifConfig?: PrayerNotifConfig,
   prayerOffsets?: PrayerOffsets,
+  calcMethodId: CalcMethodId = DEFAULT_CALC_METHOD,
+  madhabId: MadhabId = DEFAULT_MADHAB,
+  highLatRuleId: HighLatRuleId = DEFAULT_HIGH_LAT_RULE,
 ): Promise<void> {
   if (Platform.OS === "web") return;
   await Notifications.cancelAllScheduledNotificationsAsync();
@@ -148,7 +155,7 @@ export async function schedulePrayerNotifications(
     const targetDate = new Date(now);
     targetDate.setDate(now.getDate() + dayOffset);
 
-    const raw = calculatePrayerTimes(lat, lng, tz, targetDate);
+    const raw = calculatePrayerTimes(lat, lng, tz, targetDate, calcMethodId, madhabId, highLatRuleId);
     const times = applyPrayerOffsets(raw, offsets, tz, "12h");
 
     for (const key of PRAYER_KEYS) {
@@ -233,7 +240,7 @@ export async function schedulePrayerNotifications(
       targetDate.setDate(now.getDate() + dayOffset);
       if (targetDate.getDay() !== 5) continue;
 
-      const times = calculatePrayerTimes(lat, lng, tz, targetDate);
+      const times = calculatePrayerTimes(lat, lng, tz, targetDate, calcMethodId, madhabId, highLatRuleId);
       const reminderTime = new Date(
         times.dhuhr.time.getTime() - jummahMinutesBefore * 60_000,
       );

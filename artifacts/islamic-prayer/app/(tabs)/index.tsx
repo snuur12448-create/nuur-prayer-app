@@ -5,6 +5,7 @@ import * as Clipboard from "expo-clipboard";
 import {
   ActivityIndicator,
   Animated,
+  Linking,
   Platform,
   Pressable,
   RefreshControl,
@@ -43,7 +44,7 @@ const PRAYER_STATIC: Record<string, [string, string]> = {
 
 export default function PrayerScreen() {
   const {
-    prayerTimes, location, isLoadingLocation, locationError,
+    prayerTimes, location, isLoadingLocation, locationError, isLocationPermDenied,
     refreshPrayerTimes, requestLocation, setManualLocation,
     themeColors: colors, notificationsEnabled,
     timeFormat, calcMethod, madhab, highLatRule, prayerOffsets,
@@ -486,12 +487,30 @@ export default function PrayerScreen() {
               );
             })}
 
-          {locationError && (
+          {isLocationPermDenied ? (
+            <View style={[styles.deniedCard, { backgroundColor: colors.surface, borderColor: colors.tint + "50" }]}>
+              <View style={styles.deniedCardHeader}>
+                <Feather name="map-pin" size={18} color={colors.tint} />
+                <Text style={[styles.deniedCardTitle, { color: colors.text }]}>Location Access Required</Text>
+              </View>
+              <Text style={[styles.deniedCardBody, { color: colors.textSecondary }]}>
+                Prayer times need your location. Please enable location access for Nuur in your device Settings.
+              </Text>
+              <TouchableOpacity
+                style={[styles.deniedCardButton, { backgroundColor: colors.tint }]}
+                onPress={() => Linking.openSettings()}
+                activeOpacity={0.8}
+              >
+                <Feather name="settings" size={14} color="#fff" />
+                <Text style={styles.deniedCardButtonText}>Open Settings</Text>
+              </TouchableOpacity>
+            </View>
+          ) : locationError ? (
             <View style={[styles.errorBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Feather name="info" size={14} color={colors.textSecondary} />
               <Text style={[styles.errorText, { color: colors.textSecondary }]}>{locationError}</Text>
             </View>
-          )}
+          ) : null}
         </View>
 
         {/* ── Verse of the Day Widget ── */}
@@ -890,6 +909,43 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
+  },
+  deniedCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+    marginTop: 12,
+    gap: 10,
+  },
+  deniedCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  deniedCardTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  deniedCardBody: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+  },
+  deniedCardButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+    marginTop: 2,
+  },
+  deniedCardButtonText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
   },
   errorBanner: {
     flexDirection: "row",

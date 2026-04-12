@@ -61,6 +61,7 @@ interface AppContextType {
   locationError: string | null;
   isLoadingLocation: boolean;
   usingDefaultLocation: boolean;
+  isLocationPermDenied: boolean;
   refreshPrayerTimes: () => void;
   requestLocation: () => Promise<void>;
   setManualLocation: (loc: LocationData) => Promise<void>;
@@ -187,6 +188,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [usingDefaultLocation, setUsingDefaultLocation] = useState(false);
+  const [isLocationPermDenied, setIsLocationPermDenied] = useState(false);
   const [bookmarkedSurahs, setBookmarkedSurahs] = useState<number[]>([]);
   const [themeName, setThemeNameState] = useState<ThemeName>(DEFAULT_THEME);
   const [displayMode, setDisplayModeState] = useState<DisplayMode>(DEFAULT_DISPLAY_MODE);
@@ -521,6 +523,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             evEnabled,
             startupNotifConfig,
             prayerOffsetsRef.current,
+            // Use local vars from storage — refs not yet synced at startup
+            (method as CalcMethodId) || DEFAULT_CALC_METHOD,
+            (madhabVal === "Hanafi" || madhabVal === "Shafi" ? madhabVal : DEFAULT_MADHAB) as MadhabId,
+            (latRule as HighLatRuleId) || DEFAULT_HIGH_LAT_RULE,
           );
         } catch {}
       }
@@ -590,6 +596,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           islamicEventsRef.current,
           prayerNotifConfigRef.current,
           prayerOffsetsRef.current,
+          calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
         );
       }
     } else {
@@ -641,6 +648,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           islamicEventsRef.current,
           capturedConfig, // the freshly-updated config, not the stale ref
           prayerOffsetsRef.current,
+          calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
         );
       }, 50);
     }
@@ -695,6 +703,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           islamicEventsRef.current,
           capturedConfig,
           prayerOffsetsRef.current,
+          calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
         );
       }, 50);
     }
@@ -716,6 +725,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         islamicEventsRef.current,
         prayerNotifConfigRef.current,
         prayerOffsetsRef.current,
+        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
       );
     }
   }, [location]);
@@ -738,6 +748,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         islamicEventsRef.current,
         prayerNotifConfigRef.current,
         prayerOffsetsRef.current,
+        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
       );
     }
   }, [location]);
@@ -760,6 +771,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         islamicEventsRef.current,
         prayerNotifConfigRef.current,
         prayerOffsetsRef.current,
+        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
       );
     }
   }, [location]);
@@ -776,6 +788,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         enabled,
         prayerNotifConfigRef.current,
         prayerOffsetsRef.current,
+        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
       );
     }
   }, [location]);
@@ -799,15 +812,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setLocationError(null);
     }
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
+        // canAskAgain is false when the user has permanently denied (iOS: after
+        // first denial; Android: after "Don't ask again"). In that case we
+        // surface a deep-link to Settings so they can unblock it manually.
+        const permanentlyDenied = !canAskAgain;
+        setIsLocationPermDenied(permanentlyDenied);
         if (showLoading) {
-          setLocationError("Location permission denied. Using Makkah as default.");
+          setLocationError(
+            permanentlyDenied
+              ? "Location access is blocked. Open Settings to allow Nuur to use your location."
+              : "Location permission denied. Using Makkah as default.",
+          );
           setUsingDefaultLocation(true);
           updateLocation(DEFAULT_LOCATION);
         }
         return;
       }
+      setIsLocationPermDenied(false);
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const { latitude, longitude } = loc.coords;
       let cityName: string | null = null;
@@ -834,6 +857,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           islamicEventsRef.current,
           prayerNotifConfigRef.current,
           prayerOffsetsRef.current,
+          calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
         );
       }
     } catch {
@@ -911,6 +935,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         islamicEventsRef.current,
         prayerNotifConfigRef.current,
         offsets,
+        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
       );
     }
   }, [location]);
@@ -923,6 +948,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         locationError,
         isLoadingLocation,
         usingDefaultLocation,
+        isLocationPermDenied,
         refreshPrayerTimes,
         requestLocation,
         setManualLocation,
