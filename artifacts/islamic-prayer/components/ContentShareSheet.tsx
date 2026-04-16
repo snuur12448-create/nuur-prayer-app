@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -30,14 +30,18 @@ import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
 
 const { width: SCREEN_W } = Dimensions.get("window");
-const CARD_SIZE = Math.min(SCREEN_W - 32, 370);
 
-const GOLD = "#C9933A";
+const CARD_SIZE    = Math.min(SCREEN_W - 32, 370);
+const WALLPAPER_W  = Math.min(SCREEN_W - 8, 420);
+const WALLPAPER_H  = Math.round(WALLPAPER_W * (19.5 / 9));
+
+const GOLD       = "#C9933A";
 const GOLD_LIGHT = "#DFB96A";
-const CREAM = "#F5ECD7";
-const CREAM_DIM = "rgba(245,236,215,0.70)";
+const CREAM      = "#F5ECD7";
+const CREAM_DIM  = "rgba(245,236,215,0.70)";
 
-type Theme = "hadith" | "dua" | "name";
+type Theme    = "hadith" | "dua" | "name";
+type SizeMode = "card" | "wallpaper";
 
 const THEME: Record<Theme, { center: string; mid: string; edge: string }> = {
   hadith: { center: "#0F1A35", mid: "#0C1428", edge: "#0A0F1E" },
@@ -63,16 +67,12 @@ function CardBackground({ size, height, theme }: { size: number; height: number;
 
 function GeometricPattern({ size, height }: { size: number; height: number }) {
   const T = 56;
-  const cx = T / 2;
-  const cy = T / 2;
-  const r = T * 0.4;
+  const cx = T / 2, cy = T / 2, r = T * 0.4;
   const pts8 = Array.from({ length: 8 }, (_, i) => {
     const a = (i * Math.PI) / 4 - Math.PI / 8;
     const inner = r * 0.46;
     const isOuter = i % 2 === 0;
-    const x = cx + (isOuter ? r : inner) * Math.cos(a);
-    const y = cy + (isOuter ? r : inner) * Math.sin(a);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
+    return `${(cx + (isOuter ? r : inner) * Math.cos(a)).toFixed(1)},${(cy + (isOuter ? r : inner) * Math.sin(a)).toFixed(1)}`;
   });
   const star = pts8.join(" ");
   return (
@@ -96,17 +96,12 @@ function GeometricPattern({ size, height }: { size: number; height: number }) {
 }
 
 function OrnamentalDivider({ width: w }: { width: number }) {
-  const cx = w / 2;
-  const lineY = 10;
-  const gap = 14;
+  const cx = w / 2, lineY = 10, gap = 14;
   return (
     <Svg width={w} height={20}>
       <Line x1={cx - 90} y1={lineY} x2={cx - gap} y2={lineY} stroke={GOLD} strokeWidth="0.9" opacity="0.65" />
       <Line x1={cx + gap} y1={lineY} x2={cx + 90} y2={lineY} stroke={GOLD} strokeWidth="0.9" opacity="0.65" />
-      <Polygon
-        points={`${cx},${lineY - 7} ${cx + 7},${lineY} ${cx},${lineY + 7} ${cx - 7},${lineY}`}
-        fill={GOLD} opacity="0.9"
-      />
+      <Polygon points={`${cx},${lineY - 7} ${cx + 7},${lineY} ${cx},${lineY + 7} ${cx - 7},${lineY}`} fill={GOLD} opacity="0.9" />
       <Circle cx={cx - 96} cy={lineY} r={2} fill={GOLD} opacity="0.45" />
       <Circle cx={cx + 96} cy={lineY} r={2} fill={GOLD} opacity="0.45" />
     </Svg>
@@ -117,39 +112,22 @@ function CornerOrnament({ size = 34 }: { size?: number }) {
   const s = size;
   return (
     <Svg width={s} height={s}>
-      <Path
-        d={`M2,${s * 0.5} L2,2 L${s * 0.5},2`}
-        fill="none" stroke={GOLD} strokeWidth="1.4" strokeLinecap="round" opacity="0.8"
-      />
-      <Path
-        d={`M2,2 L${s * 0.38},${s * 0.38}`}
-        stroke={GOLD} strokeWidth="0.7" strokeLinecap="round" opacity="0.5"
-      />
-      <Polygon
-        points={`${s * 0.22},${s * 0.22} ${s * 0.3},${s * 0.3} ${s * 0.22},${s * 0.38} ${s * 0.14},${s * 0.3}`}
-        fill={GOLD} opacity="0.85"
-      />
+      <Path d={`M2,${s * 0.5} L2,2 L${s * 0.5},2`} fill="none" stroke={GOLD} strokeWidth="1.4" strokeLinecap="round" opacity="0.8" />
+      <Path d={`M2,2 L${s * 0.38},${s * 0.38}`} stroke={GOLD} strokeWidth="0.7" strokeLinecap="round" opacity="0.5" />
+      <Polygon points={`${s * 0.22},${s * 0.22} ${s * 0.3},${s * 0.3} ${s * 0.22},${s * 0.38} ${s * 0.14},${s * 0.3}`} fill={GOLD} opacity="0.85" />
       <Circle cx={2} cy={2} r={2.5} fill={GOLD} opacity="0.7" />
     </Svg>
   );
 }
 
-function NuurLogo() {
+function NuurLogo({ size = 28 }: { size?: number }) {
   return (
-    <Svg width={28} height={28} viewBox="0 0 28 28">
+    <Svg width={size} height={size} viewBox="0 0 28 28">
       <Circle cx={14} cy={14} r={13} fill="none" stroke={GOLD} strokeWidth="0.8" opacity="0.45" />
       <G transform="translate(14,14)">
         {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => {
           const a = (deg * Math.PI) / 180;
-          return (
-            <Line
-              key={i}
-              x1={0} y1={0}
-              x2={(8.5 * Math.cos(a)).toFixed(2)}
-              y2={(8.5 * Math.sin(a)).toFixed(2)}
-              stroke={GOLD} strokeWidth="0.5" opacity="0.3"
-            />
-          );
+          return <Line key={i} x1={0} y1={0} x2={(8.5 * Math.cos(a)).toFixed(2)} y2={(8.5 * Math.sin(a)).toFixed(2)} stroke={GOLD} strokeWidth="0.5" opacity="0.3" />;
         })}
       </G>
     </Svg>
@@ -185,10 +163,19 @@ export default function ContentShareSheet({
   bodyText,
   source,
 }: ContentShareSheetProps) {
-  const cardRef = useRef<View>(null);
-  const [saving, setSaving] = useState(false);
-  const [sharing, setSharing] = useState(false);
-  const [cardH, setCardH] = useState(CARD_SIZE);
+  const cardRef   = useRef<View>(null);
+  const [saving,   setSaving]   = useState(false);
+  const [sharing,  setSharing]  = useState(false);
+  const [cardH,    setCardH]    = useState(CARD_SIZE);
+  const [sizeMode, setSizeMode] = useState<SizeMode>("card");
+
+  const isWallpaper = sizeMode === "wallpaper";
+  const cardW       = isWallpaper ? WALLPAPER_W : CARD_SIZE;
+  const currentH    = isWallpaper ? WALLPAPER_H : cardH;
+  const FS          = isWallpaper ? 1.28 : 1;
+  const cornSize    = isWallpaper ? 46 : 34;
+  const hPad        = isWallpaper ? 36 : 22;
+  const divW        = cardW - hPad * 2 - 12;
 
   const captureCard = async (): Promise<string | null> => {
     if (Platform.OS === "web") {
@@ -214,7 +201,7 @@ export default function ContentShareSheet({
         return;
       }
       await MediaLibrary.saveToLibraryAsync(uri);
-      Alert.alert("Saved! \u2728", "The card has been saved to your camera roll.");
+      Alert.alert("Saved! ✨", `The ${isWallpaper ? "wallpaper" : "card"} has been saved to your camera roll.`);
     } catch {
       Alert.alert("Error", "Could not save the image.");
     } finally {
@@ -255,6 +242,27 @@ export default function ContentShareSheet({
             </TouchableOpacity>
           </View>
 
+          {/* ── Size toggle ── */}
+          <View style={styles.sizeToggle}>
+            {(["card", "wallpaper"] as SizeMode[]).map((mode) => (
+              <TouchableOpacity
+                key={mode}
+                style={[styles.sizePill, sizeMode === mode && styles.sizePillActive]}
+                onPress={() => setSizeMode(mode)}
+                activeOpacity={0.78}
+              >
+                <Feather
+                  name={mode === "card" ? "image" : "smartphone"}
+                  size={13}
+                  color={sizeMode === mode ? "#0D2018" : "#888"}
+                />
+                <Text style={[styles.sizePillText, sizeMode === mode && styles.sizePillTextActive]}>
+                  {mode === "card" ? "Card" : "Wallpaper"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 8 }}
@@ -263,85 +271,107 @@ export default function ContentShareSheet({
             <View style={styles.cardOuter}>
               <View
                 ref={cardRef}
-                style={{ width: CARD_SIZE, borderRadius: 20, overflow: "hidden" }}
+                style={{
+                  width: cardW,
+                  height: isWallpaper ? WALLPAPER_H : undefined,
+                  borderRadius: isWallpaper ? 28 : 20,
+                  overflow: "hidden",
+                }}
                 collapsable={false}
                 onLayout={(e) => setCardH(e.nativeEvent.layout.height)}
               >
-                <CardBackground size={CARD_SIZE} height={cardH} theme={theme} />
-                <GeometricPattern size={CARD_SIZE} height={cardH} />
+                <CardBackground size={cardW} height={currentH} theme={theme} />
+                <GeometricPattern size={cardW} height={currentH} />
 
-                <Svg width={CARD_SIZE} height={cardH} style={StyleSheet.absoluteFill}>
+                <Svg width={cardW} height={currentH} style={StyleSheet.absoluteFill}>
                   <Rect
                     x={10} y={10}
-                    width={CARD_SIZE - 20} height={cardH - 20}
-                    rx={12} fill="none"
+                    width={cardW - 20} height={currentH - 20}
+                    rx={14} fill="none"
                     stroke={GOLD} strokeWidth="0.7" opacity="0.35"
                   />
                 </Svg>
 
-                <View style={[s.corner, s.cTL]}>
-                  <CornerOrnament size={34} />
-                </View>
-                <View style={[s.corner, s.cTR, { transform: [{ scaleX: -1 }] }]}>
-                  <CornerOrnament size={34} />
-                </View>
-                <View style={[s.corner, s.cBL, { transform: [{ scaleY: -1 }] }]}>
-                  <CornerOrnament size={34} />
-                </View>
-                <View style={[s.corner, s.cBR, { transform: [{ scale: -1 }] }]}>
-                  <CornerOrnament size={34} />
-                </View>
+                <View style={[s.corner, s.cTL]}><CornerOrnament size={cornSize} /></View>
+                <View style={[s.corner, s.cTR, { transform: [{ scaleX: -1 }] }]}><CornerOrnament size={cornSize} /></View>
+                <View style={[s.corner, s.cBL, { transform: [{ scaleY: -1 }] }]}><CornerOrnament size={cornSize} /></View>
+                <View style={[s.corner, s.cBR, { transform: [{ scale: -1 }] }]}><CornerOrnament size={cornSize} /></View>
 
-                <View style={s.cardInner}>
-                  <View style={s.refRow}>
-                    <View style={s.refDot} />
-                    <Text style={s.refText}>{label}</Text>
-                    <View style={s.refDot} />
-                  </View>
+                {/* ── Card content ── */}
+                <View style={[
+                  s.cardInner,
+                  { paddingHorizontal: hPad },
+                  isWallpaper && s.cardInnerWP,
+                ]}>
+                  {/* Bismillah — wallpaper only */}
+                  {isWallpaper && (
+                    <Text style={s.bismillah}>بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</Text>
+                  )}
 
-                  {secondaryTitle ? (
-                    <Text style={s.secondaryTitle}>{secondaryTitle}</Text>
-                  ) : null}
+                  {/* Top flex spacer — wallpaper only */}
+                  {isWallpaper && <View style={{ flex: 1 }} />}
 
-                  {arabicText ? (
-                    <View style={s.arabicWrap}>
-                      <Text style={[
-                        s.arabicTxt,
-                        arabicFontSize ? { fontSize: arabicFontSize, lineHeight: arabicFontSize * 1.7, paddingTop: 6 } : null,
-                      ]}>{arabicText}</Text>
+                  {/* ── Main content ── */}
+                  <View style={{ alignItems: "center", width: "100%" }}>
+                    <View style={s.refRow}>
+                      <View style={s.refDot} />
+                      <Text style={[s.refText, { fontSize: 9.5 * FS }]}>{label}</Text>
+                      <View style={s.refDot} />
                     </View>
-                  ) : null}
 
-                  <View style={{ alignItems: "center", marginVertical: 8 }}>
-                    <OrnamentalDivider width={CARD_SIZE - 56} />
+                    {secondaryTitle ? (
+                      <Text style={[s.secondaryTitle, { fontSize: 15 * FS, lineHeight: 22 * FS }]}>
+                        {secondaryTitle}
+                      </Text>
+                    ) : null}
+
+                    {arabicText ? (
+                      <View style={s.arabicWrap}>
+                        <Text style={[
+                          s.arabicTxt,
+                          { fontSize: (arabicFontSize ?? 21) * FS, lineHeight: (arabicFontSize ?? 21) * FS * 1.75 },
+                        ]}>
+                          {arabicText}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    <View style={{ alignItems: "center", marginVertical: 8 }}>
+                      <OrnamentalDivider width={divW} />
+                    </View>
+
+                    {bodyItalic ? (
+                      <Text style={[s.italicTxt, { fontSize: 12 * FS, lineHeight: 19 * FS }]}>
+                        {bodyItalic}
+                      </Text>
+                    ) : null}
+
+                    <Text style={[s.bodyTxt, { fontSize: 11.5 * FS, lineHeight: 18.5 * FS }]}>
+                      {bodyText}
+                    </Text>
+
+                    {source ? (
+                      <Text style={[s.sourceTxt, { fontSize: 9 * FS }]}>{source}</Text>
+                    ) : null}
                   </View>
 
-                  {bodyItalic ? (
-                    <Text style={s.italicTxt}>{bodyItalic}</Text>
-                  ) : null}
+                  {/* Bottom flex spacer — wallpaper only */}
+                  {isWallpaper && <View style={{ flex: 1 }} />}
 
-                  <Text style={s.bodyTxt}>{bodyText}</Text>
-
-                  {source ? (
-                    <Text style={s.sourceTxt}>{source}</Text>
-                  ) : null}
-
-                  <Svg
-                    width={CARD_SIZE - 56} height={1}
-                    style={{ marginTop: 14, marginBottom: 8, alignSelf: "center" }}
-                  >
-                    <Line
-                      x1={0} y1={0.5}
-                      x2={CARD_SIZE - 56} y2={0.5}
-                      stroke={GOLD} strokeWidth="0.5" opacity="0.3"
-                    />
-                  </Svg>
-
-                  <View style={s.brand}>
-                    <NuurLogo />
-                    <Text style={s.brandNun}>ن</Text>
-                    <Text style={s.brandName}>N U U R</Text>
-                    <Text style={s.brandTag}>Light for your daily deen</Text>
+                  {/* ── Brand ── */}
+                  <View style={{ width: "100%" }}>
+                    <Svg
+                      width={divW} height={1}
+                      style={{ marginTop: 14, marginBottom: 8, alignSelf: "center" }}
+                    >
+                      <Line x1={0} y1={0.5} x2={divW} y2={0.5} stroke={GOLD} strokeWidth="0.5" opacity="0.3" />
+                    </Svg>
+                    <View style={s.brand}>
+                      <NuurLogo size={isWallpaper ? 34 : 28} />
+                      <Text style={[s.brandNun, isWallpaper && { fontSize: 22 }]}>ن</Text>
+                      <Text style={s.brandName}>N U U R</Text>
+                      <Text style={s.brandTag}>Light for your daily deen</Text>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -384,16 +414,29 @@ export default function ContentShareSheet({
 }
 
 const s = StyleSheet.create({
-  corner: { position: "absolute" },
-  cTL: { top: 12, left: 12 },
-  cTR: { top: 12, right: 12 },
-  cBL: { bottom: 12, left: 12 },
-  cBR: { bottom: 12, right: 12 },
+  corner:   { position: "absolute" },
+  cTL:      { top: 12, left: 12 },
+  cTR:      { top: 12, right: 12 },
+  cBL:      { bottom: 12, left: 12 },
+  cBR:      { bottom: 12, right: 12 },
   cardInner: {
-    paddingHorizontal: 22,
     paddingTop: 16,
     paddingBottom: 20,
     alignItems: "center",
+  },
+  cardInnerWP: {
+    flex: 1,
+    paddingTop: 52,
+    paddingBottom: 44,
+  },
+  bismillah: {
+    color: GOLD,
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+    letterSpacing: 0.5,
+    opacity: 0.75,
+    marginBottom: 4,
   },
   refRow: {
     flexDirection: "row",
@@ -525,7 +568,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 18,
+    marginBottom: 14,
     paddingHorizontal: 4,
   },
   sheetTitle: {
@@ -533,6 +576,34 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     color: "#fff",
     letterSpacing: -0.2,
+  },
+  sizeToggle: {
+    flexDirection: "row",
+    backgroundColor: "#1c1c1c",
+    borderRadius: 14,
+    padding: 3,
+    marginBottom: 18,
+    gap: 3,
+  },
+  sizePill: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 11,
+  },
+  sizePillActive: {
+    backgroundColor: GOLD,
+  },
+  sizePillText: {
+    color: "#888",
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  sizePillTextActive: {
+    color: "#0D2018",
   },
   cardOuter: {
     alignItems: "center",
