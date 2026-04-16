@@ -190,7 +190,7 @@ export default function DuaScreen() {
   const isWeb = Platform.OS === "web";
   const miniPlayerH = useMiniPlayerHeight();
 
-  const [selectedCategoryId, setSelectedCategoryId] = useState(ALL_DUA_CATEGORIES[0].id);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [shareDua, setShareDua] = useState<(DuaItem & { categoryName?: string }) | null>(null);
@@ -209,7 +209,7 @@ export default function DuaScreen() {
   );
 
   const allDuasFlat = useMemo(
-    () => ALL_DUA_CATEGORIES.flatMap(c => c.duas.map(d => ({ ...d, categoryId: c.id }))),
+    () => ALL_DUA_CATEGORIES.flatMap(c => c.duas.map(d => ({ ...d, categoryId: c.id, categoryName: c.name }))),
     []
   );
 
@@ -247,7 +247,7 @@ export default function DuaScreen() {
           item={item}
           colors={colors}
           accentColor={cat?.accentColor}
-          showCategory={isSearching || selectedCategoryId === "saved"}
+          showCategory={isSearching || selectedCategoryId === "saved" || selectedCategoryId === "all"}
           bookmarked={savedDuaIds.has(item.id)}
           onCopyDua={copyDua}
           onShareDua={shareDuaItem}
@@ -264,6 +264,7 @@ export default function DuaScreen() {
   const listData = useMemo(() => {
     if (isSearching) return searchResults;
     if (selectedCategoryId === "saved") return allDuasFlat.filter(d => savedDuaIds.has(d.id));
+    if (selectedCategoryId === "all") return allDuasFlat;
     return selectedCategory.duas as (DuaItem & { categoryName?: string })[];
   }, [isSearching, searchResults, selectedCategoryId, allDuasFlat, savedDuaIds, selectedCategory]);
   const totalDuas = useMemo(
@@ -321,6 +322,28 @@ export default function DuaScreen() {
       {!isSearching && (
         <View style={[styles.categoryRow, { borderBottomColor: colors.border }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryList}>
+            {/* All chip */}
+            {(() => {
+              const isSelected = selectedCategoryId === "all";
+              return (
+                <TouchableOpacity
+                  key="all"
+                  style={[
+                    styles.categoryTab,
+                    {
+                      backgroundColor: isSelected ? colors.tint : "transparent",
+                      borderColor: isSelected ? colors.tint : colors.border,
+                    },
+                  ]}
+                  onPress={() => setSelectedCategoryId("all")}
+                >
+                  <Feather name="list" size={13} color={isSelected ? "#fff" : colors.textSecondary} />
+                  <Text style={[styles.categoryTabText, { color: isSelected ? "#fff" : colors.textSecondary }]}>
+                    All
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
             {/* Saved chip */}
             {(() => {
               const isSelected = selectedCategoryId === "saved";
@@ -401,6 +424,19 @@ export default function DuaScreen() {
                   <MaterialCommunityIcons name="bookmark" size={11} color={colors.gold} />
                   <Text style={[styles.sectionLabelText, { color: colors.gold }]}>
                     Saved Duas · {savedDuaIds.size}
+                  </Text>
+                </View>
+                <View style={[styles.sectionDividerLine, { backgroundColor: colors.border }]} />
+              </View>
+            </View>
+          ) : selectedCategoryId === "all" ? (
+            <View style={styles.listHeader}>
+              <View style={styles.sectionDivider}>
+                <View style={[styles.sectionDividerLine, { backgroundColor: colors.border }]} />
+                <View style={[styles.sectionLabel, { backgroundColor: colors.tint + "22", borderColor: colors.tint + "55" }]}>
+                  <Feather name="list" size={11} color={colors.tint} />
+                  <Text style={[styles.sectionLabelText, { color: colors.tint }]}>
+                    All Duas & Adhkar · {totalDuas}
                   </Text>
                 </View>
                 <View style={[styles.sectionDividerLine, { backgroundColor: colors.border }]} />
