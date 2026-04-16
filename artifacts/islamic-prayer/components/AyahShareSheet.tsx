@@ -29,11 +29,11 @@ import { captureRef } from "react-native-view-shot";
 import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
 
-const { width: SCREEN_W } = Dimensions.get("window");
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 const CARD_SIZE   = Math.min(SCREEN_W - 32, 370);
-const WALLPAPER_W = Math.min(SCREEN_W - 8, 420);
-const WALLPAPER_H = Math.round(WALLPAPER_W * (19.5 / 9));
+const WALLPAPER_W = SCREEN_W;
+const WALLPAPER_H = SCREEN_H;
 
 const GOLD       = "#C9933A";
 const GOLD_LIGHT = "#DFB96A";
@@ -256,13 +256,13 @@ export default function AyahShareSheet({
             keyboardShouldPersistTaps="handled"
           >
             {/* ── Card preview ── */}
-            <View style={styles.cardOuter}>
+            <View style={[styles.cardOuter, isWallpaper && { marginHorizontal: -16 }]}>
               <View
                 ref={cardRef}
                 style={{
                   width: cardW,
                   height: isWallpaper ? WALLPAPER_H : undefined,
-                  borderRadius: isWallpaper ? 28 : 20,
+                  borderRadius: isWallpaper ? 0 : 20,
                   overflow: "hidden",
                 }}
                 collapsable={false}
