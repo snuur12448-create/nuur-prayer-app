@@ -111,6 +111,12 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
   const playVerseRef = useRef<
     ((verse: PlayerVerse, surahNum: number, surahArabic: string, surahName: string, allVerses: PlayerVerse[], isAutoAdvance?: boolean) => Promise<void>) | null
   >(null);
+  // Generation token — incremented on every playVerse / stopAudio call so any
+  // in-flight async work (Audio.Sound.createAsync, TrackPlayer.reset/add/play)
+  // from an older call can detect that a newer call has started and abort
+  // before assigning a refs / starting playback. Prevents overlapping audio
+  // streams when the user taps verses or skip buttons rapidly.
+  const playGenRef = useRef<number>(0);
 
   // ── 1. Initialise TrackPlayer once (native only, not Expo Go) ───────────────
   useEffect(() => {
@@ -361,6 +367,9 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
 
   // ── stopAudio ────────────────────────────────────────────────────────────────
   const stopAudio = useCallback(async () => {
+    // Invalidate any in-flight playVerse — its post-await assignments and
+    // play() calls will detect the bumped generation and abort.
+    playGenRef.current += 1;
     if (Platform.OS === "web") {
       if (webSoundRef.current) {
         try {
@@ -496,6 +505,10 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
       allVerses: PlayerVerse[],
       isAutoAdvance = false
     ) => {
+      // Claim this generation. Any older in-flight playVerse will see a newer
+      // value here after its awaits and abort before assigning sound refs or
+      // calling play(), preventing overlapping audio streams from rapid taps.
+      const myGen = ++playGenRef.current;
       surahNumRef.current = surahNum;
       surahArabicRef.current = surahArabic;
       surahNameRef.current = surahName;
@@ -559,6 +572,13 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
             audio.load();
           }
 
+          // If a newer playVerse started while we were preparing this audio
+          // element, tear it down immediately and abort — otherwise the old
+          // and new tracks would play simultaneously.
+          if (myGen !== playGenRef.current) {
+            try { audio.pause(); audio.src = ""; } catch {}
+            return;
+          }
           webSoundRef.current = audio;
           audio.onerror = () => { setPlayState("idle"); };
           audio.onended = onEnded;
@@ -595,18 +615,28 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
         // ── EXPO GO PATH (expo-av Audio.Sound — no lock-screen controls) ──────
         try {
           const { Audio } = await import("expo-av");
-          // Unload any previous sound
-          if (expoAvSoundRef.current) {
-            try {
-              await expoAvSoundRef.current.stopAsync();
-              await expoAvSoundRef.current.unloadAsync();
-            } catch {}
-            expoAvSoundRef.current = null;
+          // Unload any previous sound. Detach the ref FIRST so a concurrent
+          // playVerse cannot see the same sound and try to unload it twice.
+          const prev = expoAvSoundRef.current;
+          expoAvSoundRef.current = null;
+          if (prev) {
+            try { await prev.stopAsync(); } catch {}
+            try { await prev.unloadAsync(); } catch {}
           }
+          // If a newer playVerse started while we were unloading, abort.
+          if (myGen !== playGenRef.current) return;
           const { sound } = await Audio.Sound.createAsync(
             { uri: url },
             { shouldPlay: true, volume: 1.0 }
           );
+          // If a newer playVerse started while createAsync was in flight,
+          // immediately tear down this orphaned sound and abort — otherwise
+          // it would play in parallel with the newer call's sound.
+          if (myGen !== playGenRef.current) {
+            try { await sound.stopAsync(); } catch {}
+            try { await sound.unloadAsync(); } catch {}
+            return;
+          }
           // Apply playback rate after creation; rate in initial options can
           // silently throw on some iOS SDK versions.
           if (playbackRateRef.current !== 1.0) {
@@ -696,9 +726,21 @@ export function QuranPlayerProvider({ children }: { children: React.ReactNode })
           }
 
           await TrackPlayer.reset();
+          // Abort if a newer playVerse started while reset was in flight —
+          // otherwise our add() + play() would race against the newer call's
+          // queue and could leave two tracks active simultaneously.
+          if (myGen !== playGenRef.current) return;
           await TrackPlayer.add(tracks);
+          if (myGen !== playGenRef.current) {
+            try { await TrackPlayer.reset(); } catch {}
+            return;
+          }
           if (playbackRateRef.current !== 1.0) {
             await TrackPlayer.setRate(playbackRateRef.current);
+          }
+          if (myGen !== playGenRef.current) {
+            try { await TrackPlayer.reset(); } catch {}
+            return;
           }
           await TrackPlayer.play();
           setPlayState("playing");
