@@ -201,12 +201,14 @@ export function CelestialArcCard({
   const englishName = display?.name ?? PRAYER_LABEL_FALLBACK[paletteKey];
   const time = display?.timeString ?? "--:--";
 
-  // Arc geometry — wide flat banner arc, marker moves along the semicircle
+  // Arc geometry — wide flat banner arc, marker moves along the semicircle.
+  // CY chosen so the arc apex (CY - ARC_R) sits ~14px below the top of the viewBox,
+  // leaving room for the marker halo (~11px) so it never clips.
   const W = 358;
-  const H = 52;
+  const H = 66;
   const ARC_R = 260;
   const CX = W / 2;
-  const CY = H + 200;
+  const CY = ARC_R + 14;
   const t = Math.max(0, Math.min(1, progress));
   const angle = Math.PI + t * Math.PI;
   const markerX = CX + ARC_R * Math.cos(angle);
@@ -457,7 +459,7 @@ const styles = StyleSheet.create({
     right: 0,
   },
   arcBand: {
-    height: 52,
+    height: 66,
     width: "100%",
     position: "relative",
   },
