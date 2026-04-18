@@ -21,6 +21,7 @@ import { useAppContext } from "@/context/AppContext";
 import { useQuranPlayer } from "@/context/QuranPlayerContext";
 import { SURAHS } from "@/utils/islamicData";
 import { RECITERS, getVerseAudioUrl, Reciter } from "@/utils/audioData";
+import { loadVerses, loadWords, prefetchNextSurahs } from "@/utils/quranCache";
 import AyahShareSheet from "@/components/AyahShareSheet";
 
 interface Verse {
@@ -597,7 +598,9 @@ export default function QuranDetailScreen() {
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
   const isBookmarked = bookmarkedSurahs.includes(surahNumber);
 
-  // Fetch verses with Arabic + translation + transliteration
+  // Load verses — cache first (instant), then network if not cached.
+  // After verses are on screen, silently prefetch the next two surahs so the
+  // next "next" tap is instant even on a flight or in a masjid basement.
   useEffect(() => {
     isMountedRef.current = true;
     setVerses(null);
@@ -605,26 +608,13 @@ export default function QuranDetailScreen() {
     setLoadingVerses(true);
 
     const controller = new AbortController();
-    fetch(
-      `https://api.alquran.cloud/v1/surah/${surahNumber}/editions/quran-uthmani,en.sahih,en.transliteration`,
-      { signal: controller.signal }
-    )
-      .then((r) => r.json())
-      .then((json) => {
+    loadVerses(surahNumber, controller.signal)
+      .then((mapped) => {
         if (!isMountedRef.current) return;
-        const arabicAyahs = json?.data?.[0]?.ayahs as any[];
-        const englishAyahs = json?.data?.[1]?.ayahs as any[];
-        const translitAyahs = json?.data?.[2]?.ayahs as any[];
-        if (!arabicAyahs || !englishAyahs) throw new Error("Bad response");
-        const mapped: Verse[] = arabicAyahs.map((a: any, i: number) => ({
-          number: a.numberInSurah,
-          numberInQuran: a.number,
-          text: stripBismillah(a.text, surahNumber, a.numberInSurah),
-          translation: englishAyahs[i]?.text ?? "",
-          transliteration: translitAyahs?.[i]?.text ?? "",
-        }));
-        setVerses(mapped);
+        setVerses(mapped as Verse[]);
         setLoadingVerses(false);
+        // Quietly warm up neighbours after current surah is on screen.
+        prefetchNextSurahs(surahNumber);
       })
       .catch((err) => {
         if (!isMountedRef.current || err?.name === "AbortError") return;
@@ -638,30 +628,12 @@ export default function QuranDetailScreen() {
     };
   }, [surahNumber]);
 
-  // Fetch word-by-word data from Quran.com API (separate from main verse fetch)
+  // Load word-by-word — cache first, network fallback.
   useEffect(() => {
     setWordsByVerse({});
     const ctrl = new AbortController();
-    fetch(
-      `https://api.qurancdn.com/api/qdc/verses/by_chapter/${surahNumber}?words=true&word_fields=text_uthmani,transliteration,translation&per_page=300&page=1`,
-      { signal: ctrl.signal },
-    )
-      .then((r) => r.json())
-      .then((json) => {
-        const byVerse: Record<number, WordInfo[]> = {};
-        (json.verses ?? []).forEach((v: any) => {
-          byVerse[v.verse_number] = (v.words ?? [])
-            .filter((w: any) => w.char_type_name === "word")
-            .map((w: any) => ({
-              position: w.position,
-              location: w.location ?? `${surahNumber}:${v.verse_number}:${w.position}`,
-              arabic: w.text_uthmani ?? w.text ?? "",
-              transliteration: w.transliteration?.text ?? "",
-              meaning: w.translation?.text ?? "",
-            }));
-        });
-        setWordsByVerse(byVerse);
-      })
+    loadWords(surahNumber, ctrl.signal)
+      .then((byVerse) => setWordsByVerse(byVerse as Record<number, WordInfo[]>))
       .catch(() => {});
     return () => ctrl.abort();
   }, [surahNumber]);
