@@ -2,6 +2,7 @@
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/celestial-arc/CelestialArc.tsx": () => import("../components/mockups/celestial-arc/CelestialArc.tsx"),
+  "./components/mockups/hadith-scholar/ScholarsLeaf.tsx": () => import("../components/mockups/hadith-scholar/ScholarsLeaf.tsx"),
   "./components/mockups/khushu-mode/Active.tsx": () => import("../components/mockups/khushu-mode/Active.tsx"),
   "./components/mockups/khushu-mode/AfterSalam.tsx": () => import("../components/mockups/khushu-mode/AfterSalam.tsx"),
   "./components/mockups/khushu-mode/PrePrayer.tsx": () => import("../components/mockups/khushu-mode/PrePrayer.tsx"),
@@ -12,7 +13,6 @@ export const modules: ModuleMap = {
   "./components/mockups/qada-ledger/MarkMakeUp.tsx": () => import("../components/mockups/qada-ledger/MarkMakeUp.tsx"),
   "./components/mockups/qada-ledger/Setup.tsx": () => import("../components/mockups/qada-ledger/Setup.tsx"),
   "./components/mockups/qada-ledger/WizardResult.tsx": () => import("../components/mockups/qada-ledger/WizardResult.tsx"),
-  "./components/mockups/hadith-scholar/ScholarsLeaf.tsx": () => import("../components/mockups/hadith-scholar/ScholarsLeaf.tsx"),
-  "./components/mockups/votd-mushaf/MushafLeaf.tsx": () => import("../components/mockups/votd-mushaf/MushafLeaf.tsx"),
-  "./components/mockups/tasbeeh-hero/CountAsHero.tsx": () => import("../components/mockups/tasbeeh-hero/CountAsHero.tsx")
+  "./components/mockups/tasbeeh-hero/CountAsHero.tsx": () => import("../components/mockups/tasbeeh-hero/CountAsHero.tsx"),
+  "./components/mockups/votd-mushaf/MushafLeaf.tsx": () => import("../components/mockups/votd-mushaf/MushafLeaf.tsx")
 };
