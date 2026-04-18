@@ -236,7 +236,7 @@ function SetupView({
       </TouchableOpacity>
 
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.cardLabel, { color: colors.tint }]}>HOW MANY DO YOU CARRY?</Text>
+        <Text style={[styles.cardLabel, { color: colors.tint }]}>YOUR STARTING NUMBERS</Text>
         {QADA_PRAYERS.map((p, i) => (
           <View key={p}>
             {i > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
@@ -253,7 +253,14 @@ function SetupView({
                 >
                   <Feather name="minus" size={14} color={colors.textSecondary} />
                 </Pressable>
-                <Text style={[styles.stepperValue, { color: colors.tint }]}>{draft[p]}</Text>
+                <Text
+                  style={[styles.stepperValue, { color: colors.tint }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >
+                  {draft[p].toLocaleString()}
+                </Text>
                 <Pressable
                   style={[styles.stepperBtn, { backgroundColor: colors.tint + "22", borderColor: colors.tint + "55" }]}
                   onPress={() => adjust(p, 1)}
@@ -783,7 +790,7 @@ const styles = StyleSheet.create({
 
   stepperGroup: { flexDirection: "row", alignItems: "center", gap: 8 },
   stepperBtn: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", borderWidth: 1 },
-  stepperValue: { width: 36, textAlign: "center", fontSize: 15, fontFamily: "Inter_600SemiBold", fontVariant: ["tabular-nums"] },
+  stepperValue: { minWidth: 52, textAlign: "center", fontSize: 15, fontFamily: "Inter_600SemiBold", fontVariant: ["tabular-nums"] },
 
   helperText: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 14, paddingHorizontal: 32, lineHeight: 16 },
 
