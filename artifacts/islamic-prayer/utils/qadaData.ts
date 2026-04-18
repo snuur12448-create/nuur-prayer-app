@@ -97,25 +97,39 @@ export function isoDate(d: Date): string {
 }
 
 /** Estimate based on wizard answers. `dailyMissed` is the average number
- *  of the 5 daily prayers the user used to miss per day. */
+ *  of the 5 daily prayers the user used to miss per day.
+ *
+ *  - If they missed all 5/day → every prayer gets `days` (no skew).
+ *  - If they missed fewer → distribute weighted toward prayers people
+ *    typically miss most (Fajr first, Maghrib last), keeping the total
+ *    equal to days × dailyMissed. */
 export function estimateFromWizard(
   yearsMissed: number,
   dailyMissed: number,
 ): Record<QadaPrayerKey, number> {
   const days = Math.max(0, Math.round(yearsMissed * 365));
-  const totalMissed = days * Math.max(0, Math.min(5, dailyMissed));
-  // Distribute roughly: Fajr is most commonly missed, Maghrib least.
-  // Weights sum to 1.
+  const dm = Math.max(0, Math.min(5, dailyMissed));
+  const out = { ...EMPTY_COUNTS };
+
+  if (dm === 0 || days === 0) return out;
+
+  if (dm >= 5) {
+    for (const k of QADA_PRAYERS) out[k] = days;
+    return out;
+  }
+
+  // Per-prayer probability that this specific prayer was the one missed,
+  // given that the user missed `dm` of the 5 on average.
+  // Weights sum to 1, so multiplying by `dm` keeps probabilities ≤ 1.
   const weights: Record<QadaPrayerKey, number> = {
     fajr:    0.30,
-    dhuhr:   0.20,
     asr:     0.25,
-    maghrib: 0.10,
+    dhuhr:   0.20,
     isha:    0.15,
+    maghrib: 0.10,
   };
-  const out = { ...EMPTY_COUNTS };
   for (const k of QADA_PRAYERS) {
-    out[k] = Math.round(totalMissed * weights[k]);
+    out[k] = Math.round(days * weights[k] * dm);
   }
   return out;
 }
