@@ -7,11 +7,11 @@ export const modules: ModuleMap = {
   "./components/mockups/khushu-mode/PrePrayer.tsx": () => import("../components/mockups/khushu-mode/PrePrayer.tsx"),
   "./components/mockups/offline-audio/AudioSheet.tsx": () => import("../components/mockups/offline-audio/AudioSheet.tsx"),
   "./components/mockups/offline-audio/Storage.tsx": () => import("../components/mockups/offline-audio/Storage.tsx"),
-  "./components/mockups/tasbeeh-hero/CountAsHero.tsx": () => import("../components/mockups/tasbeeh-hero/CountAsHero.tsx"),
   "./components/mockups/qada-ledger/EstimateWizard.tsx": () => import("../components/mockups/qada-ledger/EstimateWizard.tsx"),
   "./components/mockups/qada-ledger/Ledger.tsx": () => import("../components/mockups/qada-ledger/Ledger.tsx"),
   "./components/mockups/qada-ledger/MarkMakeUp.tsx": () => import("../components/mockups/qada-ledger/MarkMakeUp.tsx"),
   "./components/mockups/qada-ledger/Setup.tsx": () => import("../components/mockups/qada-ledger/Setup.tsx"),
   "./components/mockups/qada-ledger/WizardResult.tsx": () => import("../components/mockups/qada-ledger/WizardResult.tsx"),
+  "./components/mockups/tasbeeh-hero/CountAsHero.tsx": () => import("../components/mockups/tasbeeh-hero/CountAsHero.tsx"),
   "./components/mockups/votd-mushaf/MushafLeaf.tsx": () => import("../components/mockups/votd-mushaf/MushafLeaf.tsx")
 };
