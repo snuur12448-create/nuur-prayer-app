@@ -29,6 +29,7 @@ import { getDailyHadith } from "@/utils/hadithData";
 import { calculatePrayerTimes, applyPrayerOffsets, getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
 import { PrayerKey } from "@/utils/prayerNotifData";
 import { GuideSection } from "@/components/GuideSection";
+import { MushafLeafVerse } from "@/components/MushafLeafVerse";
 
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 
@@ -102,6 +103,10 @@ export default function PrayerScreen() {
   const dailyAyah = getDailyAyah();
   const dailyHadith = getDailyHadith();
 
+  const handleShareAyah = useCallback(() => setShowAyahShare(true), []);
+  const handleReadAyahSurah = useCallback(() => {
+    router.push({ pathname: "/quran/[id]", params: { id: String(dailyAyah.surahNumber) } });
+  }, [dailyAyah.surahNumber]);
   const handleCopyAyah = useCallback(() => {
     const text = `${dailyAyah.arabic}\n\n"${dailyAyah.translation}"\n\n— ${dailyAyah.surahName} ${dailyAyah.surahNumber}:${dailyAyah.ayahNumber}\n\nNuur · نور`;
     if (Platform.OS === "web") {
@@ -578,65 +583,16 @@ export default function PrayerScreen() {
           )}
         </View>
 
-        {/* ── Verse of the Day Widget ── */}
-        <View style={[styles.votdWidget, { backgroundColor: colors.surface, borderColor: colors.tint + "35" }]}>
-          {/* Header row: badge + share */}
-          <View style={styles.votdHeader}>
-            <View style={styles.votdHeaderLeft}>
-              <View style={[styles.votdBadge, { backgroundColor: colors.tint + "20", borderColor: colors.tint + "50" }]}>
-                <MaterialCommunityIcons name="book-open-variant" size={9} color={colors.tint} />
-                <Text style={[styles.votdBadgeText, { color: colors.tint }]}>VERSE OF THE DAY</Text>
-              </View>
-              <Text style={[styles.votdRef, { color: colors.textSecondary }]}>
-                {dailyAyah.surahName} · {dailyAyah.surahNumber}:{dailyAyah.ayahNumber}
-              </Text>
-            </View>
-            <View style={styles.votdActionRow}>
-              <TouchableOpacity
-                onPress={handleCopyAyah}
-                hitSlop={12}
-                style={[styles.votdShareBtn, { backgroundColor: colors.surfaceElevated, borderColor: ayahCopied ? colors.tint + "60" : colors.border }]}
-              >
-                <Feather name={ayahCopied ? "check" : "copy"} size={13} color={ayahCopied ? colors.tint : colors.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setShowAyahShare(true)}
-                hitSlop={12}
-                style={[styles.votdShareBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-              >
-                <Feather name="share-2" size={13} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Arabic hero text */}
-          <Text style={[styles.votdArabic, { color: colors.text }]}>{dailyAyah.arabic}</Text>
-
-          {/* Ornamental divider */}
-          <View style={styles.votdOrnRow}>
-            <View style={[styles.votdOrnLine, { backgroundColor: colors.gold + "35" }]} />
-            <Text style={[styles.votdOrnStar, { color: colors.gold + "80" }]}>✦</Text>
-            <View style={[styles.votdOrnLine, { backgroundColor: colors.gold + "35" }]} />
-          </View>
-
-          {/* Transliteration */}
-          <Text style={[styles.votdTranslit, { color: colors.gold }]}>{dailyAyah.transliteration}</Text>
-
-          {/* Translation */}
-          <Text style={[styles.votdTranslation, { color: colors.textSecondary }]}>
-            "{dailyAyah.translation}"
-          </Text>
-
-          {/* Footer: open in Quran */}
-          <TouchableOpacity
-            style={[styles.votdReadBtn, { borderColor: colors.tint + "40", backgroundColor: colors.tint + "12" }]}
-            onPress={() => router.push({ pathname: "/quran/[id]", params: { id: String(dailyAyah.surahNumber) } })}
-            activeOpacity={0.75}
-          >
-            <Feather name="book-open" size={12} color={colors.tint} />
-            <Text style={[styles.votdReadText, { color: colors.tint }]}>Read full Surah</Text>
-            <Feather name="arrow-right" size={12} color={colors.tint} />
-          </TouchableOpacity>
+        {/* ── Verse of the Day — Mushaf leaf ── */}
+        <View style={styles.votdMushafWrap}>
+          <MushafLeafVerse
+            colors={colors}
+            ayah={dailyAyah}
+            ayahCopied={ayahCopied}
+            onCopy={handleCopyAyah}
+            onShare={handleShareAyah}
+            onReadSurah={handleReadAyahSurah}
+          />
         </View>
 
         {/* ── Hadith of the Day Widget ── */}
@@ -1082,6 +1038,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 18,
     gap: 14,
+  },
+  votdMushafWrap: {
+    marginHorizontal: 16,
+    paddingVertical: 4,
   },
   votdHeader: {
     flexDirection: "row",

@@ -1,189 +1,63 @@
-# Workspace
+# Overview
 
-## Overview
+This project is a pnpm workspace monorepo written in TypeScript, designed to build and deploy a comprehensive Islamic prayer mobile application, **Nuur / نور**, alongside its supporting API server. The core vision is to provide a feature-rich, accurate, and user-friendly mobile experience for Muslims worldwide, encompassing prayer times, Quran reading, Qibla direction, Duas, and more. The API server provides backend services and data synchronization for the mobile app.
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+The project aims to leverage modern web technologies to deliver a high-quality, performant application with potential for future monetization through premium features, while ensuring core religious functionalities remain freely accessible.
 
-## Stack
+# User Preferences
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+I prefer iterative development with clear communication at each stage. Please ask before making any major architectural changes or introducing new external dependencies. I value concise explanations and well-documented code.
 
-## Structure
+# System Architecture
 
-```text
-artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
-│   ├── api-client-react/   # Generated React Query hooks
-│   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
-```
+The project is structured as a pnpm monorepo, separating deployable applications (`artifacts/`) from shared libraries (`lib/`) and utility scripts (`scripts/`).
 
-## TypeScript & Composite Projects
+**Core Technologies:**
+- **Monorepo:** pnpm workspaces
+- **Backend:** Node.js 24, Express 5, PostgreSQL, Drizzle ORM, Zod for validation.
+- **Frontend (Mobile):** Expo (React Native).
+- **TypeScript:** Version 5.9, utilizing composite projects for efficient type-checking across packages.
+- **API Codegen:** Orval generates React Query hooks and Zod schemas from an OpenAPI spec.
+- **Build Tool:** esbuild for CJS bundles.
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+**UI/UX Decisions (Nuur App):**
+- **Theming:** Dark/Light modes with 5 accent color themes (Emerald, Midnight, Desert, Amber, Royal, Rose).
+- **Navigation:** Tab-based navigation for core features (Prayer Times, Quran, Qibla, Dua, Tracker, Names, Tasbeeh, Settings).
+- **Visuals:** Custom splash screen with branding. Use of SVG for Qibla compass. Gold highlighting for Quran search results. Color-coded checkboxes for prayer tracking.
+- **Audio:** Integrated audio playback for Quran recitation and Adhan, with lock screen controls on native platforms via `react-native-track-player`.
+- **Accessibility:** Haptic feedback for Tasbeeh counter.
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+**Feature Specifications (Nuur App):**
+- **Prayer Times:** Accurate calculation using `adhan` library (v4.4.3), configurable methods, juristic methods, and high latitude rules. Displays next prayer, countdown, Islamic date.
+- **Quran Reader:** Offline browsing of 114 surahs, comprehensive verse search (Arabic, English, surah names), 8 reciters with verse-by-verse audio, transliteration, and bookmarks (AsyncStorage).
+- **Qibla Compass:** SVG-based compass with animated needle, showing direction and distance to Kaaba.
+- **Duas & Adhkar:** Categorized collection with Arabic, transliteration, translation, and source.
+- **Prayer Tracker:** Daily tracking of 5 prayers, 7-day week strip, Gregorian and Hijri dates, daily and weekly stats.
+- **99 Names of Allah:** Searchable grid with detailed descriptions for each name.
+- **Tasbeeh Counter:** Tap counter with haptic feedback and preset dhikr.
+- **Settings:** Comprehensive customization for display mode, themes, prayer calculation methods, Adhan toggles and styles (with preview), and prayer notifications.
+- **Adhan System:** 5 distinct Adhan styles with audio playback, full-screen overlay for visual cue. Timer-based notification.
+- **Localization:** Automatic suggestion of prayer calculation method based on country code.
 
-## Root Scripts
+**System Design Choices:**
+- **Data Persistence:** Drizzle ORM for PostgreSQL in the API, AsyncStorage for local mobile app data.
+- **API Design:** RESTful API with Zod for robust request/response validation.
+- **Cross-package Dependencies:** TypeScript project references for type safety and efficient builds.
+- **Build Process:** `tsc --build --emitDeclarationOnly` for type-checking, esbuild for production bundles.
+- **Monetization (Dormant):** RevenueCat integration is pre-wired but inactive, allowing future toggling of premium features without core functionality being paywalled.
+- **Home-screen Verse of the Day:** Rendered as a "Mushaf leaf" — cream parchment LinearGradient with a hairline gold-brown inset frame, surah-band header, optional bismillah line, Amiri Quran verse text, and an ornate U+FD3E/U+FD3F ﴿n﴾ stamp wrapping an Eastern Arabic numeral. Component is `MushafLeafVerse` (memoized; verse changes once daily). Outer hairline + shadow are theme-tinted (`colors.tint`/`colors.glow`) so the constant cream paper reads cleanly across all 5 accent themes.
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+# External Dependencies
 
-## Packages
-
-### `artifacts/api-server` (`@workspace/api-server`)
-
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
-
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
-
-### `lib/db` (`@workspace/db`)
-
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
-
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
-
-### `artifacts/islamic-prayer` (`@workspace/islamic-prayer`)
-
-Comprehensive Islamic prayer mobile app — **Nuur / نور** — built with Expo (React Native). Serves at previewPath `/`.
-
-**Features:**
-- **Prayer Times** (tab: Prayer): Accurate 5 daily prayer times + Sunrise using `adhan` v4.4.3 library. Default method: Nuur UK (ISNA base + Fajr 15.5°). Shows next prayer, countdown, progress bar, and Islamic date.
-- **Quran Reader** (tab: Quran): Browse 114 surahs, filter by name/meaning/Arabic (1-char queries). **Verse search** (2+ chars): searches all 6,236 verses offline across English translation, Arabic text, and surah names; shows section headers "Surahs / Verses", gold-highlighted matches in results; tapping a verse result opens the surah and auto-scrolls to that ayah. 8 reciters. Verse-by-verse audio with preload. Transliteration. Bookmarks via AsyncStorage.
-- **Qibla Compass** (tab: Qibla): SVG compass showing Qibla direction (bearing to Makkah). Animated needle. Distance to Kaaba in km.
-- **Duas & Adhkar** (tab: Dua): 5 categories (Morning, Evening, After Prayer, Daily Supplications, Protection). Arabic, transliteration, translation, source.
-- **Prayer Tracker** (tab: Tracker): Track 5 daily prayers for any date — past, present or future. Week strip (7-day) with per-prayer dot indicators. Navigate any day with ◄ ► arrows and "Today" shortcut. Shows both Gregorian date and Islamic (Hijri) date. Actual adhan prayer times displayed per row. Checkboxes with colour-coded animated toggle (indigo=Fajr, amber=Dhuhr, green=Asr, orange=Maghrib, violet=Isha). Stats: day streak, week total, daily 0–5 progress bar. Persisted to AsyncStorage under `nuur_prayer_tracker`.
-- **99 Names of Allah** (tab: Names): All 99 Asmaul Husna in a searchable grid. Each card: number badge, large Arabic text, transliteration, English meaning. Tap any name to open a detail sheet with: large Arabic (52px), transliteration, phonetic pronunciation guide, meaning, and full description. Search by number, transliteration or meaning. Data in `utils/namesData.ts`.
-- **Tasbeeh Counter** (tab: Tasbeeh): Tap counter with haptic feedback, preset dhikr, and reset.
-- **Settings** (tab: Settings): All customisation in one place — see below.
-
-**Settings features (`app/(tabs)/settings.tsx`):**
-- Dark / Light display mode toggle (persisted)
-- 5 accent colour themes: Emerald, Midnight, Desert, Amber, Royal, Rose (all have dark + light variants)
-- 13 prayer calculation methods: Nuur UK, ISNA, MWL, Egyptian, Karachi, Umm al-Qura, Dubai, Kuwait, Qatar, Singapore, Turkey, Tehran, Moonsighting Committee
-- Asr juristic method: Shafi/Standard or Hanafi
-- High latitude rule: Twilight Angle, Middle of Night, Seventh of Night, None
-- Time format: 12h or 24h
-- **Adhan toggle + 5 style picker** (Makkah, Madinah, Mishari Al-Afasy, Egyptian, Turkish) with preview button
-- Prayer notifications toggle (native only)
-- About section
-
-**Adhan system:**
-- `utils/adhanData.ts` — 5 `AdhanStyle` objects with id, name, arabic, reciter, location, description, audioUrl (islamcan.com CDN)
-- `utils/adhanPlayer.ts` — `playAdhanAudio(url, onFinish?)`, `stopAdhanAudio()`, `previewAdhan(url)`. Uses expo-av on native, `new Audio()` on web.
-- `components/AdhanOverlay.tsx` — Full-screen overlay with crescent icon, pulsing ring, prayer name in Arabic/English, reciter, stop button. Shown via `AdhanGate` in `_layout.tsx`.
-- `context/AppContext.tsx` — `adhanEnabled`, `adhanStyleId`, `toggleAdhan`, `setAdhanStyleId`, `adhanPlaying`, `adhanPrayerName`, `adhanPrayerArabicName`, `adhanCurrentStyle`, `stopAdhan`. Timer interval (15s) checks prayer times and fires adhan when minute matches.
-
-**Key files:**
-- `utils/prayerTimes.ts` — adhan.js wrapper. `CalcMethodId`, `MadhabId`, `HighLatRuleId`, `TimeFormat` types exported. `calculatePrayerTimes` accepts all settings as optional params with defaults.
-- `utils/audioData.ts` — 8 reciters. CDN types: `verses-quran` (surah/verse path) and `islamic-network` (global ayah num). Sudais uses islamic-network 64kbps; Ibrahim Walk uses 192kbps.
-- `context/QuranPlayerContext.tsx` — Native path uses **`react-native-track-player`** (v4) for lock screen / Control Center / AVAudioSession playback category. Web path uses `HTMLAudioElement` + `navigator.mediaSession`. TrackPlayer is dynamically imported (`await import("react-native-track-player")`) so the web bundle stays clean. Lock screen shows: surah Arabic name, verse number, reciter as artist, app icon as artwork. Remote commands: Play, Pause, Skip Next, Skip Previous, Stop all registered. Verse-level reciters pre-load the full queue from the tapped verse to end of surah so auto-advance and skip-next work. Surah-level reciters add a single track. Requires a development build (EAS) — not available in Expo Go.
-- `utils/islamicData.ts` — Quran surah list, Dua categories, Islamic reminders, Hijri date conversion
-- `utils/hadithData.ts` — 15 Sahih hadiths with Arabic, transliteration, translation, narrator, source, grade. `getDailyHadith()` rotates daily.
-- `utils/notifications.ts` — expo-notifications: schedules all 5 prayers for next 7 days
-- `utils/calcMethodByCountry.ts` — Maps 80+ ISO country codes → `CalcMethodId`. `suggestCalcMethod(isoCountryCode)` auto-selects the community-standard method on first GPS lock (one-time; never overrides manual choices). Dismissable banner shown on home screen.
-- `utils/reviewPrompt.ts` — `recordFirstLaunch()` stores install timestamp on first run; `maybeRequestReview()` triggers native App Store / Play Store review dialog after 5–7 days (once only, platform-gated via `StoreReview.isAvailableAsync()`). Called from `ReviewGate` in `_layout.tsx` on prayer-times load and on AppState `active` events.
-- `context/AppContext.tsx` — All app state: location, prayer times, bookmarks, theme, displayMode, calcMethod, madhab, highLatRule, timeFormat, notifications, adhan. All persisted to AsyncStorage.
-- `constants/themes.ts` — 5 `ThemeDefinition`s each with `colors` (dark) and `lightColors` (light). `DisplayMode = "dark" | "light"`.
-- `components/NuurSplash.tsx` — Branded splash with golden ن, rays, glow rings, "نور / NUUR" text. Shows on app open, fades out after ~2.5s.
-
-**Prayer time notes:**
-- adhan.js returns absolute UTC timestamps. `fmtWithTz(d, tz, format)` applies UTC offset manually to avoid browser timezone mismatch.
-- NuurUK: `CalculationMethod.NorthAmerica()` + `fajrAngle = 15.5` + `HighLatitudeRule.TwilightAngle`
-- `useNativeDriver: false` required for all Animated calls (web compatibility)
-- Bismillah stripping: drop first 4 whitespace-split words from verse 1 (surahs ≠ 1 and ≠ 9)
-
-## Deferred Features
-
-### iOS Home Screen / Lock Screen Widget
-Show next prayer name + countdown on the home screen and lock screen.
-
-**Plan:**
-- Use `expo-apple-targets` (community config plugin by Evan Bacon) to add a WidgetKit extension target
-- Write a SwiftUI `TimelineProvider` that refreshes the widget after each prayer time passes
-- Bridge data from JS → widget via `UserDefaults` with a shared App Group entitlement (write from JS using `@react-native-community/async-storage` is NOT enough — must use the native App Group `UserDefaults` suite)
-- Config plugin sets the App Group ID in both the main app and the widget extension entitlements
-- Support both small (next prayer + countdown) and medium (all 5 prayers for the day) widget sizes
-
-**Prerequisites before building:**
-- EAS Build must be configured (`eas.json`, Apple Developer account, provisioning profiles with App Groups entitlement)
-- Test on a real device — widgets cannot run in Expo Go or simulators without a signed build
-- Iterate via `eas build --profile development` + TestFlight
-
-**Why deferred:** the code is straightforward but cannot be validated without EAS + physical device. Build that infrastructure first, then add the widget as a focused follow-on.
-
-## Monetization (Dormant — Nuur+ tier)
-
-RevenueCat infrastructure is wired but **dormant** by default. No paywalls or premium UI exist anywhere in the app — `usePremium()` always returns `false` until both:
-1. Platform API keys are set as Expo env vars, AND
-2. UI gates are added that actually call `usePremium()`.
-
-**Files:**
-- `artifacts/islamic-prayer/utils/iap.ts` — SDK init, entitlement check, offerings fetch. No-ops gracefully when keys are absent.
-- `artifacts/islamic-prayer/hooks/usePremium.ts` — React hook returning `{ isPremium, loading }`.
-- `_layout.tsx` calls `configurePurchases()` on mount (silent no-op until keys exist).
-
-**Packages:**
-- `react-native-purchases` (Expo workspace) — client SDK; works in Expo Go via Preview API Mode.
-- `@replit/revenuecat-sdk` (root) — server-side REST client for scripts (e.g. seeding products). Auth via Replit RevenueCat connector — see `.local/skills/revenuecat`.
-
-**Entitlement ID:** `pro` (single entitlement, mapped to all Nuur+ packages).
-
-**To flip on monetization later:**
-1. Configure products + offerings in the RevenueCat dashboard, ensure entitlement `pro` is linked.
-2. Set Expo env vars: `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`.
-3. Build paywall UI and gate features with `usePremium()`.
-
-**Hard rule (positioning):** core worship is never paywalled — prayer times, adhan, qibla, Quran text + at least one translation, basic tasbeeh, hadith of the day. Nuur+ is for nice-to-haves only (premium reciters, tafsīr, advanced widgets, family sync, journaling, cloud backup).
+- **Database:** PostgreSQL
+- **ORM:** Drizzle ORM
+- **API Framework:** Express
+- **Validation:** Zod
+- **Mobile Framework:** Expo (React Native)
+- **Prayer Time Calculations:** `adhan` library (v4.4.3)
+- **API Codegen:** Orval
+- **Audio Playback (Native):** `react-native-track-player`
+- **Notifications:** `expo-notifications`
+- **App Store Reviews:** `expo-linking` for `StoreReview`
+- **Monetization (Dormant):** RevenueCat (`react-native-purchases`, `@replit/revenuecat-sdk`)
+- **Asset Loading:** `expo-av`
