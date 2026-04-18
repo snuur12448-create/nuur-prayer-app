@@ -118,12 +118,10 @@ export function estimateFromWizard(
     return out;
   }
 
-  // Per-prayer probability that this specific prayer was the one missed,
-  // given that the user missed `dm` of the 5 on average.
-  // Weights sum to 1, so multiplying by `dm` keeps probabilities ≤ 1.
-  // Ordered by how commonly each prayer is missed (real-world tendency):
-  // Fajr first (early/sleep), ʿIshāʾ next (late/tired), then Dhuhr/ʿAṣr
-  // (work hours), with Maghrib least missed (short window, mealtime cue).
+  // Per-prayer relative likelihood that this specific prayer was missed.
+  // Ordered by real-world tendency: Fajr first (early/sleep), ʿIshāʾ next
+  // (late/tired), then Dhuhr/ʿAṣr (work hours), Maghrib last (short window).
+  // Weights sum to 1.
   const weights: Record<QadaPrayerKey, number> = {
     fajr:    0.32,
     isha:    0.25,
@@ -131,8 +129,40 @@ export function estimateFromWizard(
     asr:     0.15,
     maghrib: 0.10,
   };
-  for (const k of QADA_PRAYERS) {
-    out[k] = Math.round(days * weights[k] * dm);
+
+  // Distribute the total missed mass (days × dm) across prayers proportional
+  // to weights, but no single prayer can exceed `days` (max possible count).
+  // Iteratively cap and redistribute overflow among the uncapped prayers.
+  const remaining = new Set<QadaPrayerKey>(QADA_PRAYERS);
+  const counts: Record<QadaPrayerKey, number> = { ...EMPTY_COUNTS };
+  let pool = days * dm; // total mass to distribute (in floats)
+
+  // Safety bound: at most 5 iterations needed (one per possible cap).
+  for (let i = 0; i < 6 && remaining.size > 0; i++) {
+    let weightSum = 0;
+    for (const k of remaining) weightSum += weights[k];
+    if (weightSum <= 0) break;
+
+    let capped = false;
+    let assignedThisRound = 0;
+    for (const k of Array.from(remaining)) {
+      const share = pool * (weights[k] / weightSum);
+      if (counts[k] + share >= days) {
+        // Cap this prayer at `days`; leftover stays in pool for next round
+        const leftover = counts[k] + share - days;
+        counts[k] = days;
+        remaining.delete(k);
+        assignedThisRound += share - leftover;
+        capped = true;
+      } else {
+        counts[k] += share;
+        assignedThisRound += share;
+      }
+    }
+    pool -= assignedThisRound;
+    if (!capped) break;
   }
+
+  for (const k of QADA_PRAYERS) out[k] = Math.round(counts[k]);
   return out;
 }
