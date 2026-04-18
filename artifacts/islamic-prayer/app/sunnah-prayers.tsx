@@ -28,7 +28,7 @@ const STATUS_COLOURS: Record<SunnahPrayer["status"], string> = {
 };
 
 export default function SunnahPrayersScreen() {
-  const { colors } = useAppContext();
+  const { themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
   const [openId, setOpenId] = useState<string | null>(null);
 
