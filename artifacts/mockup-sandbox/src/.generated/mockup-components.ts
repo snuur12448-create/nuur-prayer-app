@@ -10,5 +10,6 @@ export const modules: ModuleMap = {
   "./components/mockups/qada-ledger/Ledger.tsx": () => import("../components/mockups/qada-ledger/Ledger.tsx"),
   "./components/mockups/qada-ledger/MarkMakeUp.tsx": () => import("../components/mockups/qada-ledger/MarkMakeUp.tsx"),
   "./components/mockups/qada-ledger/Setup.tsx": () => import("../components/mockups/qada-ledger/Setup.tsx"),
-  "./components/mockups/qada-ledger/WizardResult.tsx": () => import("../components/mockups/qada-ledger/WizardResult.tsx")
+  "./components/mockups/qada-ledger/WizardResult.tsx": () => import("../components/mockups/qada-ledger/WizardResult.tsx"),
+  "./components/mockups/tasbeeh-hero/CountAsHero.tsx": () => import("../components/mockups/tasbeeh-hero/CountAsHero.tsx")
 };
