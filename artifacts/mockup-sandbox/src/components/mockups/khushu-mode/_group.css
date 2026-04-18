@@ -1,0 +1,37 @@
+@import url("https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600&display=swap");
+
+.nuur-bg {
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(201, 147, 58, 0.10) 0%, transparent 60%),
+    radial-gradient(140% 90% at 50% 100%, rgba(201, 147, 58, 0.06) 0%, transparent 55%),
+    #0b0b10;
+  color: #e9e3d3;
+}
+.nuur-gold { color: #c9933a; }
+.nuur-gold-bg { background-color: #c9933a; }
+.nuur-gold-soft { color: #d9b070; }
+.nuur-divider { background: linear-gradient(90deg, transparent, rgba(201,147,58,0.5), transparent); }
+.nuur-arabic { font-family: "Amiri", "Times New Roman", serif; }
+.nuur-sans { font-family: "Inter", system-ui, sans-serif; }
+
+.pulse-ring {
+  animation: pulseRing 3.6s ease-in-out infinite;
+}
+@keyframes pulseRing {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.18); opacity: 0.95; }
+}
+.pulse-core {
+  animation: pulseCore 3.6s ease-in-out infinite;
+}
+@keyframes pulseCore {
+  0%, 100% { box-shadow: 0 0 30px 4px rgba(201,147,58,0.25); }
+  50% { box-shadow: 0 0 60px 14px rgba(201,147,58,0.45); }
+}
+.breathe {
+  animation: breathe 8s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
