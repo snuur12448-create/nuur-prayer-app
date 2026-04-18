@@ -1,0 +1,14 @@
+@import url("https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600&display=swap");
+
+.nuur-bg {
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(201, 147, 58, 0.08) 0%, transparent 60%),
+    #0b0b10;
+  color: #e9e3d3;
+}
+.nuur-gold { color: #c9933a; }
+.nuur-gold-bg { background-color: #c9933a; }
+.nuur-gold-soft { color: #d9b070; }
+.nuur-divider { background: linear-gradient(90deg, transparent, rgba(201,147,58,0.5), transparent); }
+.nuur-arabic { font-family: "Amiri", "Times New Roman", serif; }
+.nuur-sans { font-family: "Inter", system-ui, sans-serif; }
