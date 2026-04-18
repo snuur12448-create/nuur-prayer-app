@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import {
   ActivityIndicator,
-  Animated,
   Linking,
   Platform,
   Pressable,
@@ -31,6 +30,7 @@ import { PrayerKey } from "@/utils/prayerNotifData";
 import { GuideSection } from "@/components/GuideSection";
 import { MushafLeafVerse } from "@/components/MushafLeafVerse";
 import { HadithScholarsLeaf } from "@/components/HadithScholarsLeaf";
+import { CelestialArcCard } from "@/components/CelestialArcCard";
 
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 
@@ -98,8 +98,6 @@ export default function PrayerScreen() {
   // never lags. currentTime stays on a 60s cycle for prayer-period calculations.
   const [clockNow, setClockNow] = useState(new Date());
   const [showLocationModal, setShowLocationModal] = useState(false);
-  const pulseAnim = React.useRef(new Animated.Value(1)).current;
-
   const islamicDate = getIslamicDate();
   const dailyAyah = getDailyAyah();
   const dailyHadith = getDailyHadith();
@@ -206,17 +204,6 @@ export default function PrayerScreen() {
       }
     }
   }, [prayerTimes, currentTime, location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets]);
-
-  useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.08, duration: 1200, useNativeDriver: false }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: false }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -349,102 +336,19 @@ export default function PrayerScreen() {
 
           <Text style={[styles.gregorianDate, { color: colors.textSecondary }]}>{formatDate()}</Text>
 
-          {/* Current / Next Prayer Card
-              ALWAYS rendered — never conditionally mounted.
-              Text elements with Inter_700Bold exist from first paint so the
-              font is already applied before data arrives; updating text content
-              never causes a FOUT (Flash Of Unstyled Text) flash. */}
-          <Animated.View
-            style={[
-              styles.nextPrayerCard,
-              {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.gold + "40",
-                transform: [{ scale: pulseAnim }],
-                shadowColor: colors.glow,
-              },
-            ]}
-          >
-            {!prayerTimes || (!currentPrayer && !nextPrayer) ? (
-              /* Skeleton — same font/size as live content, invisible colour */
-              <View style={styles.nextPrayerTop}>
-                <View style={{ flex: 1, paddingRight: 12 }}>
-                  <View style={styles.nowBadgeRow}>
-                    <View style={[styles.nowDot, { backgroundColor: colors.border }]} />
-                    <Text style={[styles.nextLabel, { color: colors.border }]}>···</Text>
-                  </View>
-                  <Text style={[styles.nextPrayerName, { color: colors.border }]}>Prayer</Text>
-                  <Text style={[styles.nextPrayerArabic, { color: colors.border }]}>الصلاة</Text>
-                </View>
-                <View style={styles.nextRight}>
-                  <Text style={[styles.nextTime, { color: colors.border }]}>--:--</Text>
-                  <View style={[styles.countdownBadge, { backgroundColor: colors.border + "40", borderColor: "transparent" }]}>
-                    <Text style={[styles.countdown, { color: colors.border }]}>-h --m</Text>
-                  </View>
-                </View>
-              </View>
-            ) : currentPrayer ? (
-              <>
-                <View style={styles.nextPrayerTop}>
-                  <View style={{ flex: 1, paddingRight: 12 }}>
-                    <View style={styles.nowBadgeRow}>
-                      <View style={[styles.nowDot, { backgroundColor: colors.tint }]} />
-                      <Text style={[styles.nextLabel, { color: colors.tint }]}>NOW</Text>
-                    </View>
-                    <Text style={[styles.nextPrayerName, { color: colors.text }]} numberOfLines={1}>{currentPrayer.name}</Text>
-                    <Text style={[styles.nextPrayerArabic, { color: colors.textSecondary }]}>{currentPrayer.arabicName}</Text>
-                  </View>
-                  <View style={styles.nextRight}>
-                    <Text style={[styles.nextTime, { color: colors.text }]}>{currentPrayer.timeString}</Text>
-                    <LinearGradient
-                      colors={colors.goldGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={[styles.countdownBadge, { borderColor: colors.goldLight + "AA" }]}
-                    >
-                      <Text style={[styles.countdown, { color: "#1A1200" }]}>{timeRemaining} left</Text>
-                    </LinearGradient>
-                  </View>
-                </View>
-                <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-                  <LinearGradient
-                    colors={colors.goldGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any }]}
-                  />
-                </View>
-                <View style={styles.progressFooter}>
-                  <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>{Math.round(progress * 100)}% elapsed</Text>
-                  {progressEndPrayer && (
-                    <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
-                      Next: {progressEndPrayer.name} at {progressEndPrayer.timeString}
-                    </Text>
-                  )}
-                </View>
-              </>
-            ) : (
-              /* Before Fajr — nothing started yet */
-              <View style={styles.nextPrayerTop}>
-                <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={[styles.nextLabel, { color: colors.textSecondary }]}>UPCOMING</Text>
-                  <Text style={[styles.nextPrayerName, { color: colors.text }]} numberOfLines={1}>{nextPrayer!.name}</Text>
-                  <Text style={[styles.nextPrayerArabic, { color: colors.textSecondary }]}>{nextPrayer!.arabicName}</Text>
-                </View>
-                <View style={styles.nextRight}>
-                  <Text style={[styles.nextTime, { color: colors.text }]}>{nextPrayer!.timeString}</Text>
-                  <LinearGradient
-                    colors={colors.goldGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.countdownBadge, { borderColor: colors.goldLight + "AA" }]}
-                  >
-                    <Text style={[styles.countdown, { color: "#1A1200" }]}>in {timeRemaining}</Text>
-                  </LinearGradient>
-                </View>
-              </View>
-            )}
-          </Animated.View>
+          {/* Celestial Arc — sky card. Time-of-day responsive palette,
+              calligraphic Arabic centerpiece, glowing arc with traveling
+              ember marker showing window progress, gold filigree band tying
+              to the parchment leaves below. */}
+          <CelestialArcCard
+            currentPrayer={currentPrayer}
+            nextPrayer={nextPrayer}
+            progressEndPrayer={progressEndPrayer}
+            progress={progress}
+            timeRemaining={timeRemaining}
+            isLoading={!prayerTimes || (!currentPrayer && !nextPrayer)}
+            themeGold={colors.gold}
+          />
         </View>
 
         {/* Prayer Times */}
@@ -734,101 +638,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     marginBottom: 20,
-  },
-  nextPrayerCard: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    gap: 12,
-    overflow: "hidden",
-    // Warm glow instead of generic black shadow — feels candlelit, not corporate.
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  heroStarWatermark: {
-    position: "absolute",
-    right: -18,
-    bottom: -32,
-    fontSize: 140,
-    opacity: 0.05,
-    fontWeight: "300",
-  },
-  nextPrayerTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  progressTrack: {
-    height: 4,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: 4,
-    borderRadius: 2,
-  },
-  progressFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  progressLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_400Regular",
-  },
-  nowBadgeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 4,
-  },
-  nowDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  nextLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    marginBottom: 4,
-  },
-  nextPrayerName: {
-    fontSize: 24,
-    fontFamily: "Inter_700Bold",
-    lineHeight: 28,
-  },
-  nextPrayerArabic: {
-    fontSize: 22,
-    fontFamily: "AmiriQuran_400Regular",
-    lineHeight: 32,
-    marginTop: 4,
-    includeFontPadding: false,
-  },
-  nextRight: {
-    alignItems: "flex-end",
-    gap: 8,
-  },
-  nextTime: {
-    fontSize: 22,
-    fontFamily: "Inter_600SemiBold",
-    fontVariant: ["tabular-nums"],
-    includeFontPadding: false,
-  },
-  countdownBadge: {
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderWidth: 1,
-  },
-  countdown: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    fontVariant: ["tabular-nums"],
-    includeFontPadding: false,
   },
   section: {
     padding: 14,
