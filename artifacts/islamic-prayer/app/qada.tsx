@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -253,14 +254,13 @@ function SetupView({
                 >
                   <Feather name="minus" size={14} color={colors.textSecondary} />
                 </Pressable>
-                <Text
-                  style={[styles.stepperValue, { color: colors.tint }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.7}
-                >
-                  {draft[p].toLocaleString()}
-                </Text>
+                <NumericField
+                  value={draft[p]}
+                  onChange={(n) => setDraft({ ...draft, [p]: n })}
+                  color={colors.tint}
+                  borderColor={colors.border}
+                  bgColor={colors.background}
+                />
                 <Pressable
                   style={[styles.stepperBtn, { backgroundColor: colors.tint + "22", borderColor: colors.tint + "55" }]}
                   onPress={() => adjust(p, 1)}
@@ -693,7 +693,14 @@ function MarkUpSheet({
               >
                 <Feather name="minus" size={14} color={colors.textSecondary} />
               </Pressable>
-              <Text style={[styles.countValue, { color: colors.tint }]}>{safeCount}</Text>
+              <NumericField
+                value={safeCount}
+                onChange={(n) => setCount(Math.max(1, Math.min(remaining || 1, n)))}
+                color={colors.tint}
+                borderColor={colors.border}
+                bgColor={colors.surface}
+                large
+              />
               <Pressable
                 style={[styles.stepperBtn, { backgroundColor: colors.tint + "22", borderColor: colors.tint + "55" }]}
                 onPress={() => setCount((c) => Math.min(remaining || 1, c + 1))}
@@ -735,6 +742,62 @@ function MarkUpSheet({
         </View>
       </Pressable>
     </Pressable>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NumericField — tap to type any value; commits on blur / submit
+// ─────────────────────────────────────────────────────────────────────────────
+
+function NumericField({
+  value, onChange, color, borderColor, bgColor, large = false,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  color: string;
+  borderColor: string;
+  bgColor: string;
+  large?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(String(value));
+
+  // Keep local text in sync when external value changes (e.g. +/- buttons)
+  // but only when not actively editing, so we don't overwrite user typing.
+  useEffect(() => {
+    if (!editing) setText(String(value));
+  }, [value, editing]);
+
+  const commit = () => {
+    const cleaned = text.replace(/[^0-9]/g, "");
+    const n = cleaned === "" ? 0 : Math.max(0, Math.min(99999, parseInt(cleaned, 10)));
+    onChange(n);
+    setText(String(n));
+    setEditing(false);
+  };
+
+  return (
+    <TextInput
+      value={editing ? text : value.toLocaleString()}
+      onChangeText={(t) => setText(t.replace(/[^0-9]/g, ""))}
+      onFocus={() => { setText(String(value)); setEditing(true); }}
+      onBlur={commit}
+      onSubmitEditing={commit}
+      keyboardType="number-pad"
+      returnKeyType="done"
+      maxLength={6}
+      selectTextOnFocus
+      style={[
+        large ? styles.countValue : styles.stepperValue,
+        {
+          color,
+          borderBottomWidth: editing ? 1 : 0,
+          borderBottomColor: borderColor,
+          paddingVertical: 0,
+          paddingHorizontal: 4,
+        },
+      ]}
+    />
   );
 }
 
