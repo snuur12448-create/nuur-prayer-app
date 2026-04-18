@@ -201,18 +201,31 @@ export function CelestialArcCard({
   const englishName = display?.name ?? PRAYER_LABEL_FALLBACK[paletteKey];
   const time = display?.timeString ?? "--:--";
 
-  // Arc geometry — wide flat banner arc, marker moves along the semicircle.
-  // CY chosen so the arc apex (CY - ARC_R) sits ~14px below the top of the viewBox,
-  // leaving room for the marker halo (~11px) so it never clips.
+  // Arc geometry — shallow circular arc fitted to the banner band so the
+  // marker (moon/sun) stays visible across the FULL sweep, edge to edge.
+  // We compute R from the chord (horizontal span) and sagitta (rise height).
   const W = 358;
   const H = 66;
-  const ARC_R = 260;
+  const PAD_TOP = 14;          // breathing room above the apex
+  const PAD_BOTTOM = 6;        // small baseline gap
+  const PAD_X = 16;            // horizontal margin so marker doesn't touch edges
+  const sag = H - PAD_TOP - PAD_BOTTOM; // arc rise height
+  const chord = W - PAD_X * 2;          // horizontal arc span
+  const ARC_R = sag / 2 + (chord * chord) / (8 * sag);
   const CX = W / 2;
-  const CY = ARC_R + 14;
+  const CY = PAD_TOP + ARC_R;           // center sits below the band
+  const halfAngle = Math.asin((chord / 2) / ARC_R);
+  const thetaStart = -Math.PI / 2 - halfAngle;
+  const thetaEnd = -Math.PI / 2 + halfAngle;
   const t = Math.max(0, Math.min(1, progress));
-  const angle = Math.PI + t * Math.PI;
-  const markerX = CX + ARC_R * Math.cos(angle);
-  const markerY = CY + ARC_R * Math.sin(angle);
+  const theta = thetaStart + t * (thetaEnd - thetaStart);
+  const markerX = CX + ARC_R * Math.cos(theta);
+  const markerY = CY + ARC_R * Math.sin(theta);
+  // Path endpoints — left and right horizon
+  const arcLeftX = CX + ARC_R * Math.cos(thetaStart);
+  const arcLeftY = CY + ARC_R * Math.sin(thetaStart);
+  const arcRightX = CX + ARC_R * Math.cos(thetaEnd);
+  const arcRightY = CY + ARC_R * Math.sin(thetaEnd);
 
   const stars = useMemo(() => STAR_SLOTS.slice(0, palette.starCount), [palette.starCount]);
 
@@ -296,16 +309,16 @@ export function CelestialArcCard({
             </SvgLinearGradient>
           </Defs>
 
-          {/* Faint full arc */}
+          {/* Faint full arc — visible portion only */}
           <Path
-            d={`M ${CX - ARC_R} ${CY} A ${ARC_R} ${ARC_R} 0 0 1 ${CX + ARC_R} ${CY}`}
+            d={`M ${arcLeftX} ${arcLeftY} A ${ARC_R} ${ARC_R} 0 0 1 ${arcRightX} ${arcRightY}`}
             stroke="#F4E4C533"
             strokeWidth={1}
             fill="none"
           />
           {/* Walked + glowing arc */}
           <Path
-            d={`M ${CX - ARC_R} ${CY} A ${ARC_R} ${ARC_R} 0 0 1 ${markerX} ${markerY}`}
+            d={`M ${arcLeftX} ${arcLeftY} A ${ARC_R} ${ARC_R} 0 0 1 ${markerX} ${markerY}`}
             stroke="url(#arcGrad)"
             strokeWidth={1.6}
             fill="none"
