@@ -12,3 +12,9 @@ id = "AkRhP8pZt6VklvKhvS6YL"
 uri = "file://nuur-islamic-prayer.tar.gz"
 type = "unspecified"
 title = "Nuur – Islamic Prayer App (source code)"
+
+[[outputs]]
+id = "_AfysPpjO5eiQGdY_P3KP"
+uri = "file://exports/nuur-source.zip"
+type = "unspecified"
+title = "Nuur — Full Source Code (zip)"
