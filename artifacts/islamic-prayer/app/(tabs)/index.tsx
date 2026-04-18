@@ -1,4 +1,5 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
@@ -318,11 +319,19 @@ export default function PrayerScreen() {
               styles.nextPrayerCard,
               {
                 backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
+                borderColor: colors.gold + "40",
                 transform: [{ scale: pulseAnim }],
+                shadowColor: colors.glow,
               },
             ]}
           >
+            {/* 8-pointed star watermark — subliminal Islamic motif */}
+            <Text
+              pointerEvents="none"
+              style={[styles.heroStarWatermark, { color: colors.gold }]}
+            >
+              ✸
+            </Text>
             {!prayerTimes || (!currentPrayer && !nextPrayer) ? (
               /* Skeleton — same font/size as live content, invisible colour */
               <View style={styles.nextPrayerTop}>
@@ -354,13 +363,23 @@ export default function PrayerScreen() {
                   </View>
                   <View style={styles.nextRight}>
                     <Text style={[styles.nextTime, { color: colors.text }]}>{currentPrayer.timeString}</Text>
-                    <View style={[styles.countdownBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "55" }]}>
-                      <Text style={[styles.countdown, { color: colors.gold }]}>{timeRemaining} left</Text>
-                    </View>
+                    <LinearGradient
+                      colors={colors.goldGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={[styles.countdownBadge, { borderColor: colors.goldLight + "AA" }]}
+                    >
+                      <Text style={[styles.countdown, { color: "#1A1200" }]}>{timeRemaining} left</Text>
+                    </LinearGradient>
                   </View>
                 </View>
                 <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-                  <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any }]} />
+                  <LinearGradient
+                    colors={colors.goldGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` as any }]}
+                  />
                 </View>
                 <View style={styles.progressFooter}>
                   <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>{Math.round(progress * 100)}% elapsed</Text>
@@ -381,9 +400,14 @@ export default function PrayerScreen() {
                 </View>
                 <View style={styles.nextRight}>
                   <Text style={[styles.nextTime, { color: colors.text }]}>{nextPrayer!.timeString}</Text>
-                  <View style={[styles.countdownBadge, { backgroundColor: colors.gold + "33", borderColor: colors.gold + "55" }]}>
-                    <Text style={[styles.countdown, { color: colors.gold }]}>in {timeRemaining}</Text>
-                  </View>
+                  <LinearGradient
+                    colors={colors.goldGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.countdownBadge, { borderColor: colors.goldLight + "AA" }]}
+                  >
+                    <Text style={[styles.countdown, { color: "#1A1200" }]}>in {timeRemaining}</Text>
+                  </LinearGradient>
                 </View>
               </View>
             )}
@@ -776,6 +800,20 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     gap: 12,
+    overflow: "hidden",
+    // Warm glow instead of generic black shadow — feels candlelit, not corporate.
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  heroStarWatermark: {
+    position: "absolute",
+    right: -18,
+    bottom: -32,
+    fontSize: 140,
+    opacity: 0.05,
+    fontWeight: "300",
   },
   nextPrayerTop: {
     flexDirection: "row",
@@ -789,7 +827,6 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: 4,
-    backgroundColor: "rgba(212, 160, 23, 0.85)",
     borderRadius: 2,
   },
   progressFooter: {
@@ -825,8 +862,11 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   nextPrayerArabic: {
-    fontSize: 16,
-    marginTop: 2,
+    fontSize: 22,
+    fontFamily: "AmiriQuran_400Regular",
+    lineHeight: 32,
+    marginTop: 4,
+    includeFontPadding: false,
   },
   nextRight: {
     alignItems: "flex-end",

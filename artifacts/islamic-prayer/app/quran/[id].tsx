@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
+import type { ThemeColors } from "@/constants/themes";
 import { useQuranPlayer } from "@/context/QuranPlayerContext";
 import { SURAHS } from "@/utils/islamicData";
 import { RECITERS, getVerseAudioUrl, Reciter } from "@/utils/audioData";
@@ -41,7 +42,7 @@ interface WordInfo {
 }
 
 // ── Hafidh Mode placeholder — gold dashes simulating hidden Arabic lines ───────
-function HafidhPlaceholder({ colors }: { colors: Record<string, string> }) {
+function HafidhPlaceholder({ colors }: { colors: ThemeColors }) {
   const lines = [
     { widths: [55, 40, 70, 50, 35, 60], opacity: "70" },
     { widths: [45, 65, 30, 55, 45, 40], opacity: "55" },
@@ -76,7 +77,7 @@ function WordChip({
   onTap,
 }: {
   word: WordInfo;
-  colors: Record<string, string>;
+  colors: ThemeColors;
   onTap: (w: WordInfo) => void;
 }) {
   return (
@@ -115,7 +116,7 @@ interface VerseCardProps {
   isCopied: boolean;
   showTransliteration: boolean;
   showTranslation: boolean;
-  colors: Record<string, string>;
+  colors: ThemeColors;
   onPlay: () => void;
   onCopy: () => void;
   onShare: () => void;
@@ -295,7 +296,7 @@ function WordSheet({
   word: WordInfo | null;
   root: string | null;
   rootLoading: boolean;
-  colors: Record<string, string>;
+  colors: ThemeColors;
   bottomInset: number;
   onClose: () => void;
   onAudio: () => void;

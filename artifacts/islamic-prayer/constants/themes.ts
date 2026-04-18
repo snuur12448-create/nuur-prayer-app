@@ -9,6 +9,10 @@ export type ThemeColors = {
   tintLight: string;
   gold: string;
   goldLight: string;
+  /** Two-stop gradient for hero gold elements — feels like leaf gold, not paint. */
+  goldGradient: [string, string];
+  /** Warm/theme-tinted glow color for elevated cards (use at low opacity). */
+  glow: string;
   tabIconDefault: string;
   tabIconSelected: string;
   prayerCard: string;
@@ -44,6 +48,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       tintLight: "#2D6A4F",
       gold: "#F4C842",
       goldLight: "#F9D97A",
+      goldGradient: ["#F9D97A", "#C99A2A"],
+      glow: "#F4C842",
       tabIconDefault: "#4A6357",
       tabIconSelected: "#4ADE80",
       prayerCard: "#152A1A",
@@ -62,6 +68,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       tintLight: "#BBF7D0",
       gold: "#92400E",
       goldLight: "#FDE68A",
+      goldGradient: ["#B97A1E", "#7A4F0E"],
+      glow: "#92400E",
       tabIconDefault: "#7AAF8A",
       tabIconSelected: "#15803D",
       prayerCard: "#D1FAE5",
@@ -85,6 +93,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       tintLight: "#1E3A5F",
       gold: "#93C5FD",
       goldLight: "#BFDBFE",
+      goldGradient: ["#BFDBFE", "#3B82F6"],
+      glow: "#60A5FA",
       tabIconDefault: "#3A5570",
       tabIconSelected: "#60A5FA",
       prayerCard: "#101E34",
@@ -103,6 +113,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       tintLight: "#BFDBFE",
       gold: "#1E40AF",
       goldLight: "#DBEAFE",
+      goldGradient: ["#3B82F6", "#1E3A8A"],
+      glow: "#3B82F6",
       tabIconDefault: "#6A8EC2",
       tabIconSelected: "#1D4ED8",
       prayerCard: "#DBEAFE",
@@ -126,6 +138,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       tintLight: "#6B5200",
       gold: "#D4AF37",
       goldLight: "#E8CD70",
+      goldGradient: ["#F0CC5A", "#A8851E"],
+      glow: "#D4AF37",
       tabIconDefault: "#7A6A3A",
       tabIconSelected: "#D4AF37",
       prayerCard: "#1E1800",
@@ -144,6 +158,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       tintLight: "#FFF8D6",
       gold: "#7A5A00",
       goldLight: "#FFF0A0",
+      goldGradient: ["#A07800", "#5A4000"],
+      glow: "#A07800",
       tabIconDefault: "#B08A30",
       tabIconSelected: "#A07800",
       prayerCard: "#FFF8D6",
@@ -167,6 +183,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       tintLight: "#30363D",
       gold: "#94A3B8",
       goldLight: "#B8C4D2",
+      goldGradient: ["#CBD5E1", "#64748B"],
+      glow: "#94A3B8",
       tabIconDefault: "#484F58",
       tabIconSelected: "#94A3B8",
       prayerCard: "#121820",
@@ -185,6 +203,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       tintLight: "#CBD5E1",
       gold: "#334155",
       goldLight: "#E2E8F0",
+      goldGradient: ["#475569", "#1E293B"],
+      glow: "#475569",
       tabIconDefault: "#6A8090",
       tabIconSelected: "#475569",
       prayerCard: "#E1E8F0",
@@ -208,6 +228,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       tintLight: "#6B0030",
       gold: "#E91E8C",
       goldLight: "#F48CC0",
+      goldGradient: ["#F48CC0", "#C2185B"],
+      glow: "#E91E8C",
       tabIconDefault: "#7A3A54",
       tabIconSelected: "#C2185B",
       prayerCard: "#200B15",
@@ -226,6 +248,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       tintLight: "#FFDDE8",
       gold: "#7C0D38",
       goldLight: "#FFB0D0",
+      goldGradient: ["#A0144A", "#5A0726"],
+      glow: "#880E4F",
       tabIconDefault: "#C0709A",
       tabIconSelected: "#880E4F",
       prayerCard: "#FFE0EE",
