@@ -263,13 +263,6 @@ export default function PrayerScreen() {
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
           />
-          {/* Decorative 8-pointed star sitting in the header gold layer */}
-          <Text
-            pointerEvents="none"
-            style={[styles.headerStarWatermark, { color: colors.gold }]}
-          >
-            ✸
-          </Text>
           <View style={styles.headerTop}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <TouchableOpacity
@@ -363,13 +356,6 @@ export default function PrayerScreen() {
               },
             ]}
           >
-            {/* 8-pointed star watermark — subliminal Islamic motif */}
-            <Text
-              pointerEvents="none"
-              style={[styles.heroStarWatermark, { color: colors.gold }]}
-            >
-              ✸
-            </Text>
             {!prayerTimes || (!currentPrayer && !nextPrayer) ? (
               /* Skeleton — same font/size as live content, invisible colour */
               <View style={styles.nextPrayerTop}>
