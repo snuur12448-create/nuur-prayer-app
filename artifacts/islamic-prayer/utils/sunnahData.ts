@@ -11,12 +11,16 @@ export type SunnahCategoryKey =
   | "night"
   | "occasional";
 
+export type MadhabKey = "hanafi" | "maliki" | "shafii" | "hanbali";
+
+export type MadhabViews = Partial<Record<MadhabKey, string>>;
+
 export type SunnahPrayer = {
   id: string;
   nameEn: string;
   nameAr: string;
   rakaat: string;        // "2", "2 + 2", "2 to 8" — kept as a string for flexibility
-  status: "Mu'akkadah" | "Ghayr Mu'akkadah" | "Wājib (Ḥanafī)" | "Recommended" | "Sunnah";
+  status: "Mu'akkadah" | "Ghayr Mu'akkadah" | "Recommended" | "Sunnah" | "Disputed";
   window: string;        // when to perform
   reward: string;        // short text describing the reward / virtue
   hadith: {
@@ -25,6 +29,17 @@ export type SunnahPrayer = {
     grade: string;       // Ṣaḥīḥ / Ḥasan etc.
   };
   notes?: string;        // optional fiqh note
+  madhabViews?: {        // shown only when the four schools meaningfully differ
+    label: string;       // e.g. "Number of takbīrāt", "Ruling"
+    views: MadhabViews;
+  };
+};
+
+export const MADHAB_LABELS: Record<MadhabKey, string> = {
+  hanafi:  "Ḥanafī",
+  maliki:  "Mālikī",
+  shafii:  "Shāfiʿī",
+  hanbali: "Ḥanbalī",
 };
 
 export type SunnahCategory = {
@@ -62,7 +77,7 @@ export const SUNNAH_DATA: SunnahCategory[] = [
         id: "rawatib-dhuhr-before",
         nameEn: "Before Dhuhr",
         nameAr: "قبل الظهر",
-        rakaat: "4 (or 2)",
+        rakaat: "2 or 4",
         status: "Mu'akkadah",
         window: "After Dhuhr adhān, before the fard",
         reward: "Whoever prays 12 sunnah rakʿahs in a day, Allah builds for them a house in Paradise.",
@@ -71,12 +86,21 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           source: "Ṣaḥīḥ Muslim 728",
           grade: "Ṣaḥīḥ",
         },
+        madhabViews: {
+          label: "Number of rakʿahs",
+          views: {
+            hanafi:  "4 (one salām)",
+            maliki:  "2 (4 is also recommended)",
+            shafii:  "4 (in two pairs, two salāms)",
+            hanbali: "2 (4 is also recommended)",
+          },
+        },
       },
       {
         id: "rawatib-dhuhr-after",
         nameEn: "After Dhuhr",
         nameAr: "بعد الظهر",
-        rakaat: "2",
+        rakaat: "2 or 4",
         status: "Mu'akkadah",
         window: "Immediately after the fard of Dhuhr",
         reward: "Counted within the 12 sunnah rakʿahs that earn a house in Paradise.",
@@ -85,7 +109,15 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           source: "Sunan al-Tirmidhī 428",
           grade: "Ṣaḥīḥ",
         },
-        notes: "Some narrations mention four after Dhuhr — extra reward, not obligatory.",
+        madhabViews: {
+          label: "Number of rakʿahs",
+          views: {
+            hanafi:  "2 mu'akkadah, plus 2 more recommended",
+            maliki:  "2",
+            shafii:  "2 mu'akkadah, with 2 more being meritorious",
+            hanbali: "2",
+          },
+        },
       },
       {
         id: "rawatib-maghrib",
@@ -226,7 +258,7 @@ export const SUNNAH_DATA: SunnahCategory[] = [
         nameEn: "Witr",
         nameAr: "الوتر",
         rakaat: "1, 3, 5, 7, or 9 (odd)",
-        status: "Mu'akkadah",
+        status: "Disputed",
         window: "After ʿIshāʾ until just before Fajr (best in the last third)",
         reward: "Allah is Witr (One) and loves the witr.",
         hadith: {
@@ -234,7 +266,15 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           source: "Sunan Abī Dāwūd 1416, Tirmidhī 453",
           grade: "Ṣaḥīḥ",
         },
-        notes: "Considered Wājib in the Ḥanafī school. Most other schools hold it as a confirmed sunnah.",
+        madhabViews: {
+          label: "Ruling",
+          views: {
+            hanafi:  "Wājib (obligatory) — sin to leave intentionally",
+            maliki:  "Sunnah Mu'akkadah",
+            shafii:  "Sunnah Mu'akkadah",
+            hanbali: "Sunnah Mu'akkadah (strongest of the voluntary)",
+          },
+        },
       },
       {
         id: "tahajjud",
@@ -307,7 +347,7 @@ export const SUNNAH_DATA: SunnahCategory[] = [
         id: "jumuah-after",
         nameEn: "After Jumuʿah",
         nameAr: "سنة بعد الجمعة",
-        rakaat: "2 (in masjid) or 4 (at home)",
+        rakaat: "2 or 4",
         status: "Mu'akkadah",
         window: "Immediately after the fard of Jumuʿah",
         reward: "Continuation of the Prophet's ﷺ practice.",
@@ -316,7 +356,15 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           source: "Ṣaḥīḥ Muslim 881",
           grade: "Ṣaḥīḥ",
         },
-        notes: "If praying at the masjid: two; if at home: four. Both narrated.",
+        madhabViews: {
+          label: "Number of rakʿahs",
+          views: {
+            hanafi:  "4",
+            maliki:  "2 or 4",
+            shafii:  "2 in the masjid, 4 at home (both narrated)",
+            hanbali: "2 (and 4 is also valid)",
+          },
+        },
       },
       {
         id: "eid",
@@ -331,7 +379,15 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           source: "Ṣaḥīḥ al-Bukhārī 956",
           grade: "Ṣaḥīḥ",
         },
-        notes: "Seven takbīrāt in the first rakʿah and five in the second (in the Shāfiʿī/Mālikī view).",
+        madhabViews: {
+          label: "Extra takbīrāt (1st rakʿah + 2nd rakʿah)",
+          views: {
+            hanafi:  "3 + 3 (excluding takbīrat al-iḥrām and rukūʿ)",
+            maliki:  "7 + 6 (including takbīrat al-iḥrām)",
+            shafii:  "7 + 5 (after the opening, before recitation)",
+            hanbali: "7 + 5 (after the opening, before recitation)",
+          },
+        },
       },
       {
         id: "kusuf",

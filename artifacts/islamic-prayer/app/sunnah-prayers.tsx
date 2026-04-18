@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
-import { SUNNAH_DATA, SunnahCategory, SunnahPrayer } from "@/utils/sunnahData";
+import { MADHAB_LABELS, MadhabKey, SUNNAH_DATA, SunnahCategory, SunnahPrayer } from "@/utils/sunnahData";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -22,10 +22,12 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 const STATUS_COLOURS: Record<SunnahPrayer["status"], string> = {
   "Mu'akkadah":       "#10b981",
   "Ghayr Mu'akkadah": "#6b7280",
-  "Wājib (Ḥanafī)":   "#8b5cf6",
   Recommended:        "#3b82f6",
   Sunnah:             "#0ea5e9",
+  Disputed:           "#f59e0b",
 };
+
+const MADHAB_ORDER: MadhabKey[] = ["hanafi", "maliki", "shafii", "hanbali"];
 
 export default function SunnahPrayersScreen() {
   const { themeColors: colors } = useAppContext();
@@ -162,6 +164,27 @@ function PrayerRow({
               {prayer.hadith.source}  ·  <Text style={{ color: colors.tint }}>{prayer.hadith.grade}</Text>
             </Text>
           </View>
+          {prayer.madhabViews && (
+            <View style={[styles.madhabBox, { borderColor: colors.border }]}>
+              <View style={styles.madhabHead}>
+                <Feather name="users" size={11} color={colors.textSecondary} />
+                <Text style={[styles.madhabLabel, { color: colors.textSecondary }]}>
+                  ACROSS THE MADHĀHIB · {prayer.madhabViews.label.toUpperCase()}
+                </Text>
+              </View>
+              {MADHAB_ORDER.map((m) => {
+                const v = prayer.madhabViews!.views[m];
+                if (!v) return null;
+                return (
+                  <View key={m} style={styles.madhabRow}>
+                    <Text style={[styles.madhabName, { color: colors.tint }]}>{MADHAB_LABELS[m]}</Text>
+                    <Text style={[styles.madhabValue, { color: colors.text }]}>{v}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
           {prayer.notes && (
             <Text style={[styles.notes, { color: colors.textSecondary }]}>
               <Text style={{ fontFamily: "Inter_600SemiBold" }}>Note · </Text>
@@ -238,6 +261,13 @@ const styles = StyleSheet.create({
   hadithSrc: { fontSize: 10.5, fontFamily: "Inter_500Medium", marginTop: 6 },
 
   notes: { fontSize: 11.5, fontFamily: "Inter_400Regular", lineHeight: 16, marginTop: 4 },
+
+  madhabBox: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, padding: 10, marginTop: 4 },
+  madhabHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
+  madhabLabel: { fontSize: 9.5, fontFamily: "Inter_600SemiBold", letterSpacing: 0.8 },
+  madhabRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 4 },
+  madhabName: { fontSize: 11, fontFamily: "Inter_600SemiBold", width: 56 },
+  madhabValue: { flex: 1, fontSize: 11.5, fontFamily: "Inter_400Regular", lineHeight: 16 },
 
   footer: {
     fontSize: 10.5, fontFamily: "Inter_400Regular", lineHeight: 15,
