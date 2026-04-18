@@ -101,6 +101,12 @@ interface AppContextType {
   prayerNotifConfig: PrayerNotifConfig;
   setPrayerNotifSettings: (key: PrayerKey, settings: PrayerNotifSettings) => Promise<void>;
   toggleMasterPrayerBell: () => Promise<void>;
+  // Quick-sheet controls
+  notifSnoozeUntil: number; // unix ms; 0 means no snooze
+  setNotifSnoozeUntil: (timestamp: number) => Promise<void>;
+  prayerPreReminderMinutes: 0 | 5 | 10 | 15;
+  setPrayerPreReminderMinutes: (minutes: 0 | 5 | 10 | 15) => Promise<void>;
+  setAllPrayersNotifType: (type: "silent" | "notification" | "adhan") => Promise<void>;
   jummahReminderEnabled: boolean;
   jummahMinutesBefore: number;
   setJummahReminder: (enabled: boolean, minutes: number) => Promise<void>;
@@ -144,6 +150,8 @@ const STORAGE_KEYS = {
   HADITH_MINUTE: "hadith_reminder_minute",
   ISLAMIC_EVENTS_REMINDER: "islamic_events_reminder",
   PRAYER_OFFSETS: "prayer_offsets",
+  NOTIF_SNOOZE_UNTIL: "notif_snooze_until",
+  PRAYER_PRE_REMINDER: "prayer_pre_reminder_minutes",
 };
 
 function getTimezoneOffset(): number {
@@ -226,6 +234,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Per-prayer manual time offsets (±15 min)
   const [prayerOffsets, setPrayerOffsetsState] = useState<PrayerOffsets>(DEFAULT_PRAYER_OFFSETS);
   const prayerOffsetsRef = useRef<PrayerOffsets>(DEFAULT_PRAYER_OFFSETS);
+
+  // Quick-sheet notification controls
+  const [notifSnoozeUntil, setNotifSnoozeUntilState] = useState<number>(0);
+  const [prayerPreReminderMinutes, setPrayerPreReminderMinutesState] = useState<0 | 5 | 10 | 15>(0);
 
   // Adhan state
   const [adhanEnabled, setAdhanEnabled] = useState(false);
@@ -429,7 +441,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPreferences = async () => {
     try {
-      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw, islamicEventsRaw, locationRaw, prayerOffsetsRaw] =
+      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw, islamicEventsRaw, locationRaw, prayerOffsetsRaw, snoozeRaw, preReminderRaw] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.THEME),
           AsyncStorage.getItem(STORAGE_KEYS.DISPLAY_MODE),
@@ -453,6 +465,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(STORAGE_KEYS.ISLAMIC_EVENTS_REMINDER),
           AsyncStorage.getItem(STORAGE_KEYS.LOCATION),
           AsyncStorage.getItem(STORAGE_KEYS.PRAYER_OFFSETS),
+          AsyncStorage.getItem(STORAGE_KEYS.NOTIF_SNOOZE_UNTIL),
+          AsyncStorage.getItem(STORAGE_KEYS.PRAYER_PRE_REMINDER),
         ]);
       if (theme && theme in THEMES) setThemeNameState(theme as ThemeName);
       if (mode === "auto" || mode === "dark" || mode === "light") setDisplayModeState(mode);
@@ -488,6 +502,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (hadithHrRaw) { const h = Number(hadithHrRaw); if (h >= 0 && h <= 23) setHadithReminderHourState(h); }
       if (hadithMinRaw) { const m = Number(hadithMinRaw); if (m >= 0 && m <= 55) setHadithReminderMinuteState(m); }
       if (islamicEventsRaw === "false") setIslamicEventsEnabledState(false);
+      if (snoozeRaw) {
+        const n = Number(snoozeRaw);
+        if (Number.isFinite(n) && n > Date.now()) setNotifSnoozeUntilState(n);
+        else AsyncStorage.removeItem(STORAGE_KEYS.NOTIF_SNOOZE_UNTIL).catch(() => {});
+      }
+      if (preReminderRaw) {
+        const n = Number(preReminderRaw);
+        if (n === 0 || n === 5 || n === 10 || n === 15) setPrayerPreReminderMinutesState(n);
+      }
       if (prayerOffsetsRaw) {
         try {
           const parsed = JSON.parse(prayerOffsetsRaw) as PrayerOffsets;
@@ -719,6 +742,68 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }, 50);
     }
   }, [location]);
+
+  // ── Quick-sheet controls ──
+  // Reschedule helper used by all three quick-sheet setters below
+  const rescheduleAll = useCallback(async (cfg?: PrayerNotifConfig) => {
+    if (!notificationsRef.current || !location) return;
+    await schedulePrayerNotifications(
+      location.latitude, location.longitude, location.timezone, location.city,
+      jummahReminderRef.current, jummahMinutesRef.current,
+      ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
+      hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
+      islamicEventsRef.current,
+      cfg ?? prayerNotifConfigRef.current,
+      prayerOffsetsRef.current,
+      calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+    );
+  }, [location]);
+
+  const setNotifSnoozeUntil = useCallback(async (timestamp: number) => {
+    setNotifSnoozeUntilState(timestamp);
+    try {
+      if (timestamp > Date.now()) {
+        await AsyncStorage.setItem(STORAGE_KEYS.NOTIF_SNOOZE_UNTIL, String(timestamp));
+      } else {
+        await AsyncStorage.removeItem(STORAGE_KEYS.NOTIF_SNOOZE_UNTIL);
+      }
+    } catch {}
+    // Reschedule reads the new value from storage
+    setTimeout(() => { rescheduleAll(); }, 50);
+  }, [rescheduleAll]);
+
+  const setPrayerPreReminderMinutes = useCallback(async (minutes: 0 | 5 | 10 | 15) => {
+    setPrayerPreReminderMinutesState(minutes);
+    try { await AsyncStorage.setItem(STORAGE_KEYS.PRAYER_PRE_REMINDER, String(minutes)); } catch {}
+    setTimeout(() => { rescheduleAll(); }, 50);
+  }, [rescheduleAll]);
+
+  // Bulk-set the notification type for all 5 obligatory prayers (Sunrise unaffected).
+  // Used by the quick-sheet's Sound mode selector.
+  const setAllPrayersNotifType = useCallback(async (type: "silent" | "notification" | "adhan") => {
+    if (Platform.OS === "web") return;
+    const FIVE: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+
+    // If switching ON something and notifications are disabled, request permission first
+    if (!notificationsRef.current) {
+      const granted = await requestNotificationPermission();
+      if (!granted) return;
+      setNotificationsEnabled(true);
+      await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "true");
+    }
+
+    let captured: PrayerNotifConfig = prayerNotifConfigRef.current;
+    setPrayerNotifConfigState((prev) => {
+      const next: PrayerNotifConfig = { ...prev };
+      for (const k of FIVE) {
+        next[k] = { ...prev[k], type, enabled: true };
+      }
+      captured = next;
+      AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+    setTimeout(() => { rescheduleAll(captured); }, 50);
+  }, [rescheduleAll]);
 
   const setJummahReminder = useCallback(async (enabled: boolean, minutes: number) => {
     setJummahReminderEnabledState(enabled);
@@ -1010,6 +1095,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         prayerNotifConfig,
         setPrayerNotifSettings,
         toggleMasterPrayerBell,
+        notifSnoozeUntil,
+        setNotifSnoozeUntil,
+        prayerPreReminderMinutes,
+        setPrayerPreReminderMinutes,
+        setAllPrayersNotifType,
         jummahReminderEnabled,
         jummahMinutesBefore,
         setJummahReminder,

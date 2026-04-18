@@ -1,5 +1,6 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   calculatePrayerTimes, applyPrayerOffsets, DEFAULT_PRAYER_OFFSETS, PrayerOffsets,
   CalcMethodId, MadhabId, HighLatRuleId,
@@ -10,6 +11,34 @@ import { getDailyHadithForDate } from "./hadithData";
 import { RAW_EVENTS as ISLAMIC_RAW_EVENTS, hijriToJD, jdToDate, gregorianToHijri } from "./hijriCalendar";
 import { getAdhanStyle } from "./adhanData";
 import { PrayerNotifConfig, PrayerKey } from "./prayerNotifData";
+
+// Storage keys for the home-screen notification quick-sheet controls.
+// Read directly inside schedulePrayerNotifications so the existing 8+ callsites
+// don't need new arguments — context writes here, scheduler reads here.
+export const NOTIF_SNOOZE_UNTIL_KEY = "notif_snooze_until";
+export const PRAYER_PRE_REMINDER_KEY = "prayer_pre_reminder_minutes";
+
+async function readSnoozeUntil(): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(NOTIF_SNOOZE_UNTIL_KEY);
+    if (!raw) return 0;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function readPreReminderMinutes(): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(PRAYER_PRE_REMINDER_KEY);
+    if (!raw) return 0;
+    const n = Number(raw);
+    return [0, 5, 10, 15].includes(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
 
 const PRAYER_KEYS: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
 
@@ -176,6 +205,11 @@ export async function schedulePrayerNotifications(
   const offsets = prayerOffsets ?? DEFAULT_PRAYER_OFFSETS;
   let scheduled = 0; // running count — stops scheduling when IOS_NOTIF_CAP is reached
 
+  // Quick-sheet controls — snooze suppresses everything below the timestamp,
+  // pre-reminder fires an extra "X in N min" alert before each obligatory prayer.
+  const snoozeUntil = await readSnoozeUntil();
+  const preReminderMinutes = await readPreReminderMinutes();
+
   // Helper: schedule one notification and track the count.
   // Returns false if the cap has been reached (caller should stop scheduling).
   const scheduleOne = async (req: Notifications.NotificationRequestInput): Promise<boolean> => {
@@ -196,6 +230,8 @@ export async function schedulePrayerNotifications(
     for (const key of PRAYER_KEYS) {
       const prayer = times[key];
       if (prayer.time <= now) continue;
+      // Snooze: suppress any prayer notification scheduled before the snooze ends.
+      if (snoozeUntil > prayer.time.getTime()) continue;
 
       const cfg = prayerNotifConfig?.[key];
 
@@ -206,6 +242,26 @@ export async function schedulePrayerNotifications(
         // Day-of-week filter
         const dow = prayer.time.getDay();
         if (!cfg.days.includes(dow)) continue;
+
+        // Pre-prayer reminder — fires N minutes before the obligatory prayer.
+        // Uses the silent "notification" sound so it doesn't double up with the
+        // adhan that follows. Skipped if it would land in the past.
+        if (preReminderMinutes > 0) {
+          const reminderTime = new Date(prayer.time.getTime() - preReminderMinutes * 60_000);
+          if (reminderTime > now && snoozeUntil <= reminderTime.getTime()) {
+            await scheduleOne({
+              content: {
+                title: `⏰ ${prayer.name} in ${preReminderMinutes} min`,
+                body: `Prepare for ${prayer.name} prayer at ${prayer.timeString}`,
+                sound: true,
+                interruptionLevel: "timeSensitive",
+                ...(Platform.OS === "android" ? { channelId: "prayer-times" } : {}),
+                data: { type: "prayer-pre-reminder", key },
+              },
+              trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderTime },
+            });
+          }
+        }
 
         const sound = resolveNotifSound(cfg.type, cfg.adhanMode, cfg.adhanStyleId);
 

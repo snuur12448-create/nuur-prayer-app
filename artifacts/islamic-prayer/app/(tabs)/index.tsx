@@ -20,6 +20,7 @@ import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { LocationModal } from "@/components/LocationModal";
 import { PrayerNotifSheet } from "@/components/PrayerNotifSheet";
+import { NotifQuickSheet } from "@/components/NotifQuickSheet";
 import AyahShareSheet from "@/components/AyahShareSheet";
 import ContentShareSheet from "@/components/ContentShareSheet";
 import { getIslamicDate } from "@/utils/islamicData";
@@ -70,6 +71,7 @@ export default function PrayerScreen() {
     themeColors: colors, notificationsEnabled,
     timeFormat, calcMethod, madhab, highLatRule, prayerOffsets,
     prayerNotifConfig, setPrayerNotifSettings, toggleMasterPrayerBell,
+    notifSnoozeUntil, prayerPreReminderMinutes,
     calcMethodAutoSetLabel, dismissCalcMethodNotice,
   } = useAppContext();
 
@@ -80,6 +82,7 @@ export default function PrayerScreen() {
   const mixedPrayers  = !allPrayersOn && !allPrayersOff;
 
   const [notifSheetKey, setNotifSheetKey] = useState<PrayerKey | null>(null);
+  const [showQuickSheet, setShowQuickSheet] = useState(false);
   const [showAyahShare, setShowAyahShare] = useState(false);
   const [showHadithShare, setShowHadithShare] = useState(false);
   const [ayahCopied, setAyahCopied] = useState(false);
@@ -320,43 +323,61 @@ export default function PrayerScreen() {
               >
                 {formatCurrentTime()}
               </Text>
-              {!isWeb && (
-                <Pressable
-                  onPress={toggleMasterPrayerBell}
-                  style={[
-                    styles.paletteBtn,
-                    {
-                      backgroundColor: allPrayersOn
-                        ? colors.tint + "33"
-                        : mixedPrayers
-                          ? colors.tint + "1A"
-                          : colors.border,
-                    },
-                  ]}
-                  hitSlop={10}
-                >
-                  <Feather
-                    name={allPrayersOff ? "bell-off" : "bell"}
-                    size={18}
-                    color={allPrayersOff ? colors.textSecondary : colors.tint}
-                  />
-                  {mixedPrayers && (
-                    <View
-                      style={{
-                        position: "absolute",
-                        top: 5,
-                        right: 5,
-                        width: 7,
-                        height: 7,
-                        borderRadius: 4,
-                        backgroundColor: colors.tint,
-                        borderWidth: 1.5,
-                        borderColor: colors.surface,
-                      }}
-                    />
-                  )}
-                </Pressable>
-              )}
+              {!isWeb && (() => {
+                // Smart bell state
+                const isSnoozed = notifSnoozeUntil > Date.now();
+                const hasPreReminder = prayerPreReminderMinutes > 0;
+                const off = !notificationsEnabled || allPrayersOff;
+
+                // Pick icon: snoozed > off > on
+                const iconName: keyof typeof Feather.glyphMap = isSnoozed
+                  ? "clock"
+                  : off
+                    ? "bell-off"
+                    : "bell";
+
+                const iconColor = off && !isSnoozed
+                  ? colors.textSecondary
+                  : isSnoozed
+                    ? colors.gold
+                    : colors.tint;
+
+                const bg = isSnoozed
+                  ? colors.gold + "26"
+                  : allPrayersOn
+                    ? colors.tint + "33"
+                    : mixedPrayers
+                      ? colors.tint + "1A"
+                      : colors.border;
+
+                // Show a small dot when pre-reminder is on (and we're not snoozed/off)
+                const showDot = hasPreReminder && !isSnoozed && !off;
+
+                return (
+                  <Pressable
+                    onPress={() => setShowQuickSheet(true)}
+                    style={[styles.paletteBtn, { backgroundColor: bg }]}
+                    hitSlop={10}
+                  >
+                    <Feather name={iconName} size={18} color={iconColor} />
+                    {(mixedPrayers || showDot) && (
+                      <View
+                        style={{
+                          position: "absolute",
+                          top: 5,
+                          right: 5,
+                          width: 7,
+                          height: 7,
+                          borderRadius: 4,
+                          backgroundColor: colors.tint,
+                          borderWidth: 1.5,
+                          borderColor: colors.surface,
+                        }}
+                      />
+                    )}
+                  </Pressable>
+                );
+              })()}
             </View>
           </View>
 
@@ -554,6 +575,12 @@ export default function PrayerScreen() {
         onSelectManual={setManualLocation}
         colors={colors}
         isLoadingGps={isLoadingLocation}
+      />
+
+      <NotifQuickSheet
+        visible={showQuickSheet}
+        onClose={() => setShowQuickSheet(false)}
+        nextPrayerTimeMs={nextPrayer?.time?.getTime() ?? null}
       />
 
       {notifSheetKey && prayerTimes?.[notifSheetKey] && (
