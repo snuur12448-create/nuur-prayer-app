@@ -949,6 +949,7 @@ const styles = StyleSheet.create({
   // ── Hadith leaf wrapper ──────────────────────────────────────────────────
   votdHadithWrap: {
     marginTop: 22,
+    marginHorizontal: 16, // matches ayah leaf — leaves a gap to the screen edge
     paddingTop: 12, // leaves room for the wax seal that overhangs the top edge
   },
 
