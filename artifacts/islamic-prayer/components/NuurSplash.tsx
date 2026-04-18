@@ -1,102 +1,38 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Platform, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import * as SplashScreen from "expo-splash-screen";
 
 interface Props {
   onComplete: () => void;
 }
 
+const BG = "#09150D";
 const GOLD = "#C9933A";
 const GOLD_BRIGHT = "#E8B85C";
-const GOLD_DEEP = "#8B6420";
-const GOLD_SOFT = "#C9933A55";
+const GOLD_DIM = "#C9933A44";
 const GOLD_FAINT = "#C9933A18";
 
-// Dawn-to-dusk sky stops. The sky reads as deep night when the splash mounts,
-// then warms slightly toward the bottom (false horizon glow) so the lantern
-// feels like it's hanging in the predawn air just before Fajr — the moment
-// the muezzin's voice would be reaching the sleeping streets.
-const SKY_TOP = "#070C18";        // deepest pre-dawn sky
-const SKY_MID = "#0F1A33";        // night-indigo
-const SKY_HORIZON = "#2A1E3D";    // false horizon — first bruise of color
-const SKY_GLOW = "#5A3A4A";       // hint of warmth at the floor
-
-// Stars twinkle at fixed positions; randomising on each render would re-seed
-// every animation frame and make them dance. These are hand-placed to feel
-// natural without obscuring the lantern.
-const STAR_FIELD: { x: number; y: number; r: number; delay: number }[] = [
-  { x: 0.12, y: 0.10, r: 1.5, delay: 0    },
-  { x: 0.22, y: 0.18, r: 1,   delay: 600  },
-  { x: 0.78, y: 0.08, r: 2,   delay: 200  },
-  { x: 0.88, y: 0.22, r: 1,   delay: 900  },
-  { x: 0.08, y: 0.32, r: 1.2, delay: 1100 },
-  { x: 0.92, y: 0.40, r: 1.5, delay: 400  },
-  { x: 0.18, y: 0.55, r: 1,   delay: 1400 },
-  { x: 0.82, y: 0.58, r: 1.2, delay: 800  },
-  { x: 0.06, y: 0.72, r: 1,   delay: 300  },
-  { x: 0.94, y: 0.74, r: 1.5, delay: 1000 },
-  { x: 0.32, y: 0.06, r: 1,   delay: 700  },
-  { x: 0.68, y: 0.04, r: 1.2, delay: 1300 },
-];
-
-function useTwinkle(delay: number) {
-  const v = useRef(new Animated.Value(0.2)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(v, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
-        Animated.timing(v, { toValue: 0.2, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [delay, v]);
-  return v;
-}
-
-function Star({ x, y, r, delay }: { x: number; y: number; r: number; delay: number }) {
-  const opacity = useTwinkle(delay);
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={{
-        position: "absolute",
-        left: `${x * 100}%`,
-        top: `${y * 100}%`,
-        width: r * 2,
-        height: r * 2,
-        borderRadius: r,
-        backgroundColor: "#FFFFFF",
-        opacity,
-      }}
-    />
-  );
-}
+// Eight rays radiating from the core. We animate them in sequence (sweeping
+// clockwise) so the logo literally "lights up" rather than just appearing —
+// reads as "Nuur" (light) emerging into being.
+const RAY_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
 
 export function NuurSplash({ onComplete }: Props) {
   // Container starts fully opaque and only fades OUT when exiting.
   const exitAnim = useRef(new Animated.Value(1)).current;
 
-  // Sky warming progression — drives the bottom horizon glow brightening as
-  // dawn approaches. Goes 0 → 1 over the splash lifetime.
-  const dawnProgress = useRef(new Animated.Value(0)).current;
+  // Core glyph (ن) entry — fades in from 0 with a slight scale settle
+  const coreFade = useRef(new Animated.Value(0)).current;
+  const coreScale = useRef(new Animated.Value(0.6)).current;
 
-  // Lantern entry — rises from below with scale + fade.
-  const lanternRise = useRef(new Animated.Value(40)).current;
-  const lanternFade = useRef(new Animated.Value(0)).current;
-  const lanternScale = useRef(new Animated.Value(0.85)).current;
+  // Each ray has its own animated value so we can stagger them
+  const rayValues = useRef(RAY_ANGLES.map(() => new Animated.Value(0))).current;
 
-  // Lantern flame (the crescent inside) — soft ongoing breath.
-  const flameGlow = useRef(new Animated.Value(0.4)).current;
-  const flameScale = useRef(new Animated.Value(0.95)).current;
-  const haloOpacity = useRef(new Animated.Value(0)).current;
+  // Inner & outer glow rings pulse together once everything is in place
+  const glowScale = useRef(new Animated.Value(1)).current;
+  const glowOpacity = useRef(new Animated.Value(0.4)).current;
 
-  // Lantern subtle sway — hangs from a chain so it can drift a hair.
-  const sway = useRef(new Animated.Value(0)).current;
-
-  // Text reveal.
+  // Text reveal
   const textFade = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -104,175 +40,118 @@ export function NuurSplash({ onComplete }: Props) {
   }, []);
 
   useEffect(() => {
-    // Phase 1 — lantern enters (rise + fade + settle scale)
+    // Phase 1 — core glyph emerges first (the seed of light)
     Animated.parallel([
-      Animated.timing(lanternRise, { toValue: 0, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
-      Animated.timing(lanternFade, { toValue: 1, duration: 700, useNativeDriver: false }),
-      Animated.spring(lanternScale, { toValue: 1, tension: 40, friction: 8, useNativeDriver: false }),
+      Animated.timing(coreFade, { toValue: 1, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+      Animated.spring(coreScale, { toValue: 1, tension: 50, friction: 8, useNativeDriver: false }),
     ]).start(() => {
-      // Phase 2 — flame catches: halo blooms, flame settles into a slow breath
-      Animated.parallel([
-        Animated.timing(haloOpacity, { toValue: 1, duration: 700, useNativeDriver: false }),
-        Animated.timing(textFade, { toValue: 1, duration: 600, useNativeDriver: false }),
-      ]).start();
+      // Phase 2 — rays sweep into existence clockwise from the core
+      Animated.stagger(
+        70,
+        rayValues.map((v) =>
+          Animated.timing(v, {
+            toValue: 1,
+            duration: 380,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: false,
+          })
+        )
+      ).start(() => {
+        // Phase 3 — glow pulse & text reveal
+        Animated.parallel([
+          Animated.timing(textFade, { toValue: 1, duration: 500, useNativeDriver: false }),
+        ]).start();
 
-      // Slow flame breath
-      Animated.loop(
-        Animated.sequence([
-          Animated.parallel([
-            Animated.timing(flameGlow,  { toValue: 0.95, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
-            Animated.timing(flameScale, { toValue: 1.05, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
-          ]),
-          Animated.parallel([
-            Animated.timing(flameGlow,  { toValue: 0.55, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
-            Animated.timing(flameScale, { toValue: 0.95, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
-          ]),
-        ])
-      ).start();
-
-      // Lantern sway — barely perceptible drift left-right
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(sway, { toValue: 1,  duration: 2400, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
-          Animated.timing(sway, { toValue: -1, duration: 2400, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
-        ])
-      ).start();
+        Animated.loop(
+          Animated.sequence([
+            Animated.parallel([
+              Animated.timing(glowScale, { toValue: 1.18, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+              Animated.timing(glowOpacity, { toValue: 0.8, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+            ]),
+            Animated.parallel([
+              Animated.timing(glowScale, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+              Animated.timing(glowOpacity, { toValue: 0.4, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+            ]),
+          ])
+        ).start();
+      });
     });
 
-    // Sky dawn warming runs across full lifetime, independent of phases
-    Animated.timing(dawnProgress, {
-      toValue: 1,
-      duration: 4200,
-      easing: Easing.inOut(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-
-    // After display time, fade container OUT and signal completion.
+    // Total: core ~600ms + rays (8 × 70 stagger + 380) ~940ms + display ~1800ms + exit 600ms
     const exitTimer = setTimeout(() => {
       Animated.timing(exitAnim, {
         toValue: 0,
         duration: 600,
         useNativeDriver: false,
       }).start(() => onComplete());
-    }, 4200);
+    }, 3600);
 
     return () => clearTimeout(exitTimer);
   }, []);
 
-  // Glow opacity for the bottom horizon — interpolates from faint to warmer
-  const horizonGlow = dawnProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.35, 0.85],
-  });
-
-  const swayDeg = sway.interpolate({
-    inputRange: [-1, 1],
-    outputRange: ["-1.2deg", "1.2deg"],
-  });
-
-  // Render — stars are memoised so their fixed positions don't re-mount.
-  const stars = useMemo(
-    () => STAR_FIELD.map((s, i) => <Star key={i} {...s} />),
-    []
-  );
-
   return (
     <Animated.View style={[styles.container, { opacity: exitAnim }]}>
-      {/* Night sky base gradient */}
-      <LinearGradient
-        colors={[SKY_TOP, SKY_MID, SKY_HORIZON]}
-        locations={[0, 0.55, 1]}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* Animated horizon warm wash — brightens as dawn progresses */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: horizonGlow }]} pointerEvents="none">
-        <LinearGradient
-          colors={["transparent", "transparent", SKY_GLOW]}
-          locations={[0, 0.6, 1]}
-          style={StyleSheet.absoluteFill}
+      {/* Logo mark */}
+      <View style={styles.logoArea}>
+        {/* Outer pulsing glow ring */}
+        <Animated.View
+          style={[
+            styles.glowRingOuter,
+            { transform: [{ scale: glowScale }], opacity: glowOpacity },
+          ]}
         />
-      </Animated.View>
+        {/* Mid glow ring (also pulses, slightly dimmer) */}
+        <Animated.View
+          style={[
+            styles.glowRingMid,
+            {
+              transform: [{ scale: glowScale }],
+              opacity: Animated.multiply(glowOpacity, 0.7) as any,
+            },
+          ]}
+        />
 
-      {/* Star field */}
-      {stars}
-
-      {/* Lantern halo — soft golden bloom around the lantern that follows
-          the flame's breath. Sits behind the lantern body. */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.halo,
-          {
-            opacity: Animated.multiply(haloOpacity, flameGlow) as any,
-            transform: [{ scale: Animated.add(0.9, Animated.multiply(flameScale, 0.4)) as any }],
-          },
-        ]}
-      />
-
-      {/* Lantern + chain group */}
-      <Animated.View
-        style={[
-          styles.lanternGroup,
-          {
-            opacity: lanternFade,
-            transform: [
-              { translateY: lanternRise },
-              { rotate: swayDeg },
-              { scale: lanternScale },
-            ],
-          },
-        ]}
-      >
-        {/* Hanging chain (top of screen → lantern handle) */}
-        <View style={styles.chain} />
-
-        {/* Handle ring */}
-        <View style={styles.handleRing} />
-
-        {/* Top finial dome */}
-        <View style={styles.topDome} />
-
-        {/* Lantern neck */}
-        <View style={styles.neck} />
-
-        {/* Lantern body — chamfered hex silhouette built from a rect + two triangles */}
-        <View style={styles.bodyWrap}>
-          <View style={styles.bodyShoulder} />
-          <View style={styles.bodyMain}>
-            {/* Inner glow layer */}
+        {/* Eight rays — each animated independently to sweep in sequence.
+            translateY moves each ray outward from the core; opacity fades in. */}
+        {RAY_ANGLES.map((angle, i) => (
+          <Animated.View
+            key={angle}
+            style={[
+              styles.rayWrap,
+              {
+                transform: [{ rotate: `${angle}deg` }],
+                opacity: rayValues[i],
+              },
+            ]}
+          >
             <Animated.View
               style={[
-                styles.innerGlow,
+                styles.ray,
                 {
-                  opacity: flameGlow,
-                  transform: [{ scale: flameScale }],
+                  transform: [
+                    {
+                      translateY: rayValues[i].interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-8, 0],
+                      }),
+                    },
+                  ],
                 },
               ]}
             />
-            {/* Crescent — the "flame" of the lantern, doubling as Islamic motif */}
-            <Animated.Text
-              style={[
-                styles.crescent,
-                {
-                  opacity: flameGlow,
-                  transform: [{ scale: flameScale }],
-                },
-              ]}
-            >
-              ☾
-            </Animated.Text>
-            {/* Vertical lattice bars across the lantern face */}
-            <View style={[styles.bar, { left: "22%" }]} />
-            <View style={[styles.bar, { left: "50%", marginLeft: -0.5 }]} />
-            <View style={[styles.bar, { right: "22%" }]} />
-          </View>
-          <View style={styles.bodyBase} />
-        </View>
+          </Animated.View>
+        ))}
 
-        {/* Bottom finial */}
-        <View style={styles.bottomFinial} />
-        <View style={styles.bottomDrop} />
-      </Animated.View>
+        {/* Inner circle — the core that holds the ن */}
+        <Animated.View
+          style={[
+            styles.innerCircle,
+            { opacity: coreFade, transform: [{ scale: coreScale }] },
+          ]}
+        >
+          <Text style={styles.coreGlyph}>ن</Text>
+        </Animated.View>
+      </View>
 
       {/* Text block */}
       <Animated.View style={[styles.textBlock, { opacity: textFade }]}>
@@ -289,155 +168,75 @@ export function NuurSplash({ onComplete }: Props) {
   );
 }
 
-const LANTERN_WIDTH = 84;
-const LANTERN_BODY_HEIGHT = 92;
-
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: SKY_TOP,
+    backgroundColor: BG,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 9999,
-    overflow: "hidden",
   },
-
-  // ── Halo ──────────────────────────────────────────────
-  halo: {
-    position: "absolute",
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: GOLD_FAINT,
-    // Soft golden bloom — multiple layers via shadow on iOS, fallback fine on Android
-    shadowColor: GOLD_BRIGHT,
-    shadowOpacity: 0.6,
-    shadowRadius: 60,
-    shadowOffset: { width: 0, height: 0 },
-    top: "30%",
-  },
-
-  // ── Lantern group ─────────────────────────────────────
-  lanternGroup: {
-    alignItems: "center",
-    marginBottom: 40,
-    // Anchor the rotation around the chain attachment point at the top
-    transformOrigin: "50% 0%" as any,
-  },
-  chain: {
-    width: 1,
-    height: 60,
-    backgroundColor: GOLD_DEEP,
-    opacity: 0.7,
-  },
-  handleRing: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    borderColor: GOLD,
-    marginTop: -2,
-  },
-  topDome: {
-    width: 28,
-    height: 14,
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
-    backgroundColor: GOLD_DEEP,
-    borderWidth: 1,
-    borderColor: GOLD,
-    borderBottomWidth: 0,
-    marginTop: 4,
-  },
-  neck: {
-    width: 36,
-    height: 6,
-    backgroundColor: GOLD_DEEP,
-    borderWidth: 1,
-    borderColor: GOLD,
-  },
-  bodyWrap: {
-    width: LANTERN_WIDTH,
-    alignItems: "center",
-  },
-  // The shoulder is the chamfered top of the hexagonal body — a trapezoid
-  // approximated with a top-rounded rectangle that's narrower than the main.
-  bodyShoulder: {
-    width: LANTERN_WIDTH * 0.85,
-    height: 12,
-    backgroundColor: GOLD_DEEP,
-    borderWidth: 1,
-    borderColor: GOLD,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    borderBottomWidth: 0,
-  },
-  bodyMain: {
-    width: LANTERN_WIDTH,
-    height: LANTERN_BODY_HEIGHT,
-    backgroundColor: "#1A130A",
-    borderWidth: 1.5,
-    borderColor: GOLD,
+  logoArea: {
+    width: 160,
+    height: 160,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
-    position: "relative",
+    marginBottom: 32,
   },
-  innerGlow: {
+  glowRingOuter: {
     position: "absolute",
-    width: LANTERN_WIDTH * 1.4,
-    height: LANTERN_WIDTH * 1.4,
-    borderRadius: LANTERN_WIDTH * 0.7,
-    backgroundColor: GOLD_BRIGHT,
-    opacity: 0.5,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: GOLD_FAINT,
+    borderWidth: 1,
+    borderColor: GOLD_DIM,
   },
-  crescent: {
+  glowRingMid: {
+    position: "absolute",
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: GOLD + "10",
+    borderWidth: 1,
+    borderColor: GOLD + "55",
+  },
+  rayWrap: {
+    position: "absolute",
+    width: 160,
+    height: 160,
+    alignItems: "center",
+    justifyContent: "flex-start",
+  },
+  ray: {
+    width: 2,
+    height: 26,
+    borderRadius: 1,
+    backgroundColor: GOLD,
+    opacity: 0.85,
+    marginTop: 4,
+  },
+  innerCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: GOLD + "22",
+    borderWidth: 1.5,
+    borderColor: GOLD + "88",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  coreGlyph: {
     fontSize: 38,
-    color: "#FFE6A8",
+    color: GOLD_BRIGHT,
     includeFontPadding: false,
-    textShadowColor: GOLD_BRIGHT,
-    textShadowRadius: 14,
+    textShadowColor: GOLD,
+    textShadowRadius: 10,
     textShadowOffset: { width: 0, height: 0 },
   },
-  bar: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: GOLD_DEEP,
-    opacity: 0.85,
-  },
-  bodyBase: {
-    width: LANTERN_WIDTH * 0.85,
-    height: 10,
-    backgroundColor: GOLD_DEEP,
-    borderWidth: 1,
-    borderColor: GOLD,
-    borderBottomLeftRadius: 6,
-    borderBottomRightRadius: 6,
-    borderTopWidth: 0,
-  },
-  bottomFinial: {
-    width: 24,
-    height: 6,
-    backgroundColor: GOLD_DEEP,
-    borderWidth: 1,
-    borderColor: GOLD,
-    marginTop: 0,
-  },
-  bottomDrop: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: GOLD,
-    marginTop: 2,
-  },
-
-  // ── Text block ────────────────────────────────────────
   textBlock: {
     alignItems: "center",
-    gap: 6,
-    marginTop: 20,
+    gap: 8,
   },
   arabicName: {
     fontSize: 52,
@@ -456,9 +255,9 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   dividerLine: {
-    width: 36,
+    width: 40,
     height: 1,
-    backgroundColor: GOLD_SOFT,
+    backgroundColor: GOLD + "55",
   },
   dividerStar: {
     fontSize: 11,
@@ -472,7 +271,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontSize: 13,
-    color: "#B89A7A",
+    color: "#8BAF8E",
     letterSpacing: 1.5,
     marginTop: 4,
     fontFamily: Platform.select({ ios: "Georgia", android: "serif", web: "Georgia, serif" }),
