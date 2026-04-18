@@ -384,11 +384,27 @@ export default function TrackerScreen() {
           })}
         </View>
 
+        {/* ── Sunnah Prayers Reference ── */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.push("/sunnah-prayers")}
+          style={[styles.qadaCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        >
+          <View style={[styles.qadaIcon, { backgroundColor: colors.tint + "18", borderColor: colors.tint + "33" }]}>
+            <Feather name="moon" size={16} color={colors.tint} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.qadaTitle, { color: colors.text }]}>Sunnah prayers</Text>
+            <Text style={[styles.qadaSub, { color: colors.textSecondary }]}>Rawātib, Ḍuḥā, Tahajjud, Witr & more</Text>
+          </View>
+          <Feather name="chevron-right" size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+
         {/* ── Qaḍā / Make-Up Prayers Entry ── */}
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => router.push("/qada")}
-          style={[styles.qadaCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[styles.qadaCard, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 10 }]}
         >
           <View style={[styles.qadaIcon, { backgroundColor: colors.tint + "18", borderColor: colors.tint + "33" }]}>
             <Feather name="bookmark" size={16} color={colors.tint} />
