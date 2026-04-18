@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import React, { useState, useRef, useCallback, useLayoutEffect } from "react";
 import {
+  Linking,
   Modal,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -1089,6 +1090,22 @@ export default function SettingsScreen() {
             </View>
             <Text style={[styles.rowValue, { color: colors.textSecondary }]}>verses.quran.com</Text>
           </View>
+          <RowSeparator colors={colors} />
+          <TouchableOpacity
+            style={styles.cardRow}
+            activeOpacity={0.6}
+            onPress={() =>
+              Linking.openURL(
+                "https://petalite-quartz-769.notion.site/PRIVACY-POLICY-332facde3948808d9d41f9d3a6af97fb"
+              )
+            }
+          >
+            <View style={styles.rowLeft}>
+              <Feather name="shield" size={16} color={colors.tint} style={styles.rowIcon} />
+              <Text style={[styles.rowLabel, { color: colors.text }]}>Privacy Policy</Text>
+            </View>
+            <Feather name="external-link" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
