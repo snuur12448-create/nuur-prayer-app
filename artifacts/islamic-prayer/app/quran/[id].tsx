@@ -666,17 +666,31 @@ export default function QuranDetailScreen() {
     return () => ctrl.abort();
   }, [surahNumber]);
 
-  // After verses load, scroll to the currently playing verse if this is the active surah
+  // After verses load, scroll to the currently playing verse if this is the active surah.
+  // We track the last verse we scrolled to in a ref so layout-induced re-renders
+  // (e.g. toggling Word-by-Word or Transliteration) cannot re-trigger an animated
+  // scroll for a verse the list is already aligned to. The effect should only
+  // produce a scroll when the *playing verse itself* changes.
+  const lastScrolledPlayingVerseRef = useRef<{ surah: number; verse: number } | null>(null);
   useEffect(() => {
     if (!verses || !playingVerse || playingSurahNum !== surahNumber) return;
+    const last = lastScrolledPlayingVerseRef.current;
+    if (last && last.surah === surahNumber && last.verse === playingVerse) return;
     const idx = verses.findIndex((v) => v.number === playingVerse);
     if (idx < 0) return;
+    lastScrolledPlayingVerseRef.current = { surah: surahNumber, verse: playingVerse };
     // Small delay lets the FlatList finish its initial render before scrolling
     const t = setTimeout(() => {
       flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.3 });
     }, 350);
     return () => clearTimeout(t);
   }, [verses, playingVerse, playingSurahNum, surahNumber]);
+
+  // Reset the dedupe ref when the user pauses or stops, so the next playback
+  // session can scroll to its first verse even if it happens to be the same one.
+  useEffect(() => {
+    if (!playingVerse) lastScrolledPlayingVerseRef.current = null;
+  }, [playingVerse]);
 
   // If audio has stopped (playingVerse is null) but we know the last verse that
   // was playing in this surah, scroll there so the user picks up where they left
@@ -1172,6 +1186,16 @@ export default function QuranDetailScreen() {
           windowSize={hafidhMode ? 11 : 21}
           updateCellsBatchingPeriod={50}
           removeClippedSubviews={false}
+          // Keep currently-visible verses anchored when items above the viewport
+          // change height — e.g. the user toggles A-B-C (transliteration) or
+          // Word-by-Word during playback. Without this prop, every re-rendered
+          // item above the anchor shifts the scroll offset by its delta-height,
+          // making the page appear to drift / "scroll in a confused way".
+          // Hafidh mode has fixed-height rows + getItemLayout, so it does not
+          // need this anchor (and turning it on there can fight getItemLayout).
+          maintainVisibleContentPosition={
+            hafidhMode ? undefined : { minIndexForVisible: 0 }
+          }
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
           onScrollToIndexFailed={({ index }) => {
