@@ -49,9 +49,44 @@ Notifications.setNotificationHandler({
 
 export async function requestNotificationPermission(): Promise<boolean> {
   if (Platform.OS === "web") return false;
+
+  // Android: create a high-importance channel for prayer notifications so they
+  // bypass DND and play their sound at full volume. Channels are idempotent —
+  // safe to call on every launch. Without this, Android 8+ defaults all
+  // notifications to a low-importance channel that suppresses sound.
+  if (Platform.OS === "android") {
+    try {
+      await Notifications.setNotificationChannelAsync("prayer-times", {
+        name: "Prayer Times",
+        description: "Adhan and prayer time reminders",
+        importance: Notifications.AndroidImportance.MAX,
+        sound: "default",
+        vibrationPattern: [0, 250, 250, 250],
+        bypassDnd: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        enableVibrate: true,
+        showBadge: false,
+      });
+    } catch {}
+  }
+
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === "granted") return true;
-  const { status } = await Notifications.requestPermissionsAsync();
+  // Explicitly request all notification permissions so iOS shows the proper
+  // dialog and grants Time Sensitive (auto-granted when the app has the
+  // com.apple.developer.usernotifications.time-sensitive entitlement).
+  const { status } = await Notifications.requestPermissionsAsync({
+    ios: {
+      allowAlert: true,
+      allowBadge: true,
+      allowSound: true,
+      allowDisplayInCarPlay: false,
+      allowCriticalAlerts: false,
+      provideAppNotificationSettings: true,
+      allowProvisional: false,
+      allowAnnouncements: false,
+    },
+  });
   return status === "granted";
 }
 
@@ -180,6 +215,10 @@ export async function schedulePrayerNotifications(
             body: PRAYER_BODY[prayer.name] ?? `It is time for ${prayer.name} in ${city}`,
             sound,
             interruptionLevel: "timeSensitive",
+            // Android: route to the high-importance "prayer-times" channel so
+            // the notification bypasses DND and plays sound at full volume.
+            // Ignored on iOS.
+            ...(Platform.OS === "android" ? { channelId: "prayer-times" } : {}),
             // Structured data used by:
             //  • setNotificationHandler — suppresses .caf when adhan watcher
             //    will play full audio in the foreground
@@ -203,6 +242,7 @@ export async function schedulePrayerNotifications(
             body: PRAYER_BODY[prayer.name] ?? `It is time for ${prayer.name} in ${city}`,
             sound: true,
             interruptionLevel: "timeSensitive",
+            ...(Platform.OS === "android" ? { channelId: "prayer-times" } : {}),
             data: { type: "prayer", key },
           },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: prayer.time },
