@@ -9,7 +9,6 @@ import Svg, {
   Path,
   Stop,
   Text as SvgText,
-  G,
 } from "react-native-svg";
 import type { PrayerTime } from "@/utils/prayerTimes";
 
@@ -202,12 +201,12 @@ export function CelestialArcCard({
   const englishName = display?.name ?? PRAYER_LABEL_FALLBACK[paletteKey];
   const time = display?.timeString ?? "--:--";
 
-  // Arc geometry — viewBox 0..358 wide, marker moves along the semicircle
+  // Arc geometry — wide flat banner arc, marker moves along the semicircle
   const W = 358;
-  const H = 90;
-  const ARC_R = 220;
+  const H = 52;
+  const ARC_R = 260;
   const CX = W / 2;
-  const CY = H + 130;
+  const CY = H + 200;
   const t = Math.max(0, Math.min(1, progress));
   const angle = Math.PI + t * Math.PI;
   const markerX = CX + ARC_R * Math.cos(angle);
@@ -255,11 +254,11 @@ export function CelestialArcCard({
         pointerEvents="none"
       />
 
-      {/* Stars */}
+      {/* Stars (smaller field across the arc band only) */}
       {stars.length > 0 && (
         <Svg
           width="100%"
-          height={90}
+          height={H}
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="xMidYMid meet"
           style={styles.stars}
@@ -269,7 +268,7 @@ export function CelestialArcCard({
             <Circle
               key={i}
               cx={s.x}
-              cy={s.y}
+              cy={(s.y / 90) * H}
               r={s.r}
               fill="#F4E4C5"
               opacity={s.o * palette.starOpacity}
@@ -278,9 +277,8 @@ export function CelestialArcCard({
         </Svg>
       )}
 
-      {/* Inner content */}
-      <View style={styles.inner}>
-        {/* Arc */}
+      {/* Arc band — flat banner across the top */}
+      <View style={styles.arcBand}>
         <Svg
           width="100%"
           height={H}
@@ -307,75 +305,76 @@ export function CelestialArcCard({
           <Path
             d={`M ${CX - ARC_R} ${CY} A ${ARC_R} ${ARC_R} 0 0 1 ${markerX} ${markerY}`}
             stroke="url(#arcGrad)"
-            strokeWidth={1.8}
+            strokeWidth={1.6}
             fill="none"
             strokeLinecap="round"
           />
 
           {/* Horizon labels — previous/next prayer */}
           <SvgText
-            x={4}
-            y={H - 6}
-            fontSize={10}
+            x={6}
+            y={H - 5}
+            fontSize={8}
             fill="#F4E4C5"
-            opacity={0.6}
+            opacity={0.55}
             textAnchor="start"
           >
             {prevLabel}
           </SvgText>
           <SvgText
-            x={W - 4}
-            y={H - 6}
-            fontSize={10}
+            x={W - 6}
+            y={H - 5}
+            fontSize={8}
             fill="#F4E4C5"
-            opacity={0.6}
+            opacity={0.55}
             textAnchor="end"
           >
             {nextLabel}
           </SvgText>
 
-          {/* Marker — concentric circles for a soft halo (no SVG filter; works on iOS+Android) */}
-          <Circle cx={markerX} cy={markerY} r={14} fill={palette.ember} opacity={0.18} />
-          <Circle cx={markerX} cy={markerY} r={9} fill={palette.ember} opacity={0.4} />
-          <Circle cx={markerX} cy={markerY} r={5.5} fill={palette.emberBright} />
-          <Circle cx={markerX} cy={markerY} r={2.2} fill="#FFFFFF" />
+          {/* Marker — concentric halo */}
+          <Circle cx={markerX} cy={markerY} r={11} fill={palette.ember} opacity={0.18} />
+          <Circle cx={markerX} cy={markerY} r={7} fill={palette.ember} opacity={0.4} />
+          <Circle cx={markerX} cy={markerY} r={4.5} fill={palette.emberBright} />
+          <Circle cx={markerX} cy={markerY} r={1.8} fill="#FFFFFF" />
         </Svg>
 
-        {/* Centerpiece */}
-        <View style={styles.center}>
-          {/* NOW / UPCOMING badge */}
+        {/* NOW / UPCOMING corner badge */}
+        <View
+          style={[
+            styles.cornerPill,
+            {
+              backgroundColor: hexA(palette.ember, 0.22),
+              borderColor: hexA(palette.ember, 0.5),
+            },
+          ]}
+        >
           <View
             style={[
-              styles.nowPill,
+              styles.nowPillDot,
               {
-                backgroundColor: hexA(palette.ember, 0.18),
-                borderColor: hexA(palette.ember, 0.45),
+                backgroundColor: palette.emberBright,
+                shadowColor: palette.emberBright,
               },
             ]}
+          />
+          <Text
+            maxFontSizeMultiplier={1.2}
+            style={[styles.nowPillText, { color: palette.emberBright }]}
           >
-            <View
-              style={[
-                styles.nowPillDot,
-                {
-                  backgroundColor: palette.emberBright,
-                  shadowColor: palette.emberBright,
-                },
-              ]}
-            />
-            <Text
-              maxFontSizeMultiplier={1.2}
-              style={[styles.nowPillText, { color: palette.emberBright }]}
-            >
-              {isNow ? "NOW PRAYING" : "UPCOMING"}
-            </Text>
-          </View>
+            {isNow ? "NOW" : "NEXT"}
+          </Text>
+        </View>
+      </View>
 
-          {/* Big calligraphic Arabic */}
+      {/* Content row — name on the left, time + countdown on the right */}
+      <View style={styles.contentRow}>
+        <View style={styles.nameCol}>
           <Text
             maxFontSizeMultiplier={1.15}
             adjustsFontSizeToFit
             style={[
-              styles.arabicBig,
+              styles.arabicInline,
               {
                 color: isLoading ? "transparent" : palette.arabicTextColor,
                 textShadowColor: hexA(palette.ember, 0.55),
@@ -385,130 +384,101 @@ export function CelestialArcCard({
           >
             {arabic}
           </Text>
-
-          {/* English name */}
           <Text
             maxFontSizeMultiplier={1.3}
-            style={[styles.englishName, { color: isLoading ? "transparent" : "#F4E4C5" }]}
+            style={[styles.englishInline, { color: isLoading ? "transparent" : "#F4E4C5" }]}
             numberOfLines={1}
           >
             {englishName}
+            {!!windowNote && !isLoading ? (
+              <Text style={styles.windowNoteInline}>  ·  {windowNote}</Text>
+            ) : null}
           </Text>
+        </View>
 
-          {/* Time + countdown */}
-          <View style={styles.timeRow}>
+        <View style={styles.timeCol}>
+          <Text
+            maxFontSizeMultiplier={1.25}
+            style={[styles.timeInline, { color: isLoading ? "transparent" : palette.arabicTextColor }]}
+            numberOfLines={1}
+          >
+            {time}
+          </Text>
+          <LinearGradient
+            colors={[palette.emberBright, palette.ember]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.countdownPill}
+          >
             <Text
               maxFontSizeMultiplier={1.25}
-              style={[styles.time, { color: isLoading ? "transparent" : palette.arabicTextColor }]}
+              style={styles.countdownText}
               numberOfLines={1}
             >
-              {time}
+              {isLoading ? "—" : countdownText}
             </Text>
-            <View style={[styles.divider, { backgroundColor: hexA(palette.ember, 0.4) }]} />
-            <LinearGradient
-              colors={[palette.emberBright, palette.ember]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.countdownPill}
-            >
-              <Text
-                maxFontSizeMultiplier={1.25}
-                style={styles.countdownText}
-                numberOfLines={1}
-              >
-                {isLoading ? "—" : countdownText}
-              </Text>
-            </LinearGradient>
-          </View>
-
-          {/* Window-end note */}
-          {!!windowNote && !isLoading && (
-            <Text
-              maxFontSizeMultiplier={1.4}
-              style={styles.windowNote}
-              numberOfLines={2}
-            >
-              {windowNote}
-            </Text>
-          )}
-        </View>
-
-        {/* Filigree band — gold-brown, ties to parchment leaves below */}
-        <View style={[styles.filigreeWrap, { borderTopColor: hexA(palette.emberDim, 0.35) }]}>
-          <Svg width="100%" height={14} viewBox="0 0 320 14" preserveAspectRatio="none">
-            <Defs>
-              <SvgLinearGradient id="filigreeFade" x1="0%" y1="0%" x2="100%" y2="0%">
-                <Stop offset="0" stopColor={themeGold} stopOpacity={0} />
-                <Stop offset="0.2" stopColor={themeGold} stopOpacity={0.7} />
-                <Stop offset="0.8" stopColor={themeGold} stopOpacity={0.7} />
-                <Stop offset="1" stopColor={themeGold} stopOpacity={0} />
-              </SvgLinearGradient>
-            </Defs>
-            <Line x1={0} y1={7} x2={320} y2={7} stroke="url(#filigreeFade)" strokeWidth={0.5} />
-            {Array.from({ length: 9 }).map((_, i) => {
-              const x = 40 + i * 30;
-              return (
-                <G key={i} stroke={themeGold} strokeWidth={0.7} fill="none" opacity={0.65}>
-                  <Path d={`M ${x - 4} 7 Q ${x} 1 ${x + 4} 7`} />
-                  <Path d={`M ${x - 4} 7 Q ${x} 13 ${x + 4} 7`} />
-                  <Circle cx={x} cy={7} r={0.6} fill={themeGold} stroke="none" />
-                </G>
-              );
-            })}
-            <G transform="translate(160, 7)" stroke={themeGold} strokeWidth={0.8} fill="none" opacity={0.85}>
-              <Circle r={3.5} cx={0} cy={0} />
-              <Circle r={1.4} cx={0} cy={0} fill={themeGold} stroke="none" />
-            </G>
-          </Svg>
+          </LinearGradient>
         </View>
       </View>
+
+      {/* Filigree hairline — single thin gradient line, no arches */}
+      <Svg width="100%" height={3} viewBox="0 0 320 3" preserveAspectRatio="none" style={styles.hairline}>
+        <Defs>
+          <SvgLinearGradient id="filigreeFade" x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop offset="0" stopColor={themeGold} stopOpacity={0} />
+            <Stop offset="0.5" stopColor={themeGold} stopOpacity={0.7} />
+            <Stop offset="1" stopColor={themeGold} stopOpacity={0} />
+          </SvgLinearGradient>
+        </Defs>
+        <Line x1={0} y1={1.5} x2={320} y2={1.5} stroke="url(#filigreeFade)" strokeWidth={0.6} />
+        <Circle cx={160} cy={1.5} r={1.4} fill={themeGold} opacity={0.85} />
+      </Svg>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 18,
+    borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
-    marginTop: 18,
+    marginTop: 14,
+    paddingBottom: 10,
     ...Platform.select({
-      ios: { shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.45, shadowRadius: 20 },
-      android: { elevation: 8 },
+      ios: { shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14 },
+      android: { elevation: 6 },
       default: {},
     }),
   },
   stars: {
     position: "absolute",
-    top: 4,
+    top: 0,
     left: 0,
     right: 0,
   },
-  inner: {
-    paddingHorizontal: 22,
-    paddingTop: 22,
-    paddingBottom: 16,
+  arcBand: {
+    height: 52,
+    width: "100%",
+    position: "relative",
   },
-  center: {
-    alignItems: "center",
-    marginTop: 4,
-  },
-  nowPill: {
+  cornerPill: {
+    position: "absolute",
+    top: 8,
+    right: 10,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 999,
     borderWidth: 1,
-    marginBottom: 10,
   },
   nowPillDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     ...Platform.select({
-      ios: { shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 4 },
+      ios: { shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 3 },
       android: { elevation: 2 },
       default: {},
     }),
@@ -516,67 +486,72 @@ const styles = StyleSheet.create({
   nowPillText: {
     fontSize: 9,
     fontFamily: "Inter_700Bold",
-    letterSpacing: 1.5,
+    letterSpacing: 1.4,
     includeFontPadding: false,
   },
-  arabicBig: {
-    fontFamily: "AmiriQuran_400Regular",
-    fontSize: 52,
-    lineHeight: 64,
-    includeFontPadding: false,
-    textAlign: "center",
-    writingDirection: "rtl",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 16,
-    marginBottom: 2,
-  },
-  englishName: {
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.4,
-    marginTop: 2,
-    includeFontPadding: false,
-  },
-  timeRow: {
+  contentRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginTop: 14,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 6,
+    gap: 10,
   },
-  time: {
-    fontSize: 26,
-    fontFamily: "Inter_400Regular",
-    fontVariant: ["tabular-nums"],
-    letterSpacing: 0.5,
+  nameCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  arabicInline: {
+    fontFamily: "AmiriQuran_400Regular",
+    fontSize: 30,
+    lineHeight: 38,
+    includeFontPadding: false,
+    writingDirection: "rtl",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 10,
+    textAlign: "left",
+  },
+  englishInline: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.3,
+    marginTop: 1,
     includeFontPadding: false,
   },
-  divider: {
-    width: 1,
-    height: 22,
+  windowNoteInline: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: "#F4E4C599",
+    fontStyle: "italic",
+    letterSpacing: 0,
+  },
+  timeCol: {
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  timeInline: {
+    fontSize: 20,
+    fontFamily: "Inter_400Regular",
+    fontVariant: ["tabular-nums"],
+    letterSpacing: 0.3,
+    includeFontPadding: false,
   },
   countdownPill: {
-    paddingHorizontal: 11,
-    paddingVertical: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
     borderRadius: 999,
   },
   countdownText: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.4,
     color: "#1A0F00",
     fontVariant: ["tabular-nums"],
     includeFontPadding: false,
   },
-  windowNote: {
-    fontSize: 11,
-    color: "#F4E4C5AA",
-    marginTop: 10,
-    fontStyle: "italic",
-    textAlign: "center",
-  },
-  filigreeWrap: {
-    marginTop: 18,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
+  hairline: {
+    marginTop: 4,
+    paddingHorizontal: 16,
   },
 });
