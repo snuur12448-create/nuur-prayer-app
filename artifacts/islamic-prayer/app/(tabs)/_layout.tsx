@@ -157,7 +157,7 @@ function ClassicTabLayout() {
               isIOS ? (
                 <SymbolView name="book.fill" tintColor={color} size={24} />
               ) : (
-                <Feather name="book" size={22} color={color} />
+                <MaterialCommunityIcons name="book-open-page-variant" size={22} color={color} />
               ),
           }}
         />

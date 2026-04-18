@@ -43,6 +43,24 @@ const PRAYER_STATIC: Record<string, [string, string]> = {
   isha:    ["Isha",    "العشاء"],
 };
 
+// Time-of-day ambient tint — subtle wash overlaid on the header so it shifts
+// across the day. Layered at low alpha over the theme's prayerCard color so
+// each theme keeps its identity (midnight stays midnight, emerald stays
+// emerald) while the time-of-day mood reads through.
+const TIME_ACCENT: Record<string, string> = {
+  fajr:    "#7B6FD4", // pre-dawn lavender, the hush before light
+  sunrise: "#F4A77E", // peach horizon
+  dhuhr:   "#5BA3D9", // bright midday sky
+  asr:     "#E8A95C", // amber afternoon
+  maghrib: "#E55B3C", // sunset orange-red
+  isha:    "#3D407A", // deep night indigo
+};
+
+function getTimeAccent(prayerName: string | undefined): string {
+  if (!prayerName) return TIME_ACCENT.dhuhr;
+  return TIME_ACCENT[prayerName.toLowerCase()] ?? TIME_ACCENT.dhuhr;
+}
+
 export default function PrayerScreen() {
   const {
     prayerTimes, location, isLoadingLocation, locationError, isLocationPermDenied,
@@ -230,8 +248,28 @@ export default function PrayerScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gold} />}
       >
-        {/* Header */}
+        {/* Header — backed by prayerCard, with a soft time-of-day ambient
+            wash overlaid (lavender at Fajr, peach at sunrise, sky at Dhuhr,
+            amber at Asr, sunset at Maghrib, indigo at Isha). The wash is at
+            low alpha so the active theme stays dominant. */}
         <View style={[styles.header, { paddingTop: topPad + 16, backgroundColor: colors.prayerCard }]}>
+          <LinearGradient
+            colors={[
+              getTimeAccent(nextPrayer?.name ?? currentPrayer?.name) + "55",
+              getTimeAccent(nextPrayer?.name ?? currentPrayer?.name) + "1A",
+              "transparent",
+            ]}
+            locations={[0, 0.55, 1]}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          {/* Decorative 8-pointed star sitting in the header gold layer */}
+          <Text
+            pointerEvents="none"
+            style={[styles.headerStarWatermark, { color: colors.gold }]}
+          >
+            ✸
+          </Text>
           <View style={styles.headerTop}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <TouchableOpacity
@@ -741,6 +779,16 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingBottom: 24,
+    overflow: "hidden",
+    position: "relative",
+  },
+  headerStarWatermark: {
+    position: "absolute",
+    top: -28,
+    left: -22,
+    fontSize: 110,
+    opacity: 0.045,
+    fontWeight: "300",
   },
   headerTop: {
     flexDirection: "row",
@@ -906,10 +954,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 12,
-    marginBottom: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderRadius: 14,
+    marginBottom: 9,
     borderWidth: 1,
   },
   prayerLeft: {
