@@ -121,11 +121,14 @@ export function estimateFromWizard(
   // Per-prayer probability that this specific prayer was the one missed,
   // given that the user missed `dm` of the 5 on average.
   // Weights sum to 1, so multiplying by `dm` keeps probabilities ≤ 1.
+  // Ordered by how commonly each prayer is missed (real-world tendency):
+  // Fajr first (early/sleep), ʿIshāʾ next (late/tired), then Dhuhr/ʿAṣr
+  // (work hours), with Maghrib least missed (short window, mealtime cue).
   const weights: Record<QadaPrayerKey, number> = {
-    fajr:    0.30,
-    asr:     0.25,
-    dhuhr:   0.20,
-    isha:    0.15,
+    fajr:    0.32,
+    isha:    0.25,
+    dhuhr:   0.18,
+    asr:     0.15,
     maghrib: 0.10,
   };
   for (const k of QADA_PRAYERS) {
