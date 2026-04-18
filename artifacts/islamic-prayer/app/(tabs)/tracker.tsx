@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -383,6 +384,22 @@ export default function TrackerScreen() {
           })}
         </View>
 
+        {/* ── Qaḍā / Make-Up Prayers Entry ── */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.push("/qada")}
+          style={[styles.qadaCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        >
+          <View style={[styles.qadaIcon, { backgroundColor: colors.tint + "18", borderColor: colors.tint + "33" }]}>
+            <Feather name="bookmark" size={16} color={colors.tint} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.qadaTitle, { color: colors.text }]}>Make-up prayers</Text>
+            <Text style={[styles.qadaSub, { color: colors.textSecondary }]}>A quiet ledger for qaḍā · private to you</Text>
+          </View>
+          <Feather name="chevron-right" size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+
         {/* ── Motivational Footer ── */}
         {completedCount === 5 && (
           <View style={[styles.motivationBox, { backgroundColor: colors.tint + "18", borderColor: colors.tint + "44" }]}>
@@ -475,4 +492,18 @@ const styles = StyleSheet.create({
   },
   motivationEmoji: { fontSize: 22 },
   motivationText: { flex: 1, fontSize: 14, fontFamily: "Inter_600SemiBold", lineHeight: 20 },
+
+  qadaCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: 16,
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  qadaIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1 },
+  qadaTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  qadaSub: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
 });
