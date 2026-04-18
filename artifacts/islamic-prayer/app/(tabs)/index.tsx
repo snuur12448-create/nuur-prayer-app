@@ -196,8 +196,34 @@ export default function PrayerScreen() {
         const total = endPrayer.time.getTime() - prev.time.getTime();
         const elapsed = now - prev.time.getTime();
         setProgress(Math.min(1, Math.max(0, elapsed / total)));
+      } else if (next && location) {
+        // Before today's Fajr — we're inside the overnight Isha→Fajr window
+        // that began with YESTERDAY's Isha. Compute it so the marker
+        // correctly tracks progress through the night.
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const rawYesterday = calculatePrayerTimes(
+          location.latitude,
+          location.longitude,
+          location.timezone,
+          yesterday,
+          calcMethod,
+          madhab,
+          highLatRule,
+          timeFormat,
+        );
+        const yesterdayTimes = applyPrayerOffsets(rawYesterday, prayerOffsets, location.timezone, timeFormat);
+        const ishaPrev = yesterdayTimes.isha;
+        // Surface yesterday's Isha as the "current" period so the palette
+        // stays night and the Arabic name reads العشاء until Fajr.
+        setCurrentPrayer(ishaPrev);
+        setProgressEndPrayer(next);
+        setTimeRemaining(getTimeUntilPrayer(next));
+        const total = next.time.getTime() - ishaPrev.time.getTime();
+        const elapsed = now - ishaPrev.time.getTime();
+        setProgress(Math.min(1, Math.max(0, elapsed / total)));
       } else if (next) {
-        // Before today's Fajr — nothing has started yet
+        // No location yet — fall back to a static UPCOMING display
         setTimeRemaining(getTimeUntilPrayer(next));
         setProgressEndPrayer(next);
         setProgress(0);
