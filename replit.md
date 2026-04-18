@@ -163,3 +163,27 @@ Show next prayer name + countdown on the home screen and lock screen.
 - Iterate via `eas build --profile development` + TestFlight
 
 **Why deferred:** the code is straightforward but cannot be validated without EAS + physical device. Build that infrastructure first, then add the widget as a focused follow-on.
+
+## Monetization (Dormant — Nuur+ tier)
+
+RevenueCat infrastructure is wired but **dormant** by default. No paywalls or premium UI exist anywhere in the app — `usePremium()` always returns `false` until both:
+1. Platform API keys are set as Expo env vars, AND
+2. UI gates are added that actually call `usePremium()`.
+
+**Files:**
+- `artifacts/islamic-prayer/utils/iap.ts` — SDK init, entitlement check, offerings fetch. No-ops gracefully when keys are absent.
+- `artifacts/islamic-prayer/hooks/usePremium.ts` — React hook returning `{ isPremium, loading }`.
+- `_layout.tsx` calls `configurePurchases()` on mount (silent no-op until keys exist).
+
+**Packages:**
+- `react-native-purchases` (Expo workspace) — client SDK; works in Expo Go via Preview API Mode.
+- `@replit/revenuecat-sdk` (root) — server-side REST client for scripts (e.g. seeding products). Auth via Replit RevenueCat connector — see `.local/skills/revenuecat`.
+
+**Entitlement ID:** `pro` (single entitlement, mapped to all Nuur+ packages).
+
+**To flip on monetization later:**
+1. Configure products + offerings in the RevenueCat dashboard, ensure entitlement `pro` is linked.
+2. Set Expo env vars: `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`.
+3. Build paywall UI and gate features with `usePremium()`.
+
+**Hard rule (positioning):** core worship is never paywalled — prayer times, adhan, qibla, Quran text + at least one translation, basic tasbeeh, hadith of the day. Nuur+ is for nice-to-haves only (premium reciters, tafsīr, advanced widgets, family sync, journaling, cloud backup).

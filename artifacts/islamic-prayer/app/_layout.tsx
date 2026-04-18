@@ -22,6 +22,7 @@ import { NuurSplash } from "@/components/NuurSplash";
 import { Onboarding, ONBOARDING_KEY } from "@/components/Onboarding";
 import { AppProvider, useAppContext } from "@/context/AppContext";
 import { QuranPlayerProvider } from "@/context/QuranPlayerContext";
+import { configurePurchases } from "@/utils/iap";
 import { recordFirstLaunch, maybeRequestReview } from "@/utils/reviewPrompt";
 
 SplashScreen.preventAutoHideAsync();
@@ -102,6 +103,8 @@ export default function RootLayout() {
   // Load onboarding status from storage immediately on mount.
   useEffect(() => {
     recordFirstLaunch();
+    // Dormant by default — no-op until RevenueCat keys are provided.
+    configurePurchases();
     AsyncStorage.getItem(ONBOARDING_KEY).then((v) => {
       setOnboardingDone(v === "true");
     }).catch(() => {
