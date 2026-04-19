@@ -454,6 +454,8 @@ function PrayerSelector({ colors, onSelect }: { colors: any; onSelect: (p: Praye
   );
 }
 
+const STEP_BEAD_SPACING = 26;
+
 function CountStepCard({
   step,
   count,
@@ -466,19 +468,28 @@ function CountStepCard({
   onCount: () => void;
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const beadOffset = useRef(new Animated.Value(-STEP_BEAD_SPACING / 2)).current;
+  const done = count >= step.target;
+
+  // Slide the bead column so the active bead stays vertically centered.
+  useEffect(() => {
+    Animated.spring(beadOffset, {
+      toValue: -(count * STEP_BEAD_SPACING) - STEP_BEAD_SPACING / 2,
+      useNativeDriver: true,
+      friction: 9,
+      tension: 60,
+    }).start();
+  }, [count, beadOffset]);
 
   const handleTap = useCallback(() => {
     if (count >= step.target) return;
     onCount();
     if (Platform.OS !== "web") Vibration.vibrate(18);
     Animated.sequence([
-      Animated.timing(scaleAnim, { toValue: 0.93, duration: 70, useNativeDriver: false }),
-      Animated.timing(scaleAnim, { toValue: 1, duration: 120, useNativeDriver: false }),
+      Animated.timing(scaleAnim, { toValue: 0.9, duration: 70, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1, duration: 130, useNativeDriver: true }),
     ]).start();
   }, [count, step.target, onCount, scaleAnim]);
-
-  const pct = Math.min(count / step.target, 1);
-  const done = count >= step.target;
 
   return (
     <View style={gs.countStepContainer}>
@@ -487,35 +498,88 @@ function CountStepCard({
       <Text style={[gs.translitText, { color: colors.tint }]}>{step.transliteration}</Text>
       <Text style={[gs.transText, { color: colors.textSecondary }]}>{step.translation}</Text>
 
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-        <TouchableOpacity
-          onPress={handleTap}
-          activeOpacity={0.85}
-          disabled={done}
-          style={[
-            gs.countCircle,
-            {
-              backgroundColor: done ? step.color + "22" : step.color + "18",
-              borderColor: done ? step.color : step.color + "55",
-              borderWidth: done ? 2 : 1.5,
-            },
-          ]}
-        >
-          <Text style={[gs.countNumber, { color: done ? step.color : colors.text }]}>{count}</Text>
-          <Text style={[gs.countTarget, { color: colors.textSecondary }]}>/ {step.target}</Text>
-          {done ? (
-            <View style={[gs.doneBadge, { backgroundColor: step.color }]}>
-              <Feather name="check" size={13} color="#fff" />
-            </View>
-          ) : (
-            <Text style={[gs.tapHintSmall, { color: colors.textSecondary }]}>tap to count</Text>
-          )}
-        </TouchableOpacity>
-      </Animated.View>
+      {/* ── Bead string counter ── */}
+      <Pressable
+        onPress={handleTap}
+        disabled={done}
+        style={[
+          gs.beadStepArea,
+          {
+            backgroundColor: colors.surface,
+            borderColor: done ? step.color + "66" : colors.border,
+          },
+        ]}
+      >
+        {/* Cord */}
+        <View
+          pointerEvents="none"
+          style={[gs.beadStepString, { backgroundColor: step.color + "55" }]}
+        />
 
-      <View style={[gs.progressTrack, { backgroundColor: colors.border }]}>
-        <View style={[gs.progressFill, { backgroundColor: step.color, width: `${pct * 100}%` as any }]} />
-      </View>
+        {/* Bead column */}
+        <Animated.View
+          pointerEvents="none"
+          style={[gs.beadStepColumn, { transform: [{ translateY: beadOffset }] }]}
+        >
+          {Array.from({ length: step.target + 1 }).map((_, i) => {
+            const isCompleted = i < count;
+            const isActive = i === count && !done;
+            const isMarker =
+              step.target >= 33 && i > 0 && i < step.target && i % 33 === 0;
+
+            const baseSize = isMarker ? 16 : 12;
+            const activeSize = isMarker ? 24 : 20;
+            const size = isActive ? activeSize : baseSize;
+
+            return (
+              <View key={i} style={gs.beadStepCell}>
+                <Animated.View
+                  style={isActive ? { transform: [{ scale: scaleAnim }] } : undefined}
+                >
+                  <Bead
+                    size={size}
+                    color={step.color}
+                    isMarker={isMarker}
+                    isCompleted={isCompleted || done}
+                    isActive={isActive}
+                  />
+                </Animated.View>
+              </View>
+            );
+          })}
+        </Animated.View>
+
+        {/* Edge fades — match the card surface so beads soften out of view */}
+        <View
+          pointerEvents="none"
+          style={[gs.beadStepFadeTop, { backgroundColor: colors.surface }]}
+        />
+        <View
+          pointerEvents="none"
+          style={[gs.beadStepFadeBottom, { backgroundColor: colors.surface }]}
+        />
+
+        {/* Inline count + done badge */}
+        <View style={gs.beadStepCountRow} pointerEvents="none">
+          <Text style={[gs.beadStepCount, { color: done ? step.color : colors.text }]}>
+            {count}
+          </Text>
+          <Text style={[gs.beadStepCountDiv, { color: colors.textSecondary }]}>
+            /{step.target}
+          </Text>
+          {done && (
+            <View style={[gs.beadStepDoneDot, { backgroundColor: step.color }]}>
+              <Feather name="check" size={11} color="#fff" />
+            </View>
+          )}
+        </View>
+
+        {!done && (
+          <Text style={[gs.beadStepHint, { color: colors.textSecondary }]} pointerEvents="none">
+            tap to count
+          </Text>
+        )}
+      </Pressable>
     </View>
   );
 }
@@ -1663,6 +1727,81 @@ const gs = StyleSheet.create({
   tapHintSmall: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 4, opacity: 0.7 },
   progressTrack: { height: 4, width: "100%", borderRadius: 2, marginTop: 8 },
   progressFill: { height: 4, borderRadius: 2 },
+
+  // Bead string in step card
+  beadStepArea: {
+    width: "100%",
+    height: 220,
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: "hidden",
+    position: "relative",
+    marginTop: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  beadStepString: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 2,
+    alignSelf: "center",
+    opacity: 0.55,
+  },
+  beadStepColumn: {
+    position: "absolute",
+    top: "50%",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  beadStepCell: {
+    height: STEP_BEAD_SPACING,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  beadStepFadeTop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 36,
+    opacity: 0.92,
+  },
+  beadStepFadeBottom: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 36,
+    opacity: 0.92,
+  },
+  beadStepCountRow: {
+    position: "absolute",
+    bottom: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  beadStepCount: { fontSize: 22, fontFamily: "Inter_700Bold", fontVariant: ["tabular-nums"] },
+  beadStepCountDiv: { fontSize: 14, fontFamily: "Inter_400Regular", fontVariant: ["tabular-nums"] },
+  beadStepDoneDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 6,
+  },
+  beadStepHint: {
+    position: "absolute",
+    top: 12,
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    opacity: 0.6,
+  },
 
   // Recite step
   reciteContainer: { paddingHorizontal: 24, paddingTop: 20, gap: 12, alignItems: "center" },
