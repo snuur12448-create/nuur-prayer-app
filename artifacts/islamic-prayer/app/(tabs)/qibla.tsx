@@ -1,6 +1,7 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -15,6 +16,23 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, Line, Path, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
 import { useAppContext } from "@/context/AppContext";
 import { calculateQiblaDirection, getDistanceToKaaba } from "@/utils/qibla";
+import { bearingDelta, solarPosition } from "@/utils/solar";
+
+// Cross-platform tiny vibration / haptic helpers — no-op if unavailable.
+function tickHaptic() {
+  if (Platform.OS === "web") {
+    try { (navigator as any)?.vibrate?.(8); } catch {}
+    return;
+  }
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+}
+function lockHaptic() {
+  if (Platform.OS === "web") {
+    try { (navigator as any)?.vibrate?.([20, 40, 20]); } catch {}
+    return;
+  }
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+}
 
 // ── Ka'bah silhouette ─────────────────────────────────────────────────────────
 function KaabahSilhouette({ size, color }: { size: number; color: string }) {
@@ -479,12 +497,42 @@ export default function QiblaScreen() {
   const [hasCompass, setHasCompass] = useState(false);
   const [needsPermission, setNeedsPermission] = useState(false);
   const [aligned, setAligned] = useState(false);
+  // Heading accuracy:
+  //   iOS Location.watchHeadingAsync → 0=unreliable, 1=low, 2=medium, 3=high
+  //   Web has no accuracy data → null (we hide the chip)
+  const [accuracy, setAccuracy] = useState<number | null>(null);
+  // Tick clock to refresh sun position each minute (it drifts ~0.25°/min).
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   const compassAnimRef = useRef(new Animated.Value(0));
   const needleAnimRef = useRef(new Animated.Value(0));
   const compassCurrentRef = useRef(0);
   const needleCurrentRef = useRef(0);
   const headingSubRef = useRef<any>(null);
+  // ── Haptic gating state ────────────────────────────────────────────────
+  // Goals: no spam from sensor jitter at boundaries, and no repeated ticks
+  // for the same threshold within one approach.
+  //   • Alignment uses hysteresis: enter at <8°, exit at >12°.
+  //   • Approach ticks fire once per threshold (40/30/20/10) and the set
+  //     resets only when diff drifts back past 45° (a fresh approach).
+  //   • A 600ms global cooldown gates any haptic call.
+  const prevDiffRef = useRef<number>(180);
+  const wasAlignedRef = useRef<boolean>(false);
+  const lastHapticAtRef = useRef<number>(0);
+  const ticksFiredRef = useRef<Set<number>>(new Set());
+
+  const fireHaptic = useCallback((kind: "tick" | "lock") => {
+    const now = Date.now();
+    if (now - lastHapticAtRef.current < 600) return;
+    lastHapticAtRef.current = now;
+    if (kind === "lock") lockHaptic(); else tickHaptic();
+  }, []);
+
+  // Refresh sun position once per minute.
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
@@ -522,8 +570,35 @@ export default function QiblaScreen() {
     }).start();
 
     const diff = Math.abs(((heading - qibla + 180 + 360) % 360) - 180);
-    setAligned(diff < 8);
-  }, []);
+
+    // Hysteresis: enter the aligned zone at <8°, but only leave once we've
+    // drifted past 12°. Prevents jitter at the boundary from flapping.
+    const wasAligned = wasAlignedRef.current;
+    const nowAligned = wasAligned ? diff < 12 : diff < 8;
+
+    // Reset the per-approach tick set when the user drifts well away — a
+    // fresh approach is allowed to play its milestone ticks again.
+    if (diff > 45) ticksFiredRef.current.clear();
+
+    if (nowAligned && !wasAligned) {
+      // Just entered the lock zone.
+      fireHaptic("lock");
+    } else if (!nowAligned) {
+      // Approach milestones — fire each at most once per approach session.
+      const prev = prevDiffRef.current;
+      for (const t of [40, 30, 20, 10]) {
+        if (prev > t && diff <= t && !ticksFiredRef.current.has(t)) {
+          ticksFiredRef.current.add(t);
+          fireHaptic("tick");
+          break;
+        }
+      }
+    }
+    wasAlignedRef.current = nowAligned;
+    prevDiffRef.current = diff;
+
+    setAligned(nowAligned);
+  }, [fireHaptic]);
 
   const updateHeading = useCallback((heading: number) => {
     setCompassHeading(heading);
@@ -589,6 +664,10 @@ export default function QiblaScreen() {
         if (status !== "granted") return;
         const sub = await Location.watchHeadingAsync((data) => {
           const h = data.trueHeading >= 0 ? data.trueHeading : data.magHeading;
+          // expo-location reports accuracy 0–3 (3 = high). Some platforms
+          // report it under different names; fall back gracefully.
+          const acc = (data as any).accuracy;
+          if (typeof acc === "number") setAccuracy(acc);
           updateHeading(h);
         });
         headingSubRef.current = sub;
@@ -620,16 +699,82 @@ export default function QiblaScreen() {
   const showCompassStatus = !hasCompass;
   const alignedText = aligned && qiblaAngle !== null;
 
+  // ── Accuracy chip descriptor (iOS only) ─────────────────────────────────
+  // Maps the 0–3 accuracy value into a friendly label + colour. Returns null
+  // for web / when no reading has arrived yet so the chip simply hides.
+  const accuracyInfo = useMemo(() => {
+    if (isWeb || accuracy === null) return null;
+    if (accuracy >= 3) return { label: "High accuracy", tone: "good" as const };
+    if (accuracy >= 2) return { label: "Good accuracy", tone: "good" as const };
+    if (accuracy >= 1) return { label: "Low — calibrate", tone: "warn" as const };
+    return { label: "Unreliable — calibrate", tone: "bad" as const };
+  }, [accuracy, isWeb]);
+
+  // ── Sun-shadow method ─────────────────────────────────────────────────────
+  // Compute where the Sun is right now relative to Qibla. If the Sun is up,
+  // the user can face it and turn N° to reach Qibla — works even when the
+  // magnetometer is wrong (steel buildings, planes, basements).
+  const sunInfo = useMemo(() => {
+    if (!location || qiblaAngle === null) return null;
+    const { azimuth, altitude } = solarPosition(location.latitude, location.longitude, new Date(nowTick));
+    const delta = bearingDelta(azimuth, qiblaAngle); // signed: +ve = Qibla is right of sun
+    return { azimuth, altitude, delta };
+  }, [location, qiblaAngle, nowTick]);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 14, borderBottomColor: colors.border }]}>
         <View style={styles.headerRow}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.headerTitle, { color: colors.text }]}>Qibla Direction</Text>
-            {qiblaAngle !== null && (
-              <Text style={[styles.headerAngle, { color: colors.gold }]}>{Math.round(qiblaAngle)}° from North</Text>
-            )}
+            <View style={styles.headerSubRow}>
+              {qiblaAngle !== null && (
+                <Text style={[styles.headerAngle, { color: colors.gold }]}>{Math.round(qiblaAngle)}° from North</Text>
+              )}
+              {accuracyInfo && (
+                <View
+                  style={[
+                    styles.accuracyChip,
+                    {
+                      backgroundColor:
+                        accuracyInfo.tone === "good" ? "rgba(46,204,113,0.14)"
+                        : accuracyInfo.tone === "warn" ? "rgba(212,160,23,0.16)"
+                        : "rgba(255,92,92,0.16)",
+                      borderColor:
+                        accuracyInfo.tone === "good" ? "rgba(46,204,113,0.45)"
+                        : accuracyInfo.tone === "warn" ? "rgba(212,160,23,0.5)"
+                        : "rgba(255,92,92,0.5)",
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.accuracyDot,
+                      {
+                        backgroundColor:
+                          accuracyInfo.tone === "good" ? "#2ECC71"
+                          : accuracyInfo.tone === "warn" ? "#D4A017"
+                          : "#FF5C5C",
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.accuracyChipText,
+                      {
+                        color:
+                          accuracyInfo.tone === "good" ? "#2ECC71"
+                          : accuracyInfo.tone === "warn" ? "#D4A017"
+                          : "#FF5C5C",
+                      },
+                    ]}
+                  >
+                    {accuracyInfo.label}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
           <View style={styles.headerRight}>
             {isLoadingLocation ? (
@@ -745,6 +890,51 @@ export default function QiblaScreen() {
               <View style={[styles.headingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Text style={[styles.headingValue, { color: colors.text }]}>{distance.toLocaleString()}</Text>
                 <Text style={[styles.headingLabel, { color: colors.textSecondary }]}>km to Kaaba</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Sun-shadow method card ─────────────────────────────────────── */}
+        {/* Works without a compass — useful in steel buildings, planes, etc. */}
+        {sunInfo && (
+          <View style={[styles.sunCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.sunHeader}>
+              <View style={[styles.sunIconWrap, { backgroundColor: colors.gold + "22" }]}>
+                <MaterialCommunityIcons
+                  name={sunInfo.altitude > 0 ? "white-balance-sunny" : "weather-night"}
+                  size={16}
+                  color={colors.gold}
+                />
+              </View>
+              <Text style={[styles.sunTitle, { color: colors.text }]}>Sun-shadow method</Text>
+            </View>
+            {sunInfo.altitude <= 0 ? (
+              <Text style={[styles.sunBody, { color: colors.textSecondary }]}>
+                The sun is below the horizon right now. This method becomes available at sunrise.
+              </Text>
+            ) : Math.abs(sunInfo.delta) < 1 ? (
+              <Text style={[styles.sunBody, { color: colors.tint }]}>
+                The sun is directly aligned with Qibla right now. Face the sun — you're facing Mecca.
+              </Text>
+            ) : (
+              <Text style={[styles.sunBody, { color: colors.textSecondary }]}>
+                Face the sun, then turn{" "}
+                <Text style={{ color: colors.text, fontFamily: "Inter_700Bold" }}>
+                  {Math.round(Math.abs(sunInfo.delta))}° to your {sunInfo.delta > 0 ? "right" : "left"}
+                </Text>
+                {" "}— you'll be facing Qibla.
+              </Text>
+            )}
+            {sunInfo.altitude > 0 && (
+              <View style={styles.sunMetaRow}>
+                <Text style={[styles.sunMeta, { color: colors.textSecondary }]}>
+                  Sun bearing {Math.round(sunInfo.azimuth)}°
+                </Text>
+                <View style={[styles.sunMetaDot, { backgroundColor: colors.border }]} />
+                <Text style={[styles.sunMeta, { color: colors.textSecondary }]}>
+                  Altitude {Math.round(sunInfo.altitude)}°
+                </Text>
               </View>
             )}
           </View>
@@ -925,4 +1115,49 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: "center",
   },
+  // Header sub-row — holds the angle text and the accuracy chip side-by-side.
+  headerSubRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 2,
+    flexWrap: "wrap",
+  },
+  accuracyChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 7,
+    borderWidth: 1,
+  },
+  accuracyDot: { width: 5, height: 5, borderRadius: 2.5 },
+  accuracyChipText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
+  // Sun-shadow card — the page's most useful "fallback" tool. Lives directly
+  // under the data tiles and is full-width with comfortable padding so the
+  // page no longer feels like a dead end below the compass.
+  sunCard: {
+    width: "100%",
+    maxWidth: 420,
+    marginTop: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+  },
+  sunHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  sunIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sunTitle: { fontSize: 13, fontFamily: "Inter_700Bold", letterSpacing: 0.2 },
+  sunBody: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
+  sunMetaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  sunMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  sunMetaDot: { width: 3, height: 3, borderRadius: 1.5 },
 });
