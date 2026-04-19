@@ -1,7 +1,8 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -586,6 +587,105 @@ function CompletionCard({ prayer, colors, onRestart }: { prayer: PrayerName; col
 // Main screen
 // ─────────────────────────────────────────────
 
+// ─────────────────────────────────────────────
+// Realistic bead — layered shading + specular highlight
+// ─────────────────────────────────────────────
+type BeadProps = {
+  size: number;
+  color: string;
+  isMarker: boolean;
+  isCompleted: boolean;
+  isActive: boolean;
+};
+
+const Bead = React.memo(function Bead({ size, color, isMarker, isCompleted, isActive }: BeadProps) {
+  // Lit beads (completed/active) are polished metal/stone in the dhikr color.
+  // Unlit beads are the same color but very dim — like dark wood with a hint of tone.
+  const lit = isCompleted || isActive;
+  const baseColor = lit ? color : color + "26"; // ~15% alpha for unlit
+  const radius = isMarker ? size * 0.22 : size / 2;
+  const containerRotate = isMarker ? "45deg" : "0deg";
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        transform: [{ rotate: containerRotate }],
+        // Soft drop shadow underneath the bead
+        shadowColor: "#000",
+        shadowOpacity: lit ? 0.45 : 0.25,
+        shadowRadius: 3,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: lit ? 3 : 1,
+      }}
+    >
+      {/* Base sphere */}
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: baseColor,
+          borderRadius: radius,
+        }}
+      />
+
+      {/* Spherical shading — light from top-left, shadow bottom-right */}
+      <LinearGradient
+        colors={
+          lit
+            ? ["rgba(255,255,255,0.55)", "rgba(255,255,255,0)", "rgba(0,0,0,0.45)"]
+            : ["rgba(255,255,255,0.10)", "rgba(255,255,255,0)", "rgba(0,0,0,0.55)"]
+        }
+        locations={[0, 0.55, 1]}
+        start={{ x: 0.15, y: 0.1 }}
+        end={{ x: 0.95, y: 1 }}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderRadius: radius,
+        }}
+      />
+
+      {/* Specular highlight — small bright sheen near top-left */}
+      {lit && (
+        <View
+          style={{
+            position: "absolute",
+            top: size * 0.16,
+            left: size * 0.18,
+            width: size * 0.32,
+            height: size * 0.22,
+            borderRadius: size * 0.18,
+            backgroundColor: "rgba(255,255,255,0.7)",
+            opacity: isActive ? 0.95 : 0.55,
+          }}
+        />
+      )}
+
+      {/* Subtle rim — darkens the silhouette edge for roundness */}
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderRadius: radius,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: "rgba(0,0,0,0.35)",
+        }}
+      />
+    </View>
+  );
+});
+
 export default function TasbeehScreen() {
   const { themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
@@ -991,37 +1091,25 @@ export default function TasbeehScreen() {
                     i < selectedDhikr.target &&
                     i % 33 === 0;
 
-                  const baseSize = isMarker ? 14 : 10;
-                  const activeSize = isMarker ? 22 : 18;
+                  const baseSize = isMarker ? 18 : 14;
+                  const activeSize = isMarker ? 28 : 22;
                   const size = isActive ? activeSize : baseSize;
 
                   return (
                     <View key={i} style={cs.beadCell}>
                       <Animated.View
-                        style={[
-                          cs.bead,
-                          {
-                            width: size,
-                            height: size,
-                            borderRadius: isMarker ? 3 : size / 2,
-                            backgroundColor: isCompleted
-                              ? selectedDhikr.color
-                              : isActive
-                              ? selectedDhikr.color
-                              : colors.surfaceElevated || colors.surface,
-                            borderWidth: isMarker && !isCompleted && !isActive ? 1 : 0,
-                            borderColor: selectedDhikr.color + "55",
-                            transform: [
-                              { rotate: isMarker ? "45deg" : "0deg" },
-                              ...(isActive ? [{ scale: scaleAnim }] : []),
-                            ],
-                            shadowColor: isCompleted || isActive ? selectedDhikr.color : "transparent",
-                            shadowOpacity: isActive ? 0.6 : isCompleted ? 0.3 : 0,
-                            shadowRadius: isActive ? 8 : 4,
-                            shadowOffset: { width: 0, height: 0 },
-                          },
-                        ]}
-                      />
+                        style={
+                          isActive ? { transform: [{ scale: scaleAnim }] } : undefined
+                        }
+                      >
+                        <Bead
+                          size={size}
+                          color={selectedDhikr.color}
+                          isMarker={isMarker}
+                          isCompleted={isCompleted}
+                          isActive={isActive}
+                        />
+                      </Animated.View>
                     </View>
                   );
                 })}
@@ -1380,8 +1468,9 @@ const cs = StyleSheet.create({
     position: "absolute",
     top: 0,
     bottom: 0,
-    width: 1,
+    width: 2,
     alignSelf: "center",
+    opacity: 0.55,
   },
   beadGlow: {
     position: "absolute",
