@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Platform, useColorScheme } from "react-native";
+import { Alert, Linking, Platform, useColorScheme } from "react-native";
 import {
   calculatePrayerTimes,
   applyPrayerOffsets,
@@ -30,6 +30,7 @@ import {
 import {
   cancelAllPrayerNotifications,
   requestNotificationPermission,
+  requestNotificationPermissionDetailed,
   schedulePrayerNotifications,
 } from "@/utils/notifications";
 import {
@@ -617,8 +618,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const toggleNotifications = useCallback(async () => {
     const next = !notificationsRef.current;
     if (next) {
-      const granted = await requestNotificationPermission();
-      if (!granted) return;
+      const result = await requestNotificationPermissionDetailed();
+      if (result !== "granted") {
+        // Don't silently no-op — tell the user *why* nothing happened so the
+        // switch isn't a dead control. Three distinct cases get three messages.
+        if (result === "blocked") {
+          Alert.alert(
+            "Notifications are blocked",
+            "Prayer alerts need notification permission. Please enable Notifications for Nuur in your device Settings.",
+            [
+              { text: "Not now", style: "cancel" },
+              { text: "Open Settings", onPress: () => { Linking.openSettings().catch(() => {}); } },
+            ],
+          );
+        } else if (result === "unsupported") {
+          // Most common cause: running in Expo Go on Android (SDK 53+ removed
+          // push). Local scheduled notifications are still useful, so we
+          // explain the limitation rather than blocking the toggle entirely.
+          Alert.alert(
+            "Notifications limited here",
+            "Push notifications aren't fully supported in Expo Go. To receive prayer alerts reliably, install Nuur as a build from the App Store or a development build.",
+            [{ text: "OK" }],
+          );
+        } else {
+          Alert.alert(
+            "Permission needed",
+            "Allow notifications so Nuur can alert you at each prayer time.",
+            [{ text: "OK" }],
+          );
+        }
+        return;
+      }
       setNotificationsEnabled(true);
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "true");
       if (location) {

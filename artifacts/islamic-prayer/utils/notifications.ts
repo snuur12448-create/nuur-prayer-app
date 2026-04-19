@@ -76,8 +76,26 @@ Notifications.setNotificationHandler({
   },
 });
 
+export type NotifPermissionResult = "granted" | "denied" | "blocked" | "unsupported";
+
 export async function requestNotificationPermission(): Promise<boolean> {
-  if (Platform.OS === "web") return false;
+  const r = await requestNotificationPermissionDetailed();
+  return r === "granted";
+}
+
+/**
+ * Same as requestNotificationPermission but returns *why* it failed so the UI
+ * can show a useful alert instead of silently doing nothing.
+ *
+ *   "granted"     — permission given, scheduling will work
+ *   "denied"      — user dismissed the request this time, can ask again later
+ *   "blocked"     — previously denied at the OS level; only Settings can fix
+ *   "unsupported" — running on web, or expo-notifications threw (e.g. Expo Go
+ *                   on Android since SDK 53 dropped push support). Caller can
+ *                   decide whether to still toggle on for local-only behaviour.
+ */
+export async function requestNotificationPermissionDetailed(): Promise<NotifPermissionResult> {
+  if (Platform.OS === "web") return "unsupported";
 
   // Android: create a high-importance channel for prayer notifications so they
   // bypass DND and play their sound at full volume. Channels are idempotent —
@@ -99,24 +117,41 @@ export async function requestNotificationPermission(): Promise<boolean> {
     } catch {}
   }
 
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  if (existing === "granted") return true;
-  // Explicitly request all notification permissions so iOS shows the proper
-  // dialog and grants Time Sensitive (auto-granted when the app has the
-  // com.apple.developer.usernotifications.time-sensitive entitlement).
-  const { status } = await Notifications.requestPermissionsAsync({
-    ios: {
-      allowAlert: true,
-      allowBadge: true,
-      allowSound: true,
-      allowDisplayInCarPlay: false,
-      allowCriticalAlerts: false,
-      provideAppNotificationSettings: true,
-      allowProvisional: false,
-      allowAnnouncements: false,
-    },
-  });
-  return status === "granted";
+  // expo-notifications can throw inside Expo Go (notably Android since SDK 53
+  // removed push support). Treat any throw as "unsupported" so the caller can
+  // decide what to do, instead of leaving the toggle stuck in a no-op state.
+  let existing: Notifications.NotificationPermissionsStatus;
+  try {
+    existing = await Notifications.getPermissionsAsync();
+  } catch {
+    return "unsupported";
+  }
+  if (existing.status === "granted") return "granted";
+  if (existing.canAskAgain === false) return "blocked";
+
+  let next: Notifications.NotificationPermissionsStatus;
+  try {
+    // Explicitly request all notification permissions so iOS shows the proper
+    // dialog and grants Time Sensitive (auto-granted when the app has the
+    // com.apple.developer.usernotifications.time-sensitive entitlement).
+    next = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowBadge: true,
+        allowSound: true,
+        allowDisplayInCarPlay: false,
+        allowCriticalAlerts: false,
+        provideAppNotificationSettings: true,
+        allowProvisional: false,
+        allowAnnouncements: false,
+      },
+    });
+  } catch {
+    return "unsupported";
+  }
+  if (next.status === "granted") return "granted";
+  if (next.canAskAgain === false) return "blocked";
+  return "denied";
 }
 
 function truncate(text: string, max: number): string {
