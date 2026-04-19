@@ -1079,6 +1079,15 @@ export default function QuranDetailScreen() {
         <View style={[styles.hafidhBanner, { backgroundColor: colors.surface, borderBottomColor: colors.gold + "40" }]}>
           {/* Top row: label + difficulty chips */}
           <View style={styles.hafidhTopRow}>
+            <TouchableOpacity
+              onPress={toggleHafidhMode}
+              hitSlop={6}
+              style={[styles.hafidhExitBtn, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "12" }]}
+              accessibilityLabel="Exit Hafidh mode and return to reading view"
+            >
+              <Feather name="book-open" size={11} color={colors.gold} />
+              <Text style={[styles.hafidhExitText, { color: colors.gold }]}>Read</Text>
+            </TouchableOpacity>
             <View style={styles.hafidhLabelRow}>
               <MaterialCommunityIcons name="brain" size={14} color={colors.gold} />
               <Text style={[styles.hafidhModeLabel, { color: colors.gold }]}>HAFIDH MODE</Text>
@@ -1597,6 +1606,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
+  },
+  hafidhExitBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  hafidhExitText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
   },
   hafidhResetText: {
     fontSize: 11,
