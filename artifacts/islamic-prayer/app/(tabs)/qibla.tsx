@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, Line, Path, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
+import { useIsFocused } from "@react-navigation/native";
 import { useAppContext } from "@/context/AppContext";
 import { calculateQiblaDirection, getDistanceToKaaba } from "@/utils/qibla";
 import { bearingDelta, solarPosition } from "@/utils/solar";
@@ -525,14 +526,20 @@ export default function QiblaScreen() {
   const lastHapticAtRef = useRef<number>(0);
   const ticksFiredRef = useRef<Set<number>>(new Set());
 
-  // Track viewMode in a ref so the compass callbacks (which capture state
-  // at creation time) can read the live value without resubscribing.
+  // Track viewMode + screen focus in refs so the compass callbacks (which
+  // capture state at creation time) can read the live values without
+  // resubscribing. The magnetometer keeps streaming in the background, so
+  // without these gates the haptic would fire on other tabs too.
   const viewModeRef = useRef<"compass" | "map">("compass");
   useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
+  const isFocused = useIsFocused();
+  const isFocusedRef = useRef<boolean>(isFocused);
+  useEffect(() => { isFocusedRef.current = isFocused; }, [isFocused]);
 
   const fireHaptic = useCallback((kind: "tick" | "lock") => {
-    // Suppress all haptic feedback when the user is on the map view —
-    // the compass UI is hidden so unsolicited buzzes would be confusing.
+    // Suppress all haptic feedback when the user is on the map view or
+    // has navigated away from the Qibla tab entirely.
+    if (!isFocusedRef.current) return;
     if (viewModeRef.current !== "compass") return;
     const now = Date.now();
     if (now - lastHapticAtRef.current < 600) return;
