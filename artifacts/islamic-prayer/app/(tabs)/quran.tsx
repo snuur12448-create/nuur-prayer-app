@@ -24,8 +24,34 @@ import {
 } from "@/utils/quranSearch";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { gregorianToHijri, HIJRI_MONTHS_EN } from "@/utils/hijriCalendar";
+import type { ThemeName } from "@/constants/themes";
 
 const LAST_READ_KEY = "nuur_last_read_position";
+
+// ---------- Static Juz → starting-surah map ----------
+// Many Juz begin in the middle of a surah (e.g. Juz 2 starts at Al-Baqarah:142,
+// Juz 5 at An-Nisa:24). Walking SURAHS and recording each surah's `juz` field
+// only finds Juz that align with a surah start, so chips like 2, 5, 6, 11, 13,
+// 16, 19, 20, 22, 23, 24, 25, 27 never resolve. This explicit map covers all 30.
+const JUZ_TO_SURAH: Record<number, number> = {
+  1: 1, 2: 2, 3: 2, 4: 3, 5: 4, 6: 4, 7: 5, 8: 6, 9: 7, 10: 8,
+  11: 9, 12: 11, 13: 12, 14: 15, 15: 17, 16: 18, 17: 21, 18: 23, 19: 25, 20: 27,
+  21: 29, 22: 33, 23: 36, 24: 39, 25: 41, 26: 46, 27: 51, 28: 58, 29: 67, 30: 78,
+};
+
+// ---------- Per-theme Quran accent ----------
+// The default `accent` palette token is too close to `colors.tint` in
+// several themes (gold/slate/burgundy/midnight) which makes the rosette and
+// hero accents read as monochrome. This map gives the Quran tab a dedicated
+// "premium" accent per theme — picked to contrast against both the background
+// AND the primary tint, so the hero, rosette, and Continue pill always pop.
+const QURAN_ACCENT: Record<ThemeName, { dark: string; light: string }> = {
+  emerald:  { dark: "#F4C842", light: "#92400E" }, // warm gold on green
+  midnight: { dark: "#F5C56C", light: "#B45309" }, // warm amber on blue
+  gold:     { dark: "#FFE7A8", light: "#5A3500" }, // ivory cream on gold (avoid gold-on-gold)
+  slate:    { dark: "#E0B274", light: "#7C5A1F" }, // burnished copper on slate
+  burgundy: { dark: "#F4C842", light: "#7A4F0E" }, // gold on burgundy
+};
 
 interface LastReadPos {
   surahNum: number;
@@ -173,7 +199,23 @@ function getTodaysRecommendations(): Recommendation[] {
 
 // ---------- Screen ----------
 export default function QuranScreen() {
-  const { bookmarkedSurahs, toggleBookmark, themeColors: colors } = useAppContext();
+  const {
+    bookmarkedSurahs,
+    toggleBookmark,
+    themeColors: colors,
+    themeName,
+    effectiveDisplayMode,
+  } = useAppContext();
+  // Per-theme premium accent (replaces blanket `accent` so non-emerald
+  // themes don't read as monochrome — and gold theme isn't gold-on-gold).
+  const accent =
+    effectiveDisplayMode === "dark"
+      ? QURAN_ACCENT[themeName].dark
+      : QURAN_ACCENT[themeName].light;
+  // Foreground that sits on top of the accent (e.g., Resume pill text, current
+  // Juz chip text). Dark mode accents are warm/light → dark text. Light mode
+  // accents are deep/saturated → light text.
+  const accentText = effectiveDisplayMode === "dark" ? "#1A1207" : "#FFFFFF";
   const miniPlayerHeight = useMiniPlayerHeight();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
@@ -250,15 +292,23 @@ export default function QuranScreen() {
     return items;
   }, [isSearchMode, matchingSurahs, verseResults]);
 
-  // Compute index of first surah in the visible list for each Juz (1..30)
+  // Compute index of starting surah for each Juz (1..30) in the visible list.
+  // Uses JUZ_TO_SURAH so chips for Juz that begin mid-surah (2, 5, 6, 11, 13,
+  // 16, 19, 20, 22, 23, 24, 25, 27) still resolve to the surah that contains
+  // the start of that Juz.
   const juzFirstIndex = useMemo(() => {
-    const map: Record<number, number> = {};
+    const surahNumberToIndex: Record<number, number> = {};
     listData.forEach((item, idx) => {
       if (item.type === "surah") {
-        const j = item.surah.juz;
-        if (map[j] === undefined) map[j] = idx;
+        surahNumberToIndex[item.surah.number] = idx;
       }
     });
+    const map: Record<number, number> = {};
+    for (let j = 1; j <= 30; j++) {
+      const surahNum = JUZ_TO_SURAH[j];
+      const idx = surahNumberToIndex[surahNum];
+      if (idx !== undefined) map[j] = idx;
+    }
     return map;
   }, [listData]);
 
@@ -294,7 +344,7 @@ export default function QuranScreen() {
           styles.surahCard,
           {
             backgroundColor: colors.surface,
-            borderColor: isLastRead ? `${colors.gold}66` : colors.border,
+            borderColor: isLastRead ? `${accent}66` : colors.border,
             opacity: pressed ? 0.85 : 1,
           },
         ]}
@@ -304,9 +354,9 @@ export default function QuranScreen() {
       >
         <Rosette
           n={item.number}
-          fill={`${colors.gold}1f`}
-          stroke={`${colors.gold}88`}
-          numberColor={colors.gold}
+          fill={`${accent}1f`}
+          stroke={`${accent}88`}
+          numberColor={accent}
         />
         <View style={styles.surahInfo}>
           <View style={styles.surahNameRow}>
@@ -331,7 +381,7 @@ export default function QuranScreen() {
                 {
                   backgroundColor:
                     item.revelationType === "Meccan"
-                      ? `${colors.gold}26`
+                      ? `${accent}26`
                       : `${colors.tint}26`,
                 },
               ]}
@@ -341,7 +391,7 @@ export default function QuranScreen() {
                   styles.typeText,
                   {
                     color:
-                      item.revelationType === "Meccan" ? colors.gold : colors.tint,
+                      item.revelationType === "Meccan" ? accent : colors.tint,
                   },
                 ]}
               >
@@ -367,10 +417,10 @@ export default function QuranScreen() {
           <Feather
             name="bookmark"
             size={18}
-            color={isBookmarked ? colors.gold : colors.textSecondary}
+            color={isBookmarked ? accent : colors.textSecondary}
           />
           {isBookmarked && (
-            <View style={[styles.bookmarkFill, { backgroundColor: colors.gold }]} />
+            <View style={[styles.bookmarkFill, { backgroundColor: accent }]} />
           )}
         </TouchableOpacity>
       </Pressable>
@@ -400,7 +450,7 @@ export default function QuranScreen() {
       <View style={styles.verseCardHeader}>
         <View style={styles.verseCardSurahRow}>
           <View style={[styles.verseSurahBadge, { backgroundColor: colors.prayerCard }]}>
-            <Text style={[styles.verseSurahNum, { color: colors.gold }]}>
+            <Text style={[styles.verseSurahNum, { color: accent }]}>
               {result.surahNum}
             </Text>
           </View>
@@ -450,9 +500,9 @@ export default function QuranScreen() {
           crStyles.card,
           {
             backgroundColor: colors.surfaceElevated,
-            borderColor: `${colors.gold}66`,
+            borderColor: `${accent}66`,
             opacity: pressed ? 0.92 : 1,
-            shadowColor: colors.gold,
+            shadowColor: accent,
           },
         ]}
         onPress={() =>
@@ -466,8 +516,8 @@ export default function QuranScreen() {
         }
       >
         <View style={crStyles.headerRow}>
-          <Text style={[crStyles.eyebrow, { color: colors.gold }]}>CONTINUE</Text>
-          <Feather name="chevron-right" size={18} color={`${colors.gold}cc`} />
+          <Text style={[crStyles.eyebrow, { color: accent }]}>CONTINUE</Text>
+          <Feather name="chevron-right" size={18} color={`${accent}cc`} />
         </View>
         <View style={crStyles.titleRow}>
           <Text style={[crStyles.nameEn, { color: colors.text }]} numberOfLines={1}>
@@ -484,11 +534,11 @@ export default function QuranScreen() {
         </Text>
         {totalVerses > 0 && (
           <>
-            <View style={[crStyles.progressTrack, { backgroundColor: `${colors.gold}1f` }]}>
+            <View style={[crStyles.progressTrack, { backgroundColor: `${accent}1f` }]}>
               <View
                 style={[
                   crStyles.progressFill,
-                  { width: `${pct * 100}%`, backgroundColor: colors.gold },
+                  { width: `${pct * 100}%`, backgroundColor: accent },
                 ]}
               />
             </View>
@@ -496,9 +546,9 @@ export default function QuranScreen() {
               <Text style={[crStyles.progressMetaText, { color: colors.textSecondary }]}>
                 {Math.round(pct * 100)}% read
               </Text>
-              <View style={[crStyles.resumePill, { backgroundColor: colors.gold }]}>
-                <Feather name="play" size={11} color="#1a1207" />
-                <Text style={crStyles.resumePillText}>Resume</Text>
+              <View style={[crStyles.resumePill, { backgroundColor: accent }]}>
+                <Feather name="play" size={11} color={accentText} />
+                <Text style={[crStyles.resumePillText, { color: accentText }]}>Resume</Text>
               </View>
             </View>
           </>
@@ -514,7 +564,7 @@ export default function QuranScreen() {
     return (
       <View style={ftStyles.wrap}>
         <View style={ftStyles.headerRow}>
-          <MaterialCommunityIcons name="star-four-points-outline" size={13} color={colors.gold} />
+          <MaterialCommunityIcons name="star-four-points-outline" size={13} color={accent} />
           <Text style={[ftStyles.headerText, { color: colors.text }]}>For Today</Text>
         </View>
         <ScrollView
@@ -553,14 +603,14 @@ export default function QuranScreen() {
                   {
                     backgroundColor: rec.highlight
                       ? colors.tint
-                      : `${colors.gold}22`,
+                      : `${accent}22`,
                   },
                 ]}
               >
                 <Feather
                   name={rec.iconName}
                   size={14}
-                  color={rec.highlight ? "#fff" : colors.gold}
+                  color={rec.highlight ? "#fff" : accent}
                 />
               </View>
               <Text style={[ftStyles.cardLabel, { color: colors.textSecondary }]}>
@@ -617,12 +667,12 @@ export default function QuranScreen() {
                   jjStyles.chip,
                   {
                     backgroundColor: isCurrent
-                      ? colors.gold
+                      ? accent
                       : enabled
                       ? colors.surface
                       : "transparent",
                     borderColor: isCurrent
-                      ? colors.gold
+                      ? accent
                       : enabled
                       ? colors.border
                       : `${colors.border}55`,
@@ -635,7 +685,7 @@ export default function QuranScreen() {
                     jjStyles.chipText,
                     {
                       color: isCurrent
-                        ? "#1a1207"
+                        ? accentText
                         : enabled
                         ? colors.text
                         : colors.textSecondary,
@@ -718,8 +768,8 @@ export default function QuranScreen() {
           <Text style={[styles.allHeaderTitle, { color: colors.text }]}>
             {filter === "bookmarked" ? "Bookmarked" : "All Surahs"}
           </Text>
-          <View style={[styles.sectionBadge, { backgroundColor: `${colors.gold}22` }]}>
-            <Text style={[styles.sectionCount, { color: colors.gold }]}>
+          <View style={[styles.sectionBadge, { backgroundColor: `${accent}22` }]}>
+            <Text style={[styles.sectionCount, { color: accent }]}>
               {matchingSurahs.length}
             </Text>
           </View>
@@ -743,8 +793,8 @@ export default function QuranScreen() {
         <View style={styles.headerTitleRow}>
           <View style={{ flex: 1 }}>
             {hijriLabel ? (
-              <View style={[styles.hijriPill, { backgroundColor: `${colors.gold}18`, borderColor: `${colors.gold}44` }]}>
-                <Text style={[styles.hijriPillText, { color: colors.gold }]}>{hijriLabel}</Text>
+              <View style={[styles.hijriPill, { backgroundColor: `${accent}18`, borderColor: `${accent}44` }]}>
+                <Text style={[styles.hijriPillText, { color: accent }]}>{hijriLabel}</Text>
               </View>
             ) : null}
           </View>
@@ -1186,7 +1236,6 @@ const crStyles = StyleSheet.create({
   resumePillText: {
     fontSize: 11,
     fontFamily: "Inter_700Bold",
-    color: "#1a1207",
     letterSpacing: 0.3,
   },
 });
