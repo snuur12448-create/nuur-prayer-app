@@ -2,7 +2,6 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Circle, Svg } from "react-native-svg";
 import {
   Alert,
   Animated,
@@ -665,6 +664,7 @@ export default function TasbeehScreen() {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const completionAnim = useRef(new Animated.Value(0)).current;
   const rippleAnim = useRef(new Animated.Value(0)).current;
+  const beadOffset = useRef(new Animated.Value(0)).current;
 
   // ── Guide state ──
   const [selectedPrayer, setSelectedPrayer] = useState<PrayerName | null>(null);
@@ -674,6 +674,20 @@ export default function TasbeehScreen() {
 
   // ── Counter handlers ──
   const progress = selectedDhikr.target > 0 ? Math.min(count / selectedDhikr.target, 1) : 0;
+
+  // Animate the bead column so the active bead stays centered.
+  // Column is anchored at top:"50%" of the viewport, so translating by
+  // -(count * spacing) - (spacing / 2) places bead `count`'s vertical
+  // midpoint exactly at the viewport center.
+  const BEAD_SPACING = 30;
+  useEffect(() => {
+    Animated.spring(beadOffset, {
+      toValue: -(count * BEAD_SPACING) - BEAD_SPACING / 2,
+      useNativeDriver: true,
+      friction: 9,
+      tension: 60,
+    }).start();
+  }, [count, beadOffset]);
 
   const handleCount = useCallback(() => {
     if (Platform.OS !== "web") Vibration.vibrate(30);
@@ -747,13 +761,6 @@ export default function TasbeehScreen() {
   const switchMode = (m: "counter" | "guide") => {
     setMode(m);
   };
-
-  // ── SVG ring (counter) ──
-  const RING_SIZE = 210;
-  const RING_RADIUS = 97;
-  const RING_STROKE = 6;
-  const circumference = 2 * Math.PI * RING_RADIUS;
-  const strokeDashoffset = circumference * (1 - progress);
 
   const completionScale = completionAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] });
   const completionOpacity = completionAnim.interpolate({ inputRange: [0, 0.3, 0.7, 1], outputRange: [0, 1, 1, 0] });
@@ -942,49 +949,143 @@ export default function TasbeehScreen() {
               </View>
             </View>
 
-            <View style={cs.ringContainer}>
-              <Svg width={RING_SIZE} height={RING_SIZE} style={StyleSheet.absoluteFillObject}>
-                <Circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS} stroke={colors.border} strokeWidth={RING_STROKE} fill="none" />
-                <Circle
-                  cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS}
-                  stroke={selectedDhikr.color} strokeWidth={RING_STROKE} fill="none"
-                  strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
-                  strokeLinecap="round" rotation="-90" origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
-                  opacity={progress > 0 ? 1 : 0}
-                />
-              </Svg>
+            <Text style={[cs.arabicDisplay, { color: colors.text }]}>{selectedDhikr.arabic}</Text>
+            <Text style={[cs.translationDisplay, { color: colors.textSecondary }]}>{selectedDhikr.translation}</Text>
 
-              <Animated.View style={[cs.ripple, { backgroundColor: selectedDhikr.color, transform: [{ scale: rippleScale }], opacity: rippleOpacity }]} />
+            {/* ── Misbaha bead string ── */}
+            <View style={cs.beadArea}>
+              {/* Vertical string */}
+              <View
+                pointerEvents="none"
+                style={[cs.beadString, { backgroundColor: selectedDhikr.color + "33" }]}
+              />
 
-              <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-                <Pressable
-                  style={[cs.counterBtn, { backgroundColor: selectedDhikr.color + "20", borderColor: selectedDhikr.color + "60" }]}
-                  onPress={handleCount}
-                >
-                  <Text style={[cs.countNumber, { color: colors.text }]}>{count}</Text>
-                  <Text style={[cs.countDivider, { color: colors.textSecondary }]}>/ {selectedDhikr.target}</Text>
-                  <Text style={[cs.tapHint, { color: colors.textSecondary }]}>Tap to count</Text>
-                </Pressable>
+              {/* Active-bead glow */}
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  cs.beadGlow,
+                  {
+                    backgroundColor: selectedDhikr.color,
+                    opacity: rippleOpacity,
+                    transform: [{ scale: rippleScale }],
+                  },
+                ]}
+              />
+
+              {/* Bead column */}
+              <Animated.View
+                pointerEvents="none"
+                style={[cs.beadColumn, { transform: [{ translateY: beadOffset }] }]}
+              >
+                {Array.from({ length: selectedDhikr.target + 1 }).map((_, i) => {
+                  const isCompleted = i < count;
+                  const isActive = i === count;
+                  // Markers split a long string into 33-bead segments (canonical
+                  // misbaha rhythm). Skip markers entirely for short dhikr (<33)
+                  // and never put one on the very last bead — it'd double-up
+                  // with the natural completion event.
+                  const isMarker =
+                    selectedDhikr.target >= 33 &&
+                    i > 0 &&
+                    i < selectedDhikr.target &&
+                    i % 33 === 0;
+
+                  const baseSize = isMarker ? 14 : 10;
+                  const activeSize = isMarker ? 22 : 18;
+                  const size = isActive ? activeSize : baseSize;
+
+                  return (
+                    <View key={i} style={cs.beadCell}>
+                      <Animated.View
+                        style={[
+                          cs.bead,
+                          {
+                            width: size,
+                            height: size,
+                            borderRadius: isMarker ? 3 : size / 2,
+                            backgroundColor: isCompleted
+                              ? selectedDhikr.color
+                              : isActive
+                              ? selectedDhikr.color
+                              : colors.surfaceElevated || colors.surface,
+                            borderWidth: isMarker && !isCompleted && !isActive ? 1 : 0,
+                            borderColor: selectedDhikr.color + "55",
+                            transform: [
+                              { rotate: isMarker ? "45deg" : "0deg" },
+                              ...(isActive ? [{ scale: scaleAnim }] : []),
+                            ],
+                            shadowColor: isCompleted || isActive ? selectedDhikr.color : "transparent",
+                            shadowOpacity: isActive ? 0.6 : isCompleted ? 0.3 : 0,
+                            shadowRadius: isActive ? 8 : 4,
+                            shadowOffset: { width: 0, height: 0 },
+                          },
+                        ]}
+                      />
+                    </View>
+                  );
+                })}
               </Animated.View>
 
+              {/* Top + bottom fade masks */}
+              <View pointerEvents="none" style={[cs.beadFadeTop, { backgroundColor: colors.background }]} />
+              <View pointerEvents="none" style={[cs.beadFadeBottom, { backgroundColor: colors.background }]} />
+
+              {/* Tap target — entire bead viewport */}
+              <Pressable style={StyleSheet.absoluteFill} onPress={handleCount} android_ripple={null} />
+
+              {/* Completion overlay */}
               {justCompleted && (
-                <Animated.View style={[cs.completionOverlay, { opacity: completionOpacity, transform: [{ scale: completionScale }] }]}>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    cs.beadCompletion,
+                    { opacity: completionOpacity, transform: [{ scale: completionScale }] },
+                  ]}
+                >
                   <Text style={cs.completionCheck}>✓</Text>
                   <Text style={[cs.completionText, { color: "#fff" }]}>Round {rounds} complete!</Text>
                 </Animated.View>
               )}
             </View>
 
-            <Text style={[cs.arabicDisplay, { color: colors.text }]}>{selectedDhikr.arabic}</Text>
-            <Text style={[cs.translationDisplay, { color: colors.textSecondary }]}>{selectedDhikr.translation}</Text>
+            {/* Glass count pill + reset */}
+            <View style={cs.countDock}>
+              <TouchableOpacity
+                style={[cs.dockSideBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={handleReset}
+                hitSlop={8}
+              >
+                <Feather name="rotate-ccw" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[cs.resetBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={handleReset}
-            >
-              <Feather name="rotate-ccw" size={15} color={colors.textSecondary} />
-              <Text style={[cs.resetText, { color: colors.textSecondary }]}>Reset Count</Text>
-            </TouchableOpacity>
+              <View
+                style={[
+                  cs.countPill,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              >
+                <Animated.Text
+                  style={[
+                    cs.countPillNum,
+                    { color: colors.text, transform: [{ scale: scaleAnim }] },
+                  ]}
+                >
+                  {count}
+                </Animated.Text>
+                <Text style={[cs.countPillDiv, { color: colors.textSecondary }]}>
+                  /{selectedDhikr.target}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[cs.dockSideBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => setShowSelector((v) => !v)}
+                hitSlop={8}
+              >
+                <Feather name="list" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -1259,11 +1360,118 @@ const cs = StyleSheet.create({
   dhikrOptionArabic: { fontSize: 16, marginBottom: 2 },
   dhikrOptionTranslit: { fontSize: 12, fontFamily: "Inter_400Regular" },
 
-  counterArea: { flex: 1, alignItems: "center", gap: 16 },
+  counterArea: { flex: 1, alignItems: "center", gap: 14 },
   statsRow: { flexDirection: "row", gap: 10, width: "100%" },
   statCard: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 12, borderWidth: 1, gap: 2 },
   statValue: { fontSize: 22, fontFamily: "Inter_700Bold" },
   statLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
+
+  // Misbaha bead string
+  beadArea: {
+    flex: 1,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    overflow: "hidden",
+    minHeight: 220,
+  },
+  beadString: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 1,
+    alignSelf: "center",
+  },
+  beadGlow: {
+    position: "absolute",
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    opacity: 0.18,
+  },
+  beadColumn: {
+    position: "absolute",
+    top: "50%",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  beadCell: {
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bead: {
+    elevation: 0,
+  },
+  beadFadeTop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 28,
+    opacity: 0.88,
+  },
+  beadFadeBottom: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 28,
+    opacity: 0.88,
+  },
+  beadCompletion: {
+    position: "absolute",
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+    borderRadius: 999,
+    backgroundColor: "rgba(76,175,125,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  // Glass count dock
+  countDock: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 4,
+  },
+  dockSideBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countPill: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 4,
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 22,
+    borderWidth: 1,
+    minWidth: 110,
+    justifyContent: "center",
+  },
+  countPillNum: {
+    fontSize: 30,
+    fontFamily: "Inter_700Bold",
+    lineHeight: 34,
+    fontVariant: ["tabular-nums"],
+  },
+  countPillDiv: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    fontVariant: ["tabular-nums"],
+  },
+
+  // Legacy (unused) — kept to avoid breaking external imports
   ringContainer: { width: 210, height: 210, alignItems: "center", justifyContent: "center", position: "relative" },
   ripple: { position: "absolute", width: 160, height: 160, borderRadius: 80 },
   counterBtn: { width: 160, height: 160, borderRadius: 80, borderWidth: 2, alignItems: "center", justifyContent: "center", gap: 2 },
