@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useMemo, useRef, useState } from "react";
 import {
@@ -16,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Circle as SvgCircle, Defs, RadialGradient as SvgRadialGradient, Stop } from "react-native-svg";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { ALLAH_NAMES, AllahName } from "@/utils/namesData";
@@ -26,14 +28,32 @@ const NUM_COLS = width >= 600 ? 3 : 2;
 // Sheet takes 82% of screen — explicit height so flex:1 on ScrollView works reliably.
 const SHEET_H = Math.round(SCREEN_H * 0.82);
 
-const CARD_GRADIENTS = [
-  ["#1a1a2e", "#16213e"],
-  ["#1a2a1a", "#162116"],
-  ["#2a1a1a", "#211616"],
-  ["#1a1a2a", "#16162b"],
-  ["#2a1e10", "#211808"],
-  ["#101e2a", "#081621"],
+// Soft gradient surface tints — cycle through deep jewel tones so 99 cards
+// don't feel monotonous. Kept very dark so gold/text always pop.
+const CARD_GRADIENTS: [string, string][] = [
+  ["#1a2a23", "#0f1c17"], // emerald
+  ["#1f1f2e", "#13131f"], // indigo
+  ["#2a1f1f", "#1c1414"], // garnet
+  ["#1a2330", "#101820"], // sapphire
+  ["#2a221a", "#1c1610"], // bronze
+  ["#1f2a26", "#13201c"], // jade
 ];
+
+// Gold halo that sits behind the Arabic name — gives a subtle "noor" glow.
+function NameHalo({ color, size = 110 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} style={{ position: "absolute" }} pointerEvents="none">
+      <Defs>
+        <SvgRadialGradient id="halo" cx="50%" cy="50%" r="50%">
+          <Stop offset="0%" stopColor={color} stopOpacity={0.18} />
+          <Stop offset="55%" stopColor={color} stopOpacity={0.05} />
+          <Stop offset="100%" stopColor={color} stopOpacity={0} />
+        </SvgRadialGradient>
+      </Defs>
+      <SvgCircle cx={size / 2} cy={size / 2} r={size / 2} fill="url(#halo)" />
+    </Svg>
+  );
+}
 
 function NameCard({ item, colors, onPress }: { item: AllahName; colors: any; onPress: (item: AllahName) => void }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -46,23 +66,45 @@ function NameCard({ item, colors, onPress }: { item: AllahName; colors: any; onP
   };
 
   const gradIdx = (item.number - 1) % CARD_GRADIENTS.length;
+  const gold = colors.gold ?? colors.tint;
 
   return (
     <Animated.View style={[styles.cardWrapper, { transform: [{ scale }] }]}>
       <TouchableOpacity
-        style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.tint + "33" }]}
         onPress={() => onPress(item)}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={1}
+        style={styles.cardTouch}
       >
-        <View style={[styles.cardNumBadge, { backgroundColor: colors.tint + "22" }]}>
-          <Text style={[styles.cardNum, { color: colors.tint }]}>{item.number}</Text>
-        </View>
-        <Text style={[styles.cardArabic, { color: colors.text }]}>{item.arabic}</Text>
-        <Text style={[styles.cardTranslit, { color: colors.tint }]} numberOfLines={1}>{item.transliteration}</Text>
-        <View style={[styles.cardDivider, { backgroundColor: colors.tint + "33" }]} />
-        <Text style={[styles.cardMeaning, { color: colors.textSecondary }]} numberOfLines={2}>{item.meaning}</Text>
+        <LinearGradient
+          colors={CARD_GRADIENTS[gradIdx]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.card, { borderColor: gold + "33" }]}
+        >
+          {/* Number medallion — small gold-rimmed circle, top-left */}
+          <View style={[styles.cardNumBadge, { borderColor: gold + "55", backgroundColor: gold + "12" }]}>
+            <Text style={[styles.cardNum, { color: gold }]}>{item.number}</Text>
+          </View>
+
+          {/* Arabic name with soft gold halo behind it */}
+          <View style={styles.cardArabicWrap}>
+            <NameHalo color={gold} size={110} />
+            <Text style={[styles.cardArabic, { color: colors.text }]}>{item.arabic}</Text>
+          </View>
+
+          <Text style={[styles.cardTranslit, { color: gold }]} numberOfLines={1}>{item.transliteration}</Text>
+
+          {/* Dot ornament instead of plain rule */}
+          <View style={styles.cardOrnament}>
+            <View style={[styles.cardDot, { backgroundColor: gold + "55" }]} />
+            <View style={[styles.cardOrnamentLine, { backgroundColor: gold + "33" }]} />
+            <View style={[styles.cardDot, { backgroundColor: gold + "55" }]} />
+          </View>
+
+          <Text style={[styles.cardMeaning, { color: colors.textSecondary }]} numberOfLines={2}>{item.meaning}</Text>
+        </LinearGradient>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -153,8 +195,21 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
           bounces={true}
           contentContainerStyle={[styles.sheetScroll, { paddingBottom: 32 + miniPlayerH }]}
         >
-          <Text style={[styles.sheetArabic, { color: colors.text }]}>{item.arabic}</Text>
-          <Text style={[styles.sheetTranslit, { color: colors.tint }]}>{item.transliteration}</Text>
+          {/* Arabic name with large halo glow */}
+          <View style={styles.sheetArabicWrap}>
+            <NameHalo color={(colors as any).gold ?? colors.tint} size={260} />
+            <Text style={[styles.sheetArabic, { color: colors.text }]}>{item.arabic}</Text>
+          </View>
+          <Text style={[styles.sheetTranslit, { color: (colors as any).gold ?? colors.tint }]}>{item.transliteration}</Text>
+
+          {/* Ornamental separator under transliteration */}
+          <View style={styles.sheetRule}>
+            <View style={[styles.ruleDot, { backgroundColor: ((colors as any).gold ?? colors.tint) + "88" }]} />
+            <View style={[styles.ruleLine, { backgroundColor: ((colors as any).gold ?? colors.tint) + "44", width: 60 }]} />
+            <View style={[styles.ruleDiamond, { borderColor: ((colors as any).gold ?? colors.tint) + "88" }]} />
+            <View style={[styles.ruleLine, { backgroundColor: ((colors as any).gold ?? colors.tint) + "44", width: 60 }]} />
+            <View style={[styles.ruleDot, { backgroundColor: ((colors as any).gold ?? colors.tint) + "88" }]} />
+          </View>
 
           <View style={[styles.sheetPronRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
             <Feather name="volume-2" size={14} color={colors.textSecondary} />
@@ -211,7 +266,15 @@ export default function NamesScreen() {
           <Feather name="chevron-left" size={24} color={colors.tint} />
         </Pressable>
         <View style={styles.headerContent}>
-          <Text style={[styles.headerAr, { color: colors.tint }]}>أَسْمَاءُ اللّٰهِ الْحُسْنَىٰ</Text>
+          <Text style={[styles.headerAr, { color: (colors.gold ?? colors.tint) }]}>أَسْمَاءُ اللّٰهِ الْحُسْنَىٰ</Text>
+          {/* Ornamental rule: dot — line — diamond — line — dot */}
+          <View style={styles.headerRule}>
+            <View style={[styles.ruleDot, { backgroundColor: (colors.gold ?? colors.tint) + "88" }]} />
+            <View style={[styles.ruleLine, { backgroundColor: (colors.gold ?? colors.tint) + "44" }]} />
+            <View style={[styles.ruleDiamond, { borderColor: (colors.gold ?? colors.tint) + "88" }]} />
+            <View style={[styles.ruleLine, { backgroundColor: (colors.gold ?? colors.tint) + "44" }]} />
+            <View style={[styles.ruleDot, { backgroundColor: (colors.gold ?? colors.tint) + "88" }]} />
+          </View>
           <Text style={[styles.headerTitle, { color: colors.text }]}>The 99 Names of Allah</Text>
           <Text style={[styles.headerSub, { color: colors.textSecondary }]}>
             Tap any name to learn its meaning and pronunciation
@@ -311,8 +374,12 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   headerContent: { alignItems: "center", marginBottom: 16 },
-  headerAr: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 6, textAlign: "center" },
-  headerTitle: { fontSize: 24, fontFamily: "Inter_700Bold", marginBottom: 4, letterSpacing: -0.3 },
+  headerAr: { fontSize: 32, fontFamily: "AmiriQuran_400Regular", marginBottom: 8, textAlign: "center", lineHeight: 48 },
+  headerRule: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 },
+  ruleDot: { width: 4, height: 4, borderRadius: 2 },
+  ruleLine: { width: 40, height: 1 },
+  ruleDiamond: { width: 6, height: 6, borderWidth: 1, transform: [{ rotate: "45deg" }] },
+  headerTitle: { fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 4, letterSpacing: -0.3 },
   headerSub: { fontSize: 13, textAlign: "center" },
 
   searchBox: {
@@ -335,27 +402,41 @@ const styles = StyleSheet.create({
   row: { gap: 10, marginBottom: 10 },
 
   cardWrapper: { flex: 1 },
+  cardTouch: { flex: 1, borderRadius: 18, overflow: "hidden" },
   card: {
     borderRadius: 18,
     borderWidth: 1,
     padding: 14,
+    paddingTop: 22,
     alignItems: "center",
-    minHeight: 170,
+    minHeight: 188,
     justifyContent: "center",
     gap: 6,
   },
   cardNumBadge: {
     position: "absolute",
-    top: 10,
-    left: 10,
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    top: 8,
+    left: 8,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   cardNum: { fontSize: 11, fontFamily: "Inter_700Bold" },
-  cardArabic: { fontSize: 26, fontFamily: "Inter_700Bold", textAlign: "center", marginTop: 16, paddingTop: 10, lineHeight: 42 },
-  cardTranslit: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" },
-  cardDivider: { width: 36, height: 1, borderRadius: 1 },
+  cardArabicWrap: {
+    width: 110,
+    height: 78,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  cardArabic: { fontSize: 30, fontFamily: "AmiriQuran_400Regular", textAlign: "center", lineHeight: 48 },
+  cardTranslit: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center", marginTop: 2 },
+  cardOrnament: { flexDirection: "row", alignItems: "center", gap: 4, marginVertical: 2 },
+  cardDot: { width: 3, height: 3, borderRadius: 1.5 },
+  cardOrnamentLine: { width: 28, height: 1 },
   cardMeaning: { fontSize: 11, textAlign: "center", lineHeight: 15 },
 
   /* Sheet */
@@ -406,8 +487,16 @@ const styles = StyleSheet.create({
   sheetHandle: { width: 40, height: 4, borderRadius: 2, marginBottom: 8, alignSelf: "center" },
   sheetNumBadge: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
   sheetNum: { fontSize: 13, fontFamily: "Inter_700Bold" },
-  sheetArabic: { fontSize: 52, fontFamily: "Inter_700Bold", textAlign: "center", lineHeight: 80, paddingTop: 14 },
-  sheetTranslit: { fontSize: 20, fontFamily: "Inter_700Bold", textAlign: "center" },
+  sheetArabicWrap: {
+    width: "100%",
+    height: 140,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  sheetArabic: { fontSize: 56, fontFamily: "AmiriQuran_400Regular", textAlign: "center", lineHeight: 96 },
+  sheetTranslit: { fontSize: 22, fontFamily: "Inter_700Bold", textAlign: "center", marginTop: 4 },
+  sheetRule: { flexDirection: "row", alignItems: "center", gap: 6, marginVertical: 8 },
 
   sheetPronRow: {
     flexDirection: "row",

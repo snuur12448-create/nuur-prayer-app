@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, Line, Path, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
-import { useIsFocused } from "@react-navigation/native";
+import { useFocusEffect } from "expo-router";
 import { useAppContext } from "@/context/AppContext";
 import { calculateQiblaDirection, getDistanceToKaaba } from "@/utils/qibla";
 import { bearingDelta, solarPosition } from "@/utils/solar";
@@ -532,9 +532,11 @@ export default function QiblaScreen() {
   // without these gates the haptic would fire on other tabs too.
   const viewModeRef = useRef<"compass" | "map">("compass");
   useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
-  const isFocused = useIsFocused();
-  const isFocusedRef = useRef<boolean>(isFocused);
-  useEffect(() => { isFocusedRef.current = isFocused; }, [isFocused]);
+  const isFocusedRef = useRef<boolean>(true);
+  useFocusEffect(useCallback(() => {
+    isFocusedRef.current = true;
+    return () => { isFocusedRef.current = false; };
+  }, []));
 
   const fireHaptic = useCallback((kind: "tick" | "lock") => {
     // Suppress all haptic feedback when the user is on the map view or
