@@ -17,6 +17,7 @@ import Svg, { Circle, Defs, Line, Path, RadialGradient, Rect, Stop, Text as SvgT
 import { useAppContext } from "@/context/AppContext";
 import { calculateQiblaDirection, getDistanceToKaaba } from "@/utils/qibla";
 import { bearingDelta, solarPosition } from "@/utils/solar";
+import QiblaMapView from "@/components/QiblaMapView";
 
 // Cross-platform tiny vibration / haptic helpers — no-op if unavailable.
 function tickHaptic() {
@@ -497,6 +498,9 @@ export default function QiblaScreen() {
   const [hasCompass, setHasCompass] = useState(false);
   const [needsPermission, setNeedsPermission] = useState(false);
   const [aligned, setAligned] = useState(false);
+  // Compass vs Map view toggle. The map shows the great-circle line from
+  // the user to the Kaaba and reassures users the direction is real.
+  const [viewMode, setViewMode] = useState<"compass" | "map">("compass");
   // Heading accuracy:
   //   iOS Location.watchHeadingAsync → 0=unreliable, 1=low, 2=medium, 3=high
   //   Web has no accuracy data → null (we hide the chip)
@@ -521,7 +525,15 @@ export default function QiblaScreen() {
   const lastHapticAtRef = useRef<number>(0);
   const ticksFiredRef = useRef<Set<number>>(new Set());
 
+  // Track viewMode in a ref so the compass callbacks (which capture state
+  // at creation time) can read the live value without resubscribing.
+  const viewModeRef = useRef<"compass" | "map">("compass");
+  useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
+
   const fireHaptic = useCallback((kind: "tick" | "lock") => {
+    // Suppress all haptic feedback when the user is on the map view —
+    // the compass UI is hidden so unsolicited buzzes would be confusing.
+    if (viewModeRef.current !== "compass") return;
     const now = Date.now();
     if (now - lastHapticAtRef.current < 600) return;
     lastHapticAtRef.current = now;
@@ -787,25 +799,83 @@ export default function QiblaScreen() {
                 </Text>
               </Pressable>
             )}
+            {/* Compass / Map view toggle — segmented control */}
+            <View style={[styles.viewToggle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Pressable
+                onPress={() => setViewMode("compass")}
+                style={[
+                  styles.viewToggleSeg,
+                  viewMode === "compass" && { backgroundColor: colors.gold + "22" },
+                ]}
+                accessibilityLabel="Compass view"
+              >
+                <Feather
+                  name="compass"
+                  size={13}
+                  color={viewMode === "compass" ? colors.gold : colors.textSecondary}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => setViewMode("map")}
+                style={[
+                  styles.viewToggleSeg,
+                  viewMode === "map" && { backgroundColor: colors.gold + "22" },
+                ]}
+                accessibilityLabel="Map view"
+              >
+                <Feather
+                  name="map"
+                  size={13}
+                  color={viewMode === "map" ? colors.gold : colors.textSecondary}
+                />
+              </Pressable>
+            </View>
           </View>
         </View>
       </View>
 
       {/* Main compass area */}
       <View style={styles.compassArea}>
-        {/* Ka'bah watermark background */}
-        <View style={styles.kaabahBg} pointerEvents="none">
-          <KaabahSilhouette size={220} color={colors.tint} />
-        </View>
+        {/* Ka'bah watermark background — compass view only */}
+        {viewMode === "compass" && (
+          <View style={styles.kaabahBg} pointerEvents="none">
+            <KaabahSilhouette size={220} color={colors.tint} />
+          </View>
+        )}
 
-        {/* Distance info */}
-        {distance !== null && (
+        {/* Distance info — only in compass view (map shows its own pill) */}
+        {viewMode === "compass" && distance !== null && (
           <Text style={[styles.distanceText, { color: colors.textSecondary }]}>
             {distance.toLocaleString()} km to Kaaba
           </Text>
         )}
 
+        {/* Map view */}
+        {viewMode === "map" && (
+          location && qiblaAngle !== null && distance !== null ? (
+            <QiblaMapView
+              userLat={location.latitude}
+              userLng={location.longitude}
+              qiblaBearing={qiblaAngle}
+              distanceKm={distance}
+              tintColor={colors.tint}
+              goldColor={colors.gold}
+              surfaceColor={colors.surface}
+              textColor={colors.text}
+              textSecondaryColor={colors.textSecondary}
+            />
+          ) : (
+            <View style={[styles.mapLoading, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <ActivityIndicator color={colors.tint} />
+              <Text style={[styles.mapLoadingText, { color: colors.textSecondary }]}>
+                {isLoadingLocation ? "Locating you…" : "Waiting for location"}
+              </Text>
+            </View>
+          )
+        )}
+
         {/* Compass */}
+        {viewMode === "compass" && (
         <View style={styles.compassOuter}>
           {/* Rotating compass face */}
           <Animated.View
@@ -852,8 +922,10 @@ export default function QiblaScreen() {
             </View>
           )}
         </View>
+        )}
 
-        {/* Status text */}
+        {/* Status text — only meaningful when actively rotating the device */}
+        {viewMode === "compass" && (
         <View style={styles.statusArea}>
           {alignedText ? (
             <View style={[styles.alignedCard, { borderColor: `${colors.tint}80`, backgroundColor: `${colors.tint}22` }]}>
@@ -871,8 +943,10 @@ export default function QiblaScreen() {
           )}
         </View>
 
+        )}
+
         {/* Heading display */}
-        {hasCompass && (
+        {viewMode === "compass" && hasCompass && (
           <View style={styles.headingRow}>
             <View style={[styles.headingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.headingValue, { color: colors.text }]}>{Math.round(compassHeading)}°</Text>
@@ -971,7 +1045,32 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     alignItems: "flex-end",
+    gap: 6,
   },
+  // Compass / Map segmented control — sits under the Locate button.
+  viewToggle: {
+    flexDirection: "row",
+    borderRadius: 9,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  viewToggleSeg: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mapLoading: {
+    width: "100%",
+    aspectRatio: 1,
+    maxWidth: 360,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  mapLoadingText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   locationBtn: {
     flexDirection: "row",
     alignItems: "center",
