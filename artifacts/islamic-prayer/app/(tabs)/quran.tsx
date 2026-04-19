@@ -1,16 +1,18 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import Svg, { Circle, Polygon } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { useAppContext } from "@/context/AppContext";
@@ -21,6 +23,7 @@ import {
   QuranSearchResult,
 } from "@/utils/quranSearch";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
+import { gregorianToHijri, HIJRI_MONTHS_EN } from "@/utils/hijriCalendar";
 
 const LAST_READ_KEY = "nuur_last_read_position";
 
@@ -33,6 +36,7 @@ interface LastReadPos {
 
 const GOLD = "#C9933A";
 const MIN_VERSE_QUERY = 2;
+const SURAH_ROW_HEIGHT = 88; // surahCard padding 12*2 + content ~64
 
 type ListItem =
   | { type: "surahSection"; count: number }
@@ -40,6 +44,55 @@ type ListItem =
   | { type: "verseSection"; count: number }
   | { type: "verse"; result: QuranSearchResult }
   | { type: "emptyState" };
+
+// ---------- Eight-pointed star rosette (surah number badge) ----------
+// Precompute 16-vertex star points for the default size once, since the
+// geometry never changes per row.
+const ROSETTE_SIZE = 44;
+const ROSETTE_POINTS = (() => {
+  const r = ROSETTE_SIZE / 2;
+  const outerR = r - 1;
+  const innerR = r * 0.42;
+  const pts: string[] = [];
+  for (let i = 0; i < 16; i++) {
+    const ang = (i * Math.PI) / 8 - Math.PI / 2;
+    const rad = i % 2 === 0 ? outerR : innerR;
+    pts.push(`${r + rad * Math.cos(ang)},${r + rad * Math.sin(ang)}`);
+  }
+  return pts.join(" ");
+})();
+
+const Rosette = React.memo(function Rosette({
+  n,
+  fill,
+  stroke,
+  numberColor,
+}: {
+  n: number;
+  fill: string;
+  stroke: string;
+  numberColor: string;
+}) {
+  const r = ROSETTE_SIZE / 2;
+  return (
+    <View
+      style={{
+        width: ROSETTE_SIZE,
+        height: ROSETTE_SIZE,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Svg width={ROSETTE_SIZE} height={ROSETTE_SIZE} style={{ position: "absolute" }}>
+        <Polygon points={ROSETTE_POINTS} fill={fill} stroke={stroke} strokeWidth={0.8} />
+        <Circle cx={r} cy={r} r={r * 0.46} fill={fill} stroke={stroke} strokeWidth={0.6} opacity={0.9} />
+      </Svg>
+      <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: numberColor }}>
+        {n}
+      </Text>
+    </View>
+  );
+});
 
 function HighlightedText({
   text,
@@ -54,10 +107,7 @@ function HighlightedText({
   highlightStyle?: any;
   numberOfLines?: number;
 }) {
-  const segments = useMemo(
-    () => highlightSegments(text, query),
-    [text, query]
-  );
+  const segments = useMemo(() => highlightSegments(text, query), [text, query]);
   return (
     <Text style={style} numberOfLines={numberOfLines}>
       {segments.map((seg, i) =>
@@ -73,6 +123,55 @@ function HighlightedText({
   );
 }
 
+// ---------- For Today recommendations ----------
+type Recommendation = {
+  id: string;
+  surahNum: number;
+  surahEn: string;
+  surahAr: string;
+  label: string;
+  reason: string;
+  iconName: keyof typeof Feather.glyphMap;
+  highlight?: boolean;
+};
+
+function getTodaysRecommendations(): Recommendation[] {
+  const day = new Date().getDay(); // 0 Sun ... 5 Fri ... 6 Sat
+  const recs: Recommendation[] = [];
+  if (day === 5) {
+    recs.push({
+      id: "kahf",
+      surahNum: 18,
+      surahEn: "Al-Kahf",
+      surahAr: "ٱلْكَهْف",
+      label: "Sunnah of Friday",
+      reason: "Light between two Fridays",
+      iconName: "sun",
+      highlight: true,
+    });
+  }
+  recs.push({
+    id: "yaseen",
+    surahNum: 36,
+    surahEn: "Yaseen",
+    surahAr: "يس",
+    label: "After Fajr",
+    reason: "Heart of the Quran",
+    iconName: "sunrise",
+  });
+  recs.push({
+    id: "mulk",
+    surahNum: 67,
+    surahEn: "Al-Mulk",
+    surahAr: "ٱلْمُلْك",
+    label: "Before sleep",
+    reason: "Protection through the night",
+    iconName: "moon",
+  });
+  return recs;
+}
+
+// ---------- Screen ----------
 export default function QuranScreen() {
   const { bookmarkedSurahs, toggleBookmark, themeColors: colors } = useAppContext();
   const miniPlayerHeight = useMiniPlayerHeight();
@@ -83,13 +182,21 @@ export default function QuranScreen() {
   const [filter, setFilter] = useState<"all" | "bookmarked">("all");
   const [lastRead, setLastRead] = useState<LastReadPos | null>(null);
 
-  // Reload last-read position every time this tab comes into focus
+  const listRef = useRef<FlatList<ListItem>>(null);
+
   useFocusEffect(
     useCallback(() => {
       AsyncStorage.getItem(LAST_READ_KEY)
         .then((raw) => {
-          if (!raw) { setLastRead(null); return; }
-          try { setLastRead(JSON.parse(raw)); } catch { setLastRead(null); }
+          if (!raw) {
+            setLastRead(null);
+            return;
+          }
+          try {
+            setLastRead(JSON.parse(raw));
+          } catch {
+            setLastRead(null);
+          }
         })
         .catch(() => setLastRead(null));
     }, [])
@@ -125,37 +232,69 @@ export default function QuranScreen() {
 
   const listData = useMemo<ListItem[]>(() => {
     if (!isSearchMode) {
+      // In non-search mode, leave the array empty when there are no matches so
+      // FlatList's ListEmptyComponent (which has filter-aware copy) takes over.
       return matchingSurahs.map((s) => ({ type: "surah", surah: s }));
     }
 
     const items: ListItem[] = [];
-
     if (matchingSurahs.length > 0) {
       items.push({ type: "surahSection", count: matchingSurahs.length });
       matchingSurahs.forEach((s) => items.push({ type: "surah", surah: s }));
     }
-
     if (verseResults.length > 0) {
       items.push({ type: "verseSection", count: verseResults.length });
       verseResults.forEach((r) => items.push({ type: "verse", result: r }));
     }
-
-    if (items.length === 0) {
-      items.push({ type: "emptyState" });
-    }
-
+    if (items.length === 0) items.push({ type: "emptyState" });
     return items;
   }, [isSearchMode, matchingSurahs, verseResults]);
 
+  // Compute index of first surah in the visible list for each Juz (1..30)
+  const juzFirstIndex = useMemo(() => {
+    const map: Record<number, number> = {};
+    listData.forEach((item, idx) => {
+      if (item.type === "surah") {
+        const j = item.surah.juz;
+        if (map[j] === undefined) map[j] = idx;
+      }
+    });
+    return map;
+  }, [listData]);
+
+  const jumpToJuz = useCallback(
+    (juz: number) => {
+      const target = juzFirstIndex[juz];
+      if (target === undefined || !listRef.current) return;
+      // scrollToIndex is preferable because FlatList uses its own internal
+      // layout knowledge (which already accounts for the variable-height
+      // ListHeaderComponent). If a row hasn't been measured yet,
+      // onScrollToIndexFailed below provides a fallback path.
+      try {
+        listRef.current.scrollToIndex({
+          index: target,
+          animated: true,
+          viewPosition: 0,
+          viewOffset: 8,
+        });
+      } catch {
+        /* handled by onScrollToIndexFailed */
+      }
+    },
+    [juzFirstIndex]
+  );
+
+  // ---------- Renderers ----------
   const renderSurah = (item: Surah) => {
     const isBookmarked = bookmarkedSurahs.includes(item.number);
+    const isLastRead = lastRead?.surahNum === item.number;
     return (
       <Pressable
         style={({ pressed }) => [
           styles.surahCard,
           {
             backgroundColor: colors.surface,
-            borderColor: colors.border,
+            borderColor: isLastRead ? `${colors.gold}66` : colors.border,
             opacity: pressed ? 0.85 : 1,
           },
         ]}
@@ -163,9 +302,12 @@ export default function QuranScreen() {
           router.push({ pathname: "/quran/[id]", params: { id: item.number.toString() } })
         }
       >
-        <View style={[styles.numberBadge, { backgroundColor: colors.prayerCard }]}>
-          <Text style={[styles.numberText, { color: colors.gold }]}>{item.number}</Text>
-        </View>
+        <Rosette
+          n={item.number}
+          fill={`${colors.gold}1f`}
+          stroke={`${colors.gold}88`}
+          numberColor={colors.gold}
+        />
         <View style={styles.surahInfo}>
           <View style={styles.surahNameRow}>
             {isSearchMode ? (
@@ -269,20 +411,23 @@ export default function QuranScreen() {
             {result.surahNameAr}
           </Text>
         </View>
-        <View style={[styles.ayahBadge, { backgroundColor: `${colors.tint}20`, borderColor: `${colors.tint}40` }]}>
+        <View
+          style={[
+            styles.ayahBadge,
+            { backgroundColor: `${colors.tint}20`, borderColor: `${colors.tint}40` },
+          ]}
+        >
           <Text style={[styles.ayahBadgeText, { color: colors.tint }]}>
             Ayah {result.verseNum}
           </Text>
         </View>
       </View>
-
       <HighlightedText
         text={result.arabicText}
         query={/[\u0600-\u06FF]/.test(trimmedQuery) ? trimmedQuery : ""}
         style={[styles.verseArabic, { color: colors.text }]}
         numberOfLines={2}
       />
-
       <HighlightedText
         text={result.engText}
         query={/[\u0600-\u06FF]/.test(trimmedQuery) ? "" : trimmedQuery}
@@ -293,16 +438,21 @@ export default function QuranScreen() {
     </Pressable>
   );
 
+  // ---- Continue Reading hero (with progress) ----
   const renderContinueReading = () => {
-    if (!lastRead || isSearchMode) return null;
+    if (!lastRead || isSearchMode || filter === "bookmarked") return null;
+    const surahMeta = SURAHS.find((s) => s.number === lastRead.surahNum);
+    const totalVerses = surahMeta?.verses ?? 0;
+    const pct = totalVerses > 0 ? Math.min(1, lastRead.ayahNum / totalVerses) : 0;
     return (
       <Pressable
         style={({ pressed }) => [
           crStyles.card,
           {
             backgroundColor: colors.surfaceElevated,
-            borderColor: colors.tint + "55",
-            opacity: pressed ? 0.88 : 1,
+            borderColor: `${colors.gold}66`,
+            opacity: pressed ? 0.92 : 1,
+            shadowColor: colors.gold,
           },
         ]}
         onPress={() =>
@@ -315,27 +465,197 @@ export default function QuranScreen() {
           })
         }
       >
-        <View style={[crStyles.iconWrap, { backgroundColor: colors.tint + "22" }]}>
-          <Feather name="bookmark" size={22} color={colors.tint} />
+        <View style={crStyles.headerRow}>
+          <Text style={[crStyles.eyebrow, { color: colors.gold }]}>CONTINUE</Text>
+          <Feather name="chevron-right" size={18} color={`${colors.gold}cc`} />
         </View>
-        <View style={crStyles.textCol}>
-          <Text style={[crStyles.label, { color: colors.tint }]}>Continue Reading</Text>
-          <View style={crStyles.nameRow}>
-            <Text style={[crStyles.nameEn, { color: colors.text }]}>{lastRead.surahNameEn}</Text>
-            <Text style={[crStyles.nameAr, { color: colors.textSecondary }]}>{lastRead.surahNameAr}</Text>
-          </View>
-          <Text style={[crStyles.ayah, { color: GOLD }]}>Ayah {lastRead.ayahNum}</Text>
+        <View style={crStyles.titleRow}>
+          <Text style={[crStyles.nameEn, { color: colors.text }]} numberOfLines={1}>
+            {lastRead.surahNameEn}
+          </Text>
+          <Text style={[crStyles.nameAr, { color: colors.text }]} numberOfLines={1}>
+            {lastRead.surahNameAr}
+          </Text>
         </View>
-        <Feather name="chevron-right" size={20} color={colors.tint + "AA"} />
+        <Text style={[crStyles.metaLine, { color: colors.textSecondary }]}>
+          {surahMeta?.englishMeaning ? `${surahMeta.englishMeaning} · ` : ""}
+          Ayah {lastRead.ayahNum}
+          {totalVerses ? ` of ${totalVerses}` : ""}
+        </Text>
+        {totalVerses > 0 && (
+          <>
+            <View style={[crStyles.progressTrack, { backgroundColor: `${colors.gold}1f` }]}>
+              <View
+                style={[
+                  crStyles.progressFill,
+                  { width: `${pct * 100}%`, backgroundColor: colors.gold },
+                ]}
+              />
+            </View>
+            <View style={crStyles.progressMeta}>
+              <Text style={[crStyles.progressMetaText, { color: colors.textSecondary }]}>
+                {Math.round(pct * 100)}% read
+              </Text>
+              <View style={[crStyles.resumePill, { backgroundColor: colors.gold }]}>
+                <Feather name="play" size={11} color="#1a1207" />
+                <Text style={crStyles.resumePillText}>Resume</Text>
+              </View>
+            </View>
+          </>
+        )}
       </Pressable>
+    );
+  };
+
+  // ---- For Today strip ----
+  const renderForToday = () => {
+    if (isSearchMode || filter === "bookmarked") return null;
+    const recs = getTodaysRecommendations();
+    return (
+      <View style={ftStyles.wrap}>
+        <View style={ftStyles.headerRow}>
+          <MaterialCommunityIcons name="star-four-points-outline" size={13} color={colors.gold} />
+          <Text style={[ftStyles.headerText, { color: colors.text }]}>For Today</Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={ftStyles.scrollContent}
+        >
+          {recs.map((rec) => (
+            <Pressable
+              key={rec.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${rec.label}: open ${rec.surahEn}`}
+              accessibilityHint={rec.reason}
+              onPress={() =>
+                router.push({
+                  pathname: "/quran/[id]",
+                  params: { id: rec.surahNum.toString() },
+                })
+              }
+              style={({ pressed }) => [
+                ftStyles.card,
+                {
+                  backgroundColor: rec.highlight
+                    ? `${colors.tint}1a`
+                    : colors.surface,
+                  borderColor: rec.highlight
+                    ? `${colors.tint}66`
+                    : colors.border,
+                  opacity: pressed ? 0.9 : 1,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  ftStyles.iconWrap,
+                  {
+                    backgroundColor: rec.highlight
+                      ? colors.tint
+                      : `${colors.gold}22`,
+                  },
+                ]}
+              >
+                <Feather
+                  name={rec.iconName}
+                  size={14}
+                  color={rec.highlight ? "#fff" : colors.gold}
+                />
+              </View>
+              <Text style={[ftStyles.cardLabel, { color: colors.textSecondary }]}>
+                {rec.label}
+              </Text>
+              <View style={ftStyles.cardNameRow}>
+                <Text style={[ftStyles.cardNameEn, { color: colors.text }]} numberOfLines={1}>
+                  {rec.surahEn}
+                </Text>
+                <Text style={[ftStyles.cardNameAr, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {rec.surahAr}
+                </Text>
+              </View>
+              <Text style={[ftStyles.cardReason, { color: colors.textSecondary }]} numberOfLines={1}>
+                {rec.reason}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // ---- Jump to Juz strip ----
+  const renderJuzJumper = () => {
+    if (isSearchMode || filter === "bookmarked" || matchingSurahs.length === 0) return null;
+    const lastReadJuz = lastRead
+      ? SURAHS.find((s) => s.number === lastRead.surahNum)?.juz
+      : undefined;
+    return (
+      <View style={jjStyles.wrap}>
+        <View style={jjStyles.headerRow}>
+          <Text style={[jjStyles.label, { color: colors.textSecondary }]}>JUMP TO JUZ</Text>
+          <Text style={[jjStyles.hint, { color: colors.textSecondary }]}>30 parts</Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={jjStyles.scrollContent}
+        >
+          {Array.from({ length: 30 }).map((_, i) => {
+            const j = i + 1;
+            const enabled = juzFirstIndex[j] !== undefined;
+            const isCurrent = j === lastReadJuz;
+            return (
+              <Pressable
+                key={j}
+                accessibilityRole="button"
+                accessibilityLabel={`Jump to Juz ${j}`}
+                accessibilityState={{ disabled: !enabled, selected: isCurrent }}
+                onPress={() => jumpToJuz(j)}
+                disabled={!enabled}
+                style={({ pressed }) => [
+                  jjStyles.chip,
+                  {
+                    backgroundColor: isCurrent
+                      ? colors.gold
+                      : enabled
+                      ? colors.surface
+                      : "transparent",
+                    borderColor: isCurrent
+                      ? colors.gold
+                      : enabled
+                      ? colors.border
+                      : `${colors.border}55`,
+                    opacity: pressed ? 0.7 : enabled ? 1 : 0.4,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    jjStyles.chipText,
+                    {
+                      color: isCurrent
+                        ? "#1a1207"
+                        : enabled
+                        ? colors.text
+                        : colors.textSecondary,
+                      fontFamily: isCurrent ? "Inter_700Bold" : "Inter_600SemiBold",
+                    },
+                  ]}
+                >
+                  {j}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
     );
   };
 
   const renderItem = ({ item }: { item: ListItem }) => {
     if (item.type === "surah") return renderSurah(item.surah);
-
     if (item.type === "verse") return renderVerseResult(item.result);
-
     if (item.type === "surahSection") {
       return (
         <View style={styles.sectionHeader}>
@@ -346,7 +666,6 @@ export default function QuranScreen() {
         </View>
       );
     }
-
     if (item.type === "verseSection") {
       return (
         <View style={styles.sectionHeader}>
@@ -362,7 +681,6 @@ export default function QuranScreen() {
         </View>
       );
     }
-
     return (
       <View style={styles.emptyState}>
         <MaterialCommunityIcons
@@ -370,9 +688,7 @@ export default function QuranScreen() {
           size={48}
           color={colors.textSecondary}
         />
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>
-          No results found
-        </Text>
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>No results found</Text>
         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
           Try a different word or phrase
         </Text>
@@ -380,23 +696,64 @@ export default function QuranScreen() {
     );
   };
 
+  // Hijri label for the small pill
+  const hijriLabel = useMemo(() => {
+    try {
+      const { hDay, hMonth, hYear } = gregorianToHijri(new Date());
+      const monthName = HIJRI_MONTHS_EN[hMonth - 1] ?? "";
+      return `${hDay} ${monthName} ${hYear}`;
+    } catch {
+      return "";
+    }
+  }, []);
+
+  // List header (Continue + For Today + Jump Juz + All Surahs label).
+  const listHeader = (
+    <View>
+      {renderContinueReading()}
+      {renderForToday()}
+      {renderJuzJumper()}
+      {!isSearchMode && matchingSurahs.length > 0 && (
+        <View style={styles.allHeader}>
+          <Text style={[styles.allHeaderTitle, { color: colors.text }]}>
+            {filter === "bookmarked" ? "Bookmarked" : "All Surahs"}
+          </Text>
+          <View style={[styles.sectionBadge, { backgroundColor: `${colors.gold}22` }]}>
+            <Text style={[styles.sectionCount, { color: colors.gold }]}>
+              {matchingSurahs.length}
+            </Text>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View
         style={[
           styles.header,
           {
-            paddingTop: topPad + 16,
+            paddingTop: topPad + 12,
             backgroundColor: colors.surface,
             borderBottomColor: colors.border,
           },
         ]}
       >
         <View style={styles.headerTitleRow}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>القرآن الكريم</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-            The Holy Quran
-          </Text>
+          <View style={{ flex: 1 }}>
+            {hijriLabel ? (
+              <View style={[styles.hijriPill, { backgroundColor: `${colors.gold}18`, borderColor: `${colors.gold}44` }]}>
+                <Text style={[styles.hijriPillText, { color: colors.gold }]}>{hijriLabel}</Text>
+              </View>
+            ) : null}
+          </View>
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>القرآن الكريم</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+              The Holy Quran
+            </Text>
+          </View>
         </View>
 
         <View
@@ -408,7 +765,7 @@ export default function QuranScreen() {
           <Feather name="search" size={16} color={colors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search surahs or verses..."
+            placeholder="Search surah, verse or ayah text…"
             placeholderTextColor={colors.textSecondary}
             value={search}
             onChangeText={setSearch}
@@ -460,6 +817,7 @@ export default function QuranScreen() {
       </View>
 
       <FlatList
+        ref={listRef}
         data={listData}
         keyExtractor={(item, index) => {
           if (item.type === "surah") return `surah-${item.surah.number}`;
@@ -467,27 +825,51 @@ export default function QuranScreen() {
           return `${item.type}-${index}`;
         }}
         renderItem={renderItem}
-        ListHeaderComponent={renderContinueReading()}
+        ListHeaderComponent={listHeader}
         contentContainerStyle={[
           styles.listContent,
           {
             paddingBottom:
-              miniPlayerHeight +
-              (isWeb ? 34 + 84 : 100 + insets.bottom),
+              miniPlayerHeight + (isWeb ? 34 + 84 : 100 + insets.bottom),
           },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onScrollToIndexFailed={(info) => {
+          // Fallback: estimate offset and try again on next frame
+          const offset = info.averageItemLength * info.index;
+          listRef.current?.scrollToOffset({ offset, animated: true });
+          setTimeout(() => {
+            try {
+              listRef.current?.scrollToIndex({
+                index: info.index,
+                animated: true,
+                viewPosition: 0,
+                viewOffset: 8,
+              });
+            } catch {}
+          }, 80);
+        }}
         ListEmptyComponent={
           !isSearchMode ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons
-                name="book-open-page-variant-outline"
+                name={
+                  filter === "bookmarked"
+                    ? "bookmark-outline"
+                    : "book-search-outline"
+                }
                 size={48}
                 color={colors.textSecondary}
               />
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                {filter === "bookmarked" ? "No bookmarked surahs yet" : "No surahs found"}
+                {filter === "bookmarked"
+                  ? trimmedQuery
+                    ? `No bookmarked surahs match "${trimmedQuery}"`
+                    : "No bookmarked surahs yet"
+                  : trimmedQuery
+                  ? `No surahs match "${trimmedQuery}"`
+                  : "No surahs found"}
               </Text>
             </View>
           ) : null
@@ -497,6 +879,7 @@ export default function QuranScreen() {
   );
 }
 
+// ---------- Styles ----------
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
@@ -504,14 +887,30 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
-  headerTitleRow: { marginBottom: 12 },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginBottom: 12,
+  },
+  hijriPill: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  hijriPillText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.3,
+  },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 24,
     fontFamily: "Inter_700Bold",
     textAlign: "right",
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "Inter_400Regular",
     textAlign: "right",
   },
@@ -556,7 +955,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    gap: 8,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -584,6 +982,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_400Regular",
   },
+  allHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  allHeaderTitle: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
   surahCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -593,33 +1004,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     gap: 12,
   },
-  numberBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  numberText: {
-    fontSize: 14,
-    fontFamily: "Inter_700Bold",
-  },
-  surahInfo: {
-    flex: 1,
-    gap: 2,
-  },
+  surahInfo: { flex: 1, gap: 2 },
   surahNameRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  surahEnglish: {
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-  },
-  surahArabic: {
-    fontSize: 18,
-  },
+  surahEnglish: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  surahArabic: { fontSize: 18 },
   surahMeta: {
     flexDirection: "row",
     alignItems: "center",
@@ -636,25 +1028,15 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 8,
   },
-  typeText: {
-    fontSize: 10,
-    fontFamily: "Inter_600SemiBold",
-  },
+  typeText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: 2,
   },
-  statText: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-  },
-  dot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-  },
+  statText: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  dot: { width: 3, height: 3, borderRadius: 1.5 },
   bookmarkBtn: {
     width: 30,
     height: 30,
@@ -694,28 +1076,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  verseSurahNum: {
-    fontSize: 12,
-    fontFamily: "Inter_700Bold",
-  },
+  verseSurahNum: { fontSize: 12, fontFamily: "Inter_700Bold" },
   verseSurahName: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
     flex: 1,
   },
-  verseSurahNameAr: {
-    fontSize: 13,
-  },
+  verseSurahNameAr: { fontSize: 13 },
   ayahBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 10,
     borderWidth: 1,
   },
-  ayahBadgeText: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-  },
+  ayahBadgeText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   verseArabic: {
     fontSize: 18,
     lineHeight: 30,
@@ -732,10 +1106,7 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
     gap: 12,
   },
-  emptyTitle: {
-    fontSize: 17,
-    fontFamily: "Inter_600SemiBold",
-  },
+  emptyTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold" },
   emptyText: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
@@ -745,46 +1116,178 @@ const styles = StyleSheet.create({
 
 const crStyles = StyleSheet.create({
   card: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 12,
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  eyebrow: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 2.4,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
   },
+  nameEn: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    flexShrink: 1,
+  },
+  nameAr: {
+    fontSize: 22,
+  },
+  metaLine: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  progressMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  progressMetaText: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+  },
+  resumePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  resumePillText: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    color: "#1a1207",
+    letterSpacing: 0.3,
+  },
+});
+
+const ftStyles = StyleSheet.create({
+  wrap: {
+    marginBottom: 14,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+    paddingLeft: 2,
+  },
+  headerText: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  scrollContent: {
+    gap: 10,
+    paddingRight: 8,
+  },
+  card: {
+    width: 168,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 4,
+  },
   iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 4,
   },
-  textCol: {
-    flex: 1,
-    gap: 2,
+  cardLabel: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  cardNameRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 6,
+  },
+  cardNameEn: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    flexShrink: 1,
+  },
+  cardNameAr: {
+    fontSize: 15,
+  },
+  cardReason: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
+});
+
+const jjStyles = StyleSheet.create({
+  wrap: {
+    marginBottom: 14,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    paddingLeft: 2,
   },
   label: {
     fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-    textTransform: "uppercase",
-    letterSpacing: 0.7,
-  },
-  nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  nameEn: {
-    fontSize: 16,
     fontFamily: "Inter_700Bold",
+    letterSpacing: 1.5,
   },
-  nameAr: {
-    fontSize: 15,
+  hint: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
   },
-  ayah: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
+  scrollContent: {
+    gap: 6,
+    paddingRight: 8,
+  },
+  chip: {
+    minWidth: 38,
+    height: 32,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chipText: {
+    fontSize: 13,
+    fontVariant: ["tabular-nums"],
   },
 });
