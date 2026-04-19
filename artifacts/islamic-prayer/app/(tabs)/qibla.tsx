@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Circle, Defs, Line, Path, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
+import Svg, { Circle, Defs, LinearGradient, Line, Path, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
 import { useFocusEffect } from "expo-router";
 import { useAppContext } from "@/context/AppContext";
 import { calculateQiblaDirection, getDistanceToKaaba } from "@/utils/qibla";
@@ -251,93 +251,109 @@ function CompassFace({
   ringColor?: string;
   textColor?: string;
 }) {
+  // Brass tones — used regardless of theme tint so the dial reads as metal.
+  const BRASS_HI = "#ebd7a3";
+  const BRASS_MID = "#D4A017";
+  const BRASS_LO = "#5b461c";
+  const BRASS_DIM = "#8e733b";
+
   const ticks = Array.from({ length: 72 }, (_, i) => i * 5);
+  // Arabic cardinals — N is red (heritage cue), others brass
   const cardinalAngles = [
-    { label: "N", angle: 0, color: "#FF5C5C", size: 17, weight: "bold" as const },
-    { label: "S", angle: 180, color: textColor, size: 14, weight: "bold" as const },
-    { label: "E", angle: 90, color: textColor, size: 14, weight: "bold" as const },
-    { label: "W", angle: 270, color: textColor, size: 14, weight: "bold" as const },
+    { label: "شمال", angle: 0, color: "#FF5C5C", size: 13 },
+    { label: "شرق", angle: 90, color: BRASS_HI, size: 12 },
+    { label: "جنوب", angle: 180, color: BRASS_HI, size: 12 },
+    { label: "غرب", angle: 270, color: BRASS_HI, size: 12 },
   ];
   const degreeLabels = [30, 60, 120, 150, 210, 240, 300, 330];
-  // 8 intercardinal markers (NE, SE, SW, NW + midpoints)
-  const intercardinals = [
-    { label: "NE", angle: 45 }, { label: "SE", angle: 135 },
-    { label: "SW", angle: 225 }, { label: "NW", angle: 315 },
-  ];
 
   return (
     <Svg width={COMPASS_SIZE} height={COMPASS_SIZE}>
       <Defs>
+        {/* Dial face — deep ink-green with subtle warm glow toward center */}
         <RadialGradient id="faceGrad" cx="50%" cy="50%" r="50%">
-          <Stop offset="0%" stopColor={faceColor} stopOpacity="1" />
-          <Stop offset="75%" stopColor={faceColor} stopOpacity="1" />
-          <Stop offset="100%" stopColor="#0A1A0E" stopOpacity="1" />
+          <Stop offset="0%" stopColor="#1a2b1f" stopOpacity="1" />
+          <Stop offset="70%" stopColor="#122016" stopOpacity="1" />
+          <Stop offset="100%" stopColor="#06100a" stopOpacity="1" />
         </RadialGradient>
         <RadialGradient id="tintGlow" cx="50%" cy="50%" r="50%">
-          <Stop offset="0%" stopColor={tintColor} stopOpacity="0.18" />
-          <Stop offset="100%" stopColor={tintColor} stopOpacity="0" />
+          <Stop offset="0%" stopColor={BRASS_MID} stopOpacity="0.12" />
+          <Stop offset="100%" stopColor={BRASS_MID} stopOpacity="0" />
         </RadialGradient>
+        {/* Brass bezel — top-lit metal: light at top, deep amber at bottom */}
+        <LinearGradient id="brassBezel" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0%" stopColor={BRASS_HI} stopOpacity="1" />
+          <Stop offset="35%" stopColor={BRASS_MID} stopOpacity="1" />
+          <Stop offset="70%" stopColor={BRASS_DIM} stopOpacity="1" />
+          <Stop offset="100%" stopColor={BRASS_LO} stopOpacity="1" />
+        </LinearGradient>
+        {/* Inner brass shoulder — reverse-lit so the bezel reads as 3D */}
+        <LinearGradient id="brassShoulder" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0%" stopColor={BRASS_LO} stopOpacity="1" />
+          <Stop offset="100%" stopColor={BRASS_HI} stopOpacity="0.85" />
+        </LinearGradient>
       </Defs>
 
-      {/* ── Outer bezel ring ─────────────────────────────── */}
-      <Circle cx={CX} cy={CX} r={OUTER_R + 4} fill={ringColor} opacity={0.9} />
-      <Circle cx={CX} cy={CX} r={OUTER_R + 2} fill="#0A1A0E" />
-      {/* Decorative gold ring segments (8 notches) */}
+      {/* ── Outer brass bezel ─────────────────────────────── */}
+      {/* Drop shadow base */}
+      <Circle cx={CX} cy={CX + 3} r={OUTER_R + 8} fill="#000" opacity={0.55} />
+      {/* Main bezel ring */}
+      <Circle cx={CX} cy={CX} r={OUTER_R + 7} fill="url(#brassBezel)" />
+      {/* Inner shoulder for 3D depth */}
+      <Circle cx={CX} cy={CX} r={OUTER_R + 2} fill="url(#brassShoulder)" />
+      {/* Deep recess line where bezel meets dial face */}
+      <Circle cx={CX} cy={CX} r={OUTER_R - 1} fill="#04090a" />
+
+      {/* Decorative gold engraving — 8 small ornament arcs along bezel */}
       {Array.from({ length: 8 }, (_, i) => {
-        const a1 = ((i * 45 - 18) - 90) * (Math.PI / 180);
-        const a2 = ((i * 45 + 18) - 90) * (Math.PI / 180);
-        const r = OUTER_R + 3;
+        const a1 = ((i * 45 - 14) - 90) * (Math.PI / 180);
+        const a2 = ((i * 45 + 14) - 90) * (Math.PI / 180);
+        const r = OUTER_R + 5;
         return (
           <Path
             key={i}
             d={`M ${CX + r * Math.cos(a1)} ${CX + r * Math.sin(a1)} A ${r} ${r} 0 0 1 ${CX + r * Math.cos(a2)} ${CX + r * Math.sin(a2)}`}
             fill="none"
-            stroke={ringColor}
-            strokeWidth={3}
-            opacity={0.6}
+            stroke={BRASS_LO}
+            strokeWidth={1.5}
+            opacity={0.7}
           />
         );
       })}
 
       {/* ── Compass face ────────────────────────────────── */}
-      <Circle cx={CX} cy={CX} r={OUTER_R} fill="url(#faceGrad)" />
-      <Circle cx={CX} cy={CX} r={OUTER_R} fill="url(#tintGlow)" />
-      {/* Face inner border */}
-      <Circle cx={CX} cy={CX} r={OUTER_R} fill="none" stroke={ringColor} strokeWidth={1.5} opacity={0.5} />
+      <Circle cx={CX} cy={CX} r={OUTER_R - 2} fill="url(#faceGrad)" />
+      <Circle cx={CX} cy={CX} r={OUTER_R - 2} fill="url(#tintGlow)" />
+      {/* Hairline brass frame around face */}
+      <Circle cx={CX} cy={CX} r={OUTER_R - 2} fill="none" stroke={BRASS_DIM} strokeWidth={0.8} opacity={0.7} />
 
-      {/* ── Degree ring border ──────────────────────────── */}
-      <Circle cx={CX} cy={CX} r={INNER_R + 14} fill="none" stroke={ringColor} strokeWidth={0.5} opacity={0.3} />
-      <Circle cx={CX} cy={CX} r={INNER_R} fill="none" stroke={ringColor} strokeWidth={1} opacity={0.4} />
+      {/* ── Inner engraved rings ─────────────────────────── */}
+      <Circle cx={CX} cy={CX} r={INNER_R + 14} fill="none" stroke={BRASS_DIM} strokeWidth={0.5} opacity={0.35} />
+      <Circle cx={CX} cy={CX} r={INNER_R} fill="none" stroke={BRASS_DIM} strokeWidth={0.6} opacity={0.45} />
 
-      {/* ── Tick marks ──────────────────────────────────── */}
+      {/* ── Engraved tick marks ─────────────────────────── */}
       {ticks.map((deg) => {
         const rad = (deg - 90) * (Math.PI / 180);
         const isMajor = deg % 90 === 0;
         const isMid = deg % 45 === 0 && !isMajor;
         const isMinor30 = deg % 30 === 0 && !isMajor && !isMid;
-        const tickLen = isMajor ? 16 : isMid ? 12 : isMinor30 ? 8 : 4;
-        const r1 = OUTER_R - 2;
+        const tickLen = isMajor ? 14 : isMid ? 11 : isMinor30 ? 8 : 4;
+        const r1 = OUTER_R - 4;
         const r2 = r1 - tickLen;
-        const stroke = isMajor
-          ? ringColor
-          : isMid
-          ? ringColor
-          : isMinor30
-          ? `${textColor}99`
-          : `${textColor}44`;
+        const stroke = isMajor ? BRASS_HI : isMid ? BRASS_MID : isMinor30 ? BRASS_DIM : `${BRASS_DIM}99`;
         return (
           <Line
             key={deg}
             x1={CX + r1 * Math.cos(rad)} y1={CX + r1 * Math.sin(rad)}
             x2={CX + r2 * Math.cos(rad)} y2={CX + r2 * Math.sin(rad)}
             stroke={stroke}
-            strokeWidth={isMajor ? 2.5 : isMid ? 1.8 : 1}
-            opacity={isMajor ? 1 : 0.85}
+            strokeWidth={isMajor ? 2 : isMid ? 1.5 : 1}
+            opacity={isMajor ? 0.95 : 0.8}
           />
         );
       })}
 
-      {/* ── Degree number labels ─────────────────────────── */}
+      {/* ── Engraved degree numerals ────────────────────── */}
       {degreeLabels.map((deg) => {
         const rad = (deg - 90) * (Math.PI / 180);
         const r = OUTER_R - 24;
@@ -347,41 +363,25 @@ function CompassFace({
             key={deg}
             x={CX + r * Math.cos(rad)} y={CX + r * Math.sin(rad)}
             textAnchor="middle" dominantBaseline="central"
-            fill={textColor} fontSize="8" opacity={0.6}
+            fill={BRASS_DIM} fontSize="8" opacity={0.85}
           >
             {deg}
           </DegText>
         );
       })}
 
-      {/* ── Intercardinal labels (NE/SE/SW/NW) ──────────── */}
-      {intercardinals.map(({ label, angle }) => {
+      {/* ── Arabic cardinal letters (Amiri Quran) ───────── */}
+      {cardinalAngles.map(({ label, angle, color, size }) => {
         const rad = (angle - 90) * (Math.PI / 180);
-        const r = OUTER_R - 22;
-        const IntercardinalText = SvgText as any;
-        return (
-          <IntercardinalText
-            key={label}
-            x={CX + r * Math.cos(rad)} y={CX + r * Math.sin(rad)}
-            textAnchor="middle" dominantBaseline="central"
-            fill={textColor} fontSize="9" opacity={0.75}
-          >
-            {label}
-          </IntercardinalText>
-        );
-      })}
-
-      {/* ── Cardinal labels ──────────────────────────────── */}
-      {cardinalAngles.map(({ label, angle, color, size, weight }) => {
-        const rad = (angle - 90) * (Math.PI / 180);
-        const r = OUTER_R - 21;
+        const r = OUTER_R - 26;
         const CardinalText = SvgText as any;
         return (
           <CardinalText
             key={label}
             x={CX + r * Math.cos(rad)} y={CX + r * Math.sin(rad)}
             textAnchor="middle" dominantBaseline="central"
-            fill={color} fontSize={size.toString()} fontWeight={weight}
+            fill={color} fontSize={size.toString()}
+            fontFamily="AmiriQuran_400Regular"
           >
             {label}
           </CardinalText>
@@ -389,26 +389,37 @@ function CompassFace({
       })}
 
       {/* ── Crosshair lines ──────────────────────────────── */}
-      <Line x1={CX} y1={CX - INNER_R + 4} x2={CX} y2={CX - FACE_R + 2} stroke={ringColor} strokeWidth={0.8} opacity={0.2} />
-      <Line x1={CX} y1={CX + INNER_R - 4} x2={CX} y2={CX + FACE_R - 2} stroke={ringColor} strokeWidth={0.8} opacity={0.2} />
-      <Line x1={CX - INNER_R + 4} y1={CX} x2={CX - FACE_R + 2} y2={CX} stroke={ringColor} strokeWidth={0.8} opacity={0.2} />
-      <Line x1={CX + INNER_R - 4} y1={CX} x2={CX + FACE_R - 2} y2={CX} stroke={ringColor} strokeWidth={0.8} opacity={0.2} />
+      <Line x1={CX} y1={CX - INNER_R + 4} x2={CX} y2={CX - FACE_R + 2} stroke={BRASS_MID} strokeWidth={0.6} opacity={0.18} />
+      <Line x1={CX} y1={CX + INNER_R - 4} x2={CX} y2={CX + FACE_R - 2} stroke={BRASS_MID} strokeWidth={0.6} opacity={0.18} />
+      <Line x1={CX - INNER_R + 4} y1={CX} x2={CX - FACE_R + 2} y2={CX} stroke={BRASS_MID} strokeWidth={0.6} opacity={0.18} />
+      <Line x1={CX + INNER_R - 4} y1={CX} x2={CX + FACE_R - 2} y2={CX} stroke={BRASS_MID} strokeWidth={0.6} opacity={0.18} />
     </Svg>
   );
 }
 
 function QiblaNeedle({ size, aligned }: { size: number; aligned: boolean }) {
   const cx = size / 2;
-  const gold = "#C9933A";
-  const green = "#2ECC71";
-  const needleColor = aligned ? green : gold;
-  const tailColor = aligned ? "rgba(46,204,113,0.55)" : "rgba(40,40,40,0.75)";
+
+  // Brass tones — match CompassFace
+  const BRASS_HI = "#ebd7a3";
+  const BRASS_MID = "#D4A017";
+  const BRASS_LO = "#5b461c";
+  const BRASS_DARK = "#2a2110";
+  const GREEN_LOCK = "#2ECC71";
+
+  // When aligned, swap brass for emerald — the lock moment must be visually unmistakable
+  const lightSide = aligned ? "#7ee0a8" : BRASS_HI;
+  const midSide = aligned ? GREEN_LOCK : BRASS_MID;
+  const darkSide = aligned ? "#0e6b3a" : BRASS_LO;
+  const tailDark = aligned ? "rgba(14,107,58,0.85)" : BRASS_DARK;
+  const tailDarker = aligned ? "rgba(6,40,22,0.95)" : "#1a140a";
+  const accent = aligned ? GREEN_LOCK : BRASS_MID;
 
   // Needle geometry — kept well inside the SVG bounds
   const tipY = cx - size * 0.32;   // top tip:  150 - 96 = 54px from top ✓
   const baseY = cx + size * 0.22;  // bottom:   150 + 66 = 216px ✓
-  const halfW = 12;
-  const tailHalfW = 8;
+  const halfW = 11;
+  const tailHalfW = 7;
 
   // Kaaba icon centred just inside the upper needle face
   const kaabaW = 20;
@@ -423,49 +434,87 @@ function QiblaNeedle({ size, aligned }: { size: number; aligned: boolean }) {
 
   return (
     <Svg width={size} height={size}>
-      {/* ── Qibla (top) half — gold/green ──────────────── */}
+      <Defs>
+        {/* Bright (left) side of needle — top-lit brass / emerald */}
+        <LinearGradient id="needleLight" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0%" stopColor={lightSide} stopOpacity="1" />
+          <Stop offset="100%" stopColor={midSide} stopOpacity="1" />
+        </LinearGradient>
+        {/* Shadowed (right) side of needle */}
+        <LinearGradient id="needleDark" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0%" stopColor={midSide} stopOpacity="1" />
+          <Stop offset="100%" stopColor={darkSide} stopOpacity="1" />
+        </LinearGradient>
+        {/* Tail — dark steel/iron */}
+        <LinearGradient id="tailLeft" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0%" stopColor={tailDark} stopOpacity="1" />
+          <Stop offset="100%" stopColor={tailDarker} stopOpacity="1" />
+        </LinearGradient>
+        <LinearGradient id="tailRight" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0%" stopColor={tailDarker} stopOpacity="1" />
+          <Stop offset="100%" stopColor="#06040a" stopOpacity="1" />
+        </LinearGradient>
+        {/* Brass pivot — polished orb */}
+        <RadialGradient id="pivotGrad" cx="35%" cy="30%" r="70%">
+          <Stop offset="0%" stopColor={lightSide} stopOpacity="1" />
+          <Stop offset="55%" stopColor={midSide} stopOpacity="1" />
+          <Stop offset="100%" stopColor={darkSide} stopOpacity="1" />
+        </RadialGradient>
+      </Defs>
+
+      {/* ── Qibla (top) half — split-shaded brass ridge ── */}
+      {/* Light (left) face */}
       <Path
-        d={`M ${cx} ${tipY} L ${cx - halfW} ${cx} L ${cx} ${cx + 6} L ${cx + halfW} ${cx} Z`}
-        fill={needleColor}
-        opacity={0.97}
+        d={`M ${cx} ${tipY} L ${cx - halfW} ${cx} L ${cx} ${cx + 4} Z`}
+        fill="url(#needleLight)"
       />
-      {/* Depth shading */}
+      {/* Dark (right) face */}
       <Path
-        d={`M ${cx} ${tipY} L ${cx - halfW} ${cx} L ${cx} ${cx + 6} Z`}
-        fill="rgba(0,0,0,0.14)"
+        d={`M ${cx} ${tipY} L ${cx + halfW} ${cx} L ${cx} ${cx + 4} Z`}
+        fill="url(#needleDark)"
       />
-      {/* Highlight streak */}
+      {/* Crisp center ridge highlight */}
+      <Line x1={cx} y1={tipY + 2} x2={cx} y2={cx + 2} stroke={lightSide} strokeWidth={0.6} opacity={0.7} />
+
+      {/* Garnet inlay near the tip (skip when locked — green tip stands on its own) */}
+      {!aligned && (
+        <>
+          <Circle cx={cx} cy={tipY + 14} r={2.4} fill="#8b0000" />
+          <Circle cx={cx} cy={tipY + 14} r={2.4} fill="none" stroke={BRASS_HI} strokeWidth={0.6} opacity={0.8} />
+          <Circle cx={cx - 0.6} cy={tipY + 13.4} r={0.6} fill="#ffb0b0" opacity={0.8} />
+        </>
+      )}
+
+      {/* ── Tail (bottom) half — dark forged steel ──────── */}
       <Path
-        d={`M ${cx} ${tipY + 8} L ${cx - halfW * 0.3} ${cx - 6} L ${cx} ${cx - 8} Z`}
-        fill="rgba(255,255,255,0.22)"
+        d={`M ${cx - tailHalfW} ${cx} L ${cx} ${cx + 4} L ${cx} ${baseY} Z`}
+        fill="url(#tailLeft)"
+      />
+      <Path
+        d={`M ${cx + tailHalfW} ${cx} L ${cx} ${cx + 4} L ${cx} ${baseY} Z`}
+        fill="url(#tailRight)"
       />
 
-      {/* ── Tail (bottom) half — dark ───────────────────── */}
-      <Path
-        d={`M ${cx - tailHalfW} ${cx} L ${cx} ${cx + 6} L ${cx + tailHalfW} ${cx} L ${cx} ${baseY} Z`}
-        fill={tailColor}
-      />
-
-      {/* ── Ka'bah icon inside the needle tip ────────────── */}
+      {/* ── Ka'bah icon at the needle tip ────────────────── */}
       {/* Finial pole from needle tip to Ka'bah base */}
-      <Rect x={cx - 1.2} y={poleTop} width={2.4} height={Math.max(poleBot - poleTop, 0)} fill={needleColor} opacity={0.7} rx={1} />
+      <Rect x={cx - 1.1} y={poleTop} width={2.2} height={Math.max(poleBot - poleTop, 0)} fill={accent} opacity={0.75} rx={1} />
 
       {/* Ka'bah body */}
       <Rect
         x={kaabaX} y={kaabaTY}
         width={kaabaW} height={kaabaH}
         rx={1.5}
-        fill="#061008"
-        stroke={needleColor}
-        strokeWidth={1.4}
-        opacity={0.97}
+        fill="#000"
+        stroke={accent}
+        strokeWidth={1.3}
+        opacity={0.98}
       />
       {/* Kiswa stripe */}
       <Rect
         x={kaabaX} y={kaabaTY + kaabaH * 0.28}
         width={kaabaW} height={kaabaH * 0.17}
-        fill={needleColor}
-        opacity={0.75}
+        fill={accent}
+        opacity={0.85}
       />
       {/* Door arch */}
       <Path
@@ -473,17 +522,21 @@ function QiblaNeedle({ size, aligned }: { size: number; aligned: boolean }) {
             L ${cx - 3} ${kaabaTY + kaabaH * 0.6}
             A 3 3 0 0 1 ${cx + 3} ${kaabaTY + kaabaH * 0.6}
             L ${cx + 3} ${kaabaTY + kaabaH - 1} Z`}
-        fill={needleColor}
-        opacity={0.35}
+        fill={accent}
+        opacity={0.4}
       />
       {/* Steps */}
-      <Rect x={kaabaX - 2} y={kaabaTY + kaabaH} width={kaabaW + 4} height={2} rx={0.8} fill={needleColor} opacity={0.5} />
-      <Rect x={kaabaX - 4} y={kaabaTY + kaabaH + 2} width={kaabaW + 8} height={1.5} rx={0.8} fill={needleColor} opacity={0.3} />
+      <Rect x={kaabaX - 2} y={kaabaTY + kaabaH} width={kaabaW + 4} height={2} rx={0.8} fill={accent} opacity={0.55} />
+      <Rect x={kaabaX - 4} y={kaabaTY + kaabaH + 2} width={kaabaW + 8} height={1.5} rx={0.8} fill={accent} opacity={0.32} />
 
-      {/* ── Center pivot ─────────────────────────────────── */}
-      <Circle cx={cx} cy={cx} r={14} fill="#061008" stroke={needleColor} strokeWidth={2.2} opacity={0.97} />
-      <Circle cx={cx} cy={cx} r={7} fill={needleColor} opacity={0.92} />
-      <Circle cx={cx} cy={cx} r={3} fill="#fff" opacity={0.8} />
+      {/* ── Brass center pivot ───────────────────────────── */}
+      {/* Outer shadow ring */}
+      <Circle cx={cx} cy={cx + 1.5} r={15} fill="#000" opacity={0.45} />
+      {/* Polished orb */}
+      <Circle cx={cx} cy={cx} r={14} fill="url(#pivotGrad)" />
+      {/* Engraved socket */}
+      <Circle cx={cx} cy={cx} r={5.5} fill="#0a0804" opacity={0.85} />
+      <Circle cx={cx - 1.2} cy={cx - 1.2} r={1.4} fill={lightSide} opacity={0.6} />
     </Svg>
   );
 }
