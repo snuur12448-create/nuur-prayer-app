@@ -193,9 +193,13 @@ function KaabahSilhouette({ size, color }: { size: number; color: string }) {
   );
 }
 
-const COMPASS_SIZE = 300;
+// SVG canvas needs ~16px breathing room around the dial: the brass bezel
+// extends OUTER_R+7 from center and the drop-shadow even further. We keep the
+// visual dial size identical (OUTER_R = 144 just like before) and grow the
+// outer canvas instead, so the bezel + shadow no longer get clipped.
+const COMPASS_SIZE = 316;
 const CX = COMPASS_SIZE / 2;
-const OUTER_R = COMPASS_SIZE / 2 - 6;
+const OUTER_R = COMPASS_SIZE / 2 - 14; // = 144 (preserves prior dial diameter)
 const INNER_R = OUTER_R - 28;
 const FACE_R = INNER_R - 4;
 
