@@ -84,11 +84,11 @@ export default function Manuscript() {
         </div>
 
         {/* Medallion */}
-        <div className={\`w-16 h-16 rounded-full border border-[#D4AF37] flex flex-col items-center justify-center transition-all duration-500 \${isComplete ? 'bg-[#D4AF37] text-[#0B1510] shadow-[0_0_20px_rgba(212,175,55,0.4)]' : 'bg-[#0B1510] text-[#D4AF37]'}\`}>
+        <div className={`w-16 h-16 rounded-full border border-[#D4AF37] flex flex-col items-center justify-center transition-all duration-500 \${isComplete ? 'bg-[#D4AF37] text-[#0B1510] shadow-[0_0_20px_rgba(212,175,55,0.4)]' : 'bg-[#0B1510] text-[#D4AF37]'}`}>
           <span className="text-sm font-medium opacity-80 leading-tight">
             {count}
           </span>
-          <div className={\`w-6 h-[1px] my-0.5 \${isComplete ? 'bg-[#0B1510]/30' : 'bg-[#D4AF37]/30'}\`} />
+          <div className={`w-6 h-[1px] my-0.5 \${isComplete ? 'bg-[#0B1510]/30' : 'bg-[#D4AF37]/30'}`} />
           <span className="text-xs font-medium opacity-60 leading-tight">
             {target}
           </span>
@@ -100,7 +100,7 @@ export default function Manuscript() {
         <div className="relative w-full text-center">
           <h1 
             dir="rtl"
-            className={\`font-['Amiri_Quran'] text-[80px] leading-[1.4] pb-4 \${isAnimating ? 'calligraphy-shimmer' : 'calligraphy-idle'} transition-colors duration-300\`}
+            className={`font-['Amiri_Quran'] text-[80px] leading-[1.4] pb-4 \${isAnimating ? 'calligraphy-shimmer' : 'calligraphy-idle'} transition-colors duration-300`}
             style={{ textShadow: isAnimating ? 'none' : '0 4px 24px rgba(212, 175, 55, 0.15)' }}
           >
             سُبْحَانَ اللَّهِ
@@ -129,7 +129,7 @@ export default function Manuscript() {
         </div>
 
         {/* Completion Ornament */}
-        <div className={\`mt-12 flex flex-col items-center transition-all duration-700 \${isComplete ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}\`}>
+        <div className={`mt-12 flex flex-col items-center transition-all duration-700 \${isComplete ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <div className="w-8 h-8 rounded-full bg-[#D4AF37]/10 flex items-center justify-center mb-2">
             <Check size={16} className="text-[#D4AF37]" strokeWidth={2} />
           </div>
