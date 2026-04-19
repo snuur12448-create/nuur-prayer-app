@@ -978,7 +978,12 @@ export default function QuranDetailScreen() {
           <Feather name="mic" size={15} color={colors.tint} />
         </TouchableOpacity>
 
-        <View style={styles.controlsRight}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.controlsRight}
+          style={styles.controlsScroll}
+        >
           {/* Hafidh Mode toggle */}
           <TouchableOpacity
             style={[styles.hafidhToggleBtn, {
@@ -1066,7 +1071,7 @@ export default function QuranDetailScreen() {
               <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>EN</Text>
             </>
           )}
-        </View>
+        </ScrollView>
       </View>
 
       {/* Hafidh Mode banner */}
@@ -1449,7 +1454,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  controlsRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  // Right-side controls scroll horizontally so the EN toggle + label always
+  // have room even when many chips are visible (Play All, speed, repeat,
+  // A-B-C, W·W, EN). flexShrink + minWidth: 0 lets the ScrollView claim only
+  // the leftover row space after the fixed mic button on the left.
+  controlsScroll: { flex: 1, flexShrink: 1, minWidth: 0 },
+  controlsRight: { flexDirection: "row", alignItems: "center", gap: 8, paddingRight: 4, justifyContent: "flex-end", flexGrow: 1 },
   playAllBtn: {
     flexDirection: "row",
     alignItems: "center",
