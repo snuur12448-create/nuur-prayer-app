@@ -19,8 +19,9 @@ import {
   ALL_DAYS,
   DAY_LABELS,
   formatDays,
+  isOffsetPrayer as isOffsetPrayerKey,
   NOTIF_TYPES,
-  SUNRISE_NOTIF_TYPES,
+  OFFSET_NOTIF_TYPES,
   SUNRISE_MINUTES_OPTIONS,
   SunriseMinutesBefore,
   NotifTypeInfo,
@@ -54,7 +55,12 @@ export function PrayerNotifSheet({
   const slideY = useRef(new Animated.Value(600)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
+  const isOffset = isOffsetPrayerKey(prayerKey);
   const isSunrise = prayerKey === "sunrise";
+  const isTahajjud = prayerKey === "tahajjud";
+  // Copy that adapts to the offset event being scheduled against.
+  const offsetEventLabel = isTahajjud ? "last third" : "sunrise";
+  const offsetReminderHint = isTahajjud ? "Remind before last third" : "Remind before sunrise";
 
   // Local editable state
   const [enabled, setEnabled] = useState(settings.enabled);
@@ -71,11 +77,11 @@ export function PrayerNotifSheet({
   useEffect(() => {
     if (visible) {
       setEnabled(settings.enabled);
-      setType(isSunrise ? (settings.type === "adhan" ? "notification" : settings.type) : settings.type);
+      setType(isOffset ? (settings.type === "adhan" ? "notification" : settings.type) : settings.type);
       setAdhanStyleId(settings.adhanStyleId);
       setAdhanMode(settings.adhanMode);
       setDays([...settings.days]);
-      setMinutesBefore((settings.minutesBefore as SunriseMinutesBefore) ?? 20);
+      setMinutesBefore((settings.minutesBefore as SunriseMinutesBefore) ?? (isTahajjud ? 30 : 20));
       setReciterExpanded(false);
       Animated.parallel([
         Animated.spring(slideY, { toValue: 0, useNativeDriver: false, tension: 65, friction: 11 }),
@@ -123,7 +129,7 @@ export function PrayerNotifSheet({
       adhanStyleId,
       adhanMode,
       days: newDays,
-      ...(isSunrise ? { minutesBefore } : {}),
+      ...(isOffset ? { minutesBefore } : {}),
     });
     handleClose();
   };
@@ -141,18 +147,18 @@ export function PrayerNotifSheet({
   const CARD_BG = colors.surfaceElevated ?? "#23202C";
   const INNER_BG = colors.background ?? "#1A1822";
 
-  const typeOptions = isSunrise ? SUNRISE_NOTIF_TYPES : NOTIF_TYPES;
+  const typeOptions = isOffset ? OFFSET_NOTIF_TYPES : NOTIF_TYPES;
 
   // Live preview line — borrowed from "Stage" hypothesis: shows what will actually fire.
   const previewLine = useMemo(() => {
     if (!enabled) return { icon: "bell-off" as const, text: "Notifications off for this prayer" };
-    if (isSunrise) {
+    if (isOffset) {
+      const icon = type === "silent" ? ("bell-off" as const) : (isTahajjud ? ("moon" as const) : ("sunrise" as const));
+      const tail = type === "silent" ? "" : " · default chime";
+      const prefix = type === "silent" ? "Silent reminder" : "Reminder";
       return {
-        icon: type === "silent" ? ("bell-off" as const) : ("sunrise" as const),
-        text:
-          type === "silent"
-            ? `Silent reminder ${minutesBefore} min before sunrise`
-            : `Reminder ${minutesBefore} min before sunrise · default chime`,
+        icon,
+        text: `${prefix} ${minutesBefore} min before ${offsetEventLabel}${tail}`,
       };
     }
     if (type === "silent") return { icon: "bell-off" as const, text: "Silent — vibrate only" };
@@ -161,7 +167,7 @@ export function PrayerNotifSheet({
     const reciterName = reciter?.name ?? "Adhan";
     const length = adhanMode === "full" ? "Full ~3–5 min" : "Short ~2 min";
     return { icon: "volume-2" as const, text: `${reciterName} · ${length}` };
-  }, [enabled, type, adhanStyleId, adhanMode, minutesBefore, isSunrise]);
+  }, [enabled, type, adhanStyleId, adhanMode, minutesBefore, isOffset, isTahajjud, offsetEventLabel]);
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose} statusBarTranslucent>
@@ -287,10 +293,10 @@ export function PrayerNotifSheet({
               {enabled && (
                 <>
                   {/* ROW 2 — Alert Type segmented OR (sunrise) Reminder Before */}
-                  {isSunrise ? (
+                  {isOffset ? (
                     <View style={[styles.rowDivider, styles.sectionPad, { borderBottomColor: colors.border }]}>
                       <View style={styles.miniLabelRow}>
-                        <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Remind before sunrise</Text>
+                        <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>{offsetReminderHint}</Text>
                       </View>
                       <View style={styles.minutesRow}>
                         {SUNRISE_MINUTES_OPTIONS.map((min) => {
@@ -370,7 +376,7 @@ export function PrayerNotifSheet({
                   )}
 
                   {/* ROW 3 — Adhan options (collapsible reciter + length toggle) */}
-                  {!isSunrise && type === "adhan" && (
+                  {!isOffset && type === "adhan" && (
                     <View style={{ backgroundColor: INNER_BG + "66" }}>
                       {/* Reciter — single tappable row that expands inline */}
                       <TouchableOpacity

@@ -1,7 +1,22 @@
 import { AdhanMode, DEFAULT_ADHAN_MODE, DEFAULT_ADHAN_STYLE_ID } from "./adhanData";
 
 export type PrayerNotifType = "silent" | "notification" | "adhan";
-export type PrayerKey = "fajr" | "dhuhr" | "asr" | "maghrib" | "isha" | "sunrise";
+export type PrayerKey =
+  | "fajr"
+  | "dhuhr"
+  | "asr"
+  | "maghrib"
+  | "isha"
+  | "sunrise"
+  | "tahajjud";
+
+// Offset prayers are pseudo-prayers fired *relative to* an astronomical event
+// (Sunrise = end of Fajr window; Tahajjud = start of the last third of night).
+// They never play an adhan and are scheduled with a `minutesBefore` lead time.
+export const OFFSET_PRAYER_KEYS: PrayerKey[] = ["sunrise", "tahajjud"];
+export function isOffsetPrayer(k: PrayerKey): boolean {
+  return k === "sunrise" || k === "tahajjud";
+}
 
 export interface PrayerNotifSettings {
   enabled: boolean;
@@ -9,7 +24,7 @@ export interface PrayerNotifSettings {
   adhanStyleId: string;
   adhanMode: AdhanMode;
   days: number[]; // 0=Sun … 6=Sat; all 7 = every day
-  minutesBefore?: 10 | 20 | 30; // Sunrise only — reminder X min before sunrise
+  minutesBefore?: 10 | 20 | 30; // Offset prayers only (Sunrise / Tahajjud)
 }
 
 export type PrayerNotifConfig = Record<PrayerKey, PrayerNotifSettings>;
@@ -38,31 +53,45 @@ export const DEFAULT_SUNRISE_NOTIF_SETTINGS: PrayerNotifSettings = {
   minutesBefore: 20,
 };
 
+// Tahajjud defaults: off (would otherwise wake people at ~3 AM unsolicited),
+// 30-minute lead time so the user has time to do wudu before the window opens.
+export const DEFAULT_TAHAJJUD_NOTIF_SETTINGS: PrayerNotifSettings = {
+  enabled: false,
+  type: "notification",
+  adhanStyleId: DEFAULT_ADHAN_STYLE_ID,
+  adhanMode: DEFAULT_ADHAN_MODE,
+  days: [...ALL_DAYS],
+  minutesBefore: 30,
+};
+
 export const DEFAULT_PRAYER_NOTIF_CONFIG: PrayerNotifConfig = {
-  fajr:    { ...DEFAULT_PRAYER_NOTIF_SETTINGS },
-  sunrise: { ...DEFAULT_SUNRISE_NOTIF_SETTINGS },
-  dhuhr:   { ...DEFAULT_PRAYER_NOTIF_SETTINGS },
-  asr:     { ...DEFAULT_PRAYER_NOTIF_SETTINGS },
-  maghrib: { ...DEFAULT_PRAYER_NOTIF_SETTINGS },
-  isha:    { ...DEFAULT_PRAYER_NOTIF_SETTINGS },
+  fajr:     { ...DEFAULT_PRAYER_NOTIF_SETTINGS },
+  sunrise:  { ...DEFAULT_SUNRISE_NOTIF_SETTINGS },
+  dhuhr:    { ...DEFAULT_PRAYER_NOTIF_SETTINGS },
+  asr:      { ...DEFAULT_PRAYER_NOTIF_SETTINGS },
+  maghrib:  { ...DEFAULT_PRAYER_NOTIF_SETTINGS },
+  isha:     { ...DEFAULT_PRAYER_NOTIF_SETTINGS },
+  tahajjud: { ...DEFAULT_TAHAJJUD_NOTIF_SETTINGS },
 };
 
 export const PRAYER_ARABIC: Record<PrayerKey, string> = {
-  fajr:    "الفجر",
-  sunrise: "الشروق",
-  dhuhr:   "الظهر",
-  asr:     "العصر",
-  maghrib: "المغرب",
-  isha:    "العشاء",
+  fajr:     "الفجر",
+  sunrise:  "الشروق",
+  dhuhr:    "الظهر",
+  asr:      "العصر",
+  maghrib:  "المغرب",
+  isha:     "العشاء",
+  tahajjud: "التهجد",
 };
 
 export const PRAYER_EMOJI: Record<PrayerKey, string> = {
-  fajr:    "🌙",
-  sunrise: "🌅",
-  dhuhr:   "☀️",
-  asr:     "🌤",
-  maghrib: "🌇",
-  isha:    "🌃",
+  fajr:     "🌙",
+  sunrise:  "🌅",
+  dhuhr:    "☀️",
+  asr:      "🌤",
+  maghrib:  "🌇",
+  isha:     "🌃",
+  tahajjud: "🌌",
 };
 
 export interface NotifTypeInfo {
@@ -78,11 +107,13 @@ export const NOTIF_TYPES: NotifTypeInfo[] = [
   { id: "adhan",        label: "Adhan",        icon: "volume-2",  description: "Full adhan played + banner notification" },
 ];
 
-// Sunrise only gets silent + notification (no adhan at sunrise)
+// Offset prayers (Sunrise, Tahajjud) only get silent + notification — there
+// is no adhan associated with either event.
 export const SUNRISE_NOTIF_TYPES: NotifTypeInfo[] = [
   { id: "silent",       label: "Silent",       icon: "bell-off",  description: "Vibrate only — no sound" },
   { id: "notification", label: "Notification", icon: "bell",      description: "Banner alert with default sound" },
 ];
+export const OFFSET_NOTIF_TYPES = SUNRISE_NOTIF_TYPES;
 
 export function formatDays(days: number[]): string {
   if (days.length === 0) return "Never";

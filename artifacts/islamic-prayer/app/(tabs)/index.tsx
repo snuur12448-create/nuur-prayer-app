@@ -356,8 +356,10 @@ export default function PrayerScreen() {
             asr: !!prayerNotifConfig.asr?.enabled,
             maghrib: !!prayerNotifConfig.maghrib?.enabled,
             isha: !!prayerNotifConfig.isha?.enabled,
+            sunrise: !!prayerNotifConfig.sunrise?.enabled,
+            tahajjud: !!prayerNotifConfig.tahajjud?.enabled,
           }}
-          onPrayerSettingsPress={isWeb ? undefined : (k) => setNotifSheetKey(k as PrayerKey)}
+          onPrayerSettingsPress={isWeb ? undefined : (k) => setNotifSheetKey(k)}
           onViewTracker={goTracker}
           onCopyAyah={handleCopyAyah}
           onShareAyah={handleShareAyah}
@@ -384,18 +386,49 @@ export default function PrayerScreen() {
         nextPrayerTimeMs={nextPrayer?.time?.getTime() ?? null}
       />
 
-      {notifSheetKey && prayerTimes?.[notifSheetKey] && (
-        <PrayerNotifSheet
-          visible={!!notifSheetKey}
-          prayerKey={notifSheetKey}
-          prayerName={prayerTimes[notifSheetKey]!.name}
-          prayerTime={prayerTimes[notifSheetKey]!.timeString}
-          settings={prayerNotifConfig[notifSheetKey]}
-          colors={colors}
-          onSave={(s) => setPrayerNotifSettings(notifSheetKey, s)}
-          onClose={() => setNotifSheetKey(null)}
-        />
-      )}
+      {(() => {
+        if (!notifSheetKey || !prayerTimes) return null;
+        // Tahajjud is a pseudo-prayer with no entry in `prayerTimes`. Compute
+        // the start of the last third of the night locally so the sheet can
+        // show today's anchor time in its header. Same math as the dome:
+        // last third = Maghrib + (Fajr_next - Maghrib) * 2/3.
+        let displayName: string;
+        let displayTime: string;
+        if (notifSheetKey === "tahajjud") {
+          const maghribMs = prayerTimes.maghrib.time.getTime();
+          const fajrMs = prayerTimes.fajr.time.getTime();
+          const DAY = 24 * 3600 * 1000;
+          // If today's Fajr already passed Maghrib (normal evening case),
+          // approximate tomorrow's Fajr as fajr + 24h. This is *display only*
+          // for the sheet header — the actual scheduler in notifications.ts
+          // recomputes tomorrow's Fajr properly so day-to-day astronomical
+          // drift (and DST transitions, which can shift the displayed time
+          // by ~1h on the rare cutover day) don't affect what actually fires.
+          const nextFajrMs = fajrMs > maghribMs ? fajrMs : fajrMs + DAY;
+          const lastThirdMs = maghribMs + ((nextFajrMs - maghribMs) * 2) / 3;
+          const d = new Date(lastThirdMs);
+          displayName = "Tahajjud";
+          displayTime = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        } else {
+          // notifSheetKey is now narrowed to a real PrayerTimesResult key.
+          const pt = prayerTimes[notifSheetKey];
+          if (!pt) return null;
+          displayName = pt.name;
+          displayTime = pt.timeString;
+        }
+        return (
+          <PrayerNotifSheet
+            visible={!!notifSheetKey}
+            prayerKey={notifSheetKey}
+            prayerName={displayName}
+            prayerTime={displayTime}
+            settings={prayerNotifConfig[notifSheetKey]}
+            colors={colors}
+            onSave={(s) => setPrayerNotifSettings(notifSheetKey, s)}
+            onClose={() => setNotifSheetKey(null)}
+          />
+        );
+      })()}
 
       <AyahShareSheet
         visible={showAyahShare}

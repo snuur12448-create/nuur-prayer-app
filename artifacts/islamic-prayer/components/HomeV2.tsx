@@ -25,6 +25,7 @@ import Svg, {
 } from "react-native-svg";
 import type { PrayerTimesResult, PrayerTime } from "@/utils/prayerTimes";
 import type { TrackerPrayerKey } from "@/context/PrayerTrackerContext";
+import type { PrayerKey } from "@/utils/prayerNotifData";
 
 /**
  * HomeV2 — Celestial Dome v2 hero for the Prayer home tab.
@@ -231,7 +232,9 @@ export interface HomeV2Props {
 
   /** Per-prayer notification on/off state. Drives the small gold dot rendered
    * next to each tappable prayer anchor on the dome. */
-  notifEnabled?: Partial<Record<TrackerPrayerKey, boolean>>;
+  // Includes the 5 obligatory prayers + offset pseudo-prayers (sunrise, tahajjud)
+  // so the dome can render small "notif on" dots next to the relevant anchors.
+  notifEnabled?: Partial<Record<PrayerKey, boolean>>;
 
   onLocationPress: () => void;
   onCalendarPress: () => void;
@@ -239,7 +242,9 @@ export interface HomeV2Props {
   onTogglePrayed: (key: TrackerPrayerKey) => void;
   /** Tap on any prayer anchor (Fajr/Dhuhr/Asr/Maghrib/Isha) on the dome →
    * open that prayer's notification settings sheet. */
-  onPrayerSettingsPress?: (key: TrackerPrayerKey) => void;
+  // Includes both obligatory prayers and offset pseudo-prayers
+  // (sunrise, tahajjud) so the dome anchors for those events are tappable.
+  onPrayerSettingsPress?: (key: PrayerKey) => void;
   onViewTracker: () => void;
   onCopyAyah: () => void;
   onShareAyah: () => void;
@@ -961,9 +966,15 @@ export function HomeV2(props: HomeV2Props) {
                     {a.sub}
                   </SvgText>
                 )}
-                {isPrayer && notifEnabled?.[a.id as "fajr" | "isha"] && (
-                  <Circle cx={x + 13} cy={y - 8} r={2} fill="#FFD27A" opacity={0.95} />
-                )}
+                {/* Gold "notif on" dot — shown for any anchor whose
+                    notification is enabled (Maghrib/Isha/Fajr by id directly,
+                    plus Last 1/3 → tahajjud and Sunrise → sunrise). */}
+                {(() => {
+                  const notifKey =
+                    a.id === "lastThird" ? "tahajjud" : (a.id as PrayerKey);
+                  if (!notifEnabled?.[notifKey]) return null;
+                  return <Circle cx={x + 13} cy={y - 8} r={2} fill="#FFD27A" opacity={0.95} />;
+                })()}
               </G>
             );
           })}
@@ -1083,11 +1094,21 @@ export function HomeV2(props: HomeV2Props) {
             })}
             {/* Night-scene tap targets — anchored to the same arc the user is
                 actually looking at (Maghrib · Isha · Last 1/3 · Fajr · Sunrise).
-                Only the three real prayers (Maghrib/Isha/Fajr) open settings;
-                Last 1/3 and Sunrise are informational anchors and skip the
-                pressable so taps fall through. */}
+                The three obligatory prayers open their own settings. The
+                Last 1/3 anchor maps to the "tahajjud" pseudo-prayer and the
+                Sunrise gateway maps to the "sunrise" pseudo-prayer — both open
+                the same notification sheet so the user can configure a
+                wake/heads-up reminder ahead of those moments. */}
             {nightActive && nightArcPrayers.map((p) => {
-              if (p.id !== "maghrib" && p.id !== "isha" && p.id !== "fajr") return null;
+              const settingsKey: PrayerKey | null =
+                p.id === "maghrib" || p.id === "isha" || p.id === "fajr"
+                  ? p.id
+                  : p.id === "lastThird"
+                  ? "tahajjud"
+                  : p.id === "sunrise"
+                  ? "sunrise"
+                  : null;
+              if (!settingsKey) return null;
               const r = (p.angle * Math.PI) / 180;
               const x = cx + R * Math.cos(r);
               const y = cy + R * Math.sin(r);
@@ -1098,7 +1119,7 @@ export function HomeV2(props: HomeV2Props) {
                   accessibilityLabel={`${p.label} notification settings`}
                   onPress={() => {
                     tapHaptic("selection");
-                    onPrayerSettingsPress(p.id as TrackerPrayerKey);
+                    onPrayerSettingsPress(settingsKey);
                   }}
                   hitSlop={6}
                   style={{

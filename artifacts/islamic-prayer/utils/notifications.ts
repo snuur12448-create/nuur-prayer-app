@@ -40,7 +40,11 @@ async function readPreReminderMinutes(): Promise<number> {
   }
 }
 
-const PRAYER_KEYS: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+// Only the 5 obligatory prayers go through the per-day scheduling loop.
+// Sunrise + Tahajjud are pseudo-prayers and are scheduled in their own
+// dedicated blocks below (different time math, no adhan).
+type ObligatoryPrayerKey = "fajr" | "dhuhr" | "asr" | "maghrib" | "isha";
+const PRAYER_KEYS: ObligatoryPrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
 
 const PRAYER_EMOJI: Record<string, string> = {
   Fajr: "🌙",
@@ -359,6 +363,44 @@ export async function schedulePrayerNotifications(
             },
             trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderTime },
           });
+        }
+      }
+    }
+
+    // ── Tahajjud reminder (X minutes before the last third of the night) ──
+    // Last third = Maghrib + (Fajr_next - Maghrib) * 2/3. We use *tomorrow's*
+    // Fajr because the night runs from today's Maghrib into tomorrow morning,
+    // so the last-third anchor lives in tomorrow's calendar day. The reminder
+    // is then placed `minutesBefore` ahead of that anchor so the user has
+    // time to do wudu before the window opens.
+    const tahajjudCfg = prayerNotifConfig?.tahajjud;
+    if (tahajjudCfg?.enabled) {
+      const minutesBefore = tahajjudCfg.minutesBefore ?? 30;
+      const tomorrow = new Date(targetDate);
+      tomorrow.setDate(targetDate.getDate() + 1);
+      const tomorrowRaw = calculatePrayerTimes(lat, lng, tz, tomorrow, calcMethodId, madhabId, highLatRuleId);
+      const tomorrowTimes = applyPrayerOffsets(tomorrowRaw, offsets, tz, "12h");
+      const maghribMs = times.maghrib.time.getTime();
+      const nextFajrMs = tomorrowTimes.fajr.time.getTime();
+      if (nextFajrMs > maghribMs) {
+        const lastThirdMs = maghribMs + ((nextFajrMs - maghribMs) * 2) / 3;
+        const reminderTime = new Date(lastThirdMs - minutesBefore * 60_000);
+        if (reminderTime > now && snoozeUntil <= reminderTime.getTime()) {
+          const dow = reminderTime.getDay();
+          if (tahajjudCfg.days.includes(dow)) {
+            const sound = resolveNotifSound(tahajjudCfg.type, tahajjudCfg.adhanMode, tahajjudCfg.adhanStyleId);
+            await scheduleOne({
+              content: {
+                title: `🌌 Tahajjud window in ${minutesBefore} min`,
+                body: "The last third of the night is approaching — the most beloved time for night prayer.",
+                sound,
+                interruptionLevel: "timeSensitive",
+                ...(Platform.OS === "android" ? { channelId: "prayer-times" } : {}),
+                data: { type: "prayer", key: "tahajjud", notifType: tahajjudCfg.type },
+              },
+              trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderTime },
+            });
+          }
         }
       }
     }
