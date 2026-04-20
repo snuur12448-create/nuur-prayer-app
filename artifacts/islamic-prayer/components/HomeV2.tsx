@@ -15,6 +15,7 @@ import * as Haptics from "expo-haptics";
 import Svg, {
   Circle,
   Defs,
+  G,
   Line,
   LinearGradient as SvgLinearGradient,
   Path,
@@ -82,6 +83,11 @@ function skyFor(name?: string | null) {
 
 function horizonOf(grad: string[]): string {
   return grad[grad.length - 1];
+}
+
+function formatHm(ms: number): string {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 // ── Color helpers (hex ↔ rgb, mix) ──────────────────────────────────────────
@@ -317,14 +323,44 @@ export function HomeV2(props: HomeV2Props) {
       const f = timeFractionOfDay(nowMs, sunriseMs, sunsetMs);
       return -180 + f * 180;
     }
-    // Night moon: traverses the dome from Maghrib (right horizon) to Sunrise (left).
+    // Night moon: traverses the dome from Maghrib (LEFT horizon, sunset) to
+    // Sunrise (RIGHT horizon, fajr ends). Time reads left→right at night
+    // just like the day, so the moon rises in the upper-left at Isha, hangs
+    // overhead at Last 1/3, and sets at Sunrise on the right.
     const todayMaghribMs = sunsetMs;
     const beforeMaghrib = nowMs < todayMaghribMs;
     const startMs = beforeMaghrib ? todayMaghribMs - 24 * 3600 * 1000 : todayMaghribMs;
     const endMs = sunriseMs > startMs ? sunriseMs : sunriseMs + 24 * 3600 * 1000;
     const f = timeFractionOfNight(nowMs, startMs, endMs);
-    return 0 - f * 180;
+    return -180 + f * 180;
   }, [prayerTimes, nowMs, isDay]);
+
+  // ── Day→Night cross-fade (sunset animation) ──────────────────────────────
+  // Smooth 0..1 ramp tied to Maghrib so the dome morphs from the daytime
+  // scene (sun + Dhuhr/Asr/Maghrib anchors) to the night scene (moon +
+  // Maghrib/Isha/Last1/3/Fajr/Sunrise anchors) over a 30-min window.
+  const nightT = useMemo(() => {
+    if (!prayerTimes) return isNight ? 1 : 0;
+    const maghribMs = prayerTimes.maghrib.time.getTime();
+    const sunriseMs = prayerTimes.sunrise.time.getTime();
+    const SUNSET_FADE_START = maghribMs - 5 * 60 * 1000;
+    const SUNSET_FADE_END = maghribMs + 25 * 60 * 1000;
+    const SUNRISE_FADE_START = sunriseMs - 5 * 60 * 1000;
+    const SUNRISE_FADE_END = sunriseMs + 5 * 60 * 1000;
+    // Pre-dawn (post-midnight, before today's Maghrib): we're still in
+    // last night. Run the sunrise ramp; otherwise solid night = 1.
+    if (nowMs < maghribMs) {
+      if (nowMs <= SUNRISE_FADE_START) return 1;
+      if (nowMs >= SUNRISE_FADE_END) return 0;
+      return 1 - (nowMs - SUNRISE_FADE_START) / (SUNRISE_FADE_END - SUNRISE_FADE_START);
+    }
+    // Post-Maghrib: ramp 0 → 1 across the sunset window.
+    if (nowMs <= SUNSET_FADE_START) return 0;
+    if (nowMs >= SUNSET_FADE_END) return 1;
+    return (nowMs - SUNSET_FADE_START) / (SUNSET_FADE_END - SUNSET_FADE_START);
+  }, [prayerTimes, nowMs, isNight]);
+  const nightActive = nightT > 0.01;
+  const dayActive = nightT < 0.99;
 
   const bodyRad = (bodyDeg * Math.PI) / 180;
   const bodyX = cx + R * Math.cos(bodyRad);
@@ -410,6 +446,107 @@ export function HomeV2(props: HomeV2Props) {
     ];
   }, [prayerTimes, curName, nextPrayer, nowMs, preDawn]);
 
+  // ── Night arc anchors (Maghrib · Isha · Last 1/3 · Fajr · Sunrise) ───────
+  // Mirrors the agreed CelestialDomeNight mockup: at night the dome shows
+  // Maghrib at the LEFT horizon (sunset · night begins), then Isha rising,
+  // Last 1/3 near the apex (tahajjud window), Fajr descending on the right,
+  // and Sunrise at the RIGHT horizon (fajr ends). Replaces the daytime
+  // Dhuhr/Asr/Maghrib arc + the corner Fajr/Isha crescents while at night.
+  type NightArcSpec = {
+    id: "maghrib" | "isha" | "lastThird" | "fajr" | "sunrise";
+    label: string;
+    time: string;
+    ar?: string;
+    sub?: string;
+    angle: number;
+    kind: "prayer" | "gateway" | "window";
+    status: "past" | "now" | "next" | "upcoming";
+  };
+  const nightArcPrayers = useMemo<NightArcSpec[]>(() => {
+    if (!prayerTimes) return [];
+    const maghribMs = prayerTimes.maghrib.time.getTime();
+    const fajrMs = prayerTimes.fajr.time.getTime();
+    const sunriseMs = prayerTimes.sunrise.time.getTime();
+    const ishaMs = prayerTimes.isha.time.getTime();
+    // Night spans: today's Maghrib → tomorrow's Sunrise (wrap if needed).
+    const startMs = nowMs < maghribMs ? maghribMs - 24 * 3600 * 1000 : maghribMs;
+    const endMs = sunriseMs > startMs ? sunriseMs : sunriseMs + 24 * 3600 * 1000;
+    // Normalise prayer timestamps into the active [startMs, endMs] window so
+    // pre-dawn (when "today's" Isha is ~16h in the future) maps Isha back to
+    // *yesterday's* Isha — the one that actually happened during this night.
+    const DAY = 24 * 3600 * 1000;
+    const intoWin = (ms: number) => {
+      let m = ms;
+      if (m < startMs) m += DAY;
+      else if (m > endMs) m -= DAY;
+      return m;
+    };
+    const fajrAdjMs = intoWin(fajrMs);
+    const ishaAdjMs = intoWin(ishaMs);
+    const lastThirdMs = startMs + ((fajrAdjMs - startMs) * 2) / 3;
+    const at = (ms: number) => {
+      const f = Math.max(0, Math.min(1, (ms - startMs) / (endMs - startMs)));
+      return -180 + f * 180;
+    };
+    const nextName = nextPrayer?.name?.toLowerCase();
+    const status = (id: NightArcSpec["id"], ms: number): NightArcSpec["status"] => {
+      if (id === "isha" && curName === "isha") return "now";
+      if (id === "fajr" && curName === "fajr") return "now";
+      if (id === "isha" && nextName === "isha") return "next";
+      if (id === "fajr" && nextName === "fajr") return "next";
+      if (id === "sunrise" && nextName === "sunrise") return "next";
+      if (ms <= nowMs) return "past";
+      return "upcoming";
+    };
+    return [
+      {
+        id: "maghrib",
+        label: "MAGHRIB",
+        time: prayerTimes.maghrib.timeString,
+        sub: "sunset · night begins",
+        angle: at(startMs),
+        kind: "gateway",
+        status: status("maghrib", startMs),
+      },
+      {
+        id: "isha",
+        label: "ISHA",
+        ar: ARABIC.isha,
+        time: prayerTimes.isha.timeString,
+        angle: at(ishaAdjMs),
+        kind: "prayer",
+        status: status("isha", ishaAdjMs),
+      },
+      {
+        id: "lastThird",
+        label: "LAST 1/3",
+        time: formatHm(lastThirdMs),
+        sub: "tahajjud window",
+        angle: at(lastThirdMs),
+        kind: "window",
+        status: status("lastThird", lastThirdMs),
+      },
+      {
+        id: "fajr",
+        label: "FAJR",
+        ar: ARABIC.fajr,
+        time: prayerTimes.fajr.timeString,
+        angle: at(fajrAdjMs),
+        kind: "prayer",
+        status: status("fajr", fajrAdjMs),
+      },
+      {
+        id: "sunrise",
+        label: "SUNRISE",
+        time: prayerTimes.sunrise.timeString,
+        sub: "fajr ends",
+        angle: at(endMs),
+        kind: "gateway",
+        status: status("sunrise", endMs),
+      },
+    ];
+  }, [prayerTimes, curName, nextPrayer, nowMs]);
+
   const stars = useMemo(() => buildStars(isDay ? 1 : 3.2, W, cy), [isDay, W, cy]);
 
   // ── Progress hairline ─────────────────────────────────────────────────────
@@ -421,21 +558,20 @@ export function HomeV2(props: HomeV2Props) {
     if (!prayerTimes) return 0;
     const sunriseMs = prayerTimes.sunrise.time.getTime();
     const maghribMs = prayerTimes.maghrib.time.getTime();
-    const fajrMs = prayerTimes.fajr.time.getTime();
     if (isDay) {
       return timeFractionOfDay(nowMs, sunriseMs, maghribMs);
     }
-    // Night runs from today's Maghrib to tomorrow's Fajr. If we're between
-    // midnight and Fajr, we're in yesterday's night window (so anchor the
-    // start to yesterday's Maghrib).
+    // Night runs from today's Maghrib to tomorrow's Sunrise (the new night
+    // arc convention — Sunrise is the end of night). Wrap if we're in the
+    // pre-dawn window before today's Maghrib.
     const beforeMaghrib = nowMs < maghribMs;
     const startMs = beforeMaghrib ? maghribMs - 24 * 3600 * 1000 : maghribMs;
-    const endMs = fajrMs > startMs ? fajrMs : fajrMs + 24 * 3600 * 1000;
+    const endMs = sunriseMs > startMs ? sunriseMs : sunriseMs + 24 * 3600 * 1000;
     return timeFractionOfNight(nowMs, startMs, endMs);
   }, [prayerTimes, nowMs, isDay]);
 
   const barLeft = isDay ? prayerTimes?.sunrise.timeString ?? "" : prayerTimes?.maghrib.timeString ?? "";
-  const barRight = isDay ? prayerTimes?.maghrib.timeString ?? "" : prayerTimes?.fajr.timeString ?? "";
+  const barRight = isDay ? prayerTimes?.maghrib.timeString ?? "" : prayerTimes?.sunrise.timeString ?? "";
   const barCentre = isDay
     ? `${Math.round(barFraction * 100)}% OF DAYLIGHT`
     : `NIGHT · ${Math.round(barFraction * 100)}% ELAPSED`;
@@ -552,10 +688,11 @@ export function HomeV2(props: HomeV2Props) {
           />
           <Line x1={16} y1={cy} x2={W - 16} y2={cy} stroke={inkSoft(0.32)} strokeWidth={1} />
 
-          {/* Sunrise tick (left horizon). Skipped entirely when there is no
-              location yet — see the inline CTA rendered below. */}
-          {prayerTimes && (
-            <>
+          {/* Sunrise tick (left horizon — daytime convention only). Hidden
+              once we cross into the night scene where Sunrise re-anchors to
+              the right horizon as the end of night. */}
+          {prayerTimes && dayActive && (
+            <G opacity={1 - nightT}>
               <Circle cx={cx - R} cy={cy - 4} r={2.2} fill={inkSoft(0.6)} />
               <SvgText x={cx - R} y={cy - 22} textAnchor="middle" fill={inkSoft(0.55)} fontSize={7.5} fontWeight="700">
                 SUNRISE
@@ -563,11 +700,15 @@ export function HomeV2(props: HomeV2Props) {
               <SvgText x={cx - R} y={cy - 11} textAnchor="middle" fill={inkSoft(0.7)} fontSize={9} fontWeight="600">
                 {prayerTimes.sunrise.timeString}
               </SvgText>
-            </>
+            </G>
           )}
 
-          {/* Daytime arc prayers — only when we have prayer times */}
-          {prayerTimes && arcPrayers.map((p) => {
+          {/* Daytime arc prayers — only when we have prayer times. Fades out
+              as the sunset transition advances so Dhuhr/Asr stop sitting on
+              the dome at night. */}
+          {prayerTimes && dayActive && (
+          <G opacity={1 - nightT}>
+          {arcPrayers.map((p) => {
             const r = (p.angle * Math.PI) / 180;
             const x = cx + R * Math.cos(r);
             const y = cy + R * Math.sin(r);
@@ -636,9 +777,14 @@ export function HomeV2(props: HomeV2Props) {
               </React.Fragment>
             );
           })}
+          </G>
+          )}
 
-          {/* Night-side moons (Fajr / Isha) */}
-          {prayerTimes && nightPrayers.map((p) => {
+          {/* Night-side moons (Fajr / Isha) — daytime convention. Replaced by
+              proper arc anchors once we cross into the night scene. */}
+          {prayerTimes && dayActive && (
+          <G opacity={1 - nightT}>
+          {nightPrayers.map((p) => {
             const isLeft = p.side === "left";
             const x = isLeft ? 28 : W - 28;
             const y = cy + 70;
@@ -720,12 +866,115 @@ export function HomeV2(props: HomeV2Props) {
               </React.Fragment>
             );
           })}
+          </G>
+          )}
 
-          {/* The body (sun OR moon). Glow swells near the horizon and during
-              the explicit twilight window for a "golden hour" feel. Hidden
-              when there is no location to anchor it. */}
-          {prayerTimes && (isDay ? (
-            <>
+          {/* Night arc anchors (Maghrib · Isha · Last 1/3 · Fajr · Sunrise).
+              Reveals as the sunset transition advances. Maghrib pinned to the
+              LEFT horizon (sunset · night begins), Sunrise to the RIGHT
+              (fajr ends), Fajr just before sunrise on the right. Mirrors the
+              CelestialDomeNight mockup. */}
+          {prayerTimes && nightActive && (
+          <G opacity={nightT}>
+          {nightArcPrayers.map((a) => {
+            const r = (a.angle * Math.PI) / 180;
+            const x = cx + R * Math.cos(r);
+            const y = cy + R * Math.sin(r);
+            const isPrayer = a.kind === "prayer";
+            const past = a.status === "past";
+            const now = a.status === "now";
+            const next = a.status === "next";
+            // Apex / above-arc labels: place above the arc, otherwise below.
+            const apex = Math.abs(a.angle + 90) < 12;
+            const moonOnMe = Math.abs(bodyDeg - a.angle) < 8;
+            const above = apex || moonOnMe;
+            const labelDy = above ? -22 : 22;
+            const timeDy = above ? -10 : 33;
+            const subDy = above ? -34 : 44;
+            const anchor: "start" | "middle" | "end" =
+              a.angle <= -120 ? "start" : a.angle >= -10 ? "end" : "middle";
+            const dx = anchor === "start" ? 7 : anchor === "end" ? -7 : 0;
+            const markerColor = isPrayer ? "#FFE4B5" : "rgba(201,212,240,0.7)";
+            const markerR = now ? 7 : isPrayer ? 5 : 3;
+            const groupOp = past ? 0.55 : !isPrayer ? 0.7 : 1;
+
+            return (
+              <G key={`na-${a.id}`} opacity={groupOp}>
+                <Circle
+                  cx={x}
+                  cy={y}
+                  r={markerR}
+                  fill={now || past ? markerColor : "transparent"}
+                  stroke={markerColor}
+                  strokeWidth={now ? 2 : 1.5}
+                />
+                {past && isPrayer && (
+                  <SvgText x={x} y={y + 2.5} textAnchor="middle" fill="#0A0E2A" fontSize={7} fontWeight="900">
+                    ✓
+                  </SvgText>
+                )}
+                {now && (
+                  <Circle cx={x} cy={y} r={11} fill="none" stroke={markerColor} strokeWidth={1} opacity={0.45} />
+                )}
+                {next && (
+                  <Circle
+                    cx={x}
+                    cy={y}
+                    r={9}
+                    fill="none"
+                    stroke={markerColor}
+                    strokeWidth={1}
+                    opacity={0.6}
+                    strokeDasharray="2 2"
+                  />
+                )}
+                <SvgText
+                  x={x + dx}
+                  y={y + labelDy}
+                  textAnchor={anchor}
+                  fill={isPrayer ? "rgba(255,228,181,0.95)" : "rgba(201,212,240,0.85)"}
+                  fontSize={isPrayer ? 9.5 : 8.5}
+                  fontWeight="700"
+                >
+                  {a.label}
+                </SvgText>
+                <SvgText
+                  x={x + dx}
+                  y={y + timeDy}
+                  textAnchor={anchor}
+                  fill={isPrayer ? "rgba(255,228,181,0.7)" : "rgba(201,212,240,0.6)"}
+                  fontSize={9}
+                  fontWeight="500"
+                >
+                  {a.time}
+                </SvgText>
+                {a.sub && (
+                  <SvgText
+                    x={x + dx}
+                    y={y + subDy}
+                    textAnchor={anchor}
+                    fill="rgba(201,212,240,0.42)"
+                    fontSize={7.5}
+                    fontWeight="500"
+                    fontStyle="italic"
+                  >
+                    {a.sub}
+                  </SvgText>
+                )}
+                {isPrayer && notifEnabled?.[a.id as "fajr" | "isha"] && (
+                  <Circle cx={x + 13} cy={y - 8} r={2} fill="#FFD27A" opacity={0.95} />
+                )}
+              </G>
+            );
+          })}
+          </G>
+          )}
+
+          {/* The body (sun by day, moon by night). Cross-fades between the
+              two during the sunset transition. Hidden when there is no
+              location to anchor it. */}
+          {prayerTimes && dayActive && (
+            <G opacity={1 - nightT}>
               {/* Outer warm halo (only visible near horizon / twilight) */}
               {glowBoost > 0.05 && (
                 <Circle
@@ -741,9 +990,10 @@ export function HomeV2(props: HomeV2Props) {
               <SvgText x={bodyX + 18} y={bodyY + 3} fill="#FFF1C4" fontSize={11} fontWeight="700">
                 {nowLabel}
               </SvgText>
-            </>
-          ) : (
-            <>
+            </G>
+          )}
+          {prayerTimes && nightActive && (
+            <G opacity={nightT}>
               {glowBoost > 0.05 && (
                 <Circle
                   cx={bodyX}
@@ -755,45 +1005,13 @@ export function HomeV2(props: HomeV2Props) {
               )}
               <Circle cx={bodyX} cy={bodyY} r={28} fill="url(#moonGlow)" />
               <Circle cx={bodyX} cy={bodyY} r={13} fill="#E8EEFF" />
-              <Circle cx={bodyX + (bodyDeg < -90 ? 6 : -5)} cy={bodyY - 1.5} r={11} fill={grad[0]} />
+              {/* Crescent cut — phase hint, not astronomical */}
+              <Circle cx={bodyX + (bodyDeg < -90 ? -4 : 5)} cy={bodyY - 1.5} r={11} fill={grad[0]} />
               <SvgText x={bodyX + 22} y={bodyY + 3} fill="#E8EEFF" fontSize={11} fontWeight="700">
                 {nowLabel}
               </SvgText>
-            </>
-          ))}
-
-          {/* Last-third-of-night (Tahajjud) marker — only at night, on the
-              horizon line, 2/3 of the way from Maghrib (right) to Sunrise
-              (left). */}
-          {isNight && prayerTimes && (() => {
-            // Night arc runs right→left (Maghrib at cx+R, Sunrise at cx-R).
-            // 2/3 of the way across = cx + R - (4/3)R = cx - R/3.
-            const x = cx - R / 3;
-            return (
-              <>
-                <Line
-                  x1={x}
-                  y1={cy - 6}
-                  x2={x}
-                  y2={cy + 6}
-                  stroke="rgba(201,212,240,0.55)"
-                  strokeWidth={1}
-                  strokeDasharray="2 2"
-                />
-                <SvgText
-                  x={x}
-                  y={cy + 18}
-                  textAnchor="middle"
-                  fill="rgba(201,212,240,0.55)"
-                  fontSize={7.5}
-                  fontWeight="700"
-                  letterSpacing={0.6}
-                >
-                  TAHAJJUD
-                </SvgText>
-              </>
-            );
-          })()}
+            </G>
+          )}
         </Svg>
 
         {/* Tappable hit boxes over each prayer anchor — opens the per-prayer
@@ -963,14 +1181,14 @@ export function HomeV2(props: HomeV2Props) {
           <View
             style={[
               styles.barFill,
-              { width: `${Math.round(progress * 100)}%`, backgroundColor: barAccent },
+              { width: `${Math.round(barFraction * 100)}%`, backgroundColor: barAccent },
             ]}
           />
           <View
             style={[
               styles.barDot,
               {
-                left: `${Math.round(progress * 100)}%`,
+                left: `${Math.round(barFraction * 100)}%`,
                 backgroundColor: barAccent,
                 shadowColor: barAccent,
               },
@@ -1115,6 +1333,102 @@ export function HomeV2(props: HomeV2Props) {
           </View>
         </View>
       </View>
+
+      {/* ───────── EARLIER TODAY (night-mode chip strip) ─────────
+          Once the dome switches into the night scene, the daytime prayers
+          (Fajr/Dhuhr/Asr/Maghrib) leave the arc — surface them here so they
+          stay one tap away. Mirrors the agreed CelestialDomeNight mockup. */}
+      {prayerTimes && nightActive && (
+        <View
+          style={{ paddingHorizontal: 20, paddingTop: 0, paddingBottom: 14, opacity: nightT }}
+        >
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderWidth: 1,
+              borderRadius: 14,
+              paddingVertical: 10,
+              paddingHorizontal: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 9,
+                letterSpacing: 1.4,
+                color: colors.textSecondary,
+                fontWeight: "700",
+                marginRight: 4,
+              }}
+            >
+              EARLIER TODAY
+            </Text>
+            {(["fajr", "dhuhr", "asr", "maghrib"] as const).map((id) => {
+              const src =
+                id === "fajr" ? prayerTimes.fajr
+                  : id === "dhuhr" ? prayerTimes.dhuhr
+                    : id === "asr" ? prayerTimes.asr
+                      : prayerTimes.maghrib;
+              const done = !!prayed[id];
+              const label = id.charAt(0).toUpperCase() + id.slice(1);
+              return (
+                <Pressable
+                  key={id}
+                  onPress={() => handleToggleBud(id)}
+                  hitSlop={6}
+                  style={{
+                    flex: 1,
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 2,
+                    paddingVertical: 4,
+                    paddingHorizontal: 2,
+                    borderRadius: 10,
+                    backgroundColor: done ? colors.gold + "14" : "transparent",
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                    {done ? (
+                      <Feather name="check" size={9} color={colors.gold} />
+                    ) : (
+                      <View
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: 3.5,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                        }}
+                      />
+                    )}
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontWeight: "600",
+                        color: done ? colors.text : colors.textSecondary,
+                      }}
+                    >
+                      {label}
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      fontSize: 8.5,
+                      color: colors.textSecondary,
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    {src.timeString}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       {/* ───────── BANNERS (location-denied / error / auto-method) ───────── */}
       {banners ? <View style={{ paddingHorizontal: 20 }}>{banners}</View> : null}
