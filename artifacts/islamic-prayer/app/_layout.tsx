@@ -20,6 +20,7 @@ import { AdhanOverlay } from "@/components/AdhanOverlay";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NuurSplash } from "@/components/NuurSplash";
 import { Onboarding, ONBOARDING_KEY } from "@/components/Onboarding";
+import { PrayerNotifOnboarding, NOTIF_RITUAL_KEY } from "@/components/PrayerNotifOnboarding";
 import { AppProvider, useAppContext } from "@/context/AppContext";
 import { PrayerTrackerProvider } from "@/context/PrayerTrackerContext";
 import { QuranPlayerProvider } from "@/context/QuranPlayerContext";
@@ -99,6 +100,7 @@ export default function RootLayout() {
   const [animDone, setAnimDone] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+  const [notifRitualDone, setNotifRitualDone] = useState<boolean | null>(null);
   const fontsReady = fontsLoaded || !!fontError;
 
   // Load onboarding status from storage immediately on mount.
@@ -110,6 +112,11 @@ export default function RootLayout() {
       setOnboardingDone(v === "true");
     }).catch(() => {
       setOnboardingDone(true); // fail open — don't block the app
+    });
+    AsyncStorage.getItem(NOTIF_RITUAL_KEY).then((v) => {
+      setNotifRitualDone(v === "true");
+    }).catch(() => {
+      setNotifRitualDone(true); // fail open
     });
   }, []);
 
@@ -138,6 +145,12 @@ export default function RootLayout() {
                   {splashDone && onboardingDone === false && (
                     <Onboarding onComplete={() => setOnboardingDone(true)} />
                   )}
+                  {/* Prayer-notif Ritual — first-time setup after main onboarding */}
+                  {splashDone &&
+                    onboardingDone === true &&
+                    notifRitualDone === false && (
+                      <PrayerNotifOnboarding onComplete={() => setNotifRitualDone(true)} />
+                    )}
                   {/* Custom splash overlay — covers everything until all gates pass */}
                   {!splashDone && (
                     <NuurSplash onComplete={() => setAnimDone(true)} />
