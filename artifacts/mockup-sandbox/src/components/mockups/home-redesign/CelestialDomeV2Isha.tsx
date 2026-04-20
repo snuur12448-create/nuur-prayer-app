@@ -1,8 +1,8 @@
 import React from 'react';
-import { CelestialDomeScene, ISHA_SCENE } from './CelestialDomeV2';
+import { CelestialDomeNightScene, ISHA_NIGHT_SCENE } from './CelestialDomeNight';
 
 export function CelestialDomeV2Isha() {
-  return <CelestialDomeScene scene={ISHA_SCENE} />;
+  return <CelestialDomeNightScene scene={ISHA_NIGHT_SCENE} />;
 }
 
 export default CelestialDomeV2Isha;

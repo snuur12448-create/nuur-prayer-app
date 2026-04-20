@@ -1,8 +1,8 @@
 import React from 'react';
-import { CelestialDomeScene, FAJR_SCENE } from './CelestialDomeV2';
+import { CelestialDomeNightScene, FAJR_NIGHT_SCENE } from './CelestialDomeNight';
 
 export function CelestialDomeV2Fajr() {
-  return <CelestialDomeScene scene={FAJR_SCENE} />;
+  return <CelestialDomeNightScene scene={FAJR_NIGHT_SCENE} />;
 }
 
 export default CelestialDomeV2Fajr;
