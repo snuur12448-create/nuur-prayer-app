@@ -1,11 +1,18 @@
 import { Feather } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActionSheetIOS,
   ActivityIndicator,
+  Alert,
   FlatList,
+  Linking,
+  Modal,
   Platform,
   Pressable,
+  ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -15,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import MosqueMapView from "@/components/MosqueMapView";
+import { useSavedItems } from "@/utils/useSavedItems";
 
 // ── Haversine distance in km ──────────────────────────────────────────────────
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -52,6 +60,20 @@ interface Mosque {
   lon: number;
   distance: number;
   address: string;
+  phone?: string;
+  website?: string;
+  denomination?: string;
+  openingHours?: string;
+  wheelchair?: string;
+}
+
+// Pretty-print the OSM denomination tag (e.g. "sunni" → "Sunni").
+function prettyDenomination(d?: string): string | undefined {
+  if (!d) return undefined;
+  return d
+    .split(/[\s_-]+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
 }
 
 // Multiple Overpass endpoints tried in order until one succeeds.
@@ -94,7 +116,16 @@ function parseElements(elements: OsmElement[], lat: number, lon: number): Mosque
       const streetLine = [housenumber, street].filter(Boolean).join(" ");
       const areaLine   = [suburb, city].filter(Boolean).join(", ");
       const address    = [streetLine, areaLine, postcode].filter(Boolean).join(", ");
-      return { id: el.id, name, nameAr, lat: elLat, lon: elLon, distance: haversineKm(lat, lon, elLat, elLon), address } as Mosque;
+      const phone        = tags["contact:phone"] || tags["phone"] || undefined;
+      const website      = tags["contact:website"] || tags["website"] || undefined;
+      const denomination = prettyDenomination(tags["denomination"]);
+      const openingHours = tags["opening_hours"] || undefined;
+      const wheelchair   = tags["wheelchair"] || undefined;
+      return {
+        id: el.id, name, nameAr, lat: elLat, lon: elLon,
+        distance: haversineKm(lat, lon, elLat, elLon),
+        address, phone, website, denomination, openingHours, wheelchair,
+      } as Mosque;
     })
     .filter((m): m is Mosque => m !== null)
     .sort((a, b) => a.distance - b.distance);
@@ -146,6 +177,37 @@ async function fetchNearbyMosques(
   }
 
   throw new Error("All Overpass endpoints failed");
+}
+
+// ── Open external maps for directions ────────────────────────────────────────
+function openGoogleMapsDir(lat: number, lon: number) {
+  const dest = `${lat},${lon}`;
+  Linking.openURL(`comgooglemaps://?daddr=${dest}&directionsmode=driving`).catch(
+    () => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${dest}`),
+  );
+}
+function openAppleMapsDir(lat: number, lon: number) {
+  const dest = `${lat},${lon}`;
+  Linking.openURL(`maps://?daddr=${dest}&dirflg=d`).catch(() =>
+    Linking.openURL(`https://maps.apple.com/?daddr=${dest}`),
+  );
+}
+function showDirectionsSheet(lat: number, lon: number, name: string) {
+  if (Platform.OS === "ios") {
+    ActionSheetIOS.showActionSheetWithOptions(
+      { title: "Get Directions", message: name, options: ["Google Maps", "Apple Maps", "Cancel"], cancelButtonIndex: 2 },
+      (i) => { if (i === 0) openGoogleMapsDir(lat, lon); else if (i === 1) openAppleMapsDir(lat, lon); },
+    );
+  } else if (Platform.OS === "android") {
+    Alert.alert("Get Directions", name, [
+      { text: "Google Maps", onPress: () => openGoogleMapsDir(lat, lon) },
+      { text: "Apple Maps", onPress: () => openAppleMapsDir(lat, lon) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  } else {
+    // Web — just open Google Maps directions in a new tab.
+    openGoogleMapsDir(lat, lon);
+  }
 }
 
 // ── Mosque silhouette SVG header ──────────────────────────────────────────────
@@ -284,21 +346,35 @@ function MosqueCard({
   mosque,
   colors,
   index,
+  saved,
+  onPress,
+  onToggleSave,
 }: {
   mosque: Mosque;
   colors: any;
   index: number;
+  saved: boolean;
+  onPress: () => void;
+  onToggleSave: () => void;
 }) {
   const isClose = mosque.distance < 0.5;
   const isNear = mosque.distance < 2;
-
   const distColor = isClose ? colors.tint : isNear ? colors.gold : colors.textSecondary;
+  const open247 = (mosque.openingHours || "").trim() === "24/7";
 
   return (
-    <View
-      style={[
+    <Pressable
+      onPress={onPress}
+      android_ripple={{ color: colors.tint + "12" }}
+      accessibilityRole="button"
+      accessibilityLabel={`${mosque.name}, ${fmtDist(mosque.distance)}. Tap for details.`}
+      style={({ pressed }) => [
         styles.card,
-        { backgroundColor: colors.surface, borderColor: index === 0 ? colors.gold + "55" : colors.border },
+        {
+          backgroundColor: colors.surface,
+          borderColor: index === 0 ? colors.gold + "55" : colors.border,
+          opacity: pressed ? 0.85 : 1,
+        },
       ]}
     >
       {/* Rank */}
@@ -308,7 +384,7 @@ function MosqueCard({
         </Text>
       </View>
 
-      {/* Info — name → arabic → address → distance */}
+      {/* Info — name → arabic → address → distance + chips */}
       <View style={styles.cardInfo}>
         <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>
           {mosque.name}
@@ -334,9 +410,260 @@ function MosqueCard({
               <Text style={[styles.nearestText, { color: colors.gold }]}>Nearest</Text>
             </View>
           )}
+          {mosque.denomination ? (
+            <View style={[styles.metaPill, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}>
+              <Text style={[styles.metaPillText, { color: colors.textSecondary }]}>
+                {mosque.denomination}
+              </Text>
+            </View>
+          ) : null}
+          {open247 ? (
+            <View style={[styles.metaPill, { borderColor: colors.tint + "55", backgroundColor: colors.tint + "18" }]}>
+              <Text style={[styles.metaPillText, { color: colors.tint }]}>24/7</Text>
+            </View>
+          ) : null}
         </View>
       </View>
-    </View>
+
+      {/* Save toggle */}
+      <Pressable
+        onPress={(e) => { e.stopPropagation?.(); onToggleSave(); }}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel={saved ? "Remove from saved" : "Save mosque"}
+        accessibilityState={{ selected: saved }}
+        style={styles.cardSaveBtn}
+      >
+        <Feather
+          name="bookmark"
+          size={18}
+          color={saved ? colors.gold : colors.textSecondary}
+          style={saved ? { opacity: 1 } : { opacity: 0.6 }}
+        />
+      </Pressable>
+    </Pressable>
+  );
+}
+
+// ── Detail bottom sheet ──────────────────────────────────────────────────────
+function MosqueDetailSheet({
+  mosque,
+  visible,
+  onClose,
+  colors,
+  saved,
+  onToggleSave,
+}: {
+  mosque: Mosque | null;
+  visible: boolean;
+  onClose: () => void;
+  colors: any;
+  saved: boolean;
+  onToggleSave: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const [copied, setCopied] = useState(false);
+  useEffect(() => { if (!visible) setCopied(false); }, [visible]);
+  if (!mosque) return null;
+
+  const onCopyAddress = async () => {
+    const text = mosque.address || `${mosque.lat.toFixed(5)}, ${mosque.lon.toFixed(5)}`;
+    try {
+      if (Platform.OS === "web") await navigator.clipboard?.writeText(text);
+      else await Clipboard.setStringAsync(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
+  };
+
+  const onShareMosque = async () => {
+    const dest = `${mosque.lat},${mosque.lon}`;
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+    const lines = [
+      mosque.name,
+      mosque.nameAr || null,
+      mosque.address || null,
+      `${fmtDist(mosque.distance)} away`,
+      mapsUrl,
+      "",
+      "Shared from Nuur · نور",
+    ].filter(Boolean) as string[];
+    try {
+      await Share.share({ message: lines.join("\n"), url: mapsUrl, title: mosque.name });
+    } catch {}
+  };
+
+  const onCall = () => {
+    if (!mosque.phone) return;
+    const tel = mosque.phone.replace(/[^\d+]/g, "");
+    Linking.openURL(`tel:${tel}`).catch(() => {});
+  };
+  const onWeb = () => {
+    if (!mosque.website) return;
+    let url = mosque.website.trim();
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+    Linking.openURL(url).catch(() => {});
+  };
+
+  const open247 = (mosque.openingHours || "").trim() === "24/7";
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable
+        style={sheetStyles.backdrop}
+        onPress={onClose}
+        accessibilityLabel="Close mosque details"
+      >
+        {/* Inner Pressable explicitly consumes the event so taps inside the
+            sheet (buttons, links, scroll) never bubble up and dismiss the
+            modal. RN Web bubbles synthetic events to the backdrop without
+            this stopPropagation. */}
+        <Pressable
+          onPress={(e) => { e.stopPropagation?.(); }}
+          accessibilityViewIsModal
+          style={[
+            sheetStyles.sheet,
+            { backgroundColor: colors.surface, paddingBottom: Math.max(insets.bottom, 16) + 12 },
+          ]}
+        >
+          {/* Drag handle */}
+          <View style={[sheetStyles.handle, { backgroundColor: colors.border }]} />
+
+          {/* Header */}
+          <View style={sheetStyles.header}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={[sheetStyles.title, { color: colors.text }]} numberOfLines={2}>
+                {mosque.name}
+              </Text>
+              {mosque.nameAr ? (
+                <Text style={[sheetStyles.titleAr, { color: colors.gold }]} numberOfLines={1}>
+                  {mosque.nameAr}
+                </Text>
+              ) : null}
+            </View>
+            <Pressable
+              onPress={onToggleSave}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={saved ? "Remove from saved" : "Save mosque"}
+              accessibilityState={{ selected: saved }}
+              style={[sheetStyles.iconBtn, { borderColor: colors.border }]}
+            >
+              <Feather name="bookmark" size={18} color={saved ? colors.gold : colors.textSecondary} />
+            </Pressable>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              style={[sheetStyles.iconBtn, { borderColor: colors.border }]}
+            >
+              <Feather name="x" size={18} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+
+          {/* Distance + chips */}
+          <View style={sheetStyles.metaRow}>
+            <View style={[sheetStyles.distChip, { backgroundColor: colors.tint + "1A", borderColor: colors.tint + "55" }]}>
+              <Feather name="navigation" size={11} color={colors.tint} />
+              <Text style={[sheetStyles.distChipText, { color: colors.tint }]}>{fmtDist(mosque.distance)} away</Text>
+            </View>
+            {mosque.denomination ? (
+              <View style={[sheetStyles.chip, { borderColor: colors.border }]}>
+                <Text style={[sheetStyles.chipText, { color: colors.textSecondary }]}>{mosque.denomination}</Text>
+              </View>
+            ) : null}
+            {open247 ? (
+              <View style={[sheetStyles.chip, { backgroundColor: colors.tint + "1A", borderColor: colors.tint + "55" }]}>
+                <Feather name="clock" size={11} color={colors.tint} />
+                <Text style={[sheetStyles.chipText, { color: colors.tint }]}>Open 24/7</Text>
+              </View>
+            ) : null}
+            {mosque.wheelchair === "yes" ? (
+              <View style={[sheetStyles.chip, { borderColor: colors.border }]}>
+                <Feather name="check" size={11} color={colors.textSecondary} />
+                <Text style={[sheetStyles.chipText, { color: colors.textSecondary }]}>Step-free access</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <ScrollView
+            style={{ maxHeight: 320 }}
+            contentContainerStyle={{ paddingBottom: 4 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Address */}
+            {mosque.address ? (
+              <View style={sheetStyles.detailRow}>
+                <Feather name="map-pin" size={14} color={colors.textSecondary} style={{ marginTop: 2 }} />
+                <Text style={[sheetStyles.detailText, { color: colors.text }]}>{mosque.address}</Text>
+              </View>
+            ) : null}
+
+            {/* Opening hours (only when not 24/7 and tag is not just generic) */}
+            {!open247 && mosque.openingHours ? (
+              <View style={sheetStyles.detailRow}>
+                <Feather name="clock" size={14} color={colors.textSecondary} style={{ marginTop: 2 }} />
+                <Text style={[sheetStyles.detailText, { color: colors.text }]}>{mosque.openingHours}</Text>
+              </View>
+            ) : null}
+
+            {/* Phone — tappable */}
+            {mosque.phone ? (
+              <Pressable onPress={onCall} style={sheetStyles.detailRow} accessibilityRole="link" accessibilityLabel={`Call ${mosque.phone}`}>
+                <Feather name="phone" size={14} color={colors.tint} style={{ marginTop: 2 }} />
+                <Text style={[sheetStyles.detailText, { color: colors.tint }]}>{mosque.phone}</Text>
+              </Pressable>
+            ) : null}
+
+            {/* Website — tappable */}
+            {mosque.website ? (
+              <Pressable onPress={onWeb} style={sheetStyles.detailRow} accessibilityRole="link" accessibilityLabel={`Open website ${mosque.website}`}>
+                <Feather name="globe" size={14} color={colors.tint} style={{ marginTop: 2 }} />
+                <Text style={[sheetStyles.detailText, { color: colors.tint }]} numberOfLines={1}>
+                  {mosque.website.replace(/^https?:\/\//i, "")}
+                </Text>
+              </Pressable>
+            ) : null}
+          </ScrollView>
+
+          {/* Primary action */}
+          <Pressable
+            onPress={() => showDirectionsSheet(mosque.lat, mosque.lon, mosque.name)}
+            style={[sheetStyles.primaryBtn, { backgroundColor: colors.tint }]}
+            accessibilityRole="button"
+            accessibilityLabel="Get directions"
+          >
+            <Feather name="navigation" size={15} color="#fff" />
+            <Text style={sheetStyles.primaryBtnText}>Get Directions</Text>
+          </Pressable>
+
+          {/* Secondary actions */}
+          <View style={sheetStyles.actionGrid}>
+            <Pressable
+              onPress={onCopyAddress}
+              style={[sheetStyles.actionBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel={copied ? "Copied" : "Copy address"}
+            >
+              <Feather name={copied ? "check" : "copy"} size={14} color={copied ? colors.gold : colors.textSecondary} />
+              <Text style={[sheetStyles.actionBtnText, { color: copied ? colors.gold : colors.text }]}>
+                {copied ? "Copied" : "Copy address"}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={onShareMosque}
+              style={[sheetStyles.actionBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel="Share mosque"
+            >
+              <Feather name="share-2" size={14} color={colors.textSecondary} />
+              <Text style={[sheetStyles.actionBtnText, { color: colors.text }]}>Share</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -355,8 +682,21 @@ export default function MosquesScreen() {
   const [searched, setSearched] = useState(false);
   const [radiusKm, setRadiusKm] = useState(8);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [activeMosque, setActiveMosque] = useState<Mosque | null>(null);
   // Bumped when user explicitly hits Refresh so the effect fires even if coords didn't change yet
   const [refreshTick, setRefreshTick] = useState(0);
+
+  // Persistent saved mosques — IDs are OSM element ids stringified.
+  const { savedIds, toggle: toggleSaved } = useSavedItems("nuur_saved_mosques");
+  const visibleMosques = useMemo(
+    () => (savedOnly ? mosques.filter((m) => savedIds.has(String(m.id))) : mosques),
+    [mosques, savedOnly, savedIds],
+  );
+  const savedCount = useMemo(
+    () => mosques.reduce((n, m) => n + (savedIds.has(String(m.id)) ? 1 : 0), 0),
+    [mosques, savedIds],
+  );
 
   const search = useCallback(
     async (lat: number, lon: number, km = radiusKm) => {
@@ -468,6 +808,30 @@ export default function MosquesScreen() {
             </Text>
           </Pressable>
         ))}
+        {/* Saved-only filter — only meaningful in list mode */}
+        {viewMode === "list" && (savedCount > 0 || savedOnly) ? (
+          <Pressable
+            onPress={() => setSavedOnly((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={savedOnly ? "Show all mosques" : "Show saved mosques only"}
+            style={[
+              styles.radiusChip,
+              {
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                marginLeft: "auto",
+                backgroundColor: savedOnly ? colors.gold + "20" : colors.surfaceElevated,
+                borderColor: savedOnly ? colors.gold : colors.border,
+              },
+            ]}
+          >
+            <Feather name="bookmark" size={11} color={savedOnly ? colors.gold : colors.textSecondary} />
+            <Text style={[styles.radiusChipText, { color: savedOnly ? colors.gold : colors.textSecondary }]}>
+              Saved {savedCount > 0 ? `· ${savedCount}` : ""}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {/* List / Map toggle */}
@@ -532,13 +896,25 @@ export default function MosquesScreen() {
             <Text style={[styles.retryText, { color: colors.tint }]}>Enable Location</Text>
           </Pressable>
         </View>
-      ) : searched && mosques.length === 0 && viewMode === "list" ? (
+      ) : searched && visibleMosques.length === 0 && viewMode === "list" ? (
         <View style={styles.centred}>
           <Text style={{ fontSize: 40 }}>🕌</Text>
-          <Text style={[styles.stateTitle, { color: colors.text }]}>No mosques found</Text>
-          <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-            Try increasing the search radius
+          <Text style={[styles.stateTitle, { color: colors.text }]}>
+            {savedOnly ? "No saved mosques in range" : "No mosques found"}
           </Text>
+          <Text style={[styles.stateText, { color: colors.textSecondary }]}>
+            {savedOnly
+              ? "Bookmark a mosque from the list to see it here."
+              : "Try increasing the search radius"}
+          </Text>
+          {savedOnly && (
+            <Pressable
+              onPress={() => setSavedOnly(false)}
+              style={[styles.retryBtn, { backgroundColor: colors.tint + "20", borderColor: colors.tint + "55" }]}
+            >
+              <Text style={[styles.retryText, { color: colors.tint }]}>Show all</Text>
+            </Pressable>
+          )}
         </View>
       ) : viewMode === "map" && location && !usingDefaultLocation ? (
         <MosqueMapView
@@ -550,7 +926,7 @@ export default function MosquesScreen() {
         />
       ) : (
         <FlatList
-          data={mosques}
+          data={visibleMosques}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={[
             styles.list,
@@ -558,21 +934,53 @@ export default function MosquesScreen() {
           ]}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            mosques.length > 0 ? (
+            visibleMosques.length > 0 ? (
               <View style={styles.listHeader}>
                 <Text style={[styles.listHeaderText, { color: colors.textSecondary }]}>
-                  {mosques.length} mosque{mosques.length !== 1 ? "s" : ""} within {radiusKm} km
+                  {savedOnly
+                    ? `${visibleMosques.length} saved within ${radiusKm} km`
+                    : `${visibleMosques.length} mosque${visibleMosques.length !== 1 ? "s" : ""} within ${radiusKm} km`}
                 </Text>
                 {loading && <ActivityIndicator size="small" color={colors.tint} />}
               </View>
             ) : null
           }
           renderItem={({ item, index }) => (
-            <MosqueCard mosque={item} colors={colors} index={index} />
+            <MosqueCard
+              mosque={item}
+              colors={colors}
+              index={index}
+              saved={savedIds.has(String(item.id))}
+              onPress={() => setActiveMosque(item)}
+              onToggleSave={() => toggleSaved(String(item.id))}
+            />
           )}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          ListFooterComponent={
+            visibleMosques.length > 0 ? (
+              <Pressable
+                onPress={() => Linking.openURL("https://www.openstreetmap.org/copyright").catch(() => {})}
+                accessibilityRole="link"
+                style={{ paddingVertical: 18, alignItems: "center" }}
+              >
+                <Text style={[styles.attribText, { color: colors.textSecondary }]}>
+                  Mosque data © OpenStreetMap contributors
+                </Text>
+              </Pressable>
+            ) : null
+          }
         />
       )}
+
+      {/* Detail sheet */}
+      <MosqueDetailSheet
+        mosque={activeMosque}
+        visible={!!activeMosque}
+        onClose={() => setActiveMosque(null)}
+        colors={colors}
+        saved={activeMosque ? savedIds.has(String(activeMosque.id)) : false}
+        onToggleSave={() => activeMosque && toggleSaved(String(activeMosque.id))}
+      />
     </View>
   );
 }
@@ -801,5 +1209,150 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.5,
+  },
+  metaPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 7,
+    borderWidth: 1,
+    marginLeft: 4,
+  },
+  metaPillText: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.3,
+  },
+  cardSaveBtn: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    alignSelf: "flex-start",
+  },
+  attribText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    opacity: 0.85,
+    textDecorationLine: "underline",
+  },
+});
+
+const sheetStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+  },
+  handle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    marginBottom: 10,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: -0.2,
+  },
+  titleAr: {
+    fontSize: 14,
+    fontFamily: "AmiriQuran_400Regular",
+    marginTop: 2,
+  },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 12,
+  },
+  distChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  distChipText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    paddingVertical: 10,
+  },
+  detailText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+  },
+  primaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  primaryBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  actionGrid: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
   },
 });
