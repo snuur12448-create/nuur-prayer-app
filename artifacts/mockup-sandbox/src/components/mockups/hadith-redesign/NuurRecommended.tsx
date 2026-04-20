@@ -1,5 +1,24 @@
 import React, { useState } from "react";
-import { Search, Bookmark, Copy, Share2, RefreshCw, ChevronDown, ChevronUp, Star, BookOpen, User } from "lucide-react";
+import { Search, Bookmark, Copy, Share2, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+
+const NuurMark = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="nuurmark-gold" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#E6C173" />
+        <stop offset="100%" stopColor="#8C6420" />
+      </linearGradient>
+      <mask id="nuurmark-crescent">
+        <rect width="40" height="40" fill="black" />
+        <circle cx="20" cy="20" r="11.5" fill="white" />
+        <circle cx="24" cy="18" r="10" fill="black" />
+      </mask>
+    </defs>
+    <circle cx="20" cy="20" r="16.5" fill="none" stroke="url(#nuurmark-gold)" strokeWidth="0.9" opacity="0.9" />
+    <circle cx="20" cy="20" r="11.5" fill="url(#nuurmark-gold)" mask="url(#nuurmark-crescent)" />
+    <polygon points="28,17 30.4,19.6 28,22.2 25.6,19.6" fill="#E6C173" />
+  </svg>
+);
 
 // --- Mock Data ---
 
@@ -207,12 +226,10 @@ export function NuurRecommended() {
               <span className="text-[#C9A14B]/70 font-['Playfair_Display'] text-[10px] tracking-[0.2em] uppercase font-bold">14 Safar 1447</span>
               <div className="flex-1 mx-4 h-px bg-gradient-to-r from-transparent via-[#C9A14B]/40 to-transparent" />
               <div className="flex items-center gap-1.5 border border-[#C9A14B]/30 px-1.5 py-0.5 bg-[#C9A14B]/10 rounded-[2px]">
-                <Star className="w-2.5 h-2.5 text-[#E8CB7B]" fill="currentColor" />
+                <NuurMark size={11} />
                 <span className="text-[8px] tracking-[0.15em] font-bold text-[#E8CB7B]">FEATURED HADITH</span>
               </div>
             </div>
-
-            <div className="font-['Amiri_Quran'] text-2xl text-[#E8CB7B] mb-4">﷽</div>
 
             {/* Arabic */}
             <div className="px-2 mb-6">
