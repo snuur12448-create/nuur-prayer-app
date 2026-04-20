@@ -223,10 +223,17 @@ export interface HomeV2Props {
 
   banners?: React.ReactNode;
 
+  /** Per-prayer notification on/off state. Drives the small gold dot rendered
+   * next to each tappable prayer anchor on the dome. */
+  notifEnabled?: Partial<Record<TrackerPrayerKey, boolean>>;
+
   onLocationPress: () => void;
   onCalendarPress: () => void;
   onBellPress?: () => void;
   onTogglePrayed: (key: TrackerPrayerKey) => void;
+  /** Tap on any prayer anchor (Fajr/Dhuhr/Asr/Maghrib/Isha) on the dome →
+   * open that prayer's notification settings sheet. */
+  onPrayerSettingsPress?: (key: TrackerPrayerKey) => void;
   onViewTracker: () => void;
   onCopyAyah: () => void;
   onShareAyah: () => void;
@@ -261,10 +268,12 @@ export function HomeV2(props: HomeV2Props) {
     ayahCopied,
     bell,
     banners,
+    notifEnabled,
     onLocationPress,
     onCalendarPress,
     onBellPress,
     onTogglePrayed,
+    onPrayerSettingsPress,
     onViewTracker,
     onCopyAyah,
     onShareAyah,
@@ -600,6 +609,9 @@ export function HomeV2(props: HomeV2Props) {
                 >
                   {p.time}
                 </SvgText>
+                {notifEnabled?.[p.id] && (
+                  <Circle cx={x + 13} cy={y - 8} r={2} fill="#FFD27A" opacity={0.95} />
+                )}
               </React.Fragment>
             );
           })}
@@ -675,6 +687,15 @@ export function HomeV2(props: HomeV2Props) {
                 >
                   {now ? "in progress" : p.sub}
                 </SvgText>
+                {notifEnabled?.[p.id] && (
+                  <Circle
+                    cx={isLeft ? x + 12 : x - 12}
+                    cy={y - 12}
+                    r={2}
+                    fill="#FFD27A"
+                    opacity={0.95}
+                  />
+                )}
               </React.Fragment>
             );
           })}
@@ -753,6 +774,72 @@ export function HomeV2(props: HomeV2Props) {
             );
           })()}
         </Svg>
+
+        {/* Tappable hit boxes over each prayer anchor — opens the per-prayer
+            notification settings sheet. These sit above the SVG so the small
+            anchor circles get a generous tap target without breaking the
+            visual. */}
+        {prayerTimes && onPrayerSettingsPress && (
+          <View
+            pointerEvents="box-none"
+            style={{
+              position: "absolute",
+              left: (winW - W) / 2,
+              top: 0,
+              width: W,
+              height: HERO_H,
+            }}
+          >
+            {arcPrayers.map((p) => {
+              const r = (p.angle * Math.PI) / 180;
+              const x = cx + R * Math.cos(r);
+              const y = cy + R * Math.sin(r);
+              return (
+                <Pressable
+                  key={`hit-${p.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${p.en} notification settings`}
+                  onPress={() => {
+                    tapHaptic("selection");
+                    onPrayerSettingsPress(p.id);
+                  }}
+                  hitSlop={6}
+                  style={{
+                    position: "absolute",
+                    left: x - 30,
+                    top: y - 30,
+                    width: 60,
+                    height: 60,
+                  }}
+                />
+              );
+            })}
+            {nightPrayers.map((p) => {
+              const isLeft = p.side === "left";
+              const x = isLeft ? 28 : W - 28;
+              const y = cy + 70;
+              return (
+                <Pressable
+                  key={`hit-${p.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${p.en} notification settings`}
+                  onPress={() => {
+                    tapHaptic("selection");
+                    onPrayerSettingsPress(p.id);
+                  }}
+                  hitSlop={6}
+                  style={{
+                    position: "absolute",
+                    left: isLeft ? x - 14 : x - 70,
+                    top: y - 18,
+                    width: 84,
+                    height: 52,
+                  }}
+                />
+              );
+            })}
+          </View>
+        )}
 
         {/* Empty-state CTA: when there are no prayer times yet, swap the dome
             anchors for a single, calm "Set location" call-to-action so the

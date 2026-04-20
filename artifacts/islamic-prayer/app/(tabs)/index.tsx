@@ -350,6 +350,14 @@ export default function PrayerScreen() {
           onCalendarPress={goCalendar}
           onBellPress={isWeb ? undefined : () => setShowQuickSheet(true)}
           onTogglePrayed={onTogglePrayed}
+          notifEnabled={{
+            fajr: !!prayerNotifConfig.fajr?.enabled,
+            dhuhr: !!prayerNotifConfig.dhuhr?.enabled,
+            asr: !!prayerNotifConfig.asr?.enabled,
+            maghrib: !!prayerNotifConfig.maghrib?.enabled,
+            isha: !!prayerNotifConfig.isha?.enabled,
+          }}
+          onPrayerSettingsPress={isWeb ? undefined : (k) => setNotifSheetKey(k as PrayerKey)}
           onViewTracker={goTracker}
           onCopyAyah={handleCopyAyah}
           onShareAyah={handleShareAyah}
