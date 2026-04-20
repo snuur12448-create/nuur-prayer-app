@@ -1,13 +1,10 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import {
-  ActivityIndicator,
   Linking,
   Platform,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -23,18 +20,11 @@ import { LocationModal } from "@/components/LocationModal";
 import { PrayerNotifSheet } from "@/components/PrayerNotifSheet";
 import { NotifQuickSheet } from "@/components/NotifQuickSheet";
 import AyahShareSheet from "@/components/AyahShareSheet";
-import ContentShareSheet from "@/components/ContentShareSheet";
 import { getIslamicDate } from "@/utils/islamicData";
 import { getDailyAyah, getNightlyAyah } from "@/utils/ayahData";
-import { getDailyHadith } from "@/utils/hadithData";
 import { calculatePrayerTimes, applyPrayerOffsets, getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
 import { PrayerKey } from "@/utils/prayerNotifData";
-import { GuideSection } from "@/components/GuideSection";
-import { MushafLeafVerse } from "@/components/MushafLeafVerse";
-import { HadithScholarsLeaf } from "@/components/HadithScholarsLeaf";
-import { CelestialArcCard } from "@/components/CelestialArcCard";
-import { CelestialDomeNight } from "@/components/CelestialDomeNight";
-import { PrayerStripChip, type PrayerStripStatus } from "@/components/PrayerStripChip";
+import { HomeV2 } from "@/components/HomeV2";
 
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 
@@ -48,24 +38,6 @@ const PRAYER_STATIC: Record<string, [string, string]> = {
   maghrib: ["Maghrib", "المغرب"],
   isha:    ["Isha",    "العشاء"],
 };
-
-// Time-of-day ambient tint — subtle wash overlaid on the header so it shifts
-// across the day. Layered at low alpha over the theme's prayerCard color so
-// each theme keeps its identity (midnight stays midnight, emerald stays
-// emerald) while the time-of-day mood reads through.
-const TIME_ACCENT: Record<string, string> = {
-  fajr:    "#7B6FD4", // pre-dawn lavender, the hush before light
-  sunrise: "#F4A77E", // peach horizon
-  dhuhr:   "#5BA3D9", // bright midday sky
-  asr:     "#E8A95C", // amber afternoon
-  maghrib: "#E55B3C", // sunset orange-red
-  isha:    "#3D407A", // deep night indigo
-};
-
-function getTimeAccent(prayerName: string | undefined): string {
-  if (!prayerName) return TIME_ACCENT.dhuhr;
-  return TIME_ACCENT[prayerName.toLowerCase()] ?? TIME_ACCENT.dhuhr;
-}
 
 export default function PrayerScreen() {
   const {
@@ -87,9 +59,7 @@ export default function PrayerScreen() {
   const [notifSheetKey, setNotifSheetKey] = useState<PrayerKey | null>(null);
   const [showQuickSheet, setShowQuickSheet] = useState(false);
   const [showAyahShare, setShowAyahShare] = useState(false);
-  const [showHadithShare, setShowHadithShare] = useState(false);
   const [ayahCopied, setAyahCopied] = useState(false);
-  const [hadithCopied, setHadithCopied] = useState(false);
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const miniPlayerH = useMiniPlayerHeight();
@@ -105,7 +75,6 @@ export default function PrayerScreen() {
   const [clockNow, setClockNow] = useState(new Date());
   const [showLocationModal, setShowLocationModal] = useState(false);
   const islamicDate = getIslamicDate();
-  const dailyHadith = getDailyHadith();
 
   // Prayer tracker — for the chip strip and the day's record
   const { trackerData, togglePrayer: trackerTogglePrayer } = usePrayerTracker();
@@ -137,19 +106,6 @@ export default function PrayerScreen() {
     setTimeout(() => setAyahCopied(false), 2000);
   }, [dailyAyah]);
 
-  const handleCopyHadith = useCallback(() => {
-    const text = `${dailyHadith.arabic}\n\n"${dailyHadith.translation}"\n\n— ${dailyHadith.narrator}\n${dailyHadith.source}\n\nNuur · نور`;
-    if (Platform.OS === "web") {
-      navigator.clipboard?.writeText(text).catch(() => {});
-    } else {
-      Clipboard.setStringAsync(text).catch(() => {});
-    }
-    setHadithCopied(true);
-    setTimeout(() => setHadithCopied(false), 2000);
-  }, [dailyHadith]);
-
-  const handleOpenHadithShare = useCallback(() => setShowHadithShare(true), []);
-  const handleOpenHadiths = useCallback(() => router.push("/(tabs)/hadiths"), [router]);
 
   // Refresh prayer times only when the calendar date changes (i.e. at midnight),
   // not every minute — the calculation for a given day is stable within that day.
@@ -257,416 +213,143 @@ export default function PrayerScreen() {
     setTimeout(() => setRefreshing(false), 800);
   };
 
-  const isActivePrayer = (prayerName: string) => {
-    return currentPrayer?.name.toLowerCase() === prayerName.toLowerCase();
-  };
 
-  const formatCurrentTime = () => {
-    const h24 = clockNow.getHours();
-    const mm = String(clockNow.getMinutes()).padStart(2, "0");
-    if (timeFormat === "24h") {
-      return `${String(h24).padStart(2, "0")}:${mm}`;
-    }
-    const period = h24 >= 12 ? "PM" : "AM";
-    const h12 = h24 % 12 || 12;
-    return `${h12}:${mm} ${period}`;
-  };
+  // ── Quick action routing ──────────────────────────────────────────────────
+  const goQibla = useCallback(() => router.push("/(tabs)/qibla"), []);
+  const goQuran = useCallback(() => router.push("/(tabs)/quran"), []);
+  const goAdhkar = useCallback(() => router.push("/(tabs)/dua"), []);
+  const goTahajjud = useCallback(() => router.push("/sunnah-prayers"), []);
+  const goTracker = useCallback(() => router.push("/(tabs)/tracker"), []);
+  const goCalendar = useCallback(() => router.push("/calendar"), []);
 
-  const formatDate = () => {
-    return clockNow.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    });
-  };
+  // ── Tracker map for the day's record + 5/5 count ──────────────────────────
+  const todayKey = `${currentTime.getFullYear()}-${String(currentTime.getMonth() + 1).padStart(2, "0")}-${String(currentTime.getDate()).padStart(2, "0")}`;
+  const dayRecord = trackerData[todayKey] || {};
+  const prayed: Record<TrackerPrayerKey, boolean> = useMemo(() => ({
+    fajr: !!dayRecord.fajr,
+    dhuhr: !!dayRecord.dhuhr,
+    asr: !!dayRecord.asr,
+    maghrib: !!dayRecord.maghrib,
+    isha: !!dayRecord.isha,
+  }), [dayRecord]);
+  const prayedCount = TRACKER_PRAYERS.reduce((n, k) => n + (prayed[k] ? 1 : 0), 0);
+  const onTogglePrayed = useCallback((key: TrackerPrayerKey) => {
+    trackerTogglePrayer(key, todayKey);
+  }, [trackerTogglePrayer, todayKey]);
 
+  // ── Bell state for the dome's top-bar bell button ─────────────────────────
+  const isSnoozed = notifSnoozeUntil > Date.now();
+  const hasPreReminder = prayerPreReminderMinutes > 0;
+  const off = !notificationsEnabled || allPrayersOff;
+  const bell = isWeb
+    ? null
+    : {
+        iconName: (isSnoozed ? "clock" : off ? "bell-off" : "bell") as keyof typeof Feather.glyphMap,
+        iconColor: off && !isSnoozed ? colors.textSecondary : isSnoozed ? colors.gold : colors.tint,
+        bg: isSnoozed
+          ? colors.gold + "26"
+          : allPrayersOn
+          ? colors.tint + "33"
+          : mixedPrayers
+          ? colors.tint + "1A"
+          : "rgba(0,0,0,0.35)",
+        showDot: (mixedPrayers || (hasPreReminder && !isSnoozed && !off)) as boolean,
+      };
+
+  const hijriLabel = `${islamicDate.day} ${islamicDate.month.toUpperCase()} · ${islamicDate.year}`;
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
 
+  // App-state banners (location-denied / error / auto-method)
+  const banners = (
+    <>
+      {isLocationPermDenied ? (
+        <View style={[bannerStyles.deniedCard, { backgroundColor: colors.surface, borderColor: colors.tint + "50" }]}>
+          <View style={bannerStyles.deniedCardHeader}>
+            <Feather name="map-pin" size={18} color={colors.tint} />
+            <Text style={[bannerStyles.deniedCardTitle, { color: colors.text }]}>Location Access Required</Text>
+          </View>
+          <Text style={[bannerStyles.deniedCardBody, { color: colors.textSecondary }]}>
+            Prayer times need your location. Please enable location access for Nuur in your device Settings.
+          </Text>
+          <TouchableOpacity
+            style={[bannerStyles.deniedCardButton, { backgroundColor: colors.tint }]}
+            onPress={() => Linking.openSettings()}
+            activeOpacity={0.8}
+          >
+            <Feather name="settings" size={14} color="#fff" />
+            <Text style={bannerStyles.deniedCardButtonText}>Open Settings</Text>
+          </TouchableOpacity>
+        </View>
+      ) : locationError ? (
+        <View style={[bannerStyles.errorBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Feather name="info" size={14} color={colors.textSecondary} />
+          <Text style={[bannerStyles.errorText, { color: colors.textSecondary }]}>{locationError}</Text>
+        </View>
+      ) : null}
+
+      {calcMethodAutoSetLabel && (
+        <View style={[bannerStyles.autoMethodBanner, { backgroundColor: colors.tint + "18", borderColor: colors.tint + "45" }]}>
+          <View style={bannerStyles.autoMethodBannerLeft}>
+            <MaterialCommunityIcons name="map-marker-check" size={15} color={colors.tint} />
+            <Text style={[bannerStyles.autoMethodText, { color: colors.text }]}>
+              Prayer method set to{" "}
+              <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.tint }}>{calcMethodAutoSetLabel}</Text>
+              {" "}for your region
+            </Text>
+          </View>
+          <TouchableOpacity onPress={dismissCalcMethodNotice} hitSlop={8}>
+            <Feather name="x" size={14} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      )}
+    </>
+  );
+
+  // Use the fast-tick clock as the live time for the dome's body marker so the
+  // sun/moon position and embedded "HH:MM" tick smoothly each second.
+  const liveNowMs = clockNow.getTime();
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: isWeb ? 34 + 84 : 100 + insets.bottom + miniPlayerH }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gold} />}
       >
-        {/* Header — backed by prayerCard, with a soft time-of-day ambient
-            wash overlaid (lavender at Fajr, peach at sunrise, sky at Dhuhr,
-            amber at Asr, sunset at Maghrib, indigo at Isha). The wash is at
-            low alpha so the active theme stays dominant. */}
-        <View style={[styles.header, { paddingTop: topPad + 16, backgroundColor: colors.prayerCard }]}>
-          <LinearGradient
-            colors={[
-              getTimeAccent(nextPrayer?.name ?? currentPrayer?.name) + "55",
-              getTimeAccent(nextPrayer?.name ?? currentPrayer?.name) + "1A",
-              "transparent",
-            ]}
-            locations={[0, 0.55, 1]}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
-          <View style={styles.headerTop}>
-            <View style={{ flex: 1, paddingRight: 12 }}>
-              <TouchableOpacity
-                onPress={() => setShowLocationModal(true)}
-                style={styles.locationChip}
-                activeOpacity={0.7}
-              >
-                <Feather name="map-pin" size={11} color={colors.textSecondary} />
-                <Text style={[styles.locationLabel, { color: colors.text }]}>
-                  {location?.city || "Locating..."}
-                </Text>
-                <Feather name="chevron-down" size={11} color={colors.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => router.push("/calendar")}
-                activeOpacity={0.7}
-                hitSlop={8}
-                style={styles.islamicDateBtn}
-              >
-                <Text style={[styles.islamicDate, { color: colors.gold }]} numberOfLines={1} adjustsFontSizeToFit>
-                  {islamicDate.day} {islamicDate.month} {islamicDate.year} AH
-                </Text>
-                <Feather name="calendar" size={12} color={colors.gold + "90"} style={{ marginLeft: 5, marginTop: 1 }} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.headerRight}>
-              <Text
-                style={[styles.currentTime, { color: colors.text }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.7}
-                allowFontScaling={false}
-              >
-                {formatCurrentTime()}
-              </Text>
-              {!isWeb && (() => {
-                // Smart bell state
-                const isSnoozed = notifSnoozeUntil > Date.now();
-                const hasPreReminder = prayerPreReminderMinutes > 0;
-                const off = !notificationsEnabled || allPrayersOff;
-
-                // Pick icon: snoozed > off > on
-                const iconName: keyof typeof Feather.glyphMap = isSnoozed
-                  ? "clock"
-                  : off
-                    ? "bell-off"
-                    : "bell";
-
-                const iconColor = off && !isSnoozed
-                  ? colors.textSecondary
-                  : isSnoozed
-                    ? colors.gold
-                    : colors.tint;
-
-                const bg = isSnoozed
-                  ? colors.gold + "26"
-                  : allPrayersOn
-                    ? colors.tint + "33"
-                    : mixedPrayers
-                      ? colors.tint + "1A"
-                      : colors.border;
-
-                // Show a small dot when pre-reminder is on (and we're not snoozed/off)
-                const showDot = hasPreReminder && !isSnoozed && !off;
-
-                return (
-                  <Pressable
-                    onPress={() => setShowQuickSheet(true)}
-                    style={[styles.paletteBtn, { backgroundColor: bg }]}
-                    hitSlop={10}
-                  >
-                    <Feather name={iconName} size={18} color={iconColor} />
-                    {(mixedPrayers || showDot) && (
-                      <View
-                        style={{
-                          position: "absolute",
-                          top: 5,
-                          right: 5,
-                          width: 7,
-                          height: 7,
-                          borderRadius: 4,
-                          backgroundColor: colors.tint,
-                          borderWidth: 1.5,
-                          borderColor: colors.surface,
-                        }}
-                      />
-                    )}
-                  </Pressable>
-                );
-              })()}
-            </View>
-          </View>
-
-          <Text style={[styles.gregorianDate, { color: colors.textSecondary }]}>{formatDate()}</Text>
-
-          {/* Celestial sky card — day mode keeps the existing arc; once
-              Maghrib lands we swap to the night dome (moon as time-marker,
-              Maghrib→Sunrise anchors). */}
-          {isNight && prayerTimes ? (
-            (() => {
-              // Night window: nightStart = today's Maghrib, nightEnd = next Sunrise.
-              // Pre-Fajr (after midnight): the active night actually started
-              // yesterday, so we shift Maghrib back by 24h.
-              const todayMaghribMs = prayerTimes.maghrib.time.getTime();
-              const todaySunriseMs = prayerTimes.sunrise.time.getTime();
-              const beforeTodayMaghrib = nowMs < todayMaghribMs;
-              const nightStartMs = beforeTodayMaghrib
-                ? todayMaghribMs - 24 * 60 * 60 * 1000
-                : todayMaghribMs;
-              const nightEndMs =
-                todaySunriseMs > nightStartMs
-                  ? todaySunriseMs
-                  : todaySunriseMs + 24 * 60 * 60 * 1000;
-              const isIshaNow = currentPrayer?.name?.toLowerCase() === "isha" || currentPrayer?.name?.toLowerCase() === "maghrib";
-              const isFajrNow = currentPrayer?.name?.toLowerCase() === "fajr";
-              return (
-                <CelestialDomeNight
-                  prayerTimes={prayerTimes}
-                  nowMs={nowMs}
-                  nightStartMs={nightStartMs}
-                  nightEndMs={nightEndMs}
-                  dawnApproaching={dawnApproaching}
-                  themeGold={colors.gold}
-                  ishaStatus={isIshaNow ? "now" : "past"}
-                  fajrStatus={isFajrNow ? "now" : nowMs >= nightStartMs && nowMs < (prayerTimes.fajr.time.getTime() < nightStartMs ? prayerTimes.fajr.time.getTime() + 24 * 60 * 60 * 1000 : prayerTimes.fajr.time.getTime()) ? "next" : "upcoming"}
-                  countdownLabel={isIshaNow || isFajrNow ? "ENDS IN" : "FAJR IN"}
-                  countdownValue={timeRemaining}
-                  isNow={isIshaNow}
-                />
-              );
-            })()
-          ) : (
-            <CelestialArcCard
-              currentPrayer={currentPrayer}
-              nextPrayer={nextPrayer}
-              progressEndPrayer={progressEndPrayer}
-              progress={progress}
-              timeRemaining={timeRemaining}
-              isLoading={!prayerTimes || (!currentPrayer && !nextPrayer)}
-              themeGold={colors.gold}
-            />
-          )}
-
-          {/* Today's prayer chip strip — tap to mark prayed. Wired to the
-              shared PrayerTrackerContext, so toggles propagate to the
-              Tracker tab automatically. */}
-          {(() => {
-            const todayKey = `${currentTime.getFullYear()}-${String(currentTime.getMonth() + 1).padStart(2, "0")}-${String(currentTime.getDate()).padStart(2, "0")}`;
-            const dayRecord = trackerData[todayKey] || {};
-            const prayed: Record<TrackerPrayerKey, boolean> = {
-              fajr: !!dayRecord.fajr,
-              dhuhr: !!dayRecord.dhuhr,
-              asr: !!dayRecord.asr,
-              maghrib: !!dayRecord.maghrib,
-              isha: !!dayRecord.isha,
-            };
-            const times: Record<TrackerPrayerKey, string> = {
-              fajr: prayerTimes?.fajr.timeString ?? "--:--",
-              dhuhr: prayerTimes?.dhuhr.timeString ?? "--:--",
-              asr: prayerTimes?.asr.timeString ?? "--:--",
-              maghrib: prayerTimes?.maghrib.timeString ?? "--:--",
-              isha: prayerTimes?.isha.timeString ?? "--:--",
-            };
-            const statuses: Partial<Record<TrackerPrayerKey, PrayerStripStatus>> = {};
-            const curName = currentPrayer?.name?.toLowerCase();
-            const nextName = nextPrayer?.name?.toLowerCase();
-            for (const p of TRACKER_PRAYERS) {
-              if (curName === p) statuses[p] = "now";
-              else if (nextName === p) statuses[p] = "next";
-              else if (prayerTimes?.[p] && prayerTimes[p].time.getTime() < nowMs) statuses[p] = "past";
-              else statuses[p] = "upcoming";
-            }
-            const eyebrow = isNight && !dawnApproaching ? "EARLIER TODAY" : "TODAY";
-            return (
-              <PrayerStripChip
-                label={eyebrow}
-                prayed={prayed}
-                times={times}
-                statuses={statuses}
-                onToggle={(p) => trackerTogglePrayer(p, todayKey)}
-                themeColors={{
-                  text: colors.text,
-                  textSecondary: colors.textSecondary,
-                  border: colors.border,
-                  surface: colors.surface,
-                  background: colors.background,
-                  gold: colors.gold,
-                  tint: colors.tint,
-                }}
-              />
-            );
-          })()}
-        </View>
-
-        {/* Prayer Times */}
-        <View style={[styles.section, { backgroundColor: colors.background }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-            Today's Prayer Times
-          </Text>
-
-          {/* Prayer rows — ALWAYS rendered (no isLoadingLocation guard).
-              Rows show "--:--" until prayerTimes arrives so Text nodes with
-              Inter_500Medium exist from the very first paint; data updates are
-              text-content swaps, not new node insertions → zero font flash. */}
-          {PRAYER_ORDER.map((key) => {
-              const prayer = prayerTimes?.[key];
-              const [fallbackName, fallbackArabic] = PRAYER_STATIC[key];
-              const isActive = prayer ? isActivePrayer(prayer.name) : false;
-              const isPast = prayer ? (prayer.time < new Date() && !isActive) : false;
-
-              // All 6 rows (including Sunrise) get a notification bell.
-              // Sunrise opens its own sheet variant (no adhan, minutes-before picker).
-              const notifSettings = prayer ? prayerNotifConfig[key as PrayerKey] : null;
-              const notifOn = notifSettings?.enabled ?? false;
-              const GOLD = colors.gold ?? "#C9933A";
-
-              return (
-                <View
-                  key={key}
-                  style={[
-                    styles.prayerRow,
-                    {
-                      backgroundColor: isActive ? colors.tint : colors.surface,
-                      borderColor: isActive ? colors.tint : colors.border,
-                    },
-                  ]}
-                >
-                  <View style={styles.prayerLeft}>
-                    <View style={[styles.prayerDot, {
-                      backgroundColor: isActive ? colors.background : isPast ? colors.textSecondary : GOLD,
-                    }]} />
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.prayerName,
-                          {
-                            color: isActive ? colors.background : isPast ? colors.textSecondary : colors.text,
-                            fontFamily: "Inter_600SemiBold",
-                          }
-                        ]}>
-                        {prayer?.name ?? fallbackName}
-                      </Text>
-                      <Text style={[styles.prayerArabicSmall, {
-                        color: isActive ? colors.background + "CC" : colors.textSecondary,
-                      }]}>
-                        {prayer?.arabicName ?? fallbackArabic}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.prayerRight}>
-                    {isActive && (
-                      <View style={[styles.activeBadge, { backgroundColor: colors.background + "33" }]}>
-                        <Text style={[styles.activeBadgeText, { color: colors.background }]}>Now</Text>
-                      </View>
-                    )}
-                    <Text style={[
-                      styles.prayerTime,
-                      { color: isActive ? colors.background : isPast ? colors.textSecondary : colors.text }
-                    ]}>
-                      {prayer?.timeString ?? "--:--"}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => setNotifSheetKey(key as PrayerKey)}
-                      hitSlop={10}
-                      style={[
-                        styles.bellBtn,
-                        {
-                          backgroundColor: notifOn
-                            ? (isActive ? colors.background + "33" : GOLD + "22")
-                            : (isActive ? colors.background + "22" : colors.border),
-                          borderColor: notifOn
-                            ? (isActive ? colors.background + "66" : GOLD + "66")
-                            : "transparent",
-                        },
-                      ]}
-                    >
-                      <Feather
-                        name={notifOn ? "bell" : "bell-off"}
-                        size={13}
-                        color={
-                          notifOn
-                            ? (isActive ? colors.background : GOLD)
-                            : (isActive ? colors.background + "99" : colors.textSecondary)
-                        }
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-
-          {isLocationPermDenied ? (
-            <View style={[styles.deniedCard, { backgroundColor: colors.surface, borderColor: colors.tint + "50" }]}>
-              <View style={styles.deniedCardHeader}>
-                <Feather name="map-pin" size={18} color={colors.tint} />
-                <Text style={[styles.deniedCardTitle, { color: colors.text }]}>Location Access Required</Text>
-              </View>
-              <Text style={[styles.deniedCardBody, { color: colors.textSecondary }]}>
-                Prayer times need your location. Please enable location access for Nuur in your device Settings.
-              </Text>
-              <TouchableOpacity
-                style={[styles.deniedCardButton, { backgroundColor: colors.tint }]}
-                onPress={() => Linking.openSettings()}
-                activeOpacity={0.8}
-              >
-                <Feather name="settings" size={14} color="#fff" />
-                <Text style={styles.deniedCardButtonText}>Open Settings</Text>
-              </TouchableOpacity>
-            </View>
-          ) : locationError ? (
-            <View style={[styles.errorBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Feather name="info" size={14} color={colors.textSecondary} />
-              <Text style={[styles.errorText, { color: colors.textSecondary }]}>{locationError}</Text>
-            </View>
-          ) : null}
-
-          {calcMethodAutoSetLabel && (
-            <View style={[styles.autoMethodBanner, { backgroundColor: colors.tint + "18", borderColor: colors.tint + "45" }]}>
-              <View style={styles.autoMethodBannerLeft}>
-                <MaterialCommunityIcons name="map-marker-check" size={15} color={colors.tint} />
-                <Text style={[styles.autoMethodText, { color: colors.text }]}>
-                  Prayer method set to{" "}
-                  <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.tint }}>{calcMethodAutoSetLabel}</Text>
-                  {" "}for your region
-                </Text>
-              </View>
-              <TouchableOpacity onPress={dismissCalcMethodNotice} hitSlop={8}>
-                <Feather name="x" size={14} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* ── Verse of the Day — Mushaf leaf ── */}
-        <View style={styles.votdMushafWrap}>
-          <MushafLeafVerse
-            colors={colors}
-            ayah={dailyAyah}
-            ayahCopied={ayahCopied}
-            onCopy={handleCopyAyah}
-            onShare={handleShareAyah}
-            onReadSurah={handleReadAyahSurah}
-          />
-        </View>
-
-        {/* ── Hadith of the Day — Scholar's leaf ── */}
-        <View style={styles.votdHadithWrap}>
-          <HadithScholarsLeaf
-            colors={colors}
-            hadith={dailyHadith}
-            hadithCopied={hadithCopied}
-            onCopy={handleCopyHadith}
-            onShare={handleOpenHadithShare}
-            onMore={handleOpenHadiths}
-          />
-        </View>
-
-        {/* Wudhu & Prayer Guide */}
-        <View style={{ marginTop: 10 }}>
-          <GuideSection colors={colors} />
-        </View>
+        <HomeV2
+          colors={colors}
+          topPad={topPad}
+          prayerTimes={prayerTimes}
+          currentPrayer={currentPrayer}
+          nextPrayer={nextPrayer}
+          progressEndPrayer={progressEndPrayer}
+          progress={progress}
+          timeRemaining={timeRemaining}
+          nowMs={liveNowMs}
+          isNight={isNight}
+          locationLabel={location?.city || "Locating..."}
+          hijriLabel={hijriLabel}
+          prayed={prayed}
+          prayedCount={prayedCount}
+          ayah={dailyAyah}
+          isVerseOfNight={isNight}
+          ayahCopied={ayahCopied}
+          bell={bell}
+          banners={banners}
+          onLocationPress={() => setShowLocationModal(true)}
+          onCalendarPress={goCalendar}
+          onBellPress={isWeb ? undefined : () => setShowQuickSheet(true)}
+          onTogglePrayed={onTogglePrayed}
+          onViewTracker={goTracker}
+          onCopyAyah={handleCopyAyah}
+          onShareAyah={handleShareAyah}
+          onReadAyah={handleReadAyahSurah}
+          onQibla={goQibla}
+          onQuran={goQuran}
+          onAdhkar={goAdhkar}
+          onTahajjud={goTahajjud}
+        />
       </ScrollView>
 
       <LocationModal
@@ -706,175 +389,17 @@ export default function PrayerScreen() {
         surahEnglish={dailyAyah.surahName}
         surahNumber={dailyAyah.surahNumber}
       />
-
-      <ContentShareSheet
-        visible={showHadithShare}
-        onClose={() => setShowHadithShare(false)}
-        theme="hadith"
-        sheetTitle="Share Hadith"
-        shareTitle={dailyHadith.source}
-        label={`HADITH OF THE DAY  ·  ${dailyHadith.collection.toUpperCase()}`}
-        arabicText={dailyHadith.arabic || undefined}
-        bodyText={dailyHadith.translation}
-        source={`${dailyHadith.narrator} — ${dailyHadith.source}`}
-      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-    overflow: "hidden",
-    position: "relative",
-  },
-  headerStarWatermark: {
-    position: "absolute",
-    top: -28,
-    left: -22,
-    fontSize: 110,
-    opacity: 0.045,
-    fontWeight: "300",
-  },
-  headerTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 4,
-  },
-  locationChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginBottom: 2,
-    paddingVertical: 2,
-    paddingRight: 4,
-    alignSelf: "flex-start",
-  },
-  locationLabel: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-  },
-  islamicDateBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  islamicDate: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-  headerRight: {
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: 4,
-    flexShrink: 0,
-    width: 110,
-  },
-  paletteBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  currentTime: {
-    fontSize: 26,
-    fontFamily: "Inter_700Bold",
-    includeFontPadding: false,
-    textAlign: "right",
-    width: "100%",
-  },
-  gregorianDate: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    marginBottom: 20,
-  },
-  section: {
-    padding: 14,
-    paddingTop: 14,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    marginBottom: 10,
-    marginLeft: 2,
-  },
-  prayerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderRadius: 14,
-    marginBottom: 9,
-    borderWidth: 1,
-  },
-  prayerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    flex: 1,
-    paddingRight: 8,
-  },
-  prayerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  prayerName: {
-    fontSize: 15,
-  },
-  prayerArabicSmall: {
-    fontSize: 12,
-    marginTop: 1,
-  },
-  prayerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  bellBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-  },
-  activeBadge: {
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  activeBadgeText: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-  },
-  prayerTime: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-    fontVariant: ["tabular-nums"],
-  },
-  loadingContainer: {
-    alignItems: "center",
-    padding: 40,
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-  },
+// Banner styles (kept here since banners are owned by the screen)
+const bannerStyles = StyleSheet.create({
   deniedCard: {
     borderRadius: 14,
     borderWidth: 1,
     padding: 16,
-    marginTop: 12,
+    marginTop: 4,
     gap: 10,
   },
   deniedCardHeader: {
@@ -944,188 +469,11 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     flex: 1,
   },
-  // ── Verse of the Day Widget ──────────────────────────────────────────────
-  votdWidget: {
-    marginHorizontal: 16,
-    borderRadius: 22,
-    borderWidth: 1,
-    padding: 18,
-    gap: 14,
-  },
-  votdMushafWrap: {
-    marginHorizontal: 16,
-    paddingVertical: 4,
-  },
-  votdHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-  },
-  votdHeaderLeft: {
-    gap: 5,
-    flex: 1,
-  },
-  votdBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    alignSelf: "flex-start",
-  },
-  votdBadgeText: {
-    fontSize: 9,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.9,
-  },
-  votdRef: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-    marginTop: 1,
-  },
-  votdActionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    flexShrink: 0,
-  },
-  votdShareBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  votdArabic: {
-    fontSize: 26,
-    textAlign: "center",
-    lineHeight: 48,
-    writingDirection: "rtl",
-    letterSpacing: 0.5,
-  },
-  votdOrnRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  votdOrnLine: {
-    flex: 1,
-    height: 1,
-  },
-  votdOrnStar: {
-    fontSize: 12,
-  },
-  votdTranslit: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    lineHeight: 18,
-    fontStyle: "italic",
-  },
-  votdTranslation: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 22,
-    textAlign: "center",
-    fontStyle: "italic",
-  },
-  votdReadBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginTop: 2,
-  },
-  votdReadText: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-  // ── Hadith leaf wrapper ──────────────────────────────────────────────────
-  votdHadithWrap: {
-    marginTop: 22,
-    marginHorizontal: 16, // matches ayah leaf — leaves a gap to the screen edge
-    paddingTop: 12, // leaves room for the wax seal that overhangs the top edge
-  },
+});
 
-  dailyCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    flexDirection: "row",
-    overflow: "hidden",
-    marginBottom: 0,
-  },
-  dailyAccent: {
-    width: 4,
-  },
-  dailyInner: {
-    flex: 1,
-    padding: 14,
-    gap: 10,
-  },
-  dailyBadgeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  dailyBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    alignSelf: "flex-start",
-  },
-  dailyBadgeText: {
-    fontSize: 9,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.8,
-  },
-  dailyRef: {
-    fontSize: 10,
-    fontFamily: "Inter_500Medium",
-  },
-  dailyArabic: {
-    fontSize: 20,
-    textAlign: "right",
-    lineHeight: 36,
-    writingDirection: "rtl",
-  },
-  dailyTranslation: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 20,
-    fontStyle: "italic",
-  },
-  dailySourceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    flexWrap: "wrap",
-  },
-  dailySourceText: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
-  },
-  dailySourceBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  dailySourceBadgeText: {
-    fontSize: 9,
-    fontFamily: "Inter_500Medium",
-  },
+// Legacy styles (referenced by other tabs via shared utilities) ── retained
+// to avoid breaking imports. Not used in this file's render.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _legacyStyles = StyleSheet.create({
+  container: { flex: 1 },
 });
