@@ -103,15 +103,19 @@ export function CelestialDomeV2() {
           {/* Horizon line */}
           <line x1={16} y1={cy} x2={W - 16} y2={cy} stroke="rgba(255,228,181,0.32)" strokeWidth="1" />
 
-          {/* Sunrise tick (left) — tiny, no time clutter (Fajr's row owns the time) */}
+          {/* Sunrise tick (left) — keeps its time: it marks the END of the Fajr window */}
           <g>
-            <circle cx={cx - R} cy={cy - 4} r="2.2" fill="rgba(255,228,181,0.55)" />
-            <text x={cx - R} y={cy - 10} textAnchor="middle" fill="rgba(255,228,181,0.5)"
+            <circle cx={cx - R} cy={cy - 4} r="2.2" fill="rgba(255,228,181,0.6)" />
+            <text x={cx - R} y={cy - 22} textAnchor="middle" fill="rgba(255,228,181,0.55)"
               style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: 1.2 }}>
               SUNRISE
             </text>
+            <text x={cx - R} y={cy - 11} textAnchor="middle" fill="rgba(255,228,181,0.7)"
+              style={{ fontSize: 9, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+              06:58
+            </text>
           </g>
-          {/* Sunset tick (right) — tiny, no time clutter (Maghrib owns the time) */}
+          {/* Sunset tick (right) — no time, Maghrib's time (18:04) is 3 min away and owns it */}
           <g>
             <circle cx={cx + R} cy={cy - 4} r="2.2" fill="rgba(255,228,181,0.55)" />
             <text x={cx + R} y={cy - 10} textAnchor="middle" fill="rgba(255,228,181,0.5)"
