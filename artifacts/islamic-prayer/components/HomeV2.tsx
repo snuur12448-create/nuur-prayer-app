@@ -413,11 +413,32 @@ export function HomeV2(props: HomeV2Props) {
   const stars = useMemo(() => buildStars(isDay ? 1 : 3.2, W, cy), [isDay, W, cy]);
 
   // ── Progress hairline ─────────────────────────────────────────────────────
+  // Day = sunrise→maghrib elapsed. Night = maghrib→fajr elapsed (wrapping
+  // across midnight). We compute these locally instead of reusing the
+  // `progress` prop (which tracks the *current prayer period* and therefore
+  // resets to 0% every prayer transition — looking like a backwards jump).
+  const barFraction = useMemo(() => {
+    if (!prayerTimes) return 0;
+    const sunriseMs = prayerTimes.sunrise.time.getTime();
+    const maghribMs = prayerTimes.maghrib.time.getTime();
+    const fajrMs = prayerTimes.fajr.time.getTime();
+    if (isDay) {
+      return timeFractionOfDay(nowMs, sunriseMs, maghribMs);
+    }
+    // Night runs from today's Maghrib to tomorrow's Fajr. If we're between
+    // midnight and Fajr, we're in yesterday's night window (so anchor the
+    // start to yesterday's Maghrib).
+    const beforeMaghrib = nowMs < maghribMs;
+    const startMs = beforeMaghrib ? maghribMs - 24 * 3600 * 1000 : maghribMs;
+    const endMs = fajrMs > startMs ? fajrMs : fajrMs + 24 * 3600 * 1000;
+    return timeFractionOfNight(nowMs, startMs, endMs);
+  }, [prayerTimes, nowMs, isDay]);
+
   const barLeft = isDay ? prayerTimes?.sunrise.timeString ?? "" : prayerTimes?.maghrib.timeString ?? "";
   const barRight = isDay ? prayerTimes?.maghrib.timeString ?? "" : prayerTimes?.fajr.timeString ?? "";
   const barCentre = isDay
-    ? `${Math.round(progress * 100)}% OF DAYLIGHT`
-    : `NIGHT · ${Math.round(progress * 100)}% ELAPSED`;
+    ? `${Math.round(barFraction * 100)}% OF DAYLIGHT`
+    : `NIGHT · ${Math.round(barFraction * 100)}% ELAPSED`;
   const barAccent = isDay ? "#FFF1C4" : "#C9D4F0";
 
   // ── NOW / NEXT card values ────────────────────────────────────────────────
