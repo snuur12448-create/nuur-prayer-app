@@ -389,6 +389,7 @@ export default function PrayerScreen() {
           visible={!!notifSheetKey}
           prayerKey={notifSheetKey}
           prayerName={prayerTimes[notifSheetKey]!.name}
+          prayerTime={prayerTimes[notifSheetKey]!.timeString}
           settings={prayerNotifConfig[notifSheetKey]}
           colors={colors}
           onSave={(s) => setPrayerNotifSettings(notifSheetKey, s)}

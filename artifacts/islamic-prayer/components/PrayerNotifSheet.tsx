@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Modal,
@@ -25,7 +25,6 @@ import {
   SunriseMinutesBefore,
   NotifTypeInfo,
   PRAYER_ARABIC,
-  PRAYER_EMOJI,
   PrayerKey,
   PrayerNotifSettings,
 } from "@/utils/prayerNotifData";
@@ -34,6 +33,7 @@ interface Props {
   visible: boolean;
   prayerKey: PrayerKey;
   prayerName: string;
+  prayerTime?: string; // optional — shown in header (e.g. "5:42 PM")
   settings: PrayerNotifSettings;
   colors: any;
   onSave: (settings: PrayerNotifSettings) => void;
@@ -44,6 +44,7 @@ export function PrayerNotifSheet({
   visible,
   prayerKey,
   prayerName,
+  prayerTime,
   settings,
   colors,
   onSave,
@@ -64,6 +65,7 @@ export function PrayerNotifSheet({
   const [minutesBefore, setMinutesBefore] = useState<SunriseMinutesBefore>(
     (settings.minutesBefore as SunriseMinutesBefore) ?? 20
   );
+  const [reciterExpanded, setReciterExpanded] = useState(false);
 
   // Reset local state when opened
   useEffect(() => {
@@ -74,6 +76,7 @@ export function PrayerNotifSheet({
       setAdhanMode(settings.adhanMode);
       setDays([...settings.days]);
       setMinutesBefore((settings.minutesBefore as SunriseMinutesBefore) ?? 20);
+      setReciterExpanded(false);
       Animated.parallel([
         Animated.spring(slideY, { toValue: 0, useNativeDriver: false, tension: 65, friction: 11 }),
         Animated.timing(backdropOpacity, { toValue: 1, duration: 220, useNativeDriver: false }),
@@ -88,8 +91,7 @@ export function PrayerNotifSheet({
     ]).start(() => onClose());
   };
 
-  // Swipe-down-to-dismiss: attach panHandlers to the drag-handle area so the
-  // user can grab the pill and pull the sheet down to close it.
+  // Swipe-down-to-dismiss
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -134,11 +136,32 @@ export function PrayerNotifSheet({
     );
   };
 
-  const emoji = PRAYER_EMOJI[prayerKey];
   const arabic = PRAYER_ARABIC[prayerKey];
   const GOLD = colors.gold ?? "#C9933A";
+  const CARD_BG = colors.surfaceElevated ?? "#23202C";
+  const INNER_BG = colors.background ?? "#1A1822";
 
   const typeOptions = isSunrise ? SUNRISE_NOTIF_TYPES : NOTIF_TYPES;
+
+  // Live preview line — borrowed from "Stage" hypothesis: shows what will actually fire.
+  const previewLine = useMemo(() => {
+    if (!enabled) return { icon: "bell-off" as const, text: "Notifications off for this prayer" };
+    if (isSunrise) {
+      return {
+        icon: type === "silent" ? ("bell-off" as const) : ("sunrise" as const),
+        text:
+          type === "silent"
+            ? `Silent reminder ${minutesBefore} min before sunrise`
+            : `Reminder ${minutesBefore} min before sunrise · default chime`,
+      };
+    }
+    if (type === "silent") return { icon: "bell-off" as const, text: "Silent — vibrate only" };
+    if (type === "notification") return { icon: "bell" as const, text: "Banner alert · default chime" };
+    const reciter = ADHAN_STYLES.find((r) => r.id === adhanStyleId);
+    const reciterName = reciter?.name ?? "Adhan";
+    const length = adhanMode === "full" ? "Full ~3–5 min" : "Short ~2 min";
+    return { icon: "volume-2" as const, text: `${reciterName} · ${length}` };
+  }, [enabled, type, adhanStyleId, adhanMode, minutesBefore, isSunrise]);
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose} statusBarTranslucent>
@@ -155,27 +178,48 @@ export function PrayerNotifSheet({
         ]}
       >
         <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
-          {/* Drag handle — tap or swipe down to dismiss */}
+          {/* Top edge gold highlight (from Compose mockup) */}
+          <View pointerEvents="none" style={[styles.topEdgeHighlight, { backgroundColor: GOLD + "33" }]} />
+
+          {/* Drag handle — swipe down to dismiss */}
           <View style={styles.handleArea} {...panResponder.panHandlers}>
             <Pressable onPress={handleClose} hitSlop={16}>
               <View style={[styles.handle, { backgroundColor: colors.border }]} />
             </Pressable>
           </View>
 
-          {/* Header */}
-          <View style={[styles.headerBar, { borderBottomColor: colors.border }]}>
+          {/* Tight inline header: crescent · Maghrib · المغرب · 5:42 PM   [X] */}
+          <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
-              <View style={[styles.prayerBadge, { backgroundColor: GOLD + "22", borderColor: GOLD + "55" }]}>
-                <Text style={styles.prayerEmoji}>{emoji}</Text>
-              </View>
-              <View style={{ gap: 1 }}>
-                <Text style={[styles.prayerName, { color: colors.text }]}>{prayerName}</Text>
-                <Text style={[styles.prayerArabic, { color: GOLD }]}>{arabic}</Text>
-              </View>
+              <Feather name="moon" size={14} color={GOLD} style={{ transform: [{ rotate: "-20deg" }] }} />
+              <Text style={[styles.headerName, { color: colors.text }]}>{prayerName}</Text>
+              <Text style={[styles.headerDot, { color: GOLD + "99" }]}>·</Text>
+              <Text style={[styles.headerArabic, { color: GOLD }]}>{arabic}</Text>
+              {prayerTime ? (
+                <>
+                  <Text style={[styles.headerDot, { color: GOLD + "99" }]}>·</Text>
+                  <Text style={[styles.headerTime, { color: colors.textSecondary }]}>{prayerTime}</Text>
+                </>
+              ) : null}
             </View>
             <TouchableOpacity onPress={handleClose} hitSlop={12} style={[styles.closeBtn, { backgroundColor: colors.border }]}>
-              <Feather name="x" size={16} color={colors.textSecondary} />
+              <Feather name="x" size={14} color={colors.textSecondary} />
             </TouchableOpacity>
+          </View>
+
+          {/* Live preview chip — borrowed from "Stage" hypothesis */}
+          <View style={[styles.previewChip, { backgroundColor: INNER_BG, borderColor: colors.border }]}>
+            <Feather
+              name={previewLine.icon}
+              size={12}
+              color={enabled ? GOLD : colors.textSecondary}
+            />
+            <Text
+              numberOfLines={1}
+              style={[styles.previewText, { color: enabled ? colors.text : colors.textSecondary }]}
+            >
+              {previewLine.text}
+            </Text>
           </View>
 
           <ScrollView
@@ -183,220 +227,261 @@ export function PrayerNotifSheet({
             contentContainerStyle={styles.scrollContent}
             bounces={false}
           >
-            {/* ── Purpose hint for sunrise ── */}
-            {isSunrise && (
-              <View style={[styles.hintBox, { backgroundColor: GOLD + "12", borderColor: GOLD + "35" }]}>
-                <Feather name="sunrise" size={14} color={GOLD} />
-                <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-                  Get a reminder before sunrise so you can complete Fajr prayer in time.
-                </Text>
-              </View>
-            )}
-
-            {/* ── Master toggle ── */}
-            <View style={[styles.toggleRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-              <View style={styles.toggleLeft}>
-                <View style={[styles.toggleIconWrap, { backgroundColor: enabled ? GOLD + "25" : colors.border }]}>
-                  <Feather name={enabled ? "bell" : "bell-off"} size={16} color={enabled ? GOLD : colors.textSecondary} />
+            {/* ── Single grouped card ── */}
+            <View style={[styles.card, { backgroundColor: CARD_BG, borderColor: colors.border }]}>
+              {/* ROW 1 — master toggle + 7 day dots inline */}
+              <View style={[styles.row, styles.rowDivider, { borderBottomColor: colors.border }]}>
+                <View style={styles.rowLeft}>
+                  <Switch
+                    value={enabled}
+                    onValueChange={setEnabled}
+                    trackColor={{ false: colors.border, true: GOLD + "AA" }}
+                    thumbColor={enabled ? GOLD : colors.textSecondary}
+                    ios_backgroundColor={colors.border}
+                    style={Platform.OS === "ios" ? undefined : { transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }] }}
+                  />
+                  <Text style={[styles.alertsLabel, { color: colors.text }]}>Alerts</Text>
                 </View>
-                <View>
-                  <Text style={[styles.toggleLabel, { color: colors.text }]}>Notifications</Text>
-                  <Text style={[styles.toggleSub, { color: colors.textSecondary }]}>
-                    {enabled ? formatDays(days) : "Off"}
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={enabled}
-                onValueChange={setEnabled}
-                trackColor={{ false: colors.border, true: GOLD + "88" }}
-                thumbColor={enabled ? GOLD : colors.textSecondary}
-                ios_backgroundColor={colors.border}
-              />
-            </View>
 
-            {enabled && (
-              <>
-                {/* ── Minutes before (sunrise only) ── */}
-                {isSunrise && (
-                  <View style={styles.sectionBlock}>
-                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Remind Me Before Sunrise</Text>
-                    <View style={styles.minutesRow}>
-                      {SUNRISE_MINUTES_OPTIONS.map((min) => {
-                        const sel = minutesBefore === min;
-                        return (
-                          <TouchableOpacity
-                            key={min}
-                            onPress={() => setMinutesBefore(min)}
-                            activeOpacity={0.75}
-                            style={[
-                              styles.minutesChip,
-                              {
-                                backgroundColor: sel ? GOLD + "18" : colors.background,
-                                borderColor: sel ? GOLD : colors.border,
-                                borderWidth: sel ? 1.5 : 1,
-                              },
-                            ]}
-                          >
-                            <Text style={[styles.minutesNum, { color: sel ? GOLD : colors.text }]}>{min}</Text>
-                            <Text style={[styles.minutesUnit, { color: sel ? GOLD : colors.textSecondary }]}>min</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                    {/* Preview message */}
-                    <View style={[styles.previewBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-                      <Feather name="message-square" size={12} color={colors.textSecondary} />
-                      <Text style={[styles.previewText, { color: colors.textSecondary }]}>
-                        "Fajr ends in {minutesBefore} minutes — pray before sunrise"
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                {/* ── Alert type cards ── */}
-                <View style={styles.sectionBlock}>
-                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Alert Type</Text>
-                  <View style={styles.typeCards}>
-                    {typeOptions.map((t: NotifTypeInfo) => {
-                      const selected = type === t.id;
-                      return (
+                {/* Day chips */}
+                <View style={styles.daysInline}>
+                  {DAY_LABELS.map((label, idx) => {
+                    const active = enabled && days.includes(idx);
+                    const isFriday = idx === 5;
+                    return (
+                      <View key={idx} style={styles.dayCol}>
                         <TouchableOpacity
-                          key={t.id}
-                          onPress={() => setType(t.id)}
-                          activeOpacity={0.75}
+                          onPress={() => toggleDay(idx)}
+                          activeOpacity={0.7}
+                          disabled={!enabled}
+                          hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
                           style={[
-                            styles.typeCard,
+                            styles.dayDot,
                             {
-                              backgroundColor: selected ? GOLD + "15" : colors.background,
-                              borderColor: selected ? GOLD : colors.border,
+                              backgroundColor: active ? GOLD : colors.border + "55",
+                              opacity: enabled ? 1 : 0.5,
                             },
                           ]}
                         >
-                          <View style={styles.typeCardTop}>
-                            <View style={[styles.typeIconCircle, { backgroundColor: selected ? GOLD + "30" : colors.border }]}>
-                              <Feather name={t.icon as any} size={15} color={selected ? GOLD : colors.textSecondary} />
-                            </View>
-                            {selected && (
-                              <View style={[styles.selectedDot, { backgroundColor: GOLD }]} />
-                            )}
-                          </View>
-                          <Text style={[styles.typeCardLabel, { color: selected ? GOLD : colors.text }]}>{t.label}</Text>
-                          <Text style={[styles.typeCardDesc, { color: colors.textSecondary }]} numberOfLines={2}>{t.description}</Text>
+                          <Text
+                            style={[
+                              styles.dayDotLabel,
+                              { color: active ? "#1A1822" : colors.textSecondary },
+                            ]}
+                          >
+                            {label}
+                          </Text>
                         </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                        {/* Subtle gold underline for Jumu'ah */}
+                        {isFriday && active ? (
+                          <View style={[styles.jummahUnderline, { backgroundColor: GOLD }]} />
+                        ) : (
+                          <View style={styles.jummahUnderlineSpacer} />
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
+              </View>
 
-                {/* ── Adhan options (only when type=adhan, never for sunrise) ── */}
-                {!isSunrise && type === "adhan" && (
-                  <>
-                    {/* Reciter picker */}
-                    <View style={styles.sectionBlock}>
-                      <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Adhan Reciter</Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reciterRow}>
-                        {ADHAN_STYLES.map((style) => {
-                          const sel = adhanStyleId === style.id;
+              {enabled && (
+                <>
+                  {/* ROW 2 — Alert Type segmented OR (sunrise) Reminder Before */}
+                  {isSunrise ? (
+                    <View style={[styles.rowDivider, styles.sectionPad, { borderBottomColor: colors.border }]}>
+                      <View style={styles.miniLabelRow}>
+                        <Text style={[styles.miniLabel, { color: colors.textSecondary }]}>Remind before sunrise</Text>
+                      </View>
+                      <View style={styles.minutesRow}>
+                        {SUNRISE_MINUTES_OPTIONS.map((min) => {
+                          const sel = minutesBefore === min;
                           return (
                             <TouchableOpacity
-                              key={style.id}
-                              onPress={() => setAdhanStyleId(style.id)}
-                              activeOpacity={0.8}
+                              key={min}
+                              onPress={() => setMinutesBefore(min)}
+                              activeOpacity={0.75}
                               style={[
-                                styles.reciterChip,
+                                styles.minutesChip,
                                 {
-                                  backgroundColor: sel ? GOLD + "20" : colors.background,
+                                  backgroundColor: sel ? GOLD + "1F" : INNER_BG,
                                   borderColor: sel ? GOLD : colors.border,
                                 },
                               ]}
                             >
-                              <Text style={[styles.reciterName, { color: sel ? GOLD : colors.text }]} numberOfLines={1}>
-                                {style.name}
-                              </Text>
-                              <Text style={[styles.reciterLoc, { color: colors.textSecondary }]} numberOfLines={1}>
-                                {style.location.split(",")[0]}
-                              </Text>
+                              <Text style={[styles.minutesNum, { color: sel ? GOLD : colors.text }]}>{min}</Text>
+                              <Text style={[styles.minutesUnit, { color: sel ? GOLD : colors.textSecondary }]}>min</Text>
                             </TouchableOpacity>
                           );
                         })}
-                      </ScrollView>
-                    </View>
-
-                    {/* Adhan length */}
-                    <View style={styles.sectionBlock}>
-                      <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Adhan Length</Text>
-                      <View style={[styles.modeRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                        {(["full", "short"] as const).map((m) => {
-                          const sel = adhanMode === m;
+                      </View>
+                      {/* Type segmented (silent / notification) */}
+                      <View style={[styles.segmented, { backgroundColor: INNER_BG, borderColor: colors.border, marginTop: 12 }]}>
+                        {typeOptions.map((t: NotifTypeInfo) => {
+                          const sel = type === t.id;
                           return (
                             <TouchableOpacity
-                              key={m}
-                              onPress={() => setAdhanMode(m)}
+                              key={t.id}
+                              onPress={() => setType(t.id)}
+                              activeOpacity={0.85}
                               style={[
-                                styles.modeChip,
-                                { backgroundColor: sel ? GOLD + "20" : "transparent", borderColor: sel ? GOLD : "transparent" },
+                                styles.segment,
+                                sel && { backgroundColor: colors.surface, borderColor: colors.border },
                               ]}
                             >
-                              <Feather name={m === "full" ? "volume-2" : "volume-1"} size={14} color={sel ? GOLD : colors.textSecondary} />
-                              <Text style={[styles.modeLabel, { color: sel ? GOLD : colors.textSecondary }]}>
-                                {m === "full" ? "Full (~3–5 min)" : "Short (~2 min)"}
+                              <Feather name={t.icon as any} size={13} color={sel ? colors.text : colors.textSecondary} />
+                              <Text style={[styles.segmentLabel, { color: sel ? colors.text : colors.textSecondary }]}>
+                                {t.label}
                               </Text>
                             </TouchableOpacity>
                           );
                         })}
                       </View>
                     </View>
-                  </>
-                )}
-
-                {/* ── Days of week ── */}
-                <View style={styles.sectionBlock}>
-                  <View style={styles.daysHeader}>
-                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Repeat</Text>
-                    <Text style={[styles.daysFormatted, { color: GOLD }]}>{formatDays(days)}</Text>
-                  </View>
-                  <View style={styles.daysRow}>
-                    {DAY_LABELS.map((label, idx) => {
-                      const active = days.includes(idx);
-                      return (
-                        <TouchableOpacity
-                          key={idx}
-                          onPress={() => toggleDay(idx)}
-                          activeOpacity={0.75}
-                          style={[
-                            styles.dayCircle,
-                            {
-                              backgroundColor: active ? GOLD : colors.background,
-                              borderColor: active ? GOLD : colors.border,
-                            },
-                          ]}
-                        >
-                          <Text style={[styles.dayLabel, { color: active ? "#fff" : colors.textSecondary }]}>
-                            {label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                  {days.includes(5) && (
-                    <View style={[styles.jummahBadge, { backgroundColor: GOLD + "18", borderColor: GOLD + "44" }]}>
-                      <Text style={[styles.jummahText, { color: GOLD }]}>☾  Friday — Jumu'ah included</Text>
+                  ) : (
+                    <View
+                      style={[
+                        styles.sectionPad,
+                        type === "adhan" ? styles.rowDivider : null,
+                        { borderBottomColor: colors.border },
+                      ]}
+                    >
+                      <View style={[styles.segmented, { backgroundColor: INNER_BG, borderColor: colors.border }]}>
+                        {typeOptions.map((t: NotifTypeInfo) => {
+                          const sel = type === t.id;
+                          return (
+                            <TouchableOpacity
+                              key={t.id}
+                              onPress={() => setType(t.id)}
+                              activeOpacity={0.85}
+                              style={[
+                                styles.segment,
+                                sel && { backgroundColor: colors.surface, borderColor: colors.border },
+                              ]}
+                            >
+                              <Feather name={t.icon as any} size={13} color={sel ? colors.text : colors.textSecondary} />
+                              <Text style={[styles.segmentLabel, { color: sel ? colors.text : colors.textSecondary }]}>
+                                {t.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </View>
                   )}
-                </View>
-              </>
-            )}
 
-            {/* ── Save button ── */}
-            <TouchableOpacity
-              onPress={handleSave}
-              activeOpacity={0.85}
-              style={[styles.saveBtn, { backgroundColor: GOLD }]}
-            >
-              <Feather name="check" size={16} color="#fff" />
-              <Text style={styles.saveBtnText}>Save Settings</Text>
-            </TouchableOpacity>
+                  {/* ROW 3 — Adhan options (collapsible reciter + length toggle) */}
+                  {!isSunrise && type === "adhan" && (
+                    <View style={{ backgroundColor: INNER_BG + "66" }}>
+                      {/* Reciter — single tappable row that expands inline */}
+                      <TouchableOpacity
+                        onPress={() => setReciterExpanded((v) => !v)}
+                        activeOpacity={0.7}
+                        style={[styles.row, styles.rowDivider, { borderBottomColor: colors.border + "66" }]}
+                      >
+                        <Text style={[styles.rowLabel, { color: colors.text }]}>Reciter</Text>
+                        <View style={styles.rowRight}>
+                          <Text style={[styles.rowValue, { color: GOLD }]} numberOfLines={1}>
+                            {(ADHAN_STYLES.find((r) => r.id === adhanStyleId)?.name) ?? "Choose"}
+                            <Text style={{ color: GOLD + "88" }}>
+                              {"  · "}
+                              {(ADHAN_STYLES.find((r) => r.id === adhanStyleId)?.location.split(",")[0]) ?? ""}
+                            </Text>
+                          </Text>
+                          <Feather
+                            name={reciterExpanded ? "chevron-down" : "chevron-right"}
+                            size={14}
+                            color={colors.textSecondary}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      {reciterExpanded && (
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.reciterRow}
+                          style={{ borderBottomWidth: 1, borderBottomColor: colors.border + "66" }}
+                        >
+                          {ADHAN_STYLES.map((style) => {
+                            const sel = adhanStyleId === style.id;
+                            return (
+                              <TouchableOpacity
+                                key={style.id}
+                                onPress={() => setAdhanStyleId(style.id)}
+                                activeOpacity={0.8}
+                                style={[
+                                  styles.reciterChip,
+                                  {
+                                    backgroundColor: sel ? GOLD + "20" : colors.surface,
+                                    borderColor: sel ? GOLD : colors.border,
+                                  },
+                                ]}
+                              >
+                                <Text style={[styles.reciterName, { color: sel ? GOLD : colors.text }]} numberOfLines={1}>
+                                  {style.name}
+                                </Text>
+                                <Text style={[styles.reciterLoc, { color: colors.textSecondary }]} numberOfLines={1}>
+                                  {style.location.split(",")[0]}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      )}
+
+                      {/* Length — 2-segment compact toggle */}
+                      <View style={[styles.row]}>
+                        <Text style={[styles.rowLabel, { color: colors.text }]}>Length</Text>
+                        <View style={[styles.miniSegmented, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                          {(["full", "short"] as const).map((m) => {
+                            const sel = adhanMode === m;
+                            return (
+                              <TouchableOpacity
+                                key={m}
+                                onPress={() => setAdhanMode(m)}
+                                activeOpacity={0.85}
+                                style={[
+                                  styles.miniSegment,
+                                  sel && { backgroundColor: CARD_BG, borderColor: colors.border },
+                                ]}
+                              >
+                                <Feather
+                                  name={m === "full" ? "volume-2" : "volume-1"}
+                                  size={11}
+                                  color={sel ? colors.text : colors.textSecondary}
+                                />
+                                <Text style={[styles.miniSegmentLabel, { color: sel ? colors.text : colors.textSecondary }]}>
+                                  {m === "full" ? "Full" : "Short"}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {/* Inset Save button — lives inside the card */}
+              <View style={[styles.savePad, { backgroundColor: INNER_BG + "33" }]}>
+                <TouchableOpacity
+                  onPress={handleSave}
+                  activeOpacity={0.88}
+                  style={[styles.saveBtn, { backgroundColor: GOLD, shadowColor: GOLD }]}
+                >
+                  <Text style={styles.saveBtnText}>Save Settings</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Tertiary footer — repeat summary in plain language */}
+            <View style={styles.footerSummary}>
+              <Feather name="repeat" size={11} color={colors.textSecondary} />
+              <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+                {enabled ? formatDays(days) : "Off"}
+              </Text>
+            </View>
           </ScrollView>
         </View>
       </Animated.View>
@@ -422,10 +507,17 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     maxHeight: "92%",
   },
+  topEdgeHighlight: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+  },
   handleArea: {
     alignItems: "center",
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 10,
+    paddingBottom: 6,
     paddingHorizontal: 60,
   },
   handle: {
@@ -435,289 +527,289 @@ const styles = StyleSheet.create({
   },
 
   /* Header */
-  headerBar: {
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
+    paddingHorizontal: 18,
+    paddingTop: 4,
+    paddingBottom: 10,
   },
   headerLeft: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 7,
   },
-  prayerBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  prayerEmoji: { fontSize: 22 },
-  prayerName: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
+  headerName: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
     letterSpacing: -0.2,
   },
-  prayerArabic: {
-    fontSize: 14,
+  headerArabic: {
+    fontSize: 16,
+    fontFamily: Platform.OS === "ios" ? "Geeza Pro" : "serif",
+  },
+  headerDot: {
+    fontSize: 13,
+  },
+  headerTime: {
+    fontSize: 12,
     fontFamily: "Inter_500Medium",
+    fontVariant: ["tabular-nums"],
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  /* Live preview chip */
+  previewChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  previewText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: -0.1,
   },
 
   scrollContent: {
-    padding: 20,
-    gap: 20,
+    paddingHorizontal: 18,
+    paddingTop: 0,
+    paddingBottom: 16,
+    gap: 12,
   },
 
-  /* Sunrise hint */
-  hintBox: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    borderRadius: 12,
+  /* Single grouped card */
+  card: {
+    borderRadius: 18,
     borderWidth: 1,
-    padding: 12,
-  },
-  hintText: {
-    flex: 1,
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 19,
+    overflow: "hidden",
   },
 
-  /* Master toggle */
-  toggleRow: {
+  /* Row primitives */
+  row: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  toggleLeft: {
+  rowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  rowLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    flex: 1,
+    gap: 10,
   },
-  toggleIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  rowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    maxWidth: "65%",
+  },
+  rowLabel: {
+    fontSize: 13.5,
+    fontFamily: "Inter_500Medium",
+  },
+  rowValue: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  alertsLabel: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+
+  sectionPad: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+
+  /* Days inline */
+  daysInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  dayCol: {
+    alignItems: "center",
+  },
+  dayDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
   },
-  toggleLabel: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
+  dayDotLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
   },
-  toggleSub: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    marginTop: 1,
+  jummahUnderline: {
+    width: 10,
+    height: 2,
+    borderRadius: 1,
+    marginTop: 3,
+  },
+  jummahUnderlineSpacer: {
+    width: 10,
+    height: 2,
+    marginTop: 3,
   },
 
-  /* Section */
-  sectionBlock: { gap: 10 },
-  sectionLabel: {
+  /* Segmented control (Alert Type) */
+  segmented: {
+    flexDirection: "row",
+    borderRadius: 11,
+    borderWidth: 1,
+    padding: 3,
+    gap: 3,
+  },
+  segment: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  segmentLabel: {
+    fontSize: 12.5,
+    fontFamily: "Inter_600SemiBold",
+  },
+
+  /* Mini segmented (Length) */
+  miniSegmented: {
+    flexDirection: "row",
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 2,
+    gap: 2,
+  },
+  miniSegment: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  miniSegmentLabel: {
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
-    textTransform: "uppercase",
-    letterSpacing: 0.9,
   },
 
-  /* Minutes before (sunrise) */
+  /* Reciter expanded row */
+  reciterRow: {
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  reciterChip: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minWidth: 110,
+    gap: 1,
+  },
+  reciterName: {
+    fontSize: 12.5,
+    fontFamily: "Inter_600SemiBold",
+  },
+  reciterLoc: {
+    fontSize: 10.5,
+    fontFamily: "Inter_400Regular",
+  },
+
+  /* Sunrise minutes */
+  miniLabelRow: {
+    paddingHorizontal: 4,
+    paddingBottom: 8,
+  },
+  miniLabel: {
+    fontSize: 10.5,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+  },
   minutesRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
   },
   minutesChip: {
     flex: 1,
-    borderRadius: 14,
-    paddingVertical: 14,
+    borderRadius: 11,
+    paddingVertical: 10,
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
+    gap: 1,
+    borderWidth: 1,
   },
   minutesNum: {
-    fontSize: 22,
+    fontSize: 18,
     fontFamily: "Inter_700Bold",
-    letterSpacing: -0.5,
     fontVariant: ["tabular-nums"],
     includeFontPadding: false,
   },
   minutesUnit: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: "Inter_500Medium",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
 
-  /* Preview message */
-  previewBox: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  /* Inset Save */
+  savePad: {
+    padding: 10,
   },
-  previewText: {
-    flex: 1,
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    fontStyle: "italic",
-    lineHeight: 18,
-  },
-
-  /* Type cards */
-  typeCards: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  typeCard: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    padding: 12,
-    gap: 6,
-    minHeight: 100,
-  },
-  typeCardTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  typeIconCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  selectedDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  typeCardLabel: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-  },
-  typeCardDesc: {
-    fontSize: 10,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 14,
-  },
-
-  /* Reciter */
-  reciterRow: {
-    gap: 8,
-    paddingRight: 4,
-  },
-  reciterChip: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    minWidth: 100,
-    gap: 2,
-  },
-  reciterName: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-  reciterLoc: {
-    fontSize: 10,
-    fontFamily: "Inter_400Regular",
-  },
-
-  /* Adhan mode */
-  modeRow: {
-    borderRadius: 14,
-    borderWidth: 1,
-    overflow: "hidden",
-    gap: 0,
-  },
-  modeChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    margin: 4,
-    borderWidth: 1.5,
-  },
-  modeLabel: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-  },
-
-  /* Days */
-  daysHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  daysFormatted: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-  },
-  daysRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  dayCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-  },
-  dayLabel: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-  },
-  jummahBadge: {
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    alignSelf: "flex-start",
-  },
-  jummahText: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-  },
-
-  /* Save */
   saveBtn: {
-    borderRadius: 16,
-    paddingVertical: 15,
-    flexDirection: "row",
+    borderRadius: 12,
+    paddingVertical: 13,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    marginTop: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 4,
   },
   saveBtnText: {
-    color: "#fff",
-    fontSize: 16,
+    color: "#1A1822",
+    fontSize: 14.5,
     fontFamily: "Inter_700Bold",
-    letterSpacing: -0.2,
+    letterSpacing: -0.1,
+  },
+
+  /* Footer summary */
+  footerSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingTop: 4,
+  },
+  footerText: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: 0.1,
   },
 });
