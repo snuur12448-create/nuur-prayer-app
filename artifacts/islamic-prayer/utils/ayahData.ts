@@ -7,6 +7,84 @@ export interface DailyAyah {
   ayahNumber: number;
 }
 
+/**
+ * A small rotation of "Verse of the Night" — readings selected for the
+ * Maghrib→Fajr window. Surrounded with short, contemplative ayāt about
+ * the night, prayer in the night, and trust at hard hours. One per day,
+ * keyed off the date so it's stable across renders within a day.
+ */
+export const NIGHTLY_AYAHS: DailyAyah[] = [
+  {
+    arabic: "يَٰٓأَيُّهَا ٱلْمُزَّمِّلُ ۝ قُمِ ٱلَّيْلَ إِلَّا قَلِيلًا",
+    translation: "O you who wraps himself [in clothing], arise [to pray] the night, except a little —",
+    transliteration: "Yā ayyuhal-muzzammil, qumil-layla illā qalīlā",
+    surahName: "Al-Muzzammil",
+    surahNumber: 73,
+    ayahNumber: 1,
+  },
+  {
+    arabic: "وَمِنَ ٱلَّيْلِ فَتَهَجَّدْ بِهِۦ نَافِلَةً لَّكَ عَسَىٰٓ أَن يَبْعَثَكَ رَبُّكَ مَقَامًا مَّحْمُودًا",
+    translation: "And in the night arise from sleep for prayer — a supererogatory act for you; perhaps your Lord will raise you to a praised station.",
+    transliteration: "Wa minal-layli fatahajjad bihī nāfilatan lak, ʿasā an yabʿathaka rabbuka maqāmam-maḥmūdā",
+    surahName: "Al-Isrāʾ",
+    surahNumber: 17,
+    ayahNumber: 79,
+  },
+  {
+    arabic: "إِنَّ نَاشِئَةَ ٱلَّيْلِ هِىَ أَشَدُّ وَطْـًٔا وَأَقْوَمُ قِيلًا",
+    translation: "Indeed, the hours of the night are more impactful and more suitable for words.",
+    transliteration: "Inna nāshiʾatal-layli hiya ashaddu waṭʾan wa-aqwamu qīlā",
+    surahName: "Al-Muzzammil",
+    surahNumber: 73,
+    ayahNumber: 6,
+  },
+  {
+    arabic: "وَٱلَّذِينَ يَبِيتُونَ لِرَبِّهِمْ سُجَّدًا وَقِيَٰمًا",
+    translation: "And those who spend [part of] the night to their Lord prostrating and standing [in prayer].",
+    transliteration: "Walladhīna yabītūna lirabbihim sujjadaw-wa qiyāmā",
+    surahName: "Al-Furqān",
+    surahNumber: 25,
+    ayahNumber: 64,
+  },
+  {
+    arabic: "تَتَجَافَىٰ جُنُوبُهُمْ عَنِ ٱلْمَضَاجِعِ يَدْعُونَ رَبَّهُمْ خَوْفًا وَطَمَعًا",
+    translation: "Their sides part from [their] beds; they call upon their Lord in fear and in hope.",
+    transliteration: "Tatajāfā junūbuhum ʿanil-maḍājiʿi yadʿūna rabbahum khawfaw-wa ṭamaʿā",
+    surahName: "As-Sajdah",
+    surahNumber: 32,
+    ayahNumber: 16,
+  },
+  {
+    arabic: "وَبِٱلْأَسْحَارِ هُمْ يَسْتَغْفِرُونَ",
+    translation: "And in the hours before dawn they would seek forgiveness.",
+    transliteration: "Wa bil-asḥāri hum yastaghfirūn",
+    surahName: "Adh-Dhāriyāt",
+    surahNumber: 51,
+    ayahNumber: 18,
+  },
+  {
+    arabic: "وَمِنَ ٱلَّيْلِ فَسَبِّحْهُ وَإِدْبَٰرَ ٱلنُّجُومِ",
+    translation: "And in part of the night exalt Him and after [the setting of] the stars.",
+    transliteration: "Wa minal-layli fasabbiḥhu wa-idbāran-nujūm",
+    surahName: "Aṭ-Ṭūr",
+    surahNumber: 52,
+    ayahNumber: 49,
+  },
+];
+
+/** Pick a nightly ayah for the given date (defaults to today). Stable per day. */
+export function getNightlyAyahForDate(date: Date): DailyAyah {
+  // Use day-of-year so it rotates daily independent of monthly boundaries.
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = date.getTime() - start.getTime();
+  const day = Math.floor(diff / 86_400_000);
+  return NIGHTLY_AYAHS[day % NIGHTLY_AYAHS.length];
+}
+
+export function getNightlyAyah(): DailyAyah {
+  return getNightlyAyahForDate(new Date());
+}
+
 export const DAILY_AYAHS: DailyAyah[] = [
   {
     arabic: "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",

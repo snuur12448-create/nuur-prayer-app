@@ -18,13 +18,14 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
+import { usePrayerTracker, TRACKER_PRAYERS, type TrackerPrayerKey } from "@/context/PrayerTrackerContext";
 import { LocationModal } from "@/components/LocationModal";
 import { PrayerNotifSheet } from "@/components/PrayerNotifSheet";
 import { NotifQuickSheet } from "@/components/NotifQuickSheet";
 import AyahShareSheet from "@/components/AyahShareSheet";
 import ContentShareSheet from "@/components/ContentShareSheet";
 import { getIslamicDate } from "@/utils/islamicData";
-import { getDailyAyah } from "@/utils/ayahData";
+import { getDailyAyah, getNightlyAyah } from "@/utils/ayahData";
 import { getDailyHadith } from "@/utils/hadithData";
 import { calculatePrayerTimes, applyPrayerOffsets, getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
 import { PrayerKey } from "@/utils/prayerNotifData";
@@ -32,6 +33,8 @@ import { GuideSection } from "@/components/GuideSection";
 import { MushafLeafVerse } from "@/components/MushafLeafVerse";
 import { HadithScholarsLeaf } from "@/components/HadithScholarsLeaf";
 import { CelestialArcCard } from "@/components/CelestialArcCard";
+import { CelestialDomeNight } from "@/components/CelestialDomeNight";
+import { PrayerStripChip, type PrayerStripStatus } from "@/components/PrayerStripChip";
 
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 
@@ -102,8 +105,22 @@ export default function PrayerScreen() {
   const [clockNow, setClockNow] = useState(new Date());
   const [showLocationModal, setShowLocationModal] = useState(false);
   const islamicDate = getIslamicDate();
-  const dailyAyah = getDailyAyah();
   const dailyHadith = getDailyHadith();
+
+  // Prayer tracker — for the chip strip and the day's record
+  const { trackerData, togglePrayer: trackerTogglePrayer } = usePrayerTracker();
+
+  // Night detection drives palette swap and verse-of-the-night rotation.
+  // Night = before sunrise OR after maghrib. Falls back to false until
+  // prayerTimes resolves so we don't flash to night on first paint.
+  const nowMs = currentTime.getTime();
+  const isNight =
+    !!prayerTimes &&
+    (nowMs < prayerTimes.sunrise.time.getTime() || nowMs >= prayerTimes.maghrib.time.getTime());
+  const dawnApproaching = currentPrayer?.name?.toLowerCase() === "fajr";
+
+  // Verse swaps to a Verse of the Night during the Maghrib→Sunrise window.
+  const dailyAyah = isNight ? getNightlyAyah() : getDailyAyah();
 
   const handleShareAyah = useCallback(() => setShowAyahShare(true), []);
   const handleReadAyahSurah = useCallback(() => {
@@ -383,19 +400,103 @@ export default function PrayerScreen() {
 
           <Text style={[styles.gregorianDate, { color: colors.textSecondary }]}>{formatDate()}</Text>
 
-          {/* Celestial Arc — sky card. Time-of-day responsive palette,
-              calligraphic Arabic centerpiece, glowing arc with traveling
-              ember marker showing window progress, gold filigree band tying
-              to the parchment leaves below. */}
-          <CelestialArcCard
-            currentPrayer={currentPrayer}
-            nextPrayer={nextPrayer}
-            progressEndPrayer={progressEndPrayer}
-            progress={progress}
-            timeRemaining={timeRemaining}
-            isLoading={!prayerTimes || (!currentPrayer && !nextPrayer)}
-            themeGold={colors.gold}
-          />
+          {/* Celestial sky card — day mode keeps the existing arc; once
+              Maghrib lands we swap to the night dome (moon as time-marker,
+              Maghrib→Sunrise anchors). */}
+          {isNight && prayerTimes ? (
+            (() => {
+              // Night window: nightStart = today's Maghrib, nightEnd = next Sunrise.
+              // Pre-Fajr (after midnight): the active night actually started
+              // yesterday, so we shift Maghrib back by 24h.
+              const todayMaghribMs = prayerTimes.maghrib.time.getTime();
+              const todaySunriseMs = prayerTimes.sunrise.time.getTime();
+              const beforeTodayMaghrib = nowMs < todayMaghribMs;
+              const nightStartMs = beforeTodayMaghrib
+                ? todayMaghribMs - 24 * 60 * 60 * 1000
+                : todayMaghribMs;
+              const nightEndMs =
+                todaySunriseMs > nightStartMs
+                  ? todaySunriseMs
+                  : todaySunriseMs + 24 * 60 * 60 * 1000;
+              const isIshaNow = currentPrayer?.name?.toLowerCase() === "isha" || currentPrayer?.name?.toLowerCase() === "maghrib";
+              const isFajrNow = currentPrayer?.name?.toLowerCase() === "fajr";
+              return (
+                <CelestialDomeNight
+                  prayerTimes={prayerTimes}
+                  nowMs={nowMs}
+                  nightStartMs={nightStartMs}
+                  nightEndMs={nightEndMs}
+                  dawnApproaching={dawnApproaching}
+                  themeGold={colors.gold}
+                  ishaStatus={isIshaNow ? "now" : "past"}
+                  fajrStatus={isFajrNow ? "now" : nowMs >= nightStartMs && nowMs < (prayerTimes.fajr.time.getTime() < nightStartMs ? prayerTimes.fajr.time.getTime() + 24 * 60 * 60 * 1000 : prayerTimes.fajr.time.getTime()) ? "next" : "upcoming"}
+                  countdownLabel={isIshaNow || isFajrNow ? "ENDS IN" : "FAJR IN"}
+                  countdownValue={timeRemaining}
+                  isNow={isIshaNow}
+                />
+              );
+            })()
+          ) : (
+            <CelestialArcCard
+              currentPrayer={currentPrayer}
+              nextPrayer={nextPrayer}
+              progressEndPrayer={progressEndPrayer}
+              progress={progress}
+              timeRemaining={timeRemaining}
+              isLoading={!prayerTimes || (!currentPrayer && !nextPrayer)}
+              themeGold={colors.gold}
+            />
+          )}
+
+          {/* Today's prayer chip strip — tap to mark prayed. Wired to the
+              shared PrayerTrackerContext, so toggles propagate to the
+              Tracker tab automatically. */}
+          {(() => {
+            const todayKey = `${currentTime.getFullYear()}-${String(currentTime.getMonth() + 1).padStart(2, "0")}-${String(currentTime.getDate()).padStart(2, "0")}`;
+            const dayRecord = trackerData[todayKey] || {};
+            const prayed: Record<TrackerPrayerKey, boolean> = {
+              fajr: !!dayRecord.fajr,
+              dhuhr: !!dayRecord.dhuhr,
+              asr: !!dayRecord.asr,
+              maghrib: !!dayRecord.maghrib,
+              isha: !!dayRecord.isha,
+            };
+            const times: Record<TrackerPrayerKey, string> = {
+              fajr: prayerTimes?.fajr.timeString ?? "--:--",
+              dhuhr: prayerTimes?.dhuhr.timeString ?? "--:--",
+              asr: prayerTimes?.asr.timeString ?? "--:--",
+              maghrib: prayerTimes?.maghrib.timeString ?? "--:--",
+              isha: prayerTimes?.isha.timeString ?? "--:--",
+            };
+            const statuses: Partial<Record<TrackerPrayerKey, PrayerStripStatus>> = {};
+            const curName = currentPrayer?.name?.toLowerCase();
+            const nextName = nextPrayer?.name?.toLowerCase();
+            for (const p of TRACKER_PRAYERS) {
+              if (curName === p) statuses[p] = "now";
+              else if (nextName === p) statuses[p] = "next";
+              else if (prayerTimes?.[p] && prayerTimes[p].time.getTime() < nowMs) statuses[p] = "past";
+              else statuses[p] = "upcoming";
+            }
+            const eyebrow = isNight && !dawnApproaching ? "EARLIER TODAY" : "TODAY";
+            return (
+              <PrayerStripChip
+                label={eyebrow}
+                prayed={prayed}
+                times={times}
+                statuses={statuses}
+                onToggle={(p) => trackerTogglePrayer(p, todayKey)}
+                themeColors={{
+                  text: colors.text,
+                  textSecondary: colors.textSecondary,
+                  border: colors.border,
+                  surface: colors.surface,
+                  background: colors.background,
+                  gold: colors.gold,
+                  tint: colors.tint,
+                }}
+              />
+            );
+          })()}
         </View>
 
         {/* Prayer Times */}

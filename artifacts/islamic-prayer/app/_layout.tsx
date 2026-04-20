@@ -21,6 +21,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NuurSplash } from "@/components/NuurSplash";
 import { Onboarding, ONBOARDING_KEY } from "@/components/Onboarding";
 import { AppProvider, useAppContext } from "@/context/AppContext";
+import { PrayerTrackerProvider } from "@/context/PrayerTrackerContext";
 import { QuranPlayerProvider } from "@/context/QuranPlayerContext";
 import { configurePurchases } from "@/utils/iap";
 import { recordFirstLaunch, maybeRequestReview } from "@/utils/reviewPrompt";
@@ -125,6 +126,7 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <AppProvider>
+                <PrayerTrackerProvider>
                 <QuranPlayerProvider>
                   {/* Main app — only rendered once fonts are ready to prevent FOUT.
                       Contexts (AppProvider, QuranPlayerProvider) warm up above this,
@@ -141,6 +143,7 @@ export default function RootLayout() {
                     <NuurSplash onComplete={() => setAnimDone(true)} />
                   )}
                 </QuranPlayerProvider>
+                </PrayerTrackerProvider>
               </AppProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>

@@ -16,10 +16,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
+import { usePrayerTracker } from "@/context/PrayerTrackerContext";
 import { calculatePrayerTimes, applyPrayerOffsets, PrayerTimesResult } from "@/utils/prayerTimes";
 import { getIslamicDateForDate } from "@/utils/islamicData";
 
-const STORAGE_KEY = "nuur_prayer_tracker";
 const MILESTONE_KEY = "nuur_streak_milestones";
 
 const MILESTONE_DAYS = [3, 7, 14, 30, 60, 100] as const;
@@ -210,9 +210,8 @@ export default function TrackerScreen() {
   const insets = useSafeAreaInsets();
   const miniPlayerH = useMiniPlayerHeight();
   const { themeColors: colors, location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets } = useAppContext();
+  const { trackerData, loaded, togglePrayer: ctxTogglePrayer } = usePrayerTracker();
   const [selectedKey, setSelectedKey] = useState(todayKey());
-  const [trackerData, setTrackerData] = useState<TrackerData>({});
-  const [loaded, setLoaded] = useState(false);
   const [milestonesLoaded, setMilestonesLoaded] = useState(false);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimesResult | null>(null);
   const [firedMilestones, setFiredMilestones] = useState<number[]>([]);
@@ -233,13 +232,9 @@ export default function TrackerScreen() {
   const goldAccent = colors.tint;
 
   // ── Persistence ──
+  // Tracker data is owned by PrayerTrackerContext (load + save handled there).
+  // We only own milestone notification state here.
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      if (raw) {
-        try { setTrackerData(JSON.parse(raw)); } catch { /* corrupted — start fresh */ }
-      }
-      setLoaded(true);
-    });
     AsyncStorage.getItem(MILESTONE_KEY).then((raw) => {
       if (raw) {
         try { setFiredMilestones(JSON.parse(raw)); } catch { /* corrupted */ }
@@ -247,11 +242,6 @@ export default function TrackerScreen() {
       setMilestonesLoaded(true);
     });
   }, []);
-
-  useEffect(() => {
-    if (!loaded) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(trackerData));
-  }, [trackerData, loaded]);
 
   // ── Streak milestone notifications ──
   useEffect(() => {
@@ -295,11 +285,8 @@ export default function TrackerScreen() {
   }, [selectedKey, location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets]);
 
   const togglePrayer = useCallback((prayer: PrayerKey) => {
-    setTrackerData((prev) => {
-      const day = prev[selectedKey] || {};
-      return { ...prev, [selectedKey]: { ...day, [prayer]: !day[prayer] } };
-    });
-  }, [selectedKey]);
+    ctxTogglePrayer(prayer, selectedKey);
+  }, [selectedKey, ctxTogglePrayer]);
 
   const navigateDay = (delta: number) => {
     const d = keyToDate(selectedKey);
