@@ -1029,7 +1029,11 @@ export function HomeV2(props: HomeV2Props) {
               height: HERO_H,
             }}
           >
-            {arcPrayers.map((p) => {
+            {/* Day-scene tap targets — only active when the day arc is the
+                visible scene. Without this gate, after Maghrib a tap where
+                Dhuhr/Asr used to sit would still open Dhuhr/Asr notification
+                settings even though the dome no longer shows them. */}
+            {!nightActive && arcPrayers.map((p) => {
               const r = (p.angle * Math.PI) / 180;
               const x = cx + R * Math.cos(r);
               const y = cy + R * Math.sin(r);
@@ -1053,7 +1057,7 @@ export function HomeV2(props: HomeV2Props) {
                 />
               );
             })}
-            {nightPrayers.map((p) => {
+            {!nightActive && nightPrayers.map((p) => {
               const isLeft = p.side === "left";
               const x = isLeft ? 28 : W - 28;
               const y = cy + 70;
@@ -1073,6 +1077,36 @@ export function HomeV2(props: HomeV2Props) {
                     top: y - 18,
                     width: 84,
                     height: 52,
+                  }}
+                />
+              );
+            })}
+            {/* Night-scene tap targets — anchored to the same arc the user is
+                actually looking at (Maghrib · Isha · Last 1/3 · Fajr · Sunrise).
+                Only the three real prayers (Maghrib/Isha/Fajr) open settings;
+                Last 1/3 and Sunrise are informational anchors and skip the
+                pressable so taps fall through. */}
+            {nightActive && nightArcPrayers.map((p) => {
+              if (p.id !== "maghrib" && p.id !== "isha" && p.id !== "fajr") return null;
+              const r = (p.angle * Math.PI) / 180;
+              const x = cx + R * Math.cos(r);
+              const y = cy + R * Math.sin(r);
+              return (
+                <Pressable
+                  key={`hit-night-${p.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${p.label} notification settings`}
+                  onPress={() => {
+                    tapHaptic("selection");
+                    onPrayerSettingsPress(p.id as TrackerPrayerKey);
+                  }}
+                  hitSlop={6}
+                  style={{
+                    position: "absolute",
+                    left: x - 30,
+                    top: y - 30,
+                    width: 60,
+                    height: 60,
                   }}
                 />
               );
