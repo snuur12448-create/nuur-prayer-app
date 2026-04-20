@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import {
+  AccessibilityInfo,
   Platform,
   Pressable,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
 import Svg, {
   Circle,
   Defs,
@@ -82,6 +84,84 @@ function horizonOf(grad: string[]): string {
   return grad[grad.length - 1];
 }
 
+// ── Color helpers (hex ↔ rgb, mix) ──────────────────────────────────────────
+function hexToRgb(h: string): [number, number, number] {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h.trim());
+  if (!m) return [0, 0, 0];
+  return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+}
+function rgbToHex(r: number, g: number, b: number): string {
+  const c = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
+function mixHex(a: string, b: string, t: number): string {
+  const [r1, g1, b1] = hexToRgb(a);
+  const [r2, g2, b2] = hexToRgb(b);
+  return rgbToHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
+}
+function mixGradient(a: string[], b: string[], t: number): string[] {
+  const n = Math.min(a.length, b.length);
+  return Array.from({ length: n }, (_, i) => mixHex(a[i], b[i], t));
+}
+
+/**
+ * Time-of-day twilight blending. Within ±20 min of Sunrise / Maghrib we
+ * smoothly cross-fade between adjacent SKY palettes so the sky doesn't snap
+ * between phases. Returns the blended gradient + the "warmth" amount used to
+ * intensify the sun's glow at the horizon.
+ */
+const TWILIGHT_MS = 20 * 60 * 1000;
+function blendedSky(curName: string | null, nowMs: number, ptSunriseMs: number | null, ptMaghribMs: number | null) {
+  const base = skyFor(curName);
+  if (!curName || !ptSunriseMs || !ptMaghribMs) return { grad: base, twilight: 0 };
+  const lower = curName.toLowerCase();
+  // Sunrise window: Fajr(left) ↔ Sunrise(centre) ↔ Dhuhr(right)
+  const dSr = nowMs - ptSunriseMs;
+  if (Math.abs(dSr) <= TWILIGHT_MS && (lower === "fajr" || lower === "sunrise" || lower === "dhuhr")) {
+    if (dSr <= 0) {
+      const t = 1 + dSr / TWILIGHT_MS; // 0→1 as we approach sunrise
+      return { grad: mixGradient(SKY.fajr, SKY.sunrise, t), twilight: t };
+    }
+    const t = dSr / TWILIGHT_MS;
+    return { grad: mixGradient(SKY.sunrise, SKY.dhuhr, t), twilight: 1 - t };
+  }
+  // Maghrib window: Asr(left) ↔ Maghrib(centre) ↔ Isha(right)
+  const dMg = nowMs - ptMaghribMs;
+  if (Math.abs(dMg) <= TWILIGHT_MS && (lower === "asr" || lower === "maghrib" || lower === "isha")) {
+    if (dMg <= 0) {
+      const t = 1 + dMg / TWILIGHT_MS;
+      return { grad: mixGradient(SKY.asr, SKY.maghrib, t), twilight: t };
+    }
+    const t = dMg / TWILIGHT_MS;
+    return { grad: mixGradient(SKY.maghrib, SKY.isha, t), twilight: 1 - t };
+  }
+  return { grad: base, twilight: 0 };
+}
+
+function useReduceMotion(): boolean {
+  const [reduce, setReduce] = React.useState(false);
+  React.useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled?.().then((v) => mounted && setReduce(!!v)).catch(() => {});
+    const sub = AccessibilityInfo.addEventListener?.("reduceMotionChanged", (v) => mounted && setReduce(!!v));
+    return () => {
+      mounted = false;
+      sub?.remove?.();
+    };
+  }, []);
+  return reduce;
+}
+
+function tapHaptic(kind: "selection" | "light" = "selection") {
+  if (Platform.OS === "web") return;
+  try {
+    if (kind === "light") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    else void Haptics.selectionAsync();
+  } catch {
+    /* haptics unavailable */
+  }
+}
+
 // Deterministic star field for the dome (denser at night).
 function buildStars(boost: number, w: number, cy: number) {
   const n = Math.round(14 * boost);
@@ -120,6 +200,9 @@ export interface HomeV2Props {
 
   prayed: Record<TrackerPrayerKey, boolean>;
   prayedCount: number;
+  /** Unix ms when the *current* tracked prayer was last marked. Drives the
+   * "prayed Xm ago" sub-label on the NOW card. */
+  nowPrayedAtMs?: number | null;
 
   ayah: {
     arabic: string;
@@ -172,6 +255,7 @@ export function HomeV2(props: HomeV2Props) {
     hijriLabel,
     prayed,
     prayedCount,
+    nowPrayedAtMs,
     ayah,
     isVerseOfNight,
     ayahCopied,
@@ -198,8 +282,18 @@ export function HomeV2(props: HomeV2Props) {
   const cy = 280;
   const R = Math.min(138, W / 2 - 50);
 
+  const reduceMotion = useReduceMotion();
   const curName = currentPrayer?.name?.toLowerCase() ?? null;
-  const grad = skyFor(curName);
+  const ptSunriseMs = prayerTimes ? prayerTimes.sunrise.time.getTime() : null;
+  const ptMaghribMs = prayerTimes ? prayerTimes.maghrib.time.getTime() : null;
+  const blended = useMemo(
+    () => blendedSky(curName, nowMs, ptSunriseMs, ptMaghribMs),
+    [curName, nowMs, ptSunriseMs, ptMaghribMs],
+  );
+  // Honour prefers-reduced-motion: drop the smooth twilight cross-fade and
+  // halo swell so the scene doesn't pulse for users who've opted out.
+  const grad = reduceMotion ? skyFor(curName) : blended.grad;
+  const twilight = reduceMotion ? 0 : blended.twilight;
   const horizonColor = horizonOf(grad);
   const isDay = !isNight;
   const ink = isDay ? "#FFE4B5" : "#C9D4F0";
@@ -226,6 +320,11 @@ export function HomeV2(props: HomeV2Props) {
   const bodyRad = (bodyDeg * Math.PI) / 180;
   const bodyX = cx + R * Math.cos(bodyRad);
   const bodyY = cy + R * Math.sin(bodyRad);
+  // 0 at horizon, 1 at apex. Drives glow swell at sunrise/sunset.
+  const bodyElev = Math.max(0, Math.min(1, -Math.sin(bodyRad)));
+  const horizonProx = 1 - bodyElev; // 1 near horizon
+  // Combine with explicit twilight blend for stronger sunrise/sunset glow.
+  const glowBoost = reduceMotion ? 0 : Math.max(horizonProx * 0.7, twilight);
 
   // Live time label embedded next to the body.
   const nowLabel = useMemo(() => {
@@ -350,6 +449,26 @@ export function HomeV2(props: HomeV2Props) {
 
   const isPrayedNow = isCurrentTracked && prayed[curName as TrackerPrayerKey];
 
+  // "prayed Xm ago" sub-label after marking the current prayer.
+  const prayedAgo = useMemo(() => {
+    if (!isPrayedNow || !nowPrayedAtMs) return null;
+    const diff = Math.max(0, Math.floor((nowMs - nowPrayedAtMs) / 60000));
+    if (diff < 1) return "prayed just now";
+    if (diff < 60) return `prayed ${diff}m ago`;
+    const h = Math.floor(diff / 60);
+    const m = diff % 60;
+    return `prayed ${h}h ${m}m ago`;
+  }, [isPrayedNow, nowPrayedAtMs, nowMs]);
+
+  const handleToggleNow = () => {
+    tapHaptic("light");
+    if (curName) onTogglePrayed(curName as TrackerPrayerKey);
+  };
+  const handleToggleBud = (k: TrackerPrayerKey) => {
+    tapHaptic("selection");
+    onTogglePrayed(k);
+  };
+
   const nextLabel = (() => {
     if (!nextName) return "NEXT";
     if (nextName === "sunrise") return "UNTIL SUNRISE";
@@ -403,7 +522,8 @@ export function HomeV2(props: HomeV2Props) {
           />
           <Line x1={16} y1={cy} x2={W - 16} y2={cy} stroke={inkSoft(0.32)} strokeWidth={1} />
 
-          {/* Sunrise tick (left horizon) */}
+          {/* Sunrise tick (left horizon). Skipped entirely when there is no
+              location yet — see the inline CTA rendered below. */}
           {prayerTimes && (
             <>
               <Circle cx={cx - R} cy={cy - 4} r={2.2} fill={inkSoft(0.6)} />
@@ -416,8 +536,8 @@ export function HomeV2(props: HomeV2Props) {
             </>
           )}
 
-          {/* Daytime arc prayers */}
-          {arcPrayers.map((p) => {
+          {/* Daytime arc prayers — only when we have prayer times */}
+          {prayerTimes && arcPrayers.map((p) => {
             const r = (p.angle * Math.PI) / 180;
             const x = cx + R * Math.cos(r);
             const y = cy + R * Math.sin(r);
@@ -485,7 +605,7 @@ export function HomeV2(props: HomeV2Props) {
           })}
 
           {/* Night-side moons (Fajr / Isha) */}
-          {nightPrayers.map((p) => {
+          {prayerTimes && nightPrayers.map((p) => {
             const isLeft = p.side === "left";
             const x = isLeft ? 28 : W - 28;
             const y = cy + 70;
@@ -559,9 +679,21 @@ export function HomeV2(props: HomeV2Props) {
             );
           })}
 
-          {/* The body (sun OR moon) */}
-          {isDay ? (
+          {/* The body (sun OR moon). Glow swells near the horizon and during
+              the explicit twilight window for a "golden hour" feel. Hidden
+              when there is no location to anchor it. */}
+          {prayerTimes && (isDay ? (
             <>
+              {/* Outer warm halo (only visible near horizon / twilight) */}
+              {glowBoost > 0.05 && (
+                <Circle
+                  cx={bodyX}
+                  cy={bodyY}
+                  r={32 + 22 * glowBoost}
+                  fill="url(#sunGlow)"
+                  opacity={0.55 + 0.4 * glowBoost}
+                />
+              )}
               <Circle cx={bodyX} cy={bodyY} r={32} fill="url(#sunGlow)" />
               <Circle cx={bodyX} cy={bodyY} r={11} fill="#FFF1C4" />
               <SvgText x={bodyX + 18} y={bodyY + 3} fill="#FFF1C4" fontSize={11} fontWeight="700">
@@ -570,6 +702,15 @@ export function HomeV2(props: HomeV2Props) {
             </>
           ) : (
             <>
+              {glowBoost > 0.05 && (
+                <Circle
+                  cx={bodyX}
+                  cy={bodyY}
+                  r={28 + 16 * glowBoost}
+                  fill="url(#moonGlow)"
+                  opacity={0.5 + 0.4 * glowBoost}
+                />
+              )}
               <Circle cx={bodyX} cy={bodyY} r={28} fill="url(#moonGlow)" />
               <Circle cx={bodyX} cy={bodyY} r={13} fill="#E8EEFF" />
               <Circle cx={bodyX + (bodyDeg < -90 ? 6 : -5)} cy={bodyY - 1.5} r={11} fill={grad[0]} />
@@ -577,8 +718,84 @@ export function HomeV2(props: HomeV2Props) {
                 {nowLabel}
               </SvgText>
             </>
-          )}
+          ))}
+
+          {/* Last-third-of-night (Tahajjud) marker — only at night, on the
+              horizon line, 2/3 of the way from Maghrib (right) to Sunrise
+              (left). */}
+          {isNight && prayerTimes && (() => {
+            // Night arc runs right→left (Maghrib at cx+R, Sunrise at cx-R).
+            // 2/3 of the way across = cx + R - (4/3)R = cx - R/3.
+            const x = cx - R / 3;
+            return (
+              <>
+                <Line
+                  x1={x}
+                  y1={cy - 6}
+                  x2={x}
+                  y2={cy + 6}
+                  stroke="rgba(201,212,240,0.55)"
+                  strokeWidth={1}
+                  strokeDasharray="2 2"
+                />
+                <SvgText
+                  x={x}
+                  y={cy + 18}
+                  textAnchor="middle"
+                  fill="rgba(201,212,240,0.55)"
+                  fontSize={7.5}
+                  fontWeight="700"
+                  letterSpacing={0.6}
+                >
+                  TAHAJJUD
+                </SvgText>
+              </>
+            );
+          })()}
         </Svg>
+
+        {/* Empty-state CTA: when there are no prayer times yet, swap the dome
+            anchors for a single, calm "Set location" call-to-action so the
+            hero never reads as broken. */}
+        {!prayerTimes && (
+          <View
+            pointerEvents="box-none"
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: cy - 40,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: ink, fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 1.4, marginBottom: 12 }}>
+              {locationLabel?.toUpperCase() ?? "NO LOCATION"}
+            </Text>
+            <TouchableOpacity
+              onPress={onLocationPress}
+              activeOpacity={0.85}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: inkSoft(0.55),
+                backgroundColor: "rgba(0,0,0,0.25)",
+              }}
+            >
+              <Feather name="map-pin" size={13} color={ink} />
+              <Text style={{ color: ink, fontFamily: "Inter_700Bold", fontSize: 12, letterSpacing: 0.4 }}>
+                Set your location
+              </Text>
+            </TouchableOpacity>
+            <Text style={{ color: inkSoft(0.6), fontSize: 10, fontFamily: "Inter_500Medium", marginTop: 8, textAlign: "center", paddingHorizontal: 28 }}>
+              Prayer times are calculated from your position.
+            </Text>
+          </View>
+        )}
 
         {/* Floating top bar */}
         <View
@@ -693,9 +910,15 @@ export function HomeV2(props: HomeV2Props) {
                   </Text>
                 )}
               </View>
-              {nowHasPeriod && (
-                <Text style={[styles.nowSub, { color: colors.textSecondary }]} numberOfLines={1}>
-                  {nowHasPeriod}
+              {(prayedAgo || nowHasPeriod) && (
+                <Text
+                  style={[
+                    styles.nowSub,
+                    { color: prayedAgo ? colors.gold : colors.textSecondary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {prayedAgo ?? nowHasPeriod}
                 </Text>
               )}
             </View>
@@ -703,7 +926,7 @@ export function HomeV2(props: HomeV2Props) {
             {isCurrentTracked && (
               <TouchableOpacity
                 activeOpacity={0.85}
-                onPress={() => onTogglePrayed(curName as TrackerPrayerKey)}
+                onPress={handleToggleNow}
                 style={[
                   styles.markBtn,
                   isPrayedNow
@@ -760,7 +983,7 @@ export function HomeV2(props: HomeV2Props) {
                 return (
                   <Pressable
                     key={k}
-                    onPress={() => onTogglePrayed(k)}
+                    onPress={() => handleToggleBud(k)}
                     hitSlop={6}
                     style={[
                       styles.bud,

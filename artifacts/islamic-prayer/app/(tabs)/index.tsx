@@ -233,9 +233,17 @@ export default function PrayerScreen() {
     isha: !!dayRecord.isha,
   }), [dayRecord]);
   const prayedCount = TRACKER_PRAYERS.reduce((n, k) => n + (prayed[k] ? 1 : 0), 0);
+  // Track when each prayer was last marked, in-memory only — drives the
+  // "prayed Xm ago" sub-label on the NOW card without touching persistence.
+  const [lastPrayedAt, setLastPrayedAt] = useState<Partial<Record<TrackerPrayerKey, number>>>({});
   const onTogglePrayed = useCallback((key: TrackerPrayerKey) => {
+    // Use the in-memory timestamp itself as the local source of truth so
+    // rapid double-taps stay consistent without reading stale `dayRecord`.
+    setLastPrayedAt((prev) => ({ ...prev, [key]: prev[key] ? undefined : Date.now() }));
     trackerTogglePrayer(key, todayKey);
   }, [trackerTogglePrayer, todayKey]);
+  const curKeyForPrayed = currentPrayer?.name?.toLowerCase() as TrackerPrayerKey | undefined;
+  const nowPrayedAtMs = curKeyForPrayed ? lastPrayedAt[curKeyForPrayed] ?? null : null;
 
   // ── Bell state for the dome's top-bar bell button ─────────────────────────
   const isSnoozed = notifSnoozeUntil > Date.now();
@@ -332,6 +340,7 @@ export default function PrayerScreen() {
           hijriLabel={hijriLabel}
           prayed={prayed}
           prayedCount={prayedCount}
+          nowPrayedAtMs={nowPrayedAtMs}
           ayah={dailyAyah}
           isVerseOfNight={isNight}
           ayahCopied={ayahCopied}
