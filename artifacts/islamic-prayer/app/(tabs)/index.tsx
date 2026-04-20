@@ -223,7 +223,19 @@ export default function PrayerScreen() {
   const goCalendar = useCallback(() => router.push("/calendar"), []);
 
   // ── Tracker map for the day's record + 5/5 count ──────────────────────────
-  const todayKey = `${currentTime.getFullYear()}-${String(currentTime.getMonth() + 1).padStart(2, "0")}-${String(currentTime.getDate()).padStart(2, "0")}`;
+  // Islamic-day convention for the tracker: the day spans Fajr→Fajr. If we're
+  // past midnight but BEFORE today's Fajr, we're still inside yesterday's Isha
+  // window — so marking Isha (or any prayer) at 00:28 must attribute to the
+  // previous calendar day, otherwise it shows "1 of 5" on the new day instead
+  // of completing yesterday's "5 of 5".
+  const beforeTodayFajr =
+    !!prayerTimes && currentTime.getTime() < prayerTimes.fajr.time.getTime();
+  const trackerDate = useMemo(() => {
+    const d = new Date(currentTime);
+    if (beforeTodayFajr) d.setDate(d.getDate() - 1);
+    return d;
+  }, [currentTime, beforeTodayFajr]);
+  const todayKey = `${trackerDate.getFullYear()}-${String(trackerDate.getMonth() + 1).padStart(2, "0")}-${String(trackerDate.getDate()).padStart(2, "0")}`;
   const dayRecord = trackerData[todayKey] || {};
   const prayed: Record<TrackerPrayerKey, boolean> = useMemo(() => ({
     fajr: !!dayRecord.fajr,
