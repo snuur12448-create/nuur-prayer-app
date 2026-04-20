@@ -115,14 +115,7 @@ export function CelestialDomeV2() {
               06:58
             </text>
           </g>
-          {/* Sunset tick (right) — no time, Maghrib's time (18:04) is 3 min away and owns it */}
-          <g>
-            <circle cx={cx + R} cy={cy - 4} r="2.2" fill="rgba(255,228,181,0.55)" />
-            <text x={cx + R} y={cy - 10} textAnchor="middle" fill="rgba(255,228,181,0.5)"
-              style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: 1.2 }}>
-              SUNSET
-            </text>
-          </g>
+          {/* No separate sunset tick — Maghrib IS sunset; merged into Maghrib's label below */}
 
           {/* Daytime prayer markers — on the arc */}
           {ARC_PRAYERS.map((p) => {
@@ -158,6 +151,13 @@ export function CelestialDomeV2() {
                   style={{ fontSize: 9, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
                   {p.time}
                 </text>
+                {/* Maghrib gets a "sunset" caption — same event, no duplicate marker needed */}
+                {p.id === 'maghrib' && (
+                  <text x={x + dx} y={y + timeDy + 11} textAnchor={anchor} fill="rgba(255,228,181,0.42)"
+                    style={{ fontSize: 8, fontWeight: 500, fontStyle: 'italic', letterSpacing: 0.4 }}>
+                    sunset
+                  </text>
+                )}
               </g>
             );
           })}
