@@ -1,9 +1,10 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   LayoutAnimation,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,264 +14,920 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
-import { MADHAB_LABELS, MadhabKey, SUNNAH_DATA, SunnahCategory, SunnahPrayer } from "@/utils/sunnahData";
+import {
+  MADHAB_LABELS,
+  MadhabKey,
+  SUNNAH_DATA,
+  SunnahCategory,
+  SunnahPrayer,
+} from "@/utils/sunnahData";
+import { useDailySunnah } from "@/utils/useDailySunnah";
+import { CornerFloret, NuurMark } from "@/components/share/ShareDecor";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const STATUS_COLOURS: Record<SunnahPrayer["status"], string> = {
-  "Mu'akkadah":       "#10b981",
-  "Ghayr Mu'akkadah": "#6b7280",
-  Recommended:        "#3b82f6",
-  Sunnah:             "#0ea5e9",
-  Disputed:           "#f59e0b",
-};
-
 const MADHAB_ORDER: MadhabKey[] = ["hanafi", "maliki", "shafii", "hanbali"];
 
+/* ============================================================
+   Hijri date (approximation — same one used on Dua / Hadith)
+   ============================================================ */
+const HIJRI_MONTHS = [
+  "Muharram", "Safar", "Rabi' al-Awwal", "Rabi' al-Thani", "Jumada al-Ula", "Jumada al-Akhirah",
+  "Rajab", "Sha'ban", "Ramadan", "Shawwal", "Dhu al-Qa'dah", "Dhu al-Hijjah",
+];
+
+function approximateHijriToday(): string {
+  const today = new Date();
+  const jd = Math.floor((today.getTime() / 86400000) + 2440587.5);
+  const l = jd - 1948440 + 10632;
+  const n = Math.floor((l - 1) / 10631);
+  const l2 = l - 10631 * n + 354;
+  const j =
+    Math.floor((10985 - l2) / 5316) * Math.floor((50 * l2) / 17719) +
+    Math.floor(l2 / 5670) * Math.floor((43 * l2) / 15238);
+  const l3 = l2 - Math.floor((30 - j) / 15) * Math.floor((17719 * j) / 50) - Math.floor(j / 16) * Math.floor((15238 * j) / 43) + 29;
+  const month = Math.floor((24 * l3) / 709);
+  const day = l3 - Math.floor((709 * month) / 24);
+  const year = 30 * n + j - 30;
+  const safeMonth = Math.max(1, Math.min(12, month));
+  const safeDay = Math.max(1, Math.min(30, day));
+  return `${safeDay} ${HIJRI_MONTHS[safeMonth - 1]} ${year}`;
+}
+
+/* ============================================================
+   Mushaf frame — shared with Dua / Hadith
+   ============================================================ */
+function MushafFrame({ children, color }: { children: React.ReactNode; color: string }) {
+  return (
+    <View style={[styles.mushafOuter, { borderColor: color + "55" }]}>
+      <View style={[styles.mushafInner, { borderColor: color + "22" }]}>
+        <View style={styles.cornerTL}><CornerFloret size={22} /></View>
+        <View style={styles.cornerTR}><CornerFloret size={22} /></View>
+        <View style={styles.cornerBL}><CornerFloret size={22} /></View>
+        <View style={styles.cornerBR}><CornerFloret size={22} /></View>
+        {children}
+      </View>
+    </View>
+  );
+}
+
+/* ============================================================
+   Status → display config (gold-only palette to match the app)
+   ============================================================ */
+function statusBadge(status: SunnahPrayer["status"], gold: string) {
+  switch (status) {
+    case "Mu'akkadah":
+      return { label: "MU'AKKADAH", filled: true, color: gold };
+    case "Ghayr Mu'akkadah":
+      return { label: "GHAYR MU'AKKADAH", filled: false, color: gold };
+    case "Recommended":
+      return { label: "RECOMMENDED", filled: false, color: gold };
+    case "Sunnah":
+      return { label: "SUNNAH", filled: false, color: gold };
+    case "Disputed":
+      return { label: "DISPUTED · SEE SCHOOLS", filled: false, color: gold };
+  }
+}
+
+/* ============================================================
+   Next-prayer mapping for the Today hero
+   ============================================================ */
+type PrayerKey = "fajr" | "dhuhr" | "asr" | "maghrib" | "isha";
+
+const PRAYER_LABEL: Record<PrayerKey, { en: string; ar: string }> = {
+  fajr:    { en: "Fajr",    ar: "الفجر" },
+  dhuhr:   { en: "Dhuhr",   ar: "الظهر" },
+  asr:     { en: "Asr",     ar: "العصر" },
+  maghrib: { en: "Maghrib", ar: "المغرب" },
+  isha:    { en: "Isha",    ar: "العشاء" },
+};
+
+const RAWATIB_BEFORE: Partial<Record<PrayerKey, string>> = {
+  fajr:  "rawatib-fajr",
+  dhuhr: "rawatib-dhuhr-before",
+  asr:   "rawatib-asr-before",
+};
+const RAWATIB_AFTER: Partial<Record<PrayerKey, string>> = {
+  dhuhr:   "rawatib-dhuhr-after",
+  maghrib: "rawatib-maghrib",
+  isha:    "rawatib-isha",
+};
+
+function findPrayerById(id: string): SunnahPrayer | undefined {
+  for (const cat of SUNNAH_DATA) {
+    const p = cat.prayers.find((x) => x.id === id);
+    if (p) return p;
+  }
+  return undefined;
+}
+
+function pickNextPrayerFromTimes(prayerTimes: any | null): PrayerKey {
+  // Find the next upcoming prayer; falls back to fajr.
+  const now = new Date();
+  if (!prayerTimes) return "fajr";
+  const order: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+  for (const k of order) {
+    const t = prayerTimes[k]?.time as Date | undefined;
+    if (t && t.getTime() > now.getTime()) return k;
+  }
+  return "fajr"; // After Isha → tomorrow's Fajr
+}
+
+function previousPrayer(next: PrayerKey): PrayerKey {
+  const order: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+  const idx = order.indexOf(next);
+  return order[(idx - 1 + order.length) % order.length];
+}
+
+function formatTimeUntil(target: Date | undefined): string {
+  if (!target) return "";
+  const ms = target.getTime() - Date.now();
+  if (ms <= 0) return "now";
+  const mins = Math.round(ms / 60000);
+  if (mins < 60) return `in ${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? `in ${h}h` : `in ${h}h ${m}m`;
+}
+
+/* ============================================================
+   Today hero — next/just-passed sunnahs + daily progress
+   ============================================================ */
+function TodayHero({
+  colors,
+  hijri,
+  nextPrayer,
+  prevPrayer,
+  nextSunnah,
+  prevSunnah,
+  nextSunnahDone,
+  prevSunnahDone,
+  rawatibPct,
+  rawatibDone,
+  rawatibTotal,
+  streak,
+  nextTimeLabel,
+  onJumpNext,
+  onJumpPrev,
+  onToggleNext,
+  onTogglePrev,
+}: {
+  colors: any;
+  hijri: string;
+  nextPrayer: PrayerKey;
+  prevPrayer: PrayerKey;
+  nextSunnah: SunnahPrayer | null;
+  prevSunnah: SunnahPrayer | null;
+  nextSunnahDone: boolean;
+  prevSunnahDone: boolean;
+  rawatibPct: number;
+  rawatibDone: number;
+  rawatibTotal: number;
+  streak: number;
+  nextTimeLabel: string;
+  onJumpNext: () => void;
+  onJumpPrev: () => void;
+  onToggleNext: () => void;
+  onTogglePrev: () => void;
+}) {
+  const gold = colors.gold;
+  return (
+    <View style={styles.heroWrap}>
+      <MushafFrame color={gold}>
+        <View>
+          {/* Top row */}
+          <View style={styles.heroTopRow}>
+            <Text style={[styles.heroDate, { color: gold + "B3" }]}>{hijri}</Text>
+            <View style={[styles.heroDateRule, { backgroundColor: gold + "44" }]} />
+            <View style={[styles.heroBadge, { backgroundColor: gold + "1A", borderColor: gold + "55" }]}>
+              <NuurMark size={11} />
+              <Text style={[styles.heroBadgeText, { color: gold }]}>TODAY</Text>
+            </View>
+          </View>
+
+          <Text style={[styles.heroEyebrow, { color: gold + "CC" }]}>SUNNAH AROUND YOUR PRAYERS</Text>
+          <Text style={[styles.heroArabic, { color: colors.text }]} numberOfLines={1}>
+            السُّنَنُ الرَّوَاتِب
+          </Text>
+          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+            The voluntary prayers attached to the five — pray them and a house is built for you in Paradise.
+          </Text>
+
+          {/* Two pillars: just-passed and next */}
+          <View style={styles.heroPillarRow}>
+            <Pressable
+              onPress={onJumpPrev}
+              style={styles.heroPillar}
+              accessibilityRole="button"
+              accessibilityLabel={`After ${PRAYER_LABEL[prevPrayer].en}`}
+            >
+              <View style={styles.heroPillarHead}>
+                <Feather name="check-circle" size={12} color={gold} />
+                <Text style={[styles.heroPillarLabel, { color: colors.text }]}>
+                  AFTER {PRAYER_LABEL[prevPrayer].en.toUpperCase()}
+                </Text>
+              </View>
+              <Text style={[styles.heroPillarValue, { color: colors.text }]} numberOfLines={1}>
+                {prevSunnah ? `${prevSunnah.rakaat} rak'ah` : "—"}
+              </Text>
+              <Pressable
+                onPress={(e: any) => { e?.stopPropagation?.(); onTogglePrev(); }}
+                hitSlop={8}
+                disabled={!prevSunnah}
+                style={[
+                  styles.heroPill,
+                  {
+                    borderColor: gold + (prevSunnahDone ? "AA" : "55"),
+                    backgroundColor: prevSunnahDone ? gold + "22" : "transparent",
+                    opacity: prevSunnah ? 1 : 0.4,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ checked: prevSunnahDone }}
+              >
+                <Feather
+                  name={prevSunnahDone ? "check" : "circle"}
+                  size={10}
+                  color={gold}
+                />
+                <Text style={[styles.heroPillText, { color: gold }]}>
+                  {prevSunnahDone ? "PRAYED" : "MARK"}
+                </Text>
+              </Pressable>
+            </Pressable>
+
+            <View style={[styles.heroPillarDivider, { backgroundColor: gold + "33" }]} />
+
+            <Pressable
+              onPress={onJumpNext}
+              style={styles.heroPillar}
+              accessibilityRole="button"
+              accessibilityLabel={`Before ${PRAYER_LABEL[nextPrayer].en}`}
+            >
+              <View style={styles.heroPillarHead}>
+                <Feather name="clock" size={12} color={gold} />
+                <Text style={[styles.heroPillarLabel, { color: colors.text }]}>
+                  BEFORE {PRAYER_LABEL[nextPrayer].en.toUpperCase()}{nextTimeLabel ? ` · ${nextTimeLabel.toUpperCase()}` : ""}
+                </Text>
+              </View>
+              <Text style={[styles.heroPillarValue, { color: colors.text }]} numberOfLines={1}>
+                {nextSunnah ? `${nextSunnah.rakaat} rak'ah` : "—"}
+              </Text>
+              <Pressable
+                onPress={(e: any) => { e?.stopPropagation?.(); onToggleNext(); }}
+                hitSlop={8}
+                disabled={!nextSunnah}
+                style={[
+                  styles.heroPill,
+                  {
+                    borderColor: gold + (nextSunnahDone ? "AA" : "55"),
+                    backgroundColor: nextSunnahDone ? gold + "22" : "transparent",
+                    opacity: nextSunnah ? 1 : 0.4,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ checked: nextSunnahDone }}
+              >
+                <Feather
+                  name={nextSunnahDone ? "check" : "circle"}
+                  size={10}
+                  color={gold}
+                />
+                <Text style={[styles.heroPillText, { color: gold }]}>
+                  {nextSunnahDone ? "PRAYED" : "MARK"}
+                </Text>
+              </Pressable>
+            </Pressable>
+          </View>
+
+          {/* Daily progress strip */}
+          <View style={[styles.heroProgressWrap, { borderTopColor: gold + "33" }]}>
+            <View style={styles.heroProgressRow}>
+              <Text style={[styles.heroProgressLabel, { color: colors.textSecondary }]}>
+                RAWĀTIB · {rawatibDone}/{rawatibTotal} TODAY
+              </Text>
+              {streak > 0 && (
+                <View style={styles.heroStreak}>
+                  <Feather name="award" size={11} color={gold} />
+                  <Text style={[styles.heroStreakText, { color: gold }]}>
+                    {streak} DAY{streak === 1 ? "" : "S"}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View style={[styles.heroProgressBar, { backgroundColor: gold + "22" }]}>
+              <View
+                style={{
+                  width: `${Math.round(rawatibPct * 100)}%`,
+                  height: 3,
+                  backgroundColor: gold,
+                }}
+              />
+            </View>
+          </View>
+        </View>
+      </MushafFrame>
+    </View>
+  );
+}
+
+/* ============================================================
+   Filter chip rail
+   ============================================================ */
+type FilterId = "all" | "rawatib" | "special" | "night" | "occasional" | "tracked";
+
+function FilterChips({
+  colors,
+  active,
+  onChange,
+  doneCount,
+}: {
+  colors: any;
+  active: FilterId;
+  onChange: (id: FilterId) => void;
+  doneCount: number;
+}) {
+  const items: { id: FilterId; label: string; icon: keyof typeof Feather.glyphMap }[] = [
+    { id: "all",        label: "All",        icon: "list" },
+    { id: "rawatib",    label: "Daily",      icon: "sun" },
+    { id: "special",    label: "Special",    icon: "star" },
+    { id: "night",      label: "Night",      icon: "moon" },
+    { id: "occasional", label: "Occasional", icon: "calendar" },
+    { id: "tracked",    label: doneCount > 0 ? `Today · ${doneCount}` : "Today", icon: "check-circle" },
+  ];
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingVertical: 14 }}
+    >
+      {items.map((it) => {
+        const isActive = active === it.id;
+        return (
+          <Pressable
+            key={it.id}
+            onPress={() => onChange(it.id)}
+            style={[
+              styles.topicChip,
+              {
+                backgroundColor: isActive ? colors.gold : "transparent",
+                borderColor: isActive ? colors.gold : colors.gold + "44",
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isActive }}
+          >
+            <Feather
+              name={it.icon}
+              size={11}
+              color={isActive ? colors.background : colors.gold}
+            />
+            <Text
+              style={[
+                styles.topicChipText,
+                { color: isActive ? colors.background : colors.textSecondary },
+              ]}
+            >
+              {it.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+/* ============================================================
+   Section divider — rule · CAPS · rule
+   ============================================================ */
+function SectionDivider({
+  colors, label, sublabel,
+}: { colors: any; label: string; sublabel?: string }) {
+  return (
+    <View style={styles.sectionDivider}>
+      <View style={[styles.dividerRule, { backgroundColor: colors.gold + "55" }]} />
+      <View style={{ alignItems: "center" }}>
+        <Text style={[styles.sectionLabelText, { color: colors.gold }]}>{label}</Text>
+        {sublabel ? (
+          <Text style={[styles.sectionSubLabel, { color: colors.gold + "AA" }]}>{sublabel}</Text>
+        ) : null}
+      </View>
+      <View style={[styles.dividerRule, { backgroundColor: colors.gold + "55" }]} />
+    </View>
+  );
+}
+
+/* ============================================================
+   Prayer row — hairline rules + corner ticks + ink stamps
+   ============================================================ */
+function PrayerCard({
+  prayer, colors, isOpen, onToggle, isDone, onToggleDone,
+}: {
+  prayer: SunnahPrayer;
+  colors: any;
+  isOpen: boolean;
+  onToggle: () => void;
+  isDone: boolean;
+  onToggleDone: () => void;
+}) {
+  const gold = colors.gold;
+  const badge = statusBadge(prayer.status, gold);
+
+  return (
+    <View style={styles.cardWrap}>
+      <View style={[styles.cardRuleTop,    { backgroundColor: gold + "55" }]} />
+      <View style={[styles.cardRuleBottom, { backgroundColor: gold + "55" }]} />
+      <View style={[styles.tickTL, { borderColor: gold }]} />
+      <View style={[styles.tickTR, { borderColor: gold }]} />
+      <View style={[styles.tickBL, { borderColor: gold }]} />
+      <View style={[styles.tickBR, { borderColor: gold }]} />
+
+      <Pressable onPress={onToggle} style={styles.cardInner} accessibilityRole="button">
+        {/* Stamp row */}
+        <View style={styles.stampRow}>
+          <View
+            style={[
+              styles.inkStamp,
+              {
+                borderColor: badge.color + (badge.filled ? "" : "66"),
+                backgroundColor: badge.filled ? badge.color + "22" : badge.color + "0E",
+              },
+            ]}
+          >
+            <Text style={[styles.inkStampText, { color: badge.color }]} numberOfLines={1}>
+              {badge.label}
+            </Text>
+          </View>
+          <View style={[styles.inkStamp, { borderColor: gold + "55", backgroundColor: gold + "0E" }]}>
+            <Text style={[styles.inkStampText, { color: gold }]} numberOfLines={1}>
+              {prayer.rakaat.toUpperCase()} RAK'AH
+            </Text>
+          </View>
+          {isDone && (
+            <View style={[styles.doneChip, { borderColor: gold + "AA", backgroundColor: gold + "22" }]}>
+              <Feather name="check" size={9} color={gold} />
+              <Text style={[styles.doneChipText, { color: gold }]}>PRAYED</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Title row */}
+        <View style={styles.titleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.titleEn, { color: colors.text }]}>{prayer.nameEn}</Text>
+            <Text style={[styles.titleAr, { color: gold }]}>{prayer.nameAr}</Text>
+          </View>
+          <Feather
+            name={isOpen ? "chevron-up" : "chevron-down"}
+            size={18}
+            color={colors.textSecondary}
+            style={{ marginLeft: 8 }}
+          />
+        </View>
+
+        {/* When (always visible — most useful at-a-glance) */}
+        <View style={styles.whenRow}>
+          <Feather name="clock" size={11} color={gold + "AA"} />
+          <Text style={[styles.whenText, { color: colors.textSecondary }]} numberOfLines={isOpen ? undefined : 2}>
+            {prayer.window}
+          </Text>
+        </View>
+
+        {/* Expanded body */}
+        {isOpen && (
+          <View style={styles.expanded}>
+            {/* Reward */}
+            <View style={styles.rewardRow}>
+              <Feather name="award" size={11} color={gold} />
+              <Text style={[styles.rewardText, { color: colors.text }]}>{prayer.reward}</Text>
+            </View>
+
+            {/* Hadith box */}
+            <View style={[styles.hadithBox, { borderColor: gold + "44", backgroundColor: gold + "08" }]}>
+              <Text style={[styles.hadithQuote, { color: colors.text }]}>"{prayer.hadith.text}"</Text>
+              <View style={styles.hadithRefRow}>
+                <View style={[styles.refDot, { backgroundColor: gold }]} />
+                <Text style={[styles.hadithSrc, { color: gold }]}>
+                  {prayer.hadith.source.toUpperCase()}
+                </Text>
+                <View style={[styles.refSep, { backgroundColor: gold + "44" }]} />
+                <Text style={[styles.hadithGrade, { color: gold + "CC" }]}>
+                  {prayer.hadith.grade.toUpperCase()}
+                </Text>
+              </View>
+            </View>
+
+            {/* Madhab grid */}
+            {prayer.madhabViews && (
+              <View style={[styles.madhabBox, { borderColor: gold + "33" }]}>
+                <View style={styles.madhabHead}>
+                  <View style={[styles.refDot, { backgroundColor: gold }]} />
+                  <Text style={[styles.madhabHeadText, { color: gold }]}>
+                    ACROSS THE MADHĀHIB · {prayer.madhabViews.label.toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.madhabGrid}>
+                  {MADHAB_ORDER.map((m) => {
+                    const v = prayer.madhabViews!.views[m];
+                    if (!v) return null;
+                    return (
+                      <View
+                        key={m}
+                        style={[styles.madhabTile, { borderColor: gold + "33", backgroundColor: gold + "06" }]}
+                      >
+                        <Text style={[styles.madhabName, { color: gold }]}>
+                          {MADHAB_LABELS[m].toUpperCase()}
+                        </Text>
+                        <Text style={[styles.madhabValue, { color: colors.text }]}>{v}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Notes */}
+            {prayer.notes && (
+              <Text style={[styles.notes, { color: colors.textSecondary }]}>
+                <Text style={{ fontFamily: "Inter_700Bold", color: gold + "DD" }}>NOTE · </Text>
+                {prayer.notes}
+              </Text>
+            )}
+
+            {/* Mark prayed */}
+            <Pressable
+              onPress={(e: any) => { e?.stopPropagation?.(); onToggleDone(); }}
+              style={[
+                styles.markPill,
+                {
+                  borderColor: gold + (isDone ? "AA" : "55"),
+                  backgroundColor: isDone ? gold + "22" : "transparent",
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityState={{ checked: isDone }}
+            >
+              <Feather name={isDone ? "check-circle" : "circle"} size={13} color={gold} />
+              <Text style={[styles.markPillText, { color: gold }]}>
+                {isDone ? "MARKED PRAYED TODAY" : "MARK PRAYED TODAY"}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+/* ============================================================
+   Screen
+   ============================================================ */
 export default function SunnahPrayersScreen() {
-  const { themeColors: colors } = useAppContext();
+  const { themeColors: colors, prayerTimes } = useAppContext();
   const insets = useSafeAreaInsets();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterId>("all");
+  const { doneIds, toggle: toggleDone, streak } = useDailySunnah();
 
   const togglePrayer = (id: string) => {
     LayoutAnimation.configureNext({
       duration: 220,
-      create:  { type: "easeInEaseOut", property: "opacity" },
-      update:  { type: "easeInEaseOut" },
-      delete:  { type: "easeInEaseOut", property: "opacity" },
+      create: { type: "easeInEaseOut", property: "opacity" },
+      update: { type: "easeInEaseOut" },
+      delete: { type: "easeInEaseOut", property: "opacity" },
     });
     setOpenId((cur) => (cur === id ? null : id));
   };
 
+  const hijri = useMemo(() => approximateHijriToday(), []);
+
+  /* Today hero context */
+  const nextPrayer = useMemo(() => pickNextPrayerFromTimes(prayerTimes), [prayerTimes]);
+  const prevPrayer = useMemo(() => previousPrayer(nextPrayer), [nextPrayer]);
+  const nextSunnah = useMemo(
+    () => (RAWATIB_BEFORE[nextPrayer] ? findPrayerById(RAWATIB_BEFORE[nextPrayer]!) ?? null : null),
+    [nextPrayer]
+  );
+  const prevSunnah = useMemo(
+    () => (RAWATIB_AFTER[prevPrayer] ? findPrayerById(RAWATIB_AFTER[prevPrayer]!) ?? null : null),
+    [prevPrayer]
+  );
+  const nextTimeLabel = useMemo(
+    () => (prayerTimes ? formatTimeUntil(prayerTimes[nextPrayer]?.time as Date | undefined) : ""),
+    [prayerTimes, nextPrayer]
+  );
+
+  /* Rawātib daily progress (the 12 confirmed) */
+  const rawatibCat = SUNNAH_DATA.find((c) => c.key === "rawatib")!;
+  const rawatibTotal = rawatibCat.prayers.length; // 6 distinct mu'akkadah rows in our dataset
+  const rawatibDone = rawatibCat.prayers.reduce((n, p) => (doneIds.has(p.id) ? n + 1 : n), 0);
+  const rawatibPct = rawatibTotal === 0 ? 0 : rawatibDone / rawatibTotal;
+
+  /* Filtered categories */
+  const visibleCategories: SunnahCategory[] = useMemo(() => {
+    if (filter === "all") return SUNNAH_DATA;
+    if (filter === "tracked") {
+      const filtered: SunnahCategory[] = SUNNAH_DATA
+        .map((c) => ({ ...c, prayers: c.prayers.filter((p) => doneIds.has(p.id)) }))
+        .filter((c) => c.prayers.length > 0);
+      return filtered;
+    }
+    return SUNNAH_DATA.filter((c) => c.key === filter);
+  }, [filter, doneIds]);
+
+  /* Jump to a specific prayer row & expand it */
+  const focusPrayer = (id?: string | null) => {
+    if (!id) return;
+    setFilter("all");
+    setOpenId(id);
+  };
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: colors.gold + "22" }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.headerBtn}>
-          <Feather name="arrow-left" size={20} color={colors.tint} />
+          <Feather name="chevron-left" size={22} color={colors.gold} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textSecondary }]}>SUNNAH PRAYERS</Text>
-        <View style={styles.headerBtn} />
+        <View style={styles.headerTitles}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Sunnah Prayers</Text>
+          <Text style={[styles.headerArabic, { color: colors.gold }]}>السُّنَن</Text>
+        </View>
+        <View style={[styles.headerBadge, { backgroundColor: colors.gold + "10", borderColor: colors.gold + "55" }]}>
+          <Text style={[styles.headerBadgeText, { color: colors.gold }]}>VOLUNTARY</Text>
+        </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 40, paddingHorizontal: 18, paddingTop: 12 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 60, paddingTop: 4 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.intro}>
-          <Text style={[styles.introAr, { color: colors.tint }]}>السُّنَن</Text>
-          <Text style={[styles.introTitle, { color: colors.text }]}>Beyond the obligatory</Text>
-          <Text style={[styles.introBody, { color: colors.textSecondary }]}>
-            The voluntary prayers of the Prophet ﷺ — what to pray, when, and the words he left us about each one.
-          </Text>
-        </View>
+        <FilterChips colors={colors} active={filter} onChange={setFilter} doneCount={doneIds.size} />
 
-        {SUNNAH_DATA.map((cat) => (
-          <CategoryBlock
-            key={cat.key}
-            category={cat}
+        {filter === "all" && (
+          <TodayHero
             colors={colors}
-            openId={openId}
-            onToggle={togglePrayer}
+            hijri={hijri}
+            nextPrayer={nextPrayer}
+            prevPrayer={prevPrayer}
+            nextSunnah={nextSunnah}
+            prevSunnah={prevSunnah}
+            nextSunnahDone={!!nextSunnah && doneIds.has(nextSunnah.id)}
+            prevSunnahDone={!!prevSunnah && doneIds.has(prevSunnah.id)}
+            rawatibPct={rawatibPct}
+            rawatibDone={rawatibDone}
+            rawatibTotal={rawatibTotal}
+            streak={streak}
+            nextTimeLabel={nextTimeLabel}
+            onJumpNext={() => focusPrayer(nextSunnah?.id)}
+            onJumpPrev={() => focusPrayer(prevSunnah?.id)}
+            onToggleNext={() => nextSunnah && toggleDone(nextSunnah.id)}
+            onTogglePrev={() => prevSunnah && toggleDone(prevSunnah.id)}
           />
+        )}
+
+        {visibleCategories.length === 0 && filter === "tracked" && (
+          <View style={styles.emptyBox}>
+            <Feather name="check-circle" size={40} color={colors.gold + "55"} />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              Nothing tracked yet today. Tap "Mark prayed today" on any sunnah to start your streak.
+            </Text>
+          </View>
+        )}
+
+        {visibleCategories.map((cat) => (
+          <View key={cat.key} style={{ marginTop: 4 }}>
+            <SectionDivider colors={colors} label={cat.titleEn.toUpperCase()} sublabel={cat.titleAr} />
+            <Text style={[styles.catBlurb, { color: colors.textSecondary }]}>{cat.blurb}</Text>
+            {cat.prayers.map((p) => (
+              <PrayerCard
+                key={p.id}
+                prayer={p}
+                colors={colors}
+                isOpen={openId === p.id}
+                onToggle={() => togglePrayer(p.id)}
+                isDone={doneIds.has(p.id)}
+                onToggleDone={() => toggleDone(p.id)}
+              />
+            ))}
+          </View>
         ))}
 
-        <Text style={[styles.footer, { color: colors.textSecondary, borderTopColor: colors.border }]}>
-          Hadith references are drawn from Bukhārī, Muslim, Tirmidhī, Abī Dāwūd and others. Where opinions differ between madhāhib, the most widely-held view is shown.
+        {/* End ornament */}
+        {visibleCategories.length > 0 && (
+          <View style={styles.endOrnament}>
+            <View style={[styles.endLine, { backgroundColor: colors.gold + "44" }]} />
+            <Text style={[styles.endGlyph, { color: colors.gold }]}>﷽</Text>
+            <View style={[styles.endLine, { backgroundColor: colors.gold + "44" }]} />
+          </View>
+        )}
+
+        <Text style={[styles.footer, { color: colors.textSecondary }]}>
+          Hadith references are drawn from Bukhārī, Muslim, Tirmidhī, Abī Dāwūd and others. Where the schools differ, the most widely held views are shown.
         </Text>
       </ScrollView>
     </View>
   );
 }
 
-function CategoryBlock({
-  category, colors, openId, onToggle,
-}: {
-  category: SunnahCategory;
-  colors: any;
-  openId: string | null;
-  onToggle: (id: string) => void;
-}) {
-  return (
-    <View style={{ marginBottom: 26 }}>
-      <View style={styles.catHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.catTitleEn, { color: colors.text }]}>{category.titleEn}</Text>
-          <Text style={[styles.catTitleAr, { color: colors.tint }]}>{category.titleAr}</Text>
-        </View>
-      </View>
-      <Text style={[styles.catBlurb, { color: colors.textSecondary }]}>{category.blurb}</Text>
-
-      <View style={[styles.catCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {category.prayers.map((p, idx) => (
-          <PrayerRow
-            key={p.id}
-            prayer={p}
-            colors={colors}
-            isOpen={openId === p.id}
-            onToggle={() => onToggle(p.id)}
-            isLast={idx === category.prayers.length - 1}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function PrayerRow({
-  prayer, colors, isOpen, onToggle, isLast,
-}: {
-  prayer: SunnahPrayer;
-  colors: any;
-  isOpen: boolean;
-  onToggle: () => void;
-  isLast: boolean;
-}) {
-  const tagColor = STATUS_COLOURS[prayer.status];
-
-  return (
-    <View style={[styles.row, !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
-      <TouchableOpacity activeOpacity={0.7} onPress={onToggle} style={styles.rowHead}>
-        <View style={{ flex: 1 }}>
-          <View style={styles.rowTitleLine}>
-            <Text style={[styles.rowName, { color: colors.text }]}>{prayer.nameEn}</Text>
-            <Text style={[styles.rowNameAr, { color: colors.textSecondary }]}>{prayer.nameAr}</Text>
-          </View>
-          <View style={styles.rowMeta}>
-            <View style={[styles.rakaatPill, { backgroundColor: colors.tint + "1a", borderColor: colors.tint + "40" }]}>
-              <Text style={[styles.rakaatText, { color: colors.tint }]}>{prayer.rakaat} rakʿah</Text>
-            </View>
-            <View style={[styles.statusPill, { backgroundColor: tagColor + "1f", borderColor: tagColor + "55" }]}>
-              <Text style={[styles.statusText, { color: tagColor }]}>{prayer.status}</Text>
-            </View>
-          </View>
-        </View>
-        <Feather
-          name={isOpen ? "chevron-up" : "chevron-down"}
-          size={18}
-          color={colors.textSecondary}
-          style={{ marginLeft: 8 }}
-        />
-      </TouchableOpacity>
-
-      {isOpen && (
-        <View style={styles.rowBody}>
-          <DetailRow icon="clock" label="When"   value={prayer.window}   colors={colors} />
-          <DetailRow icon="award" label="Reward" value={prayer.reward}   colors={colors} />
-          <View style={[styles.hadithBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <Text style={[styles.hadithText, { color: colors.text }]}>"{prayer.hadith.text}"</Text>
-            <Text style={[styles.hadithSrc, { color: colors.textSecondary }]}>
-              {prayer.hadith.source}  ·  <Text style={{ color: colors.tint }}>{prayer.hadith.grade}</Text>
-            </Text>
-          </View>
-          {prayer.madhabViews && (
-            <View style={[styles.madhabBox, { borderColor: colors.border }]}>
-              <View style={styles.madhabHead}>
-                <Feather name="users" size={11} color={colors.textSecondary} />
-                <Text style={[styles.madhabLabel, { color: colors.textSecondary }]}>
-                  ACROSS THE MADHĀHIB · {prayer.madhabViews.label.toUpperCase()}
-                </Text>
-              </View>
-              {MADHAB_ORDER.map((m) => {
-                const v = prayer.madhabViews!.views[m];
-                if (!v) return null;
-                return (
-                  <View key={m} style={styles.madhabRow}>
-                    <Text style={[styles.madhabName, { color: colors.tint }]}>{MADHAB_LABELS[m]}</Text>
-                    <Text style={[styles.madhabValue, { color: colors.text }]}>{v}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-
-          {prayer.notes && (
-            <Text style={[styles.notes, { color: colors.textSecondary }]}>
-              <Text style={{ fontFamily: "Inter_600SemiBold" }}>Note · </Text>
-              {prayer.notes}
-            </Text>
-          )}
-        </View>
-      )}
-    </View>
-  );
-}
-
-function DetailRow({
-  icon, label, value, colors,
-}: {
-  icon: keyof typeof Feather.glyphMap;
-  label: string;
-  value: string;
-  colors: any;
-}) {
-  return (
-    <View style={styles.detail}>
-      <View style={[styles.detailIcon, { backgroundColor: colors.tint + "14" }]}>
-        <Feather name={icon} size={12} color={colors.tint} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{label.toUpperCase()}</Text>
-        <Text style={[styles.detailValue, { color: colors.text }]}>{value}</Text>
-      </View>
-    </View>
-  );
-}
-
+/* ============================================================
+   Styles
+   ============================================================ */
 const styles = StyleSheet.create({
   root: { flex: 1 },
+
+  /* Header */
   header: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 10,
   },
-  headerBtn: { width: 40, alignItems: "flex-start" },
-  headerTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 1.6 },
+  headerBtn: { width: 28, alignItems: "flex-start" },
+  headerTitles: { flex: 1 },
+  headerTitle: { fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: -0.3 },
+  headerArabic: { fontSize: 16, marginTop: 1, fontFamily: "AmiriQuran_400Regular" },
+  headerBadge: {
+    borderRadius: 4,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  headerBadgeText: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
 
-  intro: { paddingVertical: 18, alignItems: "center" },
-  introAr: { fontSize: 32, fontFamily: "AmiriQuran_400Regular", marginBottom: 4 },
-  introTitle: { fontSize: 20, fontFamily: "Inter_700Bold", marginBottom: 6 },
-  introBody: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 19, paddingHorizontal: 12 },
+  /* Topic chips */
+  topicChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  topicChipText: { fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
 
-  catHeader: { flexDirection: "row", alignItems: "center", marginTop: 6, marginBottom: 4 },
-  catTitleEn: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  catTitleAr: { fontSize: 14, fontFamily: "AmiriQuran_400Regular", marginTop: 2 },
-  catBlurb: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17, marginBottom: 10 },
+  /* Hero / Mushaf frame */
+  heroWrap: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 4 },
+  mushafOuter: {
+    borderWidth: 1.2,
+    padding: 4,
+    borderRadius: 2,
+  },
+  mushafInner: {
+    borderWidth: 0.6,
+    padding: 18,
+    position: "relative",
+    overflow: "hidden",
+  },
+  cornerTL: { position: "absolute", top: -2, left: -2 },
+  cornerTR: { position: "absolute", top: -2, right: -2, transform: [{ scaleX: -1 }] },
+  cornerBL: { position: "absolute", bottom: -2, left: -2, transform: [{ scaleY: -1 }] },
+  cornerBR: { position: "absolute", bottom: -2, right: -2, transform: [{ scaleX: -1 }, { scaleY: -1 }] },
 
-  catCard: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  heroTopRow: { flexDirection: "row", alignItems: "center", marginBottom: 14, gap: 8 },
+  heroDate: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 2 },
+  heroDateRule: { flex: 1, height: 1 },
+  heroBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  heroBadgeText: { fontSize: 8, fontFamily: "Inter_700Bold", letterSpacing: 1.5 },
+  heroEyebrow: {
+    fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 2,
+    textAlign: "center", marginBottom: 6,
+  },
+  heroArabic: {
+    fontFamily: "AmiriQuran_400Regular",
+    fontSize: 24, lineHeight: 44,
+    textAlign: "center", marginBottom: 6, writingDirection: "rtl",
+  },
+  heroSubtitle: {
+    fontSize: 12, fontFamily: "Inter_400Regular", fontStyle: "italic",
+    lineHeight: 18, textAlign: "center", marginBottom: 16, paddingHorizontal: 6,
+  },
 
-  row: { paddingHorizontal: 14 },
-  rowHead: { flexDirection: "row", alignItems: "center", paddingVertical: 14 },
-  rowTitleLine: { flexDirection: "row", alignItems: "baseline", gap: 8, marginBottom: 6 },
-  rowName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  rowNameAr: { fontSize: 14, fontFamily: "AmiriQuran_400Regular" },
-  rowMeta: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-  rakaatPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth },
-  rakaatText: { fontSize: 10.5, fontFamily: "Inter_600SemiBold" },
-  statusPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth },
-  statusText: { fontSize: 10.5, fontFamily: "Inter_600SemiBold" },
+  heroPillarRow: { flexDirection: "row", alignItems: "stretch", gap: 12 },
+  heroPillar: { flex: 1, gap: 6 },
+  heroPillarHead: { flexDirection: "row", alignItems: "center", gap: 6 },
+  heroPillarLabel: { fontSize: 9.5, fontFamily: "Inter_700Bold", letterSpacing: 1.2, flexShrink: 1 },
+  heroPillarValue: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  heroPillarDivider: { width: 1, alignSelf: "stretch" },
+  heroPill: {
+    flexDirection: "row", alignItems: "center", alignSelf: "flex-start",
+    gap: 5, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: 2, marginTop: 2,
+  },
+  heroPillText: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
 
-  rowBody: { paddingBottom: 16, paddingTop: 2, gap: 10 },
-  detail: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
-  detailIcon: { width: 22, height: 22, borderRadius: 6, alignItems: "center", justifyContent: "center", marginTop: 2 },
-  detailLabel: { fontSize: 9.5, fontFamily: "Inter_600SemiBold", letterSpacing: 1, marginBottom: 1 },
-  detailValue: { fontSize: 12.5, fontFamily: "Inter_400Regular", lineHeight: 17 },
+  heroProgressWrap: { marginTop: 16, paddingTop: 12, borderTopWidth: 1 },
+  heroProgressRow: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  heroProgressLabel: { fontSize: 9.5, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+  heroStreak: { flexDirection: "row", alignItems: "center", gap: 4 },
+  heroStreakText: { fontSize: 9.5, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+  heroProgressBar: { height: 3, borderRadius: 2, overflow: "hidden" },
 
-  hadithBox: { padding: 12, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, marginTop: 4 },
-  hadithText: { fontSize: 12.5, fontFamily: "Inter_400Regular", lineHeight: 18, fontStyle: "italic" },
-  hadithSrc: { fontSize: 10.5, fontFamily: "Inter_500Medium", marginTop: 6 },
+  /* Section divider */
+  sectionDivider: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingHorizontal: 20, paddingVertical: 18, marginTop: 6,
+  },
+  dividerRule: { flex: 1, height: 1 },
+  sectionLabelText: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 2 },
+  sectionSubLabel: {
+    fontSize: 12, fontFamily: "AmiriQuran_400Regular", marginTop: 2,
+  },
 
-  notes: { fontSize: 11.5, fontFamily: "Inter_400Regular", lineHeight: 16, marginTop: 4 },
+  catBlurb: {
+    fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18,
+    paddingHorizontal: 22, marginBottom: 14, marginTop: -6,
+  },
 
-  madhabBox: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, padding: 10, marginTop: 4 },
-  madhabHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
-  madhabLabel: { fontSize: 9.5, fontFamily: "Inter_600SemiBold", letterSpacing: 0.8 },
-  madhabRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 4 },
-  madhabName: { fontSize: 11, fontFamily: "Inter_600SemiBold", width: 56 },
-  madhabValue: { flex: 1, fontSize: 11.5, fontFamily: "Inter_400Regular", lineHeight: 16 },
+  /* Card */
+  cardWrap: { marginHorizontal: 16, marginBottom: 14, position: "relative" },
+  cardInner: { paddingVertical: 14, paddingHorizontal: 14 },
+  cardRuleTop:    { position: "absolute", top: 0, left: 0, right: 0, height: 1 },
+  cardRuleBottom: { position: "absolute", bottom: 0, left: 0, right: 0, height: 1 },
+  tickTL: { position: "absolute", top: 0,    left: 0,  width: 8, height: 8, borderLeftWidth: 1,  borderTopWidth: 1 },
+  tickTR: { position: "absolute", top: 0,    right: 0, width: 8, height: 8, borderRightWidth: 1, borderTopWidth: 1 },
+  tickBL: { position: "absolute", bottom: 0, left: 0,  width: 8, height: 8, borderLeftWidth: 1,  borderBottomWidth: 1 },
+  tickBR: { position: "absolute", bottom: 0, right: 0, width: 8, height: 8, borderRightWidth: 1, borderBottomWidth: 1 },
+
+  stampRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" },
+  inkStamp: {
+    borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2,
+    borderRadius: 2, maxWidth: 200,
+  },
+  inkStampText: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+  doneChip: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    borderWidth: 1, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 2,
+  },
+  doneChipText: { fontSize: 8, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+
+  titleRow: { flexDirection: "row", alignItems: "flex-start" },
+  titleEn: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  titleAr: { fontSize: 14, fontFamily: "AmiriQuran_400Regular", marginTop: 2 },
+
+  whenRow: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 6 },
+  whenText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
+
+  expanded: { marginTop: 12, gap: 10 },
+  rewardRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
+  rewardText: { flex: 1, fontSize: 13, fontFamily: "Inter_500Medium", lineHeight: 19, fontStyle: "italic" },
+
+  hadithBox: { padding: 12, borderWidth: 1, borderRadius: 2, gap: 8 },
+  hadithQuote: { fontSize: 12.5, fontFamily: "Inter_400Regular", lineHeight: 19, fontStyle: "italic" },
+  hadithRefRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  refDot: { width: 4, height: 4, borderRadius: 2 },
+  refSep: { width: 8, height: 1 },
+  hadithSrc:   { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+  hadithGrade: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+
+  madhabBox: { borderWidth: 1, borderRadius: 2, padding: 10, gap: 10 },
+  madhabHead: { flexDirection: "row", alignItems: "center", gap: 6 },
+  madhabHeadText: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1.2, flex: 1 },
+  madhabGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  madhabTile: {
+    borderWidth: 1, borderRadius: 2, padding: 8,
+    width: "48%", gap: 4,
+  },
+  madhabName: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+  madhabValue: { fontSize: 11.5, fontFamily: "Inter_400Regular", lineHeight: 16 },
+
+  notes: { fontSize: 11.5, fontFamily: "Inter_400Regular", lineHeight: 17 },
+
+  markPill: {
+    flexDirection: "row", alignItems: "center", alignSelf: "flex-start",
+    gap: 6, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 2, marginTop: 4,
+  },
+  markPillText: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 1.4 },
+
+  /* Empty + footer + ornament */
+  emptyBox: { alignItems: "center", paddingTop: 40, gap: 10, paddingHorizontal: 32 },
+  emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 19 },
+
+  endOrnament: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 14, paddingVertical: 24, paddingHorizontal: 24,
+  },
+  endLine: { flex: 1, maxWidth: 70, height: 1 },
+  endGlyph: { fontSize: 22, fontFamily: "Inter_400Regular", textAlign: "center" },
 
   footer: {
     fontSize: 10.5, fontFamily: "Inter_400Regular", lineHeight: 15,
-    textAlign: "center", paddingTop: 16, marginTop: 8, borderTopWidth: StyleSheet.hairlineWidth,
+    textAlign: "center", paddingHorizontal: 28, paddingVertical: 16,
   },
 });
