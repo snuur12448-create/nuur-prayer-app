@@ -777,7 +777,7 @@ export function HomeV2(props: HomeV2Props) {
                   {p.time}
                 </SvgText>
                 {notifEnabled?.[p.id] && (
-                  <Circle cx={x + 13} cy={y - 8} r={2} fill="#FFD27A" opacity={0.95} />
+                  <Circle cx={x + 13} cy={above ? y + 8 : y - 8} r={2} fill="#FFD27A" opacity={0.95} />
                 )}
               </React.Fragment>
             );
