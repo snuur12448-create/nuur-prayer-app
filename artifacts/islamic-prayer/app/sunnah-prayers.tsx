@@ -19,6 +19,7 @@ import {
   MadhabKey,
   SUNNAH_DATA,
   SunnahCategory,
+  SunnahHowTo,
   SunnahPrayer,
 } from "@/utils/sunnahData";
 import { useDailySunnah } from "@/utils/useDailySunnah";
@@ -153,6 +154,46 @@ function formatTimeUntil(target: Date | undefined): string {
 }
 
 /* ============================================================
+   7-day mini history strip
+   ============================================================ */
+function HistoryStrip({
+  colors, history,
+}: { colors: any; history: { date: string; count: number }[] }) {
+  const gold = colors.gold;
+  // Build last 7 days (oldest → newest, left → right)
+  const days: { date: string; count: number; isToday: boolean }[] = [];
+  const map = new Map(history.map((h) => [h.date, h.count]));
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    days.push({ date: key, count: map.get(key) ?? 0, isToday: i === 0 });
+  }
+  return (
+    <View style={styles.historyRow}>
+      {days.map((d) => {
+        const intensity = Math.min(1, d.count / 4); // 0..4+ → 0..1
+        const filled = d.count > 0;
+        return (
+          <View
+            key={d.date}
+            style={[
+              styles.historyCell,
+              {
+                borderColor: gold + (d.isToday ? "AA" : "44"),
+                backgroundColor: filled
+                  ? gold + Math.round(0x33 + intensity * 0xAA).toString(16).padStart(2, "0").toUpperCase()
+                  : "transparent",
+              },
+            ]}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+/* ============================================================
    Today hero — next/just-passed sunnahs + daily progress
    ============================================================ */
 function TodayHero({
@@ -168,6 +209,7 @@ function TodayHero({
   rawatibDone,
   rawatibTotal,
   streak,
+  history,
   nextTimeLabel,
   onJumpNext,
   onJumpPrev,
@@ -186,6 +228,7 @@ function TodayHero({
   rawatibDone: number;
   rawatibTotal: number;
   streak: number;
+  history: { date: string; count: number }[];
   nextTimeLabel: string;
   onJumpNext: () => void;
   onJumpPrev: () => void;
@@ -326,9 +369,161 @@ function TodayHero({
                 }}
               />
             </View>
+
+            {/* 7-day history strip */}
+            <View style={styles.historyWrap}>
+              <Text style={[styles.historyLabel, { color: colors.textSecondary }]}>
+                LAST 7 DAYS
+              </Text>
+              <HistoryStrip colors={colors} history={history} />
+            </View>
           </View>
         </View>
       </MushafFrame>
+    </View>
+  );
+}
+
+/* ============================================================
+   Glossary — inline expandable definitions of common terms
+   ============================================================ */
+const GLOSSARY: { term: string; ar?: string; def: string }[] = [
+  {
+    term: "Mu'akkadah",
+    ar: "مؤكدة",
+    def: "Strongly emphasised — the Prophet ﷺ rarely or never left these. Leaving them is disliked.",
+  },
+  {
+    term: "Ghayr Mu'akkadah",
+    ar: "غير مؤكدة",
+    def: "Recommended but not strongly emphasised. Praying them is rewarded; leaving them carries no blame.",
+  },
+  {
+    term: "Rawātib",
+    ar: "الرواتب",
+    def: "The fixed sunnah rakʿahs attached to the five daily prayers — twelve in total earn a house in Paradise.",
+  },
+  {
+    term: "Nāfilah",
+    ar: "نافلة",
+    def: "Any voluntary act of worship beyond the obligatory — including all sunnah prayers.",
+  },
+  {
+    term: "Witr",
+    ar: "الوتر",
+    def: "An odd-numbered prayer that seals the night. Prayed any time between ʿIshāʾ and Fajr; best in the last third.",
+  },
+  {
+    term: "Qiyām al-Layl",
+    ar: "قيام الليل",
+    def: "Any voluntary night prayer after ʿIshāʾ. Tahajjud is a specific form prayed after sleeping.",
+  },
+];
+
+function GlossaryBlock({ colors }: { colors: any }) {
+  const [open, setOpen] = useState(false);
+  const gold = colors.gold;
+  return (
+    <View style={[styles.glossaryWrap, { borderColor: gold + "33" }]}>
+      <Pressable
+        onPress={() => {
+          LayoutAnimation.configureNext({
+            duration: 200,
+            update: { type: "easeInEaseOut" },
+          });
+          setOpen((v) => !v);
+        }}
+        style={styles.glossaryHead}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+      >
+        <Feather name="book-open" size={12} color={gold} />
+        <Text style={[styles.glossaryHeadText, { color: gold }]}>
+          GLOSSARY · WHAT THESE TERMS MEAN
+        </Text>
+        <Feather name={open ? "chevron-up" : "chevron-down"} size={14} color={gold + "AA"} />
+      </Pressable>
+      {open && (
+        <View style={styles.glossaryBody}>
+          {GLOSSARY.map((g, i) => (
+            <View
+              key={g.term}
+              style={[
+                styles.glossaryRow,
+                i < GLOSSARY.length - 1 && {
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: gold + "22",
+                },
+              ]}
+            >
+              <View style={styles.glossaryTermRow}>
+                <Text style={[styles.glossaryTerm, { color: colors.text }]}>{g.term}</Text>
+                {g.ar && (
+                  <Text style={[styles.glossaryAr, { color: gold + "CC" }]}>· {g.ar}</Text>
+                )}
+              </View>
+              <Text style={[styles.glossaryDef, { color: colors.textSecondary }]}>
+                {g.def}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+/* ============================================================
+   How-to-pray block — stepwise + sūrah deep links
+   ============================================================ */
+function HowToBlock({
+  colors, howTo,
+}: { colors: any; howTo: SunnahHowTo }) {
+  const gold = colors.gold;
+  return (
+    <View style={[styles.howToBox, { borderColor: gold + "44" }]}>
+      <View style={styles.howToHead}>
+        <View style={[styles.refDot, { backgroundColor: gold }]} />
+        <Text style={[styles.howToHeadText, { color: gold }]}>HOW TO PRAY</Text>
+      </View>
+      {howTo.steps.map((s, i) => (
+        <View key={i} style={styles.howToStep}>
+          <View style={[styles.howToBullet, { borderColor: gold + "AA" }]}>
+            <Text style={[styles.howToBulletText, { color: gold }]}>{i + 1}</Text>
+          </View>
+          <Text style={[styles.howToStepText, { color: colors.text }]}>{s}</Text>
+        </View>
+      ))}
+      {howTo.surahs && howTo.surahs.length > 0 && (
+        <View style={[styles.howToSurahs, { borderTopColor: gold + "33" }]}>
+          <Text style={[styles.howToSurahLabel, { color: colors.textSecondary }]}>
+            RECOMMENDED RECITATION
+          </Text>
+          <View style={styles.howToSurahRow}>
+            {howTo.surahs.map((s) => (
+              <Pressable
+                key={`${s.rakah}-${s.surahNum}`}
+                onPress={(e: any) => {
+                  e?.stopPropagation?.();
+                  router.push({ pathname: "/quran/[id]", params: { id: String(s.surahNum) } });
+                }}
+                style={[styles.howToSurahChip, { borderColor: gold + "55" }]}
+                accessibilityRole="link"
+                accessibilityLabel={`Open Sūrah ${s.nameEn} in Quran`}
+              >
+                <Text style={[styles.howToSurahRakah, { color: gold + "AA" }]}>
+                  RAK'AH {s.rakah}
+                </Text>
+                <Text style={[styles.howToSurahName, { color: colors.text }]}>
+                  {s.nameEn}
+                </Text>
+                <Text style={[styles.howToSurahAr, { color: gold }]}>{s.nameAr}</Text>
+                <Feather name="arrow-up-right" size={11} color={gold + "AA"} />
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -548,6 +743,9 @@ function PrayerCard({
               </View>
             )}
 
+            {/* How to pray */}
+            {prayer.howTo && <HowToBlock colors={colors} howTo={prayer.howTo} />}
+
             {/* Notes */}
             {prayer.notes && (
               <Text style={[styles.notes, { color: colors.textSecondary }]}>
@@ -589,7 +787,7 @@ export default function SunnahPrayersScreen() {
   const insets = useSafeAreaInsets();
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterId>("all");
-  const { doneIds, toggle: toggleDone, streak } = useDailySunnah();
+  const { doneIds, toggle: toggleDone, streak, history } = useDailySunnah();
 
   const togglePrayer = (id: string) => {
     LayoutAnimation.configureNext({
@@ -679,6 +877,7 @@ export default function SunnahPrayersScreen() {
             rawatibDone={rawatibDone}
             rawatibTotal={rawatibTotal}
             streak={streak}
+            history={history}
             nextTimeLabel={nextTimeLabel}
             onJumpNext={() => focusPrayer(nextSunnah?.id)}
             onJumpPrev={() => focusPrayer(prevSunnah?.id)}
@@ -693,6 +892,13 @@ export default function SunnahPrayersScreen() {
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               Nothing tracked yet today. Tap "Mark prayed today" on any sunnah to start your streak.
             </Text>
+          </View>
+        )}
+
+        {/* Glossary — appears once, just above the first section */}
+        {visibleCategories.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
+            <GlossaryBlock colors={colors} />
           </View>
         )}
 
@@ -930,4 +1136,75 @@ const styles = StyleSheet.create({
     fontSize: 10.5, fontFamily: "Inter_400Regular", lineHeight: 15,
     textAlign: "center", paddingHorizontal: 28, paddingVertical: 16,
   },
+
+  /* 7-day history strip */
+  historyWrap: { marginTop: 12, gap: 6 },
+  historyLabel: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1.4 },
+  historyRow: { flexDirection: "row", gap: 5 },
+  historyCell: {
+    flex: 1,
+    height: 14,
+    borderWidth: 1,
+    borderRadius: 1.5,
+  },
+
+  /* Glossary block */
+  glossaryWrap: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  glossaryHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  glossaryHeadText: { flex: 1, fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 1.3 },
+  glossaryBody: { paddingHorizontal: 12, paddingBottom: 8 },
+  glossaryRow: { paddingVertical: 9, gap: 3 },
+  glossaryTermRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+  glossaryTerm: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  glossaryAr: { fontSize: 13, fontFamily: "AmiriQuran_400Regular" },
+  glossaryDef: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
+
+  /* How-to block */
+  howToBox: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 2,
+    padding: 12,
+    gap: 8,
+  },
+  howToHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 },
+  howToHeadText: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 1.4 },
+  howToStep: { flexDirection: "row", gap: 9, alignItems: "flex-start" },
+  howToBullet: {
+    width: 18, height: 18, borderRadius: 9,
+    borderWidth: 1,
+    alignItems: "center", justifyContent: "center",
+    marginTop: 1,
+  },
+  howToBulletText: { fontSize: 9, fontFamily: "Inter_700Bold" },
+  howToStepText: { flex: 1, fontSize: 12.5, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  howToSurahs: {
+    marginTop: 6,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+  },
+  howToSurahLabel: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1.3 },
+  howToSurahRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  howToSurahChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 2,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
+  howToSurahRakah: { fontSize: 8.5, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+  howToSurahName: { fontSize: 11.5, fontFamily: "Inter_700Bold" },
+  howToSurahAr: { fontSize: 13, fontFamily: "AmiriQuran_400Regular" },
 });

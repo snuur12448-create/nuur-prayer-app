@@ -15,6 +15,11 @@ export type MadhabKey = "hanafi" | "maliki" | "shafii" | "hanbali";
 
 export type MadhabViews = Partial<Record<MadhabKey, string>>;
 
+export type SunnahHowTo = {
+  steps: string[];
+  surahs?: { rakah: number; surahNum: number; nameEn: string; nameAr: string }[];
+};
+
 export type SunnahPrayer = {
   id: string;
   nameEn: string;
@@ -33,6 +38,7 @@ export type SunnahPrayer = {
     label: string;       // e.g. "Number of takbīrāt", "Ruling"
     views: MadhabViews;
   };
+  howTo?: SunnahHowTo;   // optional stepwise guide + recommended sūrahs
 };
 
 export const MADHAB_LABELS: Record<MadhabKey, string> = {
@@ -72,6 +78,18 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           grade: "Ṣaḥīḥ",
         },
         notes: "The Prophet ﷺ never left these two, even while travelling.",
+        howTo: {
+          steps: [
+            "Pray quietly — the Prophet ﷺ kept these two short and light.",
+            "Recite al-Fātiḥah, then al-Kāfirūn in the first rakʿah.",
+            "Recite al-Fātiḥah, then al-Ikhlāṣ in the second rakʿah.",
+            "End with the salām and follow with the obligatory Fajr.",
+          ],
+          surahs: [
+            { rakah: 1, surahNum: 109, nameEn: "Al-Kāfirūn", nameAr: "الكافرون" },
+            { rakah: 2, surahNum: 112, nameEn: "Al-Ikhlāṣ",  nameAr: "الإخلاص" },
+          ],
+        },
       },
       {
         id: "rawatib-dhuhr-before",
@@ -94,6 +112,13 @@ export const SUNNAH_DATA: SunnahCategory[] = [
             shafii:  "4 (in two pairs, two salāms)",
             hanbali: "2 (4 is also recommended)",
           },
+        },
+        howTo: {
+          steps: [
+            "Pray two rakʿahs (or four in two pairs).",
+            "Recite al-Fātiḥah followed by a moderate-length sūrah in each rakʿah.",
+            "End with the salām, then proceed to the obligatory Dhuhr.",
+          ],
         },
       },
       {
@@ -118,6 +143,13 @@ export const SUNNAH_DATA: SunnahCategory[] = [
             hanbali: "2",
           },
         },
+        howTo: {
+          steps: [
+            "Pray these immediately after the obligatory Dhuhr — best at home.",
+            "Two rakʿahs is the minimum; four (in two pairs) is more meritorious.",
+            "Standard recitation: al-Fātiḥah and a short sūrah in each rakʿah.",
+          ],
+        },
       },
       {
         id: "rawatib-maghrib",
@@ -132,6 +164,18 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           source: "Ṣaḥīḥ al-Bukhārī 1180",
           grade: "Ṣaḥīḥ",
         },
+        howTo: {
+          steps: [
+            "Pray two short rakʿahs immediately after the obligatory Maghrib.",
+            "Recite al-Fātiḥah, then al-Kāfirūn in the first rakʿah.",
+            "Recite al-Fātiḥah, then al-Ikhlāṣ in the second rakʿah.",
+            "Best prayed at home, as the Prophet ﷺ did.",
+          ],
+          surahs: [
+            { rakah: 1, surahNum: 109, nameEn: "Al-Kāfirūn", nameAr: "الكافرون" },
+            { rakah: 2, surahNum: 112, nameEn: "Al-Ikhlāṣ",  nameAr: "الإخلاص" },
+          ],
+        },
       },
       {
         id: "rawatib-isha",
@@ -145,6 +189,13 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           text: "I memorised from the Prophet ﷺ ten rakʿahs: two before Dhuhr and two after, two after Maghrib in his house, two after ʿIshāʾ in his house, and two before Fajr.",
           source: "Ṣaḥīḥ al-Bukhārī 1180",
           grade: "Ṣaḥīḥ",
+        },
+        howTo: {
+          steps: [
+            "Pray two short rakʿahs at home, immediately after the obligatory ʿIshāʾ.",
+            "Recite al-Fātiḥah and a short sūrah in each rakʿah.",
+            "These complete the 12 rawātib of the day.",
+          ],
         },
       },
       {
@@ -185,6 +236,17 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           grade: "Ṣaḥīḥ",
         },
         notes: "Best time is when the heat intensifies, roughly the last third of the morning.",
+        howTo: {
+          steps: [
+            "Pray any even number of rakʿahs from 2 up to 8, two at a time.",
+            "Recite al-Fātiḥah and a short sūrah (e.g. al-Shams, al-Ḍuḥā) in each rakʿah.",
+            "End each pair with the salām before starting the next.",
+          ],
+          surahs: [
+            { rakah: 1, surahNum: 91, nameEn: "Al-Shams", nameAr: "الشمس" },
+            { rakah: 2, surahNum: 93, nameEn: "Al-Ḍuḥā",  nameAr: "الضحى" },
+          ],
+        },
       },
       {
         id: "tahiyyat-masjid",
@@ -200,6 +262,13 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           grade: "Ṣaḥīḥ",
         },
         notes: "Skipped during the three forbidden times unless one fears missing a fard.",
+        howTo: {
+          steps: [
+            "Upon entering the masjid, before sitting, face the qibla and make intention.",
+            "Pray two short rakʿahs — al-Fātiḥah with a short sūrah is sufficient.",
+            "Then sit and engage in dhikr or wait for the next prayer.",
+          ],
+        },
       },
       {
         id: "wudu",
@@ -213,6 +282,13 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           text: "Whoever performs wuḍūʾ as I have, then prays two rakʿahs without letting his mind wander, his past sins are forgiven.",
           source: "Ṣaḥīḥ al-Bukhārī 159, Muslim 226",
           grade: "Ṣaḥīḥ",
+        },
+        howTo: {
+          steps: [
+            "After completing a thorough wuḍūʾ, pray two rakʿahs immediately.",
+            "Bring full presence of heart — this is the condition of the reward.",
+            "Recite al-Fātiḥah and any short sūrah in each rakʿah.",
+          ],
         },
       },
       {
@@ -229,6 +305,14 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           grade: "Ṣaḥīḥ",
         },
         notes: "The duʿāʾ is recited after the salām, not within the prayer.",
+        howTo: {
+          steps: [
+            "Make intention for two voluntary rakʿahs of istikhāra over the matter you face.",
+            "Pray two normal rakʿahs — al-Fātiḥah with any sūrah in each.",
+            "After the salām, raise your hands and recite the duʿāʾ of istikhāra.",
+            "Then proceed with what your heart inclines to and trust Allah.",
+          ],
+        },
       },
       {
         id: "tawbah",
@@ -275,6 +359,17 @@ export const SUNNAH_DATA: SunnahCategory[] = [
             hanbali: "Sunnah Mu'akkadah (strongest of the voluntary)",
           },
         },
+        howTo: {
+          steps: [
+            "Pray any odd number of rakʿahs — most commonly 3 (or 1 after qiyām).",
+            "For 3: pray two rakʿahs and salām, then a single one. Or pray all three together with one salām.",
+            "In the single (witr) rakʿah, recite al-Fātiḥah and al-Ikhlāṣ.",
+            "Many add the qunūt duʿāʾ in the final rakʿah before or after the rukūʿ.",
+          ],
+          surahs: [
+            { rakah: 3, surahNum: 112, nameEn: "Al-Ikhlāṣ", nameAr: "الإخلاص" },
+          ],
+        },
       },
       {
         id: "tahajjud",
@@ -290,6 +385,14 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           grade: "Ṣaḥīḥ",
         },
         notes: "Our Lord descends to the lowest heaven in the last third of the night, asking who will call upon Him to answer them. (Bukhārī 1145)",
+        howTo: {
+          steps: [
+            "After sleeping, rise in the last third of the night, perform wuḍūʾ.",
+            "Pray two rakʿahs at a time, lengthening the recitation if you can.",
+            "The Prophet ﷺ commonly prayed 8 rakʿahs of qiyām, then 3 of witr.",
+            "Conclude with witr — do not let it be the last prayer of the night.",
+          ],
+        },
       },
       {
         id: "qiyam",
@@ -364,6 +467,13 @@ export const SUNNAH_DATA: SunnahCategory[] = [
             shafii:  "2 in the masjid, 4 at home (both narrated)",
             hanbali: "2 (and 4 is also valid)",
           },
+        },
+        howTo: {
+          steps: [
+            "Pray two rakʿahs in the masjid, or four at home — both are sunnah.",
+            "Recite al-Fātiḥah and a short sūrah in each rakʿah.",
+            "Do not pray immediately after the salām of Jumuʿah — speak briefly or move position first (sunnah).",
+          ],
         },
       },
       {

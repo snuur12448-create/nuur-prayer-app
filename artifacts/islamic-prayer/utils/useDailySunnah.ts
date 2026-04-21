@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const KEY = "nuur_daily_sunnah_v1";
 const STREAK_KEY = "nuur_sunnah_streak_v1";
+const HISTORY_KEY = "nuur_sunnah_history_v1";
+const HISTORY_DAYS = 7;
 
 function todayKey() {
   const d = new Date();
@@ -25,6 +27,18 @@ interface StreakStored {
   lastDate: string;
 }
 
+interface HistoryEntry {
+  date: string;
+  count: number;
+}
+
+function rollHistory(prev: HistoryEntry[], today: string, count: number): HistoryEntry[] {
+  // Drop today if present, then prepend the new value, then trim to HISTORY_DAYS.
+  const filtered = prev.filter((e) => e.date !== today);
+  const next = [{ date: today, count }, ...filtered].slice(0, HISTORY_DAYS);
+  return next;
+}
+
 /**
  * Tracks which sunnah-prayer IDs the user has marked "prayed today" plus a
  * simple consecutive-day streak. Mirrors useDailyAdhkar's race-safety model:
@@ -34,13 +48,18 @@ interface StreakStored {
 export function useDailySunnah() {
   const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
   const [streak, setStreak] = useState<number>(0);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const lastDateRef = useRef<string>(todayKey());
 
   // Hydrate
   useEffect(() => {
     let cancelled = false;
-    Promise.all([AsyncStorage.getItem(KEY), AsyncStorage.getItem(STREAK_KEY)])
-      .then(([val, streakVal]) => {
+    Promise.all([
+      AsyncStorage.getItem(KEY),
+      AsyncStorage.getItem(STREAK_KEY),
+      AsyncStorage.getItem(HISTORY_KEY),
+    ])
+      .then(([val, streakVal, historyVal]) => {
         if (cancelled) return;
         const today = todayKey();
         let persisted: string[] = [];
@@ -68,6 +87,17 @@ export function useDailySunnah() {
             }
           } catch {
             AsyncStorage.removeItem(STREAK_KEY).catch(() => {});
+          }
+        }
+        // Hydrate history (cap at HISTORY_DAYS, keep entries within the past window)
+        if (historyVal) {
+          try {
+            const parsed = JSON.parse(historyVal) as HistoryEntry[];
+            if (Array.isArray(parsed)) {
+              setHistory(parsed.slice(0, HISTORY_DAYS));
+            }
+          } catch {
+            AsyncStorage.removeItem(HISTORY_KEY).catch(() => {});
           }
         }
         setDoneIds((prev) => {
@@ -143,6 +173,12 @@ export function useDailySunnah() {
       AsyncStorage
         .setItem(KEY, JSON.stringify({ date: today, ids: [...next] } satisfies Stored))
         .catch(() => {});
+      // Update rolling history with today's count
+      setHistory((h) => {
+        const rolled = rollHistory(h, today, next.size);
+        AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(rolled)).catch(() => {});
+        return rolled;
+      });
       // First check-in of the day → bump streak
       if (wasEmpty && next.size > 0) {
         bumpStreak();
@@ -151,5 +187,5 @@ export function useDailySunnah() {
     });
   }, [bumpStreak]);
 
-  return { doneIds, toggle, streak };
+  return { doneIds, toggle, streak, history };
 }
