@@ -632,11 +632,6 @@ export default function QuranDetailScreen() {
     [surahNumber]
   );
 
-  // ── Mushaf (page) view mode ────────────────────────────────────────────────
-  // Toggles between the default reading-card list and a continuous Arabic-only
-  // flow that mimics the traditional mushaf experience (no controls, no English).
-  const [mushafMode, setMushafMode] = useState(false);
-
   // Stable refs required by FlatList for onViewableItemsChanged
   const saveLastReadRef = useRef(saveLastRead);
   useEffect(() => { saveLastReadRef.current = saveLastRead; }, [saveLastRead]);
@@ -1065,19 +1060,9 @@ export default function QuranDetailScreen() {
             <Text style={[styles.headerArabic, { color: colors.text }]}>{surah.name}</Text>
             <Text style={[styles.headerEnglish, { color: colors.textSecondary }]}>{surah.englishName}</Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <TouchableOpacity
-              onPress={() => setMushafMode((v) => !v)}
-              style={styles.bookmarkBtn}
-              hitSlop={6}
-              accessibilityLabel={mushafMode ? "Switch to reading view" : "Switch to mushaf page view"}
-            >
-              <Feather name={mushafMode ? "list" : "book-open"} size={20} color={mushafMode ? colors.gold : colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => toggleBookmark(surahNumber)} style={styles.bookmarkBtn}>
-              <Feather name="bookmark" size={22} color={isBookmarked ? colors.gold : colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={() => toggleBookmark(surahNumber)} style={styles.bookmarkBtn}>
+            <Feather name="bookmark" size={22} color={isBookmarked ? colors.gold : colors.textSecondary} />
+          </TouchableOpacity>
         </View>
         <View style={styles.headerMeta}>
           <View style={styles.metaItem}>
@@ -1097,8 +1082,7 @@ export default function QuranDetailScreen() {
         </View>
       </View>
 
-      {/* Controls bar — hidden in Mushaf mode for a clean reading surface */}
-      {!mushafMode && (
+      {/* Controls bar */}
       <View style={[styles.controlsBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <TouchableOpacity
           style={[styles.reciterChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
@@ -1199,12 +1183,11 @@ export default function QuranDetailScreen() {
           })()}
         </ScrollView>
       </View>
-      )}
 
       {/* Translator attribution + reading-progress strip. The progress bar
           shows how far through the surah the user has scrolled (top visible
           ayah out of total) so long surahs (Al-Baqarah, etc.) feel navigable. */}
-      {!hafidhMode && !mushafMode && (
+      {!hafidhMode && (
         <View style={[styles.attributionRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           {showTranslation && (
             <>
@@ -1319,31 +1302,6 @@ export default function QuranDetailScreen() {
           <Text style={[styles.errorTitle, { color: colors.text }]}>Unable to load verses</Text>
           <Text style={[styles.errorSub, { color: colors.textSecondary }]}>Check your internet connection</Text>
         </View>
-      ) : mushafMode && !hafidhMode ? (
-        // ── Mushaf (page) view ───────────────────────────────────────────────
-        // Continuous right-to-left Arabic flow with traditional verse-end
-        // ornaments. No translation, no controls — pure recitation surface.
-        <ScrollView
-          style={styles.verseList}
-          contentContainerStyle={{ padding: 20, paddingBottom: isWeb ? 40 : insets.bottom + 24 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {surahNumber !== 1 && surahNumber !== 9 && (
-            <Text style={[styles.mushafBismillah, { color: colors.text }]}>
-              بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
-            </Text>
-          )}
-          {quranFontLoaded ? (
-            <Text style={[styles.mushafBody, { color: colors.text }]}>
-              {(verses ?? []).map((v) => {
-                const num = String(v.number).split("").map((d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)] || d).join("");
-                return `${v.text} \u06DD${num} `;
-              }).join("")}
-            </Text>
-          ) : (
-            <HafidhPlaceholder colors={colors} />
-          )}
-        </ScrollView>
       ) : (
         <FlatList
           key={hafidhMode ? "hafidh" : "reading"}
@@ -1685,21 +1643,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-  },
-  mushafBismillah: {
-    fontFamily: "AmiriQuran",
-    fontSize: 28,
-    lineHeight: 56,
-    textAlign: "center",
-    writingDirection: "rtl",
-    marginBottom: 24,
-  },
-  mushafBody: {
-    fontFamily: "AmiriQuran",
-    fontSize: 28,
-    lineHeight: 64,
-    textAlign: "right",
-    writingDirection: "rtl",
   },
   headerMeta: { flexDirection: "row", justifyContent: "center", gap: 16, alignItems: "center" },
   metaItem: { alignItems: "center", gap: 2, flex: 1 },
