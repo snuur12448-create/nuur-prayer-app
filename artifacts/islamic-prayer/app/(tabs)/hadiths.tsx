@@ -23,7 +23,7 @@ import { CornerFloret, NuurMark } from "@/components/share/ShareDecor";
 const SUNNAH_API_KEY = process.env.EXPO_PUBLIC_SUNNAH_API_KEY ?? "";
 const SUNNAH_RANDOM_URL = "https://api.sunnah.com/v1/hadiths/random";
 
-const SAHIH_COLLECTIONS = ["bukhari", "muslim", "riyadussalihin", "nawawi40"];
+const SAHIH_COLLECTIONS = ["bukhari", "muslim"];
 
 type CollectionFilter = "all" | "Bukhari" | "Muslim" | "Both";
 
