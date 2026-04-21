@@ -159,9 +159,9 @@ const VerseCard = React.memo(function VerseCard({
       style={[
         styles.verseCard,
         {
-          backgroundColor: isActive ? colors.tint + "18" : isHighlighted ? "#C9933A18" : colors.surface,
+          backgroundColor: isActive ? colors.gold + "1A" : isHighlighted ? "#C9933A18" : colors.surface,
           borderColor: isActive
-            ? colors.tint + "60"
+            ? colors.gold
             : isHighlighted
             ? "#C9933A"
             : isCopied
@@ -169,7 +169,14 @@ const VerseCard = React.memo(function VerseCard({
             : hafidhMode
             ? colors.gold + "30"
             : colors.border,
-          borderWidth: isHighlighted ? 2 : 1,
+          borderWidth: isActive || isHighlighted ? 2 : 1,
+          // Soft gold halo around the currently-playing ayah so the eye can
+          // follow recitation. iOS only — Android shadow needs elevation which
+          // visually conflicts with the bordered card style.
+          shadowColor: isActive ? colors.gold : "transparent",
+          shadowOpacity: isActive ? 0.35 : 0,
+          shadowRadius: isActive ? 12 : 0,
+          shadowOffset: { width: 0, height: 0 },
         },
       ]}
     >
@@ -180,16 +187,17 @@ const VerseCard = React.memo(function VerseCard({
               style={[
                 styles.playBtn,
                 {
-                  backgroundColor: isActive ? colors.tint : colors.surfaceElevated,
-                  borderColor: isActive ? colors.tint : colors.border,
+                  backgroundColor: isActive ? colors.gold : colors.surfaceElevated,
+                  borderColor: isActive ? colors.gold : colors.border,
                 },
               ]}
               onPress={onPlay}
+              hitSlop={6}
             >
               {playIcon === "loader" ? (
                 <ActivityIndicator size="small" color={isActive ? "#fff" : colors.tint} />
               ) : (
-                <Feather name={playIcon as any} size={11} color={isActive ? "#fff" : colors.tint} />
+                <Feather name={playIcon as any} size={14} color={isActive ? "#fff" : colors.tint} />
               )}
             </TouchableOpacity>
           )}
@@ -198,12 +206,12 @@ const VerseCard = React.memo(function VerseCard({
               <TouchableOpacity
                 onPress={onCopy}
                 style={[styles.copyBtn, { backgroundColor: isCopied ? colors.gold + "20" : "transparent" }]}
-                hitSlop={8}
+                hitSlop={10}
               >
-                <Feather name={isCopied ? "check" : "copy"} size={12} color={isCopied ? colors.gold : colors.textSecondary} />
+                <Feather name={isCopied ? "check" : "copy"} size={15} color={isCopied ? colors.gold : colors.textSecondary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={onShare} style={[styles.copyBtn, { backgroundColor: "transparent" }]} hitSlop={8}>
-                <Feather name="share-2" size={12} color={colors.textSecondary} />
+              <TouchableOpacity onPress={onShare} style={[styles.copyBtn, { backgroundColor: "transparent" }]} hitSlop={10}>
+                <Feather name="share-2" size={15} color={colors.textSecondary} />
               </TouchableOpacity>
             </>
           )}
@@ -485,6 +493,7 @@ export default function QuranDetailScreen() {
   const [loadingVerses, setLoadingVerses] = useState(false);
   const [versesError, setVersesError] = useState(false);
   const [highlightedVerse, setHighlightedVerse] = useState<number | null>(null);
+  const [topVisibleVerse, setTopVisibleVerse] = useState<number | null>(null);
 
   // ── Hafidh Mode ────────────────────────────────────────────────────────────
   const [hafidhMode, setHafidhMode] = useState(false);
@@ -585,12 +594,16 @@ export default function QuranDetailScreen() {
   const saveLastReadRef = useRef(saveLastRead);
   useEffect(() => { saveLastReadRef.current = saveLastRead; }, [saveLastRead]);
 
+  const setTopVisibleVerseRef = useRef(setTopVisibleVerse);
+  useEffect(() => { setTopVisibleVerseRef.current = setTopVisibleVerse; }, []);
+
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: Verse; isViewable: boolean }> }) => {
       if (viewableItems.length === 0) return;
       const topVisible = viewableItems[0];
       if (topVisible?.isViewable && topVisible.item) {
         saveLastReadRef.current(topVisible.item.number);
+        setTopVisibleVerseRef.current(topVisible.item.number);
       }
     }
   ).current;
@@ -1127,14 +1140,37 @@ export default function QuranDetailScreen() {
         </ScrollView>
       </View>
 
-      {/* Translator attribution — surfaces the source of the English text so
-          readers know whose translation they're reading. Hidden in hafidh mode
-          (no English shown there) and when the user has hidden translation. */}
-      {!hafidhMode && showTranslation && (
+      {/* Translator attribution + reading-progress strip. The progress bar
+          shows how far through the surah the user has scrolled (top visible
+          ayah out of total) so long surahs (Al-Baqarah, etc.) feel navigable. */}
+      {!hafidhMode && (
         <View style={[styles.attributionRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <Feather name="book-open" size={10} color={colors.textSecondary} />
-          <Text style={[styles.attributionText, { color: colors.textSecondary }]} numberOfLines={1}>
-            Translation: Sahih International
+          {showTranslation && (
+            <>
+              <Feather name="book-open" size={10} color={colors.textSecondary} />
+              <Text style={[styles.attributionText, { color: colors.textSecondary }]} numberOfLines={1}>
+                Sahih Int'l
+              </Text>
+              <View style={[styles.attributionDot, { backgroundColor: colors.border }]} />
+            </>
+          )}
+          <View style={styles.progressTrackWrap}>
+            <View style={[styles.progressTrack, { backgroundColor: colors.border + "60" }]}>
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    backgroundColor: colors.gold,
+                    width: `${Math.round(
+                      (Math.min(topVisibleVerse ?? 1, surah.verses) / Math.max(surah.verses, 1)) * 100
+                    )}%` as any,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+          <Text style={[styles.progressText, { color: colors.textSecondary }]} numberOfLines={1}>
+            Ayah {topVisibleVerse ?? 1} / {surah.verses}
           </Text>
         </View>
       )}
@@ -1590,6 +1626,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   attributionText: { fontSize: 11, fontFamily: "Inter_500Medium", letterSpacing: 0.2 },
+  attributionDot: { width: 3, height: 3, borderRadius: 1.5, marginHorizontal: 2 },
+  progressTrackWrap: { flex: 1, justifyContent: "center", paddingHorizontal: 4 },
+  progressTrack: { height: 3, borderRadius: 2, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 2 },
+  progressText: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.2 },
   bismillahOrnament: {
     width: 80,
     height: 1,
@@ -1668,8 +1709,8 @@ const styles = StyleSheet.create({
   verseCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
   verseHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   verseHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  playBtn: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", borderWidth: 1 },
-  copyBtn: { width: 26, height: 26, borderRadius: 6, alignItems: "center", justifyContent: "center" },
+  playBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", borderWidth: 1 },
+  copyBtn: { width: 34, height: 34, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   verseNumberBadge: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   verseNumber: { fontSize: 12, fontFamily: "Inter_700Bold" },
   arabicVerse: { fontSize: 26, textAlign: "right", lineHeight: 52, letterSpacing: 0, writingDirection: "rtl", fontFamily: "AmiriQuran_400Regular" },
