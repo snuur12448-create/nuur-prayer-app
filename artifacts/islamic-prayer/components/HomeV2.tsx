@@ -320,25 +320,34 @@ export function HomeV2(props: HomeV2Props) {
   const inkSoft = (a: number) => (isDay ? `rgba(255,228,181,${a})` : `rgba(201,212,240,${a})`);
 
   // ── Body angle (sun by day, moon by night) ────────────────────────────────
-  const bodyDeg = useMemo(() => {
+  // CRITICAL: keep day and night arcs INDEPENDENT — sharing a single
+  // `bodyDeg` driven by `isDay` causes a position snap at maghrib. The
+  // day-group then keeps rendering the sun at the MOON's position during
+  // the cross-fade, producing a visible double-body overlap.
+  const dayBodyDeg = useMemo(() => {
     if (!prayerTimes) return -90;
     const sunriseMs = prayerTimes.sunrise.time.getTime();
     const sunsetMs = prayerTimes.maghrib.time.getTime();
-    if (isDay) {
-      const f = timeFractionOfDay(nowMs, sunriseMs, sunsetMs);
-      return -180 + f * 180;
-    }
+    const f = timeFractionOfDay(nowMs, sunriseMs, sunsetMs);
+    return -180 + f * 180;
+  }, [prayerTimes, nowMs]);
+  const nightBodyDeg = useMemo(() => {
+    if (!prayerTimes) return -90;
     // Night moon: traverses the dome from Maghrib (LEFT horizon, sunset) to
-    // Sunrise (RIGHT horizon, fajr ends). Time reads left→right at night
-    // just like the day, so the moon rises in the upper-left at Isha, hangs
-    // overhead at Last 1/3, and sets at Sunrise on the right.
-    const todayMaghribMs = sunsetMs;
-    const beforeMaghrib = nowMs < todayMaghribMs;
-    const startMs = beforeMaghrib ? todayMaghribMs - 24 * 3600 * 1000 : todayMaghribMs;
+    // Sunrise (RIGHT horizon, fajr ends). Rises in the upper-left at Isha,
+    // hangs overhead at Last 1/3, sets at Sunrise on the right.
+    const sunriseMs = prayerTimes.sunrise.time.getTime();
+    const sunsetMs = prayerTimes.maghrib.time.getTime();
+    const beforeMaghrib = nowMs < sunsetMs;
+    const startMs = beforeMaghrib ? sunsetMs - 24 * 3600 * 1000 : sunsetMs;
     const endMs = sunriseMs > startMs ? sunriseMs : sunriseMs + 24 * 3600 * 1000;
     const f = timeFractionOfNight(nowMs, startMs, endMs);
     return -180 + f * 180;
-  }, [prayerTimes, nowMs, isDay]);
+  }, [prayerTimes, nowMs]);
+  // Backwards-compat: existing arc/anchor code uses bodyDeg for non-body
+  // calculations (e.g. label-above/below tests). Pick whichever arc is the
+  // "current" one based on isDay.
+  const bodyDeg = isDay ? dayBodyDeg : nightBodyDeg;
 
   // ── Day→Night cross-fade (sunset animation) ──────────────────────────────
   // Smooth 0..1 ramp tied to Maghrib so the dome morphs from the daytime
@@ -367,9 +376,68 @@ export function HomeV2(props: HomeV2Props) {
   const nightActive = nightT > 0.01;
   const dayActive = nightT < 0.99;
 
+  // ── Sharp body swap ───────────────────────────────────────────────────────
+  // The slow `nightT` cross-fade shows both bodies simultaneously for ~30
+  // min, which feels broken. Use a sharp sigmoid centred ~15s after maghrib
+  // (and ~15s before sunrise) so the actual body swap happens in ~1 minute,
+  // hidden under the sunset/sunrise flash overlay.
+  const swapT = useMemo(() => {
+    if (!prayerTimes) return isNight ? 1 : 0;
+    if (reduceMotion) return isNight ? 1 : 0;
+    const maghribMs = prayerTimes.maghrib.time.getTime();
+    const sunriseMs = prayerTimes.sunrise.time.getTime();
+    const HALF = 30 * 1000; // 30 s either side of centre → ~1 min swap
+    if (nowMs >= maghribMs) {
+      // Post-maghrib: sun → moon (0 → 1)
+      const dt = (nowMs - (maghribMs + 15 * 1000)) / HALF;
+      return 1 / (1 + Math.exp(-6 * dt));
+    }
+    // Pre-maghrib (still in last night): moon → sun (1 → 0)
+    const dt = (nowMs - (sunriseMs - 15 * 1000)) / HALF;
+    return 1 / (1 + Math.exp(6 * dt));
+  }, [prayerTimes, nowMs, isNight, reduceMotion]);
+
+  // ── Sunset / sunrise flash ────────────────────────────────────────────────
+  // 0..1 bloom that floods the dome (and the page just below it) with warm
+  // light around maghrib and cool dawn light around sunrise. Hides the body
+  // swap and gives the transition a cinematic feel. Total window ~6 min,
+  // peaks right at the swap centre.
+  const sunsetFlash = useMemo(() => {
+    if (!prayerTimes || reduceMotion) return 0;
+    const maghribMs = prayerTimes.maghrib.time.getTime();
+    const sunriseMs = prayerTimes.sunrise.time.getTime();
+    const APPROACH = 3 * 60 * 1000; // 3 min ramp in
+    const RECEDE = 3 * 60 * 1000;   // 3 min ramp out
+    const ramp = (peakMs: number) => {
+      const dt = nowMs - peakMs;
+      if (dt < -APPROACH || dt > RECEDE) return 0;
+      if (dt <= 0) {
+        const x = 1 - Math.abs(dt) / APPROACH;
+        return x * x * x; // ease-in cubic — soft buildup
+      }
+      const x = 1 - dt / RECEDE;
+      return x * x; // ease-out quad — quicker recede
+    };
+    return Math.max(ramp(maghribMs + 15 * 1000), ramp(sunriseMs - 15 * 1000));
+  }, [prayerTimes, nowMs, reduceMotion]);
+  // Dawn vs dusk (used to colour the flash differently)
+  const isDawnFlash = useMemo(() => {
+    if (!prayerTimes) return false;
+    const sunriseMs = prayerTimes.sunrise.time.getTime();
+    return Math.abs(nowMs - sunriseMs) < 6 * 60 * 1000;
+  }, [prayerTimes, nowMs]);
+
+  // ── Independent body coords (day = sun, night = moon) ─────────────────────
+  const dayBodyRad = (dayBodyDeg * Math.PI) / 180;
+  const dayBodyX = cx + R * Math.cos(dayBodyRad);
+  const dayBodyY = cy + R * Math.sin(dayBodyRad);
+  const nightBodyRad = (nightBodyDeg * Math.PI) / 180;
+  const nightBodyX = cx + R * Math.cos(nightBodyRad);
+  const nightBodyY = cy + R * Math.sin(nightBodyRad);
+  // Backwards-compat aliases (some downstream calcs reference bodyX/bodyY)
   const bodyRad = (bodyDeg * Math.PI) / 180;
-  const bodyX = cx + R * Math.cos(bodyRad);
-  const bodyY = cy + R * Math.sin(bodyRad);
+  const bodyX = isDay ? dayBodyX : nightBodyX;
+  const bodyY = isDay ? dayBodyY : nightBodyY;
   // 0 at horizon, 1 at apex. Drives glow swell at sunrise/sunset.
   const bodyElev = Math.max(0, Math.min(1, -Math.sin(bodyRad)));
   const horizonProx = 1 - bodyElev; // 1 near horizon
@@ -651,6 +719,42 @@ export function HomeV2(props: HomeV2Props) {
 
   return (
     <View style={{ backgroundColor: colors.background }}>
+      {/* ── Page-wide sunset/sunrise glow ──────────────────────────────────
+          A vertical-fading warm tint that sits above the entire home view
+          during the maghrib / sunrise transition window. The dome's own
+          flash overlay (inside the hero) handles the bright core; this
+          one carries the warmth down into the cards below so the whole
+          page feels lit by the setting sun. */}
+      {sunsetFlash > 0.005 && (
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            { opacity: Math.min(1, sunsetFlash * 0.85), zIndex: 50 },
+          ]}
+        >
+          <LinearGradient
+            colors={
+              isDawnFlash
+                ? [
+                    "rgba(255,210,170,0.85)",
+                    "rgba(255,200,160,0.55)",
+                    "rgba(255,190,150,0.25)",
+                    "rgba(255,180,140,0)",
+                  ]
+                : [
+                    "rgba(255,160,90,0.9)",
+                    "rgba(255,140,70,0.5)",
+                    "rgba(255,120,60,0.22)",
+                    "rgba(255,110,55,0)",
+                  ] as any
+            }
+            locations={[0, 0.35, 0.65, 1] as any}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
+      )}
+
       {/* ───────── SKY DOME HERO ───────── */}
       <View style={{ height: HERO_H, width: "100%", overflow: "hidden", position: "relative" }}>
         <LinearGradient
@@ -984,49 +1088,120 @@ export function HomeV2(props: HomeV2Props) {
           </G>
           )}
 
-          {/* The body (sun by day, moon by night). Cross-fades between the
-              two during the sunset transition. Hidden when there is no
-              location to anchor it. */}
-          {prayerTimes && dayActive && (
-            <G opacity={1 - nightT}>
-              {/* Outer warm halo (only visible near horizon / twilight) */}
-              {glowBoost > 0.05 && (
+          {/* The body (sun by day, moon by night). Each layer uses its OWN
+              arc coordinates so the sun stays on the sun arc and the moon on
+              the moon arc — no position snap during the swap. The sharp
+              `swapT` makes the actual handoff happen in ~1 minute, hidden
+              under the warm bloom flash below. */}
+          {prayerTimes && (
+            <G opacity={1 - swapT}>
+              {/* Sun bloom — radius explodes during the flash so the sun
+                  visibly "swallows" the dome before being replaced. */}
+              {(glowBoost > 0.05 || sunsetFlash > 0.01) && (
                 <Circle
-                  cx={bodyX}
-                  cy={bodyY}
-                  r={32 + 22 * glowBoost}
+                  cx={dayBodyX}
+                  cy={dayBodyY}
+                  r={32 + 22 * glowBoost + 260 * sunsetFlash}
                   fill="url(#sunGlow)"
-                  opacity={0.55 + 0.4 * glowBoost}
+                  opacity={Math.min(1, 0.55 + 0.4 * glowBoost + 0.5 * sunsetFlash)}
                 />
               )}
-              <Circle cx={bodyX} cy={bodyY} r={32} fill="url(#sunGlow)" />
-              <Circle cx={bodyX} cy={bodyY} r={11} fill="#FFF1C4" />
-              <SvgText x={bodyX + 18} y={bodyY + 3.5} fill="#FFF8DC" fontSize={12.5} fontWeight="800">
+              <Circle cx={dayBodyX} cy={dayBodyY} r={32 + 8 * sunsetFlash} fill="url(#sunGlow)" />
+              <Circle cx={dayBodyX} cy={dayBodyY} r={11 + 4 * sunsetFlash} fill="#FFF1C4" />
+              <SvgText
+                x={dayBodyX + 18}
+                y={dayBodyY + 3.5}
+                fill="#FFF8DC"
+                fontSize={12.5}
+                fontWeight="800"
+                opacity={1 - sunsetFlash * 0.85}
+              >
                 {nowLabel}
               </SvgText>
             </G>
           )}
-          {prayerTimes && nightActive && (
-            <G opacity={nightT}>
-              {glowBoost > 0.05 && (
+          {prayerTimes && (
+            <G opacity={swapT}>
+              {/* Moon halo — small dawn bloom so sunrise feels symmetric */}
+              {(glowBoost > 0.05 || sunsetFlash > 0.01) && (
                 <Circle
-                  cx={bodyX}
-                  cy={bodyY}
-                  r={28 + 16 * glowBoost}
+                  cx={nightBodyX}
+                  cy={nightBodyY}
+                  r={28 + 16 * glowBoost + 80 * sunsetFlash}
                   fill="url(#moonGlow)"
-                  opacity={0.5 + 0.4 * glowBoost}
+                  opacity={Math.min(1, 0.5 + 0.4 * glowBoost + 0.4 * sunsetFlash)}
                 />
               )}
-              <Circle cx={bodyX} cy={bodyY} r={28} fill="url(#moonGlow)" />
-              <Circle cx={bodyX} cy={bodyY} r={13} fill="#E8EEFF" />
+              <Circle cx={nightBodyX} cy={nightBodyY} r={28} fill="url(#moonGlow)" />
+              <Circle cx={nightBodyX} cy={nightBodyY} r={13} fill="#E8EEFF" />
               {/* Crescent cut — phase hint, not astronomical */}
-              <Circle cx={bodyX + (bodyDeg < -90 ? -4 : 5)} cy={bodyY - 1.5} r={11} fill={grad[0]} />
-              <SvgText x={bodyX + 22} y={bodyY + 3} fill="#E8EEFF" fontSize={11} fontWeight="700">
+              <Circle
+                cx={nightBodyX + (nightBodyDeg < -90 ? -4 : 5)}
+                cy={nightBodyY - 1.5}
+                r={11}
+                fill={grad[0]}
+              />
+              <SvgText
+                x={nightBodyX + 22}
+                y={nightBodyY + 3}
+                fill="#E8EEFF"
+                fontSize={11}
+                fontWeight="700"
+                opacity={1 - sunsetFlash * 0.6}
+              >
                 {nowLabel}
               </SvgText>
             </G>
           )}
         </Svg>
+
+        {/* ── Sunset / sunrise flash overlay ─────────────────────────────
+            A warm radial bloom centred near the horizon that floods the
+            dome and bleeds down the page below it. Hides the body swap and
+            gives the maghrib transition a real cinematic moment. */}
+        {sunsetFlash > 0.005 && (
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              { opacity: Math.min(1, sunsetFlash * 1.1) },
+            ]}
+          >
+            <LinearGradient
+              colors={
+                isDawnFlash
+                  ? [
+                      "rgba(255,210,170,0)",
+                      "rgba(255,200,160,0.55)",
+                      "rgba(255,180,140,0.85)",
+                      "rgba(255,165,120,0.55)",
+                      "rgba(255,165,120,0)",
+                    ]
+                  : [
+                      "rgba(255,170,80,0)",
+                      "rgba(255,150,70,0.55)",
+                      "rgba(255,135,60,0.95)",
+                      "rgba(255,110,50,0.55)",
+                      "rgba(255,90,40,0)",
+                    ] as any
+              }
+              locations={[0, 0.32, 0.55, 0.78, 1] as any}
+              style={StyleSheet.absoluteFill}
+            />
+            {/* Bright golden core near the horizon (right for dusk, left for dawn) */}
+            <LinearGradient
+              colors={[
+                "rgba(255,255,235,0)",
+                `rgba(255,248,210,${0.85 * sunsetFlash})`,
+                "rgba(255,210,140,0)",
+              ] as any}
+              locations={[0, 0.5, 1] as any}
+              start={{ x: isDawnFlash ? 0.15 : 0.85, y: 0.55 }}
+              end={{ x: isDawnFlash ? 0.85 : 0.15, y: 0.55 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+        )}
 
         {/* Tappable hit boxes over each prayer anchor — opens the per-prayer
             notification settings sheet. These sit above the SVG so the small
