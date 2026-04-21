@@ -120,6 +120,8 @@ interface VerseCardProps {
   onPlay: () => void;
   onCopy: () => void;
   onShare: () => void;
+  isSaved: boolean;
+  onToggleSave: () => void;
   hafidhMode: boolean;
   hafidhDifficulty: "easy" | "medium" | "hard";
   isRevealed: boolean;
@@ -142,6 +144,8 @@ const VerseCard = React.memo(function VerseCard({
   onPlay,
   onCopy,
   onShare,
+  isSaved,
+  onToggleSave,
   hafidhMode,
   hafidhDifficulty,
   isRevealed,
@@ -155,7 +159,9 @@ const VerseCard = React.memo(function VerseCard({
   const firstWord = verse.text.trim().split(/\s+/)[0] ?? "";
 
   return (
-    <View
+    <Pressable
+      onLongPress={hafidhMode ? undefined : onToggleSave}
+      delayLongPress={400}
       style={[
         styles.verseCard,
         {
@@ -164,7 +170,7 @@ const VerseCard = React.memo(function VerseCard({
             ? colors.gold
             : isHighlighted
             ? "#C9933A"
-            : isCopied
+            : isCopied || isSaved
             ? colors.gold
             : hafidhMode
             ? colors.gold + "30"
@@ -232,6 +238,11 @@ const VerseCard = React.memo(function VerseCard({
               <Feather name="check" size={10} color={colors.tint} />
             </View>
           )}
+          {isSaved && !hafidhMode && (
+            <TouchableOpacity onPress={onToggleSave} hitSlop={10} style={[styles.savedBadge, { backgroundColor: colors.gold + "20", borderColor: colors.gold }]}>
+              <Feather name="bookmark" size={11} color={colors.gold} />
+            </TouchableOpacity>
+          )}
           <View style={[styles.verseNumberBadge, { backgroundColor: isActive ? colors.tint : hafidhMode ? colors.gold + "25" : colors.prayerCard }]}>
             <Text style={[styles.verseNumber, { color: isActive ? "#fff" : colors.gold }]}>{verse.number}</Text>
           </View>
@@ -283,11 +294,11 @@ const VerseCard = React.memo(function VerseCard({
       ) : null}
 
       {!hafidhMode && showTranslation && (
-        <Text style={[styles.translationVerse, { color: colors.textSecondary, borderTopColor: colors.border }]}>
+        <Text style={[styles.translationVerse, { color: colors.textSecondary, borderTopColor: colors.border, opacity: 0.82 }]}>
           {verse.translation}
         </Text>
       )}
-    </View>
+    </Pressable>
   );
 });
 
@@ -589,6 +600,42 @@ export default function QuranDetailScreen() {
     },
     [surah, surahNumber]
   );
+
+  // ── Per-ayah bookmarks ─────────────────────────────────────────────────────
+  // Long-press on any verse card toggles a bookmark. Stored as a Set of
+  // "surah:ayah" keys, persisted to AsyncStorage so they survive restarts.
+  const SAVED_AYAHS_KEY = "nuur_saved_ayahs";
+  const [savedAyahs, setSavedAyahs] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    AsyncStorage.getItem(SAVED_AYAHS_KEY)
+      .then((val) => {
+        if (val) {
+          try {
+            const arr = JSON.parse(val) as string[];
+            setSavedAyahs(new Set(arr));
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
+  const toggleSavedAyah = useCallback(
+    (ayahNum: number) => {
+      setSavedAyahs((prev) => {
+        const key = `${surahNumber}:${ayahNum}`;
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        AsyncStorage.setItem(SAVED_AYAHS_KEY, JSON.stringify(Array.from(next))).catch(() => {});
+        return next;
+      });
+    },
+    [surahNumber]
+  );
+
+  // ── Mushaf (page) view mode ────────────────────────────────────────────────
+  // Toggles between the default reading-card list and a continuous Arabic-only
+  // flow that mimics the traditional mushaf experience (no controls, no English).
+  const [mushafMode, setMushafMode] = useState(false);
 
   // Stable refs required by FlatList for onViewableItemsChanged
   const saveLastReadRef = useRef(saveLastRead);
@@ -980,6 +1027,8 @@ export default function QuranDetailScreen() {
           onPlay={() => togglePlayPause(verse)}
           onCopy={() => copyVerse(verse)}
           onShare={() => setShareVerse(verse)}
+          isSaved={savedAyahs.has(`${surahNumber}:${verse.number}`)}
+          onToggleSave={() => toggleSavedAyah(verse.number)}
           hafidhMode={hafidhMode}
           hafidhDifficulty={hafidhDifficulty}
           isRevealed={revealedAyahs.has(verse.number)}
@@ -991,7 +1040,7 @@ export default function QuranDetailScreen() {
         />
       );
     },
-    [surahNumber, playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, showWordByWord, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah, wordsByVerse, handleWordTap, quranFontLoaded, getPlayIcon]
+    [surahNumber, playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, showWordByWord, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah, wordsByVerse, handleWordTap, quranFontLoaded, getPlayIcon, savedAyahs, toggleSavedAyah]
   );
 
   const keyExtractor = useCallback((v: Verse) => String(v.number), []);
@@ -1016,9 +1065,19 @@ export default function QuranDetailScreen() {
             <Text style={[styles.headerArabic, { color: colors.text }]}>{surah.name}</Text>
             <Text style={[styles.headerEnglish, { color: colors.textSecondary }]}>{surah.englishName}</Text>
           </View>
-          <TouchableOpacity onPress={() => toggleBookmark(surahNumber)} style={styles.bookmarkBtn}>
-            <Feather name="bookmark" size={22} color={isBookmarked ? colors.gold : colors.textSecondary} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <TouchableOpacity
+              onPress={() => setMushafMode((v) => !v)}
+              style={styles.bookmarkBtn}
+              hitSlop={6}
+              accessibilityLabel={mushafMode ? "Switch to reading view" : "Switch to mushaf page view"}
+            >
+              <Feather name={mushafMode ? "list" : "book-open"} size={20} color={mushafMode ? colors.gold : colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => toggleBookmark(surahNumber)} style={styles.bookmarkBtn}>
+              <Feather name="bookmark" size={22} color={isBookmarked ? colors.gold : colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.headerMeta}>
           <View style={styles.metaItem}>
@@ -1038,7 +1097,8 @@ export default function QuranDetailScreen() {
         </View>
       </View>
 
-      {/* Controls bar */}
+      {/* Controls bar — hidden in Mushaf mode for a clean reading surface */}
+      {!mushafMode && (
       <View style={[styles.controlsBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <TouchableOpacity
           style={[styles.reciterChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
@@ -1139,11 +1199,12 @@ export default function QuranDetailScreen() {
           })()}
         </ScrollView>
       </View>
+      )}
 
       {/* Translator attribution + reading-progress strip. The progress bar
           shows how far through the surah the user has scrolled (top visible
           ayah out of total) so long surahs (Al-Baqarah, etc.) feel navigable. */}
-      {!hafidhMode && (
+      {!hafidhMode && !mushafMode && (
         <View style={[styles.attributionRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           {showTranslation && (
             <>
@@ -1258,6 +1319,31 @@ export default function QuranDetailScreen() {
           <Text style={[styles.errorTitle, { color: colors.text }]}>Unable to load verses</Text>
           <Text style={[styles.errorSub, { color: colors.textSecondary }]}>Check your internet connection</Text>
         </View>
+      ) : mushafMode && !hafidhMode ? (
+        // ── Mushaf (page) view ───────────────────────────────────────────────
+        // Continuous right-to-left Arabic flow with traditional verse-end
+        // ornaments. No translation, no controls — pure recitation surface.
+        <ScrollView
+          style={styles.verseList}
+          contentContainerStyle={{ padding: 20, paddingBottom: isWeb ? 40 : insets.bottom + 24 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {surahNumber !== 1 && surahNumber !== 9 && (
+            <Text style={[styles.mushafBismillah, { color: colors.text }]}>
+              بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+            </Text>
+          )}
+          {quranFontLoaded ? (
+            <Text style={[styles.mushafBody, { color: colors.text }]}>
+              {(verses ?? []).map((v) => {
+                const num = String(v.number).split("").map((d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)] || d).join("");
+                return `${v.text} \u06DD${num} `;
+              }).join("")}
+            </Text>
+          ) : (
+            <HafidhPlaceholder colors={colors} />
+          )}
+        </ScrollView>
       ) : (
         <FlatList
           key={hafidhMode ? "hafidh" : "reading"}
@@ -1592,6 +1678,29 @@ const styles = StyleSheet.create({
   headerArabic: { color: "#fff", fontSize: 22, fontFamily: "Inter_700Bold" },
   headerEnglish: { color: "rgba(255,255,255,0.7)", fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
   bookmarkBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
+  savedBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mushafBismillah: {
+    fontFamily: "AmiriQuran",
+    fontSize: 28,
+    lineHeight: 56,
+    textAlign: "center",
+    writingDirection: "rtl",
+    marginBottom: 24,
+  },
+  mushafBody: {
+    fontFamily: "AmiriQuran",
+    fontSize: 28,
+    lineHeight: 64,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
   headerMeta: { flexDirection: "row", justifyContent: "center", gap: 16, alignItems: "center" },
   metaItem: { alignItems: "center", gap: 2, flex: 1 },
   metaValue: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" },
@@ -1724,9 +1833,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   translationVerse: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontFamily: "Inter_400Regular",
-    lineHeight: 22,
+    lineHeight: 23,
+    letterSpacing: 0.1,
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
