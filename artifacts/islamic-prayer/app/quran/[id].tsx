@@ -558,6 +558,7 @@ export default function QuranDetailScreen() {
   } = useQuranPlayer();
 
   const [showReciterModal, setShowReciterModal] = useState(false);
+  const [showDisplaySheet, setShowDisplaySheet] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const [reciterListAtBottom, setReciterListAtBottom] = useState(false);
   const previewAudioRef = useRef<any>(null);
@@ -899,30 +900,85 @@ export default function QuranDetailScreen() {
   }, [wordSheetWord]);
 
   const renderItem = useCallback(
-    ({ item: verse }: { item: Verse }) => (
-      <VerseCard
-        verse={verse}
-        isActive={playingVerse === verse.number}
-        isHighlighted={highlightedVerse === verse.number}
-        playIcon={getPlayIcon(verse)}
-        isCopied={copiedVerse === verse.number}
-        showTransliteration={showTransliteration}
-        showTranslation={showTranslation}
-        colors={colors}
-        onPlay={() => togglePlayPause(verse)}
-        onCopy={() => copyVerse(verse)}
-        onShare={() => setShareVerse(verse)}
-        hafidhMode={hafidhMode}
-        hafidhDifficulty={hafidhDifficulty}
-        isRevealed={revealedAyahs.has(verse.number)}
-        onReveal={() => revealAyah(verse.number)}
-        words={wordsByVerse[verse.number] ?? []}
-        onWordTap={handleWordTap}
-        showWordByWord={showWordByWord}
-        quranFontLoaded={!!quranFontLoaded}
-      />
-    ),
-    [playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, showWordByWord, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah, wordsByVerse, handleWordTap, quranFontLoaded]
+    ({ item: verse }: { item: Verse }) => {
+      // Al-Fatihah verse 1 IS the Bismillah. Tradition is to set it apart as
+      // a calligraphic banner rather than render it inside a verse card. We
+      // still keep tap-to-play affordance via a small play icon centered below.
+      if (surahNumber === 1 && verse.number === 1 && !hafidhMode) {
+        const isActive = playingVerse === verse.number;
+        return (
+          <View style={{ marginBottom: 18, marginTop: 4, alignItems: "center" }}>
+            <View style={[styles.bismillahOrnament, { backgroundColor: colors.gold + "55" }]} />
+            {quranFontLoaded ? (
+              <Text style={[styles.arabicVerse, {
+                color: colors.text,
+                textAlign: "center",
+                fontSize: 30,
+                lineHeight: 60,
+                paddingHorizontal: 20,
+              }]}>
+                {verse.text}
+              </Text>
+            ) : (
+              <HafidhPlaceholder colors={colors} />
+            )}
+            {showTranslation && (
+              <Text style={[styles.translationVerse, {
+                color: colors.textSecondary,
+                textAlign: "center",
+                marginTop: 8,
+                borderTopWidth: 0,
+                paddingTop: 0,
+              }]}>
+                {verse.translation}
+              </Text>
+            )}
+            <TouchableOpacity
+              onPress={() => togglePlayPause(verse)}
+              style={[styles.bismillahPlayBtn, {
+                backgroundColor: isActive ? colors.tint : colors.gold + "18",
+                borderColor: isActive ? colors.tint : colors.gold + "55",
+              }]}
+              hitSlop={10}
+            >
+              <Feather
+                name={getPlayIcon(verse) as any}
+                size={12}
+                color={isActive ? "#fff" : colors.gold}
+              />
+              <Text style={[styles.bismillahPlayText, { color: isActive ? "#fff" : colors.gold }]}>
+                Ayah 1
+              </Text>
+            </TouchableOpacity>
+            <View style={[styles.bismillahOrnament, { backgroundColor: colors.gold + "55", marginTop: 10 }]} />
+          </View>
+        );
+      }
+      return (
+        <VerseCard
+          verse={verse}
+          isActive={playingVerse === verse.number}
+          isHighlighted={highlightedVerse === verse.number}
+          playIcon={getPlayIcon(verse)}
+          isCopied={copiedVerse === verse.number}
+          showTransliteration={showTransliteration}
+          showTranslation={showTranslation}
+          colors={colors}
+          onPlay={() => togglePlayPause(verse)}
+          onCopy={() => copyVerse(verse)}
+          onShare={() => setShareVerse(verse)}
+          hafidhMode={hafidhMode}
+          hafidhDifficulty={hafidhDifficulty}
+          isRevealed={revealedAyahs.has(verse.number)}
+          onReveal={() => revealAyah(verse.number)}
+          words={wordsByVerse[verse.number] ?? []}
+          onWordTap={handleWordTap}
+          showWordByWord={showWordByWord}
+          quranFontLoaded={!!quranFontLoaded}
+        />
+      );
+    },
+    [surahNumber, playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, showWordByWord, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah, wordsByVerse, handleWordTap, quranFontLoaded, getPlayIcon]
   );
 
   const keyExtractor = useCallback((v: Verse) => String(v.number), []);
@@ -963,8 +1019,8 @@ export default function QuranDetailScreen() {
           </View>
           <View style={[styles.metaDivider, { backgroundColor: colors.border }]} />
           <View style={styles.metaItem}>
-            <Text style={[styles.metaValue, { color: colors.text }]}>Juz {surah.juz}</Text>
-            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Location</Text>
+            <Text style={[styles.metaValue, { color: colors.text }]}>{surah.juz}</Text>
+            <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Juz</Text>
           </View>
         </View>
       </View>
@@ -972,10 +1028,18 @@ export default function QuranDetailScreen() {
       {/* Controls bar */}
       <View style={[styles.controlsBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.reciterBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+          style={[styles.reciterChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
           onPress={() => setShowReciterModal(true)}
+          accessibilityLabel={`Reciter ${selectedReciter.name}. Tap to change.`}
         >
-          <Feather name="mic" size={15} color={colors.tint} />
+          <Feather name="mic" size={13} color={colors.gold} />
+          <Text
+            style={[styles.reciterChipText, { color: colors.text }]}
+            numberOfLines={1}
+          >
+            {selectedReciter.name.split(" ").slice(-1)[0]}
+          </Text>
+          <Feather name="chevron-down" size={11} color={colors.textSecondary} />
         </TouchableOpacity>
 
         <ScrollView
@@ -1031,48 +1095,49 @@ export default function QuranDetailScreen() {
               <Feather name="repeat" size={13} color={autoAdvance ? colors.tint : colors.textSecondary} />
             </TouchableOpacity>
           )}
-          {/* Transliteration toggle — hidden in hafidh mode */}
-          {!hafidhMode && (
-            <TouchableOpacity
-              style={[styles.toggleChip, {
-                backgroundColor: showTransliteration ? colors.gold + "20" : colors.surfaceElevated,
-                borderColor: showTransliteration ? colors.gold + "60" : colors.border,
-              }]}
-              onPress={() => setShowTransliteration((v) => !v)}
-            >
-              <Text style={[styles.toggleChipText, { color: showTransliteration ? colors.gold : colors.textSecondary }]}>
-                A-B-C
-              </Text>
-            </TouchableOpacity>
-          )}
-          {/* Word-by-word toggle — hidden in hafidh mode */}
-          {!hafidhMode && (
-            <TouchableOpacity
-              style={[styles.toggleChip, {
-                backgroundColor: showWordByWord ? colors.gold + "20" : colors.surfaceElevated,
-                borderColor: showWordByWord ? colors.gold + "60" : colors.border,
-              }]}
-              onPress={() => setShowWordByWord((v) => !v)}
-            >
-              <Text style={[styles.toggleChipText, { color: showWordByWord ? colors.gold : colors.textSecondary }]}>
-                W·W
-              </Text>
-            </TouchableOpacity>
-          )}
-          {/* Translation toggle — hidden in hafidh mode */}
-          {!hafidhMode && (
-            <>
-              <Pressable
-                style={[styles.toggle, { backgroundColor: showTranslation ? colors.tint : colors.border }]}
-                onPress={() => setShowTranslation((v) => !v)}
+          {/* Display settings — collapses transliteration / word-by-word / translation
+              behind a single sheet to keep the toolbar uncluttered. The dot indicates
+              that one or more non-default reading aids are currently on. */}
+          {!hafidhMode && (() => {
+            const aidsOn =
+              (showTransliteration ? 1 : 0) +
+              (showWordByWord ? 1 : 0) +
+              (showTranslation ? 0 : 1); // EN off counts as a deviation from default
+            const active = aidsOn > 0;
+            return (
+              <TouchableOpacity
+                style={[styles.toggleChip, {
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  paddingHorizontal: 9,
+                  backgroundColor: active ? colors.gold + "20" : colors.surfaceElevated,
+                  borderColor: active ? colors.gold + "60" : colors.border,
+                }]}
+                onPress={() => setShowDisplaySheet(true)}
+                accessibilityLabel="Display settings"
               >
-                <View style={[styles.toggleThumb, { transform: [{ translateX: showTranslation ? 20 : 0 }] }]} />
-              </Pressable>
-              <Text style={[styles.toggleLabel, { color: colors.textSecondary }]}>EN</Text>
-            </>
-          )}
+                <Feather name="sliders" size={13} color={active ? colors.gold : colors.textSecondary} />
+                <Text style={[styles.toggleChipText, { color: active ? colors.gold : colors.textSecondary }]}>
+                  Display
+                </Text>
+              </TouchableOpacity>
+            );
+          })()}
         </ScrollView>
       </View>
+
+      {/* Translator attribution — surfaces the source of the English text so
+          readers know whose translation they're reading. Hidden in hafidh mode
+          (no English shown there) and when the user has hidden translation. */}
+      {!hafidhMode && showTranslation && (
+        <View style={[styles.attributionRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <Feather name="book-open" size={10} color={colors.textSecondary} />
+          <Text style={[styles.attributionText, { color: colors.textSecondary }]} numberOfLines={1}>
+            Translation: Sahih International
+          </Text>
+        </View>
+      )}
 
       {/* Hafidh Mode banner */}
       {hafidhMode && (
@@ -1211,9 +1276,13 @@ export default function QuranDetailScreen() {
                 </View>
               )}
               {surahNumber !== 9 && surahNumber !== 1 && quranFontLoaded && (
-                <Text style={[styles.bismillah, { color: colors.text }]}>
-                  بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-                </Text>
+                <View style={{ alignItems: "center", marginBottom: 22, marginTop: 4 }}>
+                  <View style={[styles.bismillahOrnament, { backgroundColor: colors.gold + "55" }]} />
+                  <Text style={[styles.bismillah, { color: colors.text, marginBottom: 8 }]}>
+                    بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+                  </Text>
+                  <View style={[styles.bismillahOrnament, { backgroundColor: colors.gold + "55" }]} />
+                </View>
               )}
             </>
           }
@@ -1423,6 +1492,52 @@ export default function QuranDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ── Display settings sheet (Translation / Transliteration / Word-by-word) ── */}
+      <Modal
+        visible={showDisplaySheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDisplaySheet(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowDisplaySheet(false)}>
+          <Pressable
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor: colors.prayerCard,
+                borderTopWidth: 1,
+                borderTopColor: colors.border,
+                paddingBottom: Math.max(insets.bottom, 20) + 12,
+              },
+            ]}
+            onPress={() => {}}
+          >
+            <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+            <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 18 }]}>Reading Display</Text>
+
+            {([
+              { label: "Translation", sub: "Sahih International (English)", value: showTranslation, onToggle: () => setShowTranslation((v) => !v) },
+              { label: "Transliteration", sub: "Latin reading guide", value: showTransliteration, onToggle: () => setShowTransliteration((v) => !v) },
+              { label: "Word-by-word", sub: "Tap any word for meaning + root", value: showWordByWord, onToggle: () => setShowWordByWord((v) => !v) },
+            ] as const).map((row) => (
+              <Pressable
+                key={row.label}
+                onPress={row.onToggle}
+                style={[styles.displayRow, { borderColor: colors.border }]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.displayRowLabel, { color: colors.text }]}>{row.label}</Text>
+                  <Text style={[styles.displayRowSub, { color: colors.textSecondary }]}>{row.sub}</Text>
+                </View>
+                <View style={[styles.toggle, { backgroundColor: row.value ? colors.tint : colors.border }]}>
+                  <View style={[styles.toggleThumb, { transform: [{ translateX: row.value ? 20 : 0 }] }]} />
+                </View>
+              </Pressable>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1455,6 +1570,51 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     gap: 10,
   },
+  reciterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    maxWidth: 130,
+  },
+  reciterChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
+  attributionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+  },
+  attributionText: { fontSize: 11, fontFamily: "Inter_500Medium", letterSpacing: 0.2 },
+  bismillahOrnament: {
+    width: 80,
+    height: 1,
+    borderRadius: 1,
+    marginVertical: 4,
+  },
+  bismillahPlayBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 12,
+  },
+  bismillahPlayText: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.4 },
+  displayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    borderTopWidth: 1,
+  },
+  displayRowLabel: { fontSize: 15, fontFamily: "Inter_600SemiBold", marginBottom: 2 },
+  displayRowSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
   reciterBtn: {
     width: 32,
     height: 32,
