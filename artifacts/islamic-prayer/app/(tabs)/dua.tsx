@@ -18,7 +18,7 @@ import { ALL_DUA_CATEGORIES, DuaItem, searchDuas } from "@/utils/duaData";
 import { useSavedItems } from "@/utils/useSavedItems";
 import { useDailyAdhkar } from "@/utils/useDailyAdhkar";
 import ContentShareSheet from "@/components/ContentShareSheet";
-import { CornerFloret, HeroMedallion, NuurMark } from "@/components/share/ShareDecor";
+import { CornerFloret, NuurMark } from "@/components/share/ShareDecor";
 
 /* ============================================================
    Helpers — shared visual language with the Hadith section
@@ -110,11 +110,6 @@ function TodayHero({
     <View style={styles.heroWrap}>
       <MushafFrame color={colors.gold}>
         <View style={styles.heroPanel}>
-          {/* Khatam medallion behind */}
-          <View style={styles.heroMedallion} pointerEvents="none">
-            <HeroMedallion size={260} opacity={0.08} />
-          </View>
-
           {/* Top frame */}
           <View style={styles.heroTopRow}>
             <Text style={[styles.heroDate, { color: colors.gold + "B3" }]}>{hijriDate}</Text>

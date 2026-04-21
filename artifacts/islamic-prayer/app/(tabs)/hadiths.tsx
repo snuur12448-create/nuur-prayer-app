@@ -18,7 +18,7 @@ import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { HADITHS, HADITH_TOPICS, Hadith } from "@/utils/hadithData";
 import { useSavedItems } from "@/utils/useSavedItems";
 import ContentShareSheet from "@/components/ContentShareSheet";
-import { CornerFloret, HeroMedallion, NuurMark } from "@/components/share/ShareDecor";
+import { CornerFloret, NuurMark } from "@/components/share/ShareDecor";
 
 const SUNNAH_API_KEY = process.env.EXPO_PUBLIC_SUNNAH_API_KEY ?? "";
 const SUNNAH_RANDOM_URL = "https://api.sunnah.com/v1/hadiths/random";
@@ -449,11 +449,6 @@ function FeaturedHadithCard({
     <View style={styles.heroWrap}>
       <MushafFrame color={colors.gold}>
         <View style={styles.heroPanel}>
-          {/* Khatam medallion behind */}
-          <View style={styles.heroMedallion} pointerEvents="none">
-            <HeroMedallion size={260} opacity={0.08} />
-          </View>
-
           {/* Top frame: hijri date · rule · featured badge */}
           <View style={styles.heroTopRow}>
             <Text style={[styles.heroDate, { color: colors.gold + "B3" }]}>{hijriDate}</Text>
