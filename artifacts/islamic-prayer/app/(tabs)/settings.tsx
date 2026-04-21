@@ -31,21 +31,66 @@ import {
 } from "@/utils/prayerTimes";
 import { ADHAN_STYLES, AdhanStyle, AdhanMode, ADHAN_MODE_INFO } from "@/utils/adhanData";
 import { previewAdhan, stopAdhanAudio } from "@/utils/adhanPlayer";
+import { CornerFloret, NuurMark } from "@/components/share/ShareDecor";
 
 const isWeb = Platform.OS === "web";
 const THEME_ORDER: ThemeName[] = ["emerald", "midnight", "gold", "slate", "burgundy"];
 
-function SectionHeader({ title, colors }: { title: string; colors: any }) {
+/* ============================================================
+   Visual primitives — shared with Hadith / Du'a sections
+   ============================================================ */
+
+function MushafFrame({
+  children,
+  color,
+  pad = 16,
+}: {
+  children: React.ReactNode;
+  color: string;
+  pad?: number;
+}) {
   return (
-    <Text style={[styles.sectionHeader, { color: colors.tint }]}>{title}</Text>
+    <View style={[styles.mushafOuter, { borderColor: color + "55" }]}>
+      <View style={[styles.mushafInner, { borderColor: color + "22", padding: pad }]}>
+        <View style={styles.cornerTL}><CornerFloret size={20} /></View>
+        <View style={styles.cornerTR}><CornerFloret size={20} /></View>
+        <View style={styles.cornerBL}><CornerFloret size={20} /></View>
+        <View style={styles.cornerBR}><CornerFloret size={20} /></View>
+        {children}
+      </View>
+    </View>
+  );
+}
+
+function SectionDivider({ label, colors }: { label: string; colors: any }) {
+  return (
+    <View style={styles.sectionDivider}>
+      <View style={[styles.dividerRule, { backgroundColor: colors.gold + "55" }]} />
+      <Text style={[styles.sectionLabelText, { color: colors.gold }]}>{label}</Text>
+      <View style={[styles.dividerRule, { backgroundColor: colors.gold + "55" }]} />
+    </View>
+  );
+}
+
+function GroupCard({ children, colors }: { children: React.ReactNode; colors: any }) {
+  return (
+    <View style={styles.cardWrap}>
+      <View style={[styles.cardRuleTop, { backgroundColor: colors.gold + "55" }]} />
+      <View style={[styles.cardRuleBottom, { backgroundColor: colors.gold + "55" }]} />
+      <View style={[styles.tickTL, { borderColor: colors.gold }]} />
+      <View style={[styles.tickTR, { borderColor: colors.gold }]} />
+      <View style={[styles.tickBL, { borderColor: colors.gold }]} />
+      <View style={[styles.tickBR, { borderColor: colors.gold }]} />
+      <View style={styles.cardInner}>{children}</View>
+    </View>
   );
 }
 
 function RowSeparator({ colors }: { colors: any }) {
-  return <View style={[styles.separator, { backgroundColor: colors.border }]} />;
+  return <View style={[styles.separator, { backgroundColor: colors.gold + "22" }]} />;
 }
 
-function SegmentControl<T extends string>({
+function ChipGroup<T extends string>({
   options,
   value,
   onChange,
@@ -57,29 +102,33 @@ function SegmentControl<T extends string>({
   colors: any;
 }) {
   return (
-    <View style={[styles.segment, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-      {options.map((opt, i) => {
+    <View style={styles.chipRow}>
+      {options.map((opt) => {
         const active = opt.value === value;
         return (
-          <TouchableOpacity
+          <Pressable
             key={opt.value}
             onPress={() => onChange(opt.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={opt.label}
             style={[
-              styles.segmentBtn,
-              active && { backgroundColor: colors.tint },
-              i < options.length - 1 && styles.segmentBtnBorder,
-              i < options.length - 1 && { borderRightColor: colors.border },
+              styles.chip,
+              {
+                backgroundColor: active ? colors.gold : "transparent",
+                borderColor: active ? colors.gold : colors.gold + "44",
+              },
             ]}
           >
             <Text
               style={[
-                styles.segmentLabel,
-                { color: active ? "#fff" : colors.textSecondary },
+                styles.chipText,
+                { color: active ? colors.background : colors.textSecondary },
               ]}
             >
               {opt.label}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>
@@ -94,7 +143,13 @@ function ThemeSwatch({
   const activeBg = effectiveDisplayMode === "light" ? theme.lightColors.background : bg;
 
   return (
-    <Pressable onPress={onPress} style={styles.swatchWrapper}>
+    <Pressable
+      onPress={onPress}
+      style={styles.swatchWrapper}
+      accessibilityRole="button"
+      accessibilityLabel={`${theme.label} accent`}
+      accessibilityState={{ selected: isActive }}
+    >
       <View style={[styles.swatchOuter, isActive && { borderColor: accent, borderWidth: 2 }]}>
         <Svg width={44} height={44}>
           <Defs>
@@ -120,6 +175,10 @@ function ThemeSwatch({
   );
 }
 
+/* ============================================================
+   Modals — Calc method, Adhan style, Time picker
+   ============================================================ */
+
 function CalcMethodModal({
   visible, current, onSelect, onClose, colors,
 }: {
@@ -131,14 +190,18 @@ function CalcMethodModal({
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalBackdrop} />
       </TouchableWithoutFeedback>
-      <View style={[styles.methodSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-        <View style={[styles.sheetHeaderRow, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.sheetTitle, { color: colors.text }]}>Calculation Method</Text>
-          <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { borderColor: colors.border }]}>
-            <Feather name="x" size={16} color={colors.textSecondary} />
+      <View style={[styles.methodSheet, { backgroundColor: colors.surface, borderColor: colors.gold + "55" }]}>
+        <View style={[styles.sheetHandle, { backgroundColor: colors.gold + "44" }]} />
+        <View style={styles.sheetHeaderRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sheetTitle, { color: colors.text }]}>Calculation Method</Text>
+            <Text style={[styles.sheetSubtitle, { color: colors.gold }]}>طريقة الحساب</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { borderColor: colors.gold + "55" }]}>
+            <Feather name="x" size={16} color={colors.gold} />
           </TouchableOpacity>
         </View>
+        <View style={[styles.sheetRule, { backgroundColor: colors.gold + "55" }]} />
         <ScrollView showsVerticalScrollIndicator={false} style={styles.methodList}>
           {CALC_METHODS.map((method, i) => {
             const active = method.id === current;
@@ -147,24 +210,25 @@ function CalcMethodModal({
                 key={method.id}
                 onPress={() => { onSelect(method.id); onClose(); }}
                 style={[
-                  styles.methodRow, { borderBottomColor: colors.border },
+                  styles.methodRow,
+                  { borderBottomColor: colors.gold + "22" },
                   i === CALC_METHODS.length - 1 && { borderBottomWidth: 0 },
-                  active && { backgroundColor: colors.tint + "14" },
+                  active && { backgroundColor: colors.gold + "0E" },
                 ]}
               >
                 <View style={styles.methodRowLeft}>
-                  <Text style={[styles.methodName, { color: active ? colors.tint : colors.text }]}>
+                  <Text style={[styles.methodName, { color: active ? colors.gold : colors.text }]}>
                     {method.label}
                   </Text>
                   <Text style={[styles.methodRegion, { color: colors.textSecondary }]}>{method.region}</Text>
                   <Text style={[styles.methodDetail, { color: colors.textSecondary }]}>{method.detail}</Text>
                 </View>
                 {active ? (
-                  <View style={[styles.radioActive, { backgroundColor: colors.tint }]}>
-                    <Feather name="check" size={12} color="#fff" />
+                  <View style={[styles.checkActive, { borderColor: colors.gold, backgroundColor: colors.gold + "1A" }]}>
+                    <Feather name="check" size={12} color={colors.gold} />
                   </View>
                 ) : (
-                  <View style={[styles.radioInactive, { borderColor: colors.border }]} />
+                  <View style={[styles.radioInactive, { borderColor: colors.gold + "44" }]} />
                 )}
               </TouchableOpacity>
             );
@@ -213,19 +277,20 @@ function AdhanStyleModal({
       <TouchableWithoutFeedback onPress={handleClose}>
         <View style={styles.modalBackdrop} />
       </TouchableWithoutFeedback>
-      <View style={[styles.methodSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-        <View style={[styles.sheetHeaderRow, { borderBottomColor: colors.border }]}>
-          <View>
+      <View style={[styles.methodSheet, { backgroundColor: colors.surface, borderColor: colors.gold + "55" }]}>
+        <View style={[styles.sheetHandle, { backgroundColor: colors.gold + "44" }]} />
+        <View style={styles.sheetHeaderRow}>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.sheetTitle, { color: colors.text }]}>Adhan Style</Text>
-            <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>
-              Tap ▶ to preview · Tap row to select
+            <Text style={[styles.sheetSubtitle, { color: colors.gold }]}>
+              Tap ▶ to preview · tap row to select
             </Text>
           </View>
-          <TouchableOpacity onPress={handleClose} style={[styles.closeBtn, { borderColor: colors.border }]}>
-            <Feather name="x" size={16} color={colors.textSecondary} />
+          <TouchableOpacity onPress={handleClose} style={[styles.closeBtn, { borderColor: colors.gold + "55" }]}>
+            <Feather name="x" size={16} color={colors.gold} />
           </TouchableOpacity>
         </View>
+        <View style={[styles.sheetRule, { backgroundColor: colors.gold + "55" }]} />
         <ScrollView showsVerticalScrollIndicator={false} style={styles.methodList}>
           {ADHAN_STYLES.map((style, i) => {
             const active = style.id === current;
@@ -236,18 +301,17 @@ function AdhanStyleModal({
                 onPress={() => handleSelect(style.id)}
                 style={[
                   styles.adhanRow,
-                  { borderBottomColor: colors.border },
+                  { borderBottomColor: colors.gold + "22" },
                   i === ADHAN_STYLES.length - 1 && { borderBottomWidth: 0 },
-                  active && { backgroundColor: colors.tint + "12" },
+                  active && { backgroundColor: colors.gold + "0E" },
                 ]}
               >
-                {/* Left: text info */}
                 <View style={styles.adhanRowLeft}>
                   <View style={styles.adhanNameRow}>
-                    <Text style={[styles.adhanName, { color: active ? colors.tint : colors.text }]}>
+                    <Text style={[styles.adhanName, { color: active ? colors.gold : colors.text }]}>
                       {style.name}
                     </Text>
-                    <Text style={[styles.adhanArabic, { color: colors.gold }]}>
+                    <Text style={[styles.adhanArabic, { color: colors.gold, fontFamily: "AmiriQuran_400Regular" }]}>
                       {style.arabic}
                     </Text>
                   </View>
@@ -255,14 +319,13 @@ function AdhanStyleModal({
                     {style.reciter}
                   </Text>
                   <View style={styles.adhanLocationRow}>
-                    <Feather name="map-pin" size={10} color={colors.textSecondary} />
+                    <Feather name="map-pin" size={10} color={colors.gold + "AA"} />
                     <Text style={[styles.adhanLocation, { color: colors.textSecondary }]}>
                       {style.location}
                     </Text>
                   </View>
                 </View>
 
-                {/* Right: preview + radio */}
                 <View style={styles.adhanRowRight}>
                   <TouchableOpacity
                     onPress={() => handlePreview(style)}
@@ -270,24 +333,24 @@ function AdhanStyleModal({
                     style={[
                       styles.previewBtn,
                       {
-                        backgroundColor: isPreviewing ? colors.gold + "22" : colors.surfaceElevated,
-                        borderColor: isPreviewing ? colors.gold : colors.border,
+                        backgroundColor: isPreviewing ? colors.gold + "22" : "transparent",
+                        borderColor: colors.gold + "55",
                       },
                     ]}
                   >
                     <Feather
                       name={isPreviewing ? "square" : "play"}
                       size={12}
-                      color={isPreviewing ? colors.gold : colors.textSecondary}
+                      color={colors.gold}
                     />
                   </TouchableOpacity>
 
                   {active ? (
-                    <View style={[styles.radioActive, { backgroundColor: colors.tint }]}>
-                      <Feather name="check" size={12} color="#fff" />
+                    <View style={[styles.checkActive, { borderColor: colors.gold, backgroundColor: colors.gold + "1A" }]}>
+                      <Feather name="check" size={12} color={colors.gold} />
                     </View>
                   ) : (
-                    <View style={[styles.radioInactive, { borderColor: colors.border }]} />
+                    <View style={[styles.radioInactive, { borderColor: colors.gold + "44" }]} />
                   )}
                 </View>
               </TouchableOpacity>
@@ -300,7 +363,7 @@ function AdhanStyleModal({
   );
 }
 
-// ── Time Picker Components ────────────────────────────────────────────────────
+/* ── Time Picker ────────────────────────────────────────────── */
 
 const WHEEL_ITEM_H = 46;
 const WHEEL_VISIBLE = 5;
@@ -365,10 +428,11 @@ function WheelPicker({
           left: 4,
           right: 4,
           height: WHEEL_ITEM_H,
-          backgroundColor: colors.tint + "22",
-          borderRadius: 10,
-          borderWidth: 1,
-          borderColor: colors.tint + "55",
+          backgroundColor: colors.gold + "1A",
+          borderRadius: 4,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.gold + "88",
         }}
       />
       <ScrollView
@@ -397,7 +461,7 @@ function WheelPicker({
                 style={{
                   fontSize: active ? 22 : 16,
                   fontWeight: active ? "700" : "400",
-                  color: active ? colors.tint : colors.textSecondary,
+                  color: active ? colors.gold : colors.textSecondary,
                   opacity: active ? 1 : 0.45,
                 }}
               >
@@ -442,56 +506,67 @@ function TimePickerModal({
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.timeOverlay}>
           <TouchableWithoutFeedback>
-            <View style={[styles.timeSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.timeSheetTitle, { color: colors.text }]}>{title}</Text>
+            <View style={[styles.timeSheet, { backgroundColor: colors.surface }]}>
+              <MushafFrame color={colors.gold} pad={20}>
+                <View style={styles.timeSheetTitleRow}>
+                  <View style={[styles.timeRule, { backgroundColor: colors.gold + "55" }]} />
+                  <Text style={[styles.timeSheetTitle, { color: colors.gold }]}>
+                    {title.toUpperCase()}
+                  </Text>
+                  <View style={[styles.timeRule, { backgroundColor: colors.gold + "55" }]} />
+                </View>
 
-              {/* Wheels */}
-              <View style={styles.timeWheelRow}>
-                <WheelPicker
-                  key={visible ? `h${hour24}` : "h-hidden"}
-                  items={HOUR_LABELS}
-                  selectedIndex={hourIdx}
-                  onChangeIndex={setHourIdx}
-                  colors={colors}
-                />
-                <Text style={[styles.timeColon, { color: colors.text }]}>:</Text>
-                <WheelPicker
-                  key={visible ? `m${minute}` : "m-hidden"}
-                  items={MINUTE_LABELS}
-                  selectedIndex={minIdx}
-                  onChangeIndex={setMinIdx}
-                  colors={colors}
-                />
-              </View>
+                <View style={styles.timeWheelRow}>
+                  <WheelPicker
+                    key={visible ? `h${hour24}` : "h-hidden"}
+                    items={HOUR_LABELS}
+                    selectedIndex={hourIdx}
+                    onChangeIndex={setHourIdx}
+                    colors={colors}
+                  />
+                  <Text style={[styles.timeColon, { color: colors.gold }]}>:</Text>
+                  <WheelPicker
+                    key={visible ? `m${minute}` : "m-hidden"}
+                    items={MINUTE_LABELS}
+                    selectedIndex={minIdx}
+                    onChangeIndex={setMinIdx}
+                    colors={colors}
+                  />
+                </View>
 
-              {/* AM / PM */}
-              <View style={styles.ampmRow}>
-                {(["AM", "PM"] as const).map((period) => {
-                  const active = isPM === (period === "PM");
-                  return (
-                    <TouchableOpacity
-                      key={period}
-                      onPress={() => setIsPM(period === "PM")}
-                      style={[
-                        styles.ampmBtn,
-                        { backgroundColor: active ? colors.tint : colors.surfaceElevated, borderColor: colors.border },
-                      ]}
-                    >
-                      <Text style={[styles.ampmLabel, { color: active ? "#fff" : colors.textSecondary }]}>
-                        {period}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                <View style={styles.ampmRow}>
+                  {(["AM", "PM"] as const).map((period) => {
+                    const active = isPM === (period === "PM");
+                    return (
+                      <Pressable
+                        key={period}
+                        onPress={() => setIsPM(period === "PM")}
+                        style={[
+                          styles.ampmBtn,
+                          {
+                            backgroundColor: active ? colors.gold : "transparent",
+                            borderColor: active ? colors.gold : colors.gold + "55",
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.ampmLabel, { color: active ? colors.background : colors.gold }]}>
+                          {period}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
 
-              {/* Done */}
-              <TouchableOpacity
-                onPress={handleConfirm}
-                style={[styles.timeDoneBtn, { backgroundColor: colors.tint }]}
-              >
-                <Text style={styles.timeDoneLabel}>Done</Text>
-              </TouchableOpacity>
+                <Pressable
+                  onPress={handleConfirm}
+                  style={({ pressed }) => [
+                    styles.timeDoneBtn,
+                    { backgroundColor: colors.gold, opacity: pressed ? 0.85 : 1 },
+                  ]}
+                >
+                  <Text style={[styles.timeDoneLabel, { color: colors.background }]}>DONE</Text>
+                </Pressable>
+              </MushafFrame>
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -506,6 +581,10 @@ function fmt12h(h24: number, minute: number): string {
   const mm = String(minute).padStart(2, "0");
   return `${h12}:${mm} ${isPM ? "PM" : "AM"}`;
 }
+
+/* ============================================================
+   Settings screen
+   ============================================================ */
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -540,13 +619,37 @@ export default function SettingsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: topPad + 12, backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.navigate("/(tabs)/more")} style={styles.backBtn} hitSlop={10}>
-          <Feather name="chevron-left" size={24} color={colors.tint} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>نور</Text>
-        <Text style={[styles.headerSub, { color: colors.textSecondary }]}>Settings</Text>
+      {/* ── Header ── */}
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: topPad + 12,
+            backgroundColor: colors.surface,
+            borderBottomColor: colors.gold + "55",
+          },
+        ]}
+      >
+        <View style={styles.headerTopRow}>
+          <Pressable
+            onPress={() => router.navigate("/(tabs)/more")}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Feather name="chevron-left" size={24} color={colors.gold} />
+          </Pressable>
+          <View style={styles.headerTitles}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
+            <Text style={[styles.headerArabic, { color: colors.gold, fontFamily: "AmiriQuran_400Regular" }]}>
+              الإعدادات
+            </Text>
+          </View>
+          <View style={[styles.headerBadge, { borderColor: colors.gold + "55" }]}>
+            <NuurMark size={11} />
+            <Text style={[styles.headerBadgeText, { color: colors.gold }]}>NUUR</Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView
@@ -555,18 +658,20 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── APPEARANCE ── */}
-        <SectionHeader title="APPEARANCE" colors={colors} />
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <SectionDivider label="APPEARANCE · المظهر" colors={colors} />
+        <GroupCard colors={colors}>
           <View style={styles.cardRow}>
             <View style={styles.rowLeft}>
-              <Feather name="sun" size={16} color={colors.tint} style={styles.rowIcon} />
+              <Feather name="sun" size={16} color={colors.gold} style={styles.rowIcon} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>Display Mode</Text>
             </View>
-            <SegmentControl<DisplayMode>
+          </View>
+          <View style={styles.chipPad}>
+            <ChipGroup<DisplayMode>
               options={[
-                { value: "auto", label: "Auto" },
-                { value: "light", label: "Light" },
-                { value: "dark", label: "Dark" },
+                { value: "auto", label: "AUTO" },
+                { value: "light", label: "LIGHT" },
+                { value: "dark", label: "DARK" },
               ]}
               value={displayMode}
               onChange={setDisplayMode}
@@ -576,50 +681,68 @@ export default function SettingsScreen() {
 
           <RowSeparator colors={colors} />
 
-          <View style={[styles.cardRow, styles.swatchSection]}>
+          <View style={styles.cardRow}>
             <View style={styles.rowLeft}>
-              <Feather name="droplet" size={16} color={colors.tint} style={styles.rowIcon} />
+              <Feather name="droplet" size={16} color={colors.gold} style={styles.rowIcon} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>Accent Colour</Text>
             </View>
-            <View style={styles.swatchRow}>
-              {THEME_ORDER.map((name) => (
-                <ThemeSwatch key={name} name={name} isActive={themeName === name}
-                  effectiveDisplayMode={effectiveDisplayMode} onPress={() => setThemeName(name)} />
-              ))}
-            </View>
           </View>
-        </View>
+          <View style={styles.swatchRow}>
+            {THEME_ORDER.map((name) => (
+              <ThemeSwatch
+                key={name}
+                name={name}
+                isActive={themeName === name}
+                effectiveDisplayMode={effectiveDisplayMode}
+                onPress={() => setThemeName(name)}
+              />
+            ))}
+          </View>
+        </GroupCard>
 
         {/* ── PRAYER TIMES ── */}
-        <SectionHeader title="PRAYER TIMES" colors={colors} />
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <TouchableOpacity style={styles.cardRow} onPress={() => setShowMethodModal(true)} activeOpacity={0.7}>
+        <SectionDivider label="PRAYER TIMES · أوقات الصلاة" colors={colors} />
+        <GroupCard colors={colors}>
+          <TouchableOpacity
+            style={styles.cardRow}
+            onPress={() => setShowMethodModal(true)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Change calculation method"
+          >
             <View style={styles.rowLeft}>
-              <Feather name="clock" size={16} color={colors.tint} style={styles.rowIcon} />
+              <Feather name="clock" size={16} color={colors.gold} style={styles.rowIcon} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>Calculation Method</Text>
             </View>
             <View style={styles.rowRight}>
-              <Text style={[styles.rowValue, { color: colors.textSecondary }]} numberOfLines={1}>
-                {currentMethod?.label ?? calcMethod}
-              </Text>
-              <Feather name="chevron-right" size={16} color={colors.textSecondary} />
+              <View style={[styles.inkStamp, { borderColor: colors.gold + "66", backgroundColor: colors.gold + "10" }]}>
+                <Text style={[styles.inkStampText, { color: colors.gold }]} numberOfLines={1}>
+                  {currentMethod?.label ?? calcMethod}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={16} color={colors.gold + "AA"} />
             </View>
           </TouchableOpacity>
 
           <RowSeparator colors={colors} />
 
-          <View style={[styles.cardRow, styles.columnRow]}>
-            <View style={[styles.rowLeft, styles.rowLabelFull]}>
-              <Feather name="sunset" size={16} color={colors.tint} style={styles.rowIcon} />
-              <View>
+          <View style={styles.cardRow}>
+            <View style={styles.rowLeft}>
+              <Feather name="sunset" size={16} color={colors.gold} style={styles.rowIcon} />
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.rowLabel, { color: colors.text }]}>Asr Calculation</Text>
                 <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
                   {madhab === "Hanafi" ? "Shadow = 2× object (later Asr)" : "Shadow = 1× object (earlier Asr)"}
                 </Text>
               </View>
             </View>
-            <SegmentControl<MadhabId>
-              options={[{ value: "Shafi", label: "Standard" }, { value: "Hanafi", label: "Hanafi" }]}
+          </View>
+          <View style={styles.chipPad}>
+            <ChipGroup<MadhabId>
+              options={[
+                { value: "Shafi", label: "STANDARD" },
+                { value: "Hanafi", label: "HANAFI" },
+              ]}
               value={madhab}
               onChange={setMadhab}
               colors={colors}
@@ -628,33 +751,44 @@ export default function SettingsScreen() {
 
           <RowSeparator colors={colors} />
 
-          <View style={[styles.cardRow, styles.columnRow]}>
-            <View style={[styles.rowLeft, styles.rowLabelFull]}>
-              <Feather name="globe" size={16} color={colors.tint} style={styles.rowIcon} />
-              <View>
+          <View style={styles.cardRow}>
+            <View style={styles.rowLeft}>
+              <Feather name="globe" size={16} color={colors.gold} style={styles.rowIcon} />
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.rowLabel, { color: colors.text }]}>High Latitude Rule</Text>
                 <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
                   {HIGH_LAT_RULES.find((r) => r.id === highLatRule)?.detail ?? ""}
                 </Text>
               </View>
             </View>
-            <View style={styles.chipGroup}>
+          </View>
+          <View style={styles.chipPad}>
+            <View style={styles.chipRow}>
               {HIGH_LAT_RULES.map((rule) => {
                 const active = rule.id === highLatRule;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={rule.id}
                     onPress={() => setHighLatRule(rule.id as HighLatRuleId)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
                     style={[
                       styles.chip,
-                      { borderColor: active ? colors.tint : colors.border },
-                      active && { backgroundColor: colors.tint + "20" },
+                      {
+                        backgroundColor: active ? colors.gold : "transparent",
+                        borderColor: active ? colors.gold : colors.gold + "44",
+                      },
                     ]}
                   >
-                    <Text style={[styles.chipText, { color: active ? colors.tint : colors.textSecondary }]}>
-                      {rule.label}
+                    <Text
+                      style={[
+                        styles.chipText,
+                        { color: active ? colors.background : colors.textSecondary },
+                      ]}
+                    >
+                      {rule.label.toUpperCase()}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
@@ -662,11 +796,10 @@ export default function SettingsScreen() {
 
           <RowSeparator colors={colors} />
 
-          {/* Prayer Time Adjustments */}
           <View style={styles.cardRow}>
             <View style={styles.rowLeft}>
-              <Feather name="sliders" size={16} color={colors.tint} style={styles.rowIcon} />
-              <View>
+              <Feather name="sliders" size={16} color={colors.gold} style={styles.rowIcon} />
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.rowLabel, { color: colors.text }]}>Prayer Time Adjustments</Text>
                 <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
                   Fine-tune times ±15 min to match local mosque
@@ -681,61 +814,64 @@ export default function SettingsScreen() {
             const val = prayerOffsets[key];
             const label = val === 0 ? "0 min" : val > 0 ? `+${val} min` : `${val} min`;
             return (
-              <View key={key} style={[styles.offsetRow, { borderTopColor: colors.border }]}>
+              <View key={key} style={[styles.offsetRow, { borderTopColor: colors.gold + "1A" }]}>
                 <Text style={[styles.offsetPrayerLabel, { color: colors.text }]}>{LABELS[key]}</Text>
                 <View style={styles.offsetStepper}>
-                  <TouchableOpacity
+                  <Pressable
                     onPress={() => {
                       const next = Math.max(-15, val - 1);
                       setPrayerOffsets({ ...prayerOffsets, [key]: next });
                     }}
-                    style={[styles.offsetBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                    style={[styles.offsetBtn, { borderColor: colors.gold + "55" }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Decrease ${LABELS[key]} offset`}
                   >
-                    <Feather name="minus" size={14} color={val <= -15 ? colors.border : colors.tint} />
-                  </TouchableOpacity>
-                  <Text style={[styles.offsetValue, { color: val === 0 ? colors.textSecondary : colors.tint }]}>
+                    <Feather name="minus" size={14} color={val <= -15 ? colors.gold + "33" : colors.gold} />
+                  </Pressable>
+                  <Text style={[styles.offsetValue, { color: val === 0 ? colors.textSecondary : colors.gold }]}>
                     {label}
                   </Text>
-                  <TouchableOpacity
+                  <Pressable
                     onPress={() => {
                       const next = Math.min(15, val + 1);
                       setPrayerOffsets({ ...prayerOffsets, [key]: next });
                     }}
-                    style={[styles.offsetBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                    style={[styles.offsetBtn, { borderColor: colors.gold + "55" }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Increase ${LABELS[key]} offset`}
                   >
-                    <Feather name="plus" size={14} color={val >= 15 ? colors.border : colors.tint} />
-                  </TouchableOpacity>
+                    <Feather name="plus" size={14} color={val >= 15 ? colors.gold + "33" : colors.gold} />
+                  </Pressable>
                 </View>
               </View>
             );
           })}
-        </View>
+        </GroupCard>
 
         {/* ── DISPLAY ── */}
-        <SectionHeader title="DISPLAY" colors={colors} />
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <SectionDivider label="DISPLAY · العرض" colors={colors} />
+        <GroupCard colors={colors}>
           <View style={styles.cardRow}>
             <View style={styles.rowLeft}>
-              <Feather name="clock" size={16} color={colors.tint} style={styles.rowIcon} />
+              <Feather name="clock" size={16} color={colors.gold} style={styles.rowIcon} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>Time Format</Text>
             </View>
-            <SegmentControl<TimeFormat>
-              options={[{ value: "12h", label: "12h" }, { value: "24h", label: "24h" }]}
+            <ChipGroup<TimeFormat>
+              options={[{ value: "12h", label: "12H" }, { value: "24h", label: "24H" }]}
               value={timeFormat}
               onChange={setTimeFormat}
               colors={colors}
             />
           </View>
-        </View>
+        </GroupCard>
 
         {/* ── ADHAN ── */}
-        <SectionHeader title="ADHAN" colors={colors} />
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {/* Enable toggle */}
+        <SectionDivider label="ADHAN · الأذان" colors={colors} />
+        <GroupCard colors={colors}>
           <View style={styles.cardRow}>
             <View style={styles.rowLeft}>
-              <Feather name="volume-2" size={16} color={colors.tint} style={styles.rowIcon} />
-              <View>
+              <Feather name="volume-2" size={16} color={colors.gold} style={styles.rowIcon} />
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.rowLabel, { color: colors.text }]}>Play Adhan</Text>
                 <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
                   Plays the call to prayer at each prayer time
@@ -745,52 +881,53 @@ export default function SettingsScreen() {
             <Switch
               value={adhanEnabled}
               onValueChange={toggleAdhan}
-              trackColor={{ false: colors.border, true: colors.tint + "80" }}
-              thumbColor={adhanEnabled ? colors.tint : colors.textSecondary}
+              trackColor={{ false: colors.gold + "33", true: colors.gold + "AA" }}
+              thumbColor={adhanEnabled ? colors.gold : colors.textSecondary}
+              ios_backgroundColor={colors.gold + "22"}
             />
           </View>
 
           <RowSeparator colors={colors} />
 
-          {/* Style picker */}
           <TouchableOpacity
             style={[styles.cardRow, !adhanEnabled && styles.disabledRow]}
             onPress={() => adhanEnabled && setShowAdhanModal(true)}
             activeOpacity={adhanEnabled ? 0.7 : 1}
+            accessibilityRole="button"
+            accessibilityLabel="Change adhan style"
           >
             <View style={styles.rowLeft}>
-              <Feather name="music" size={16} color={adhanEnabled ? colors.tint : colors.textSecondary} style={styles.rowIcon} />
-              <View>
+              <Feather name="music" size={16} color={adhanEnabled ? colors.gold : colors.textSecondary} style={styles.rowIcon} />
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.rowLabel, { color: adhanEnabled ? colors.text : colors.textSecondary }]}>
                   Adhan Style
                 </Text>
-                <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                <Text style={[styles.rowHint, { color: colors.textSecondary }]} numberOfLines={1}>
                   {adhanCurrentStyle.reciter}
                 </Text>
               </View>
             </View>
             <View style={styles.rowRight}>
-              <View style={[styles.adhanStyleChip, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "44" }]}>
-                <Text style={[styles.adhanStyleChipText, { color: colors.gold }]}>
+              <View style={[styles.inkStamp, { borderColor: colors.gold + "66", backgroundColor: colors.gold + "10" }]}>
+                <Text style={[styles.inkStampText, { color: colors.gold }]} numberOfLines={1}>
                   {adhanCurrentStyle.name}
                 </Text>
               </View>
               <Feather
                 name="chevron-right"
                 size={16}
-                color={adhanEnabled ? colors.textSecondary : colors.border}
+                color={adhanEnabled ? colors.gold + "AA" : colors.gold + "33"}
               />
             </View>
           </TouchableOpacity>
 
-          {/* Mode picker */}
           {adhanEnabled && (
             <>
               <RowSeparator colors={colors} />
               <View style={styles.cardRow}>
                 <View style={styles.rowLeft}>
-                  <Feather name="sliders" size={16} color={colors.tint} style={styles.rowIcon} />
-                  <View>
+                  <Feather name="sliders" size={16} color={colors.gold} style={styles.rowIcon} />
+                  <View style={{ flex: 1 }}>
                     <Text style={[styles.rowLabel, { color: colors.text }]}>Adhan Mode</Text>
                     <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
                       {ADHAN_MODE_INFO[adhanMode].description}
@@ -798,49 +935,46 @@ export default function SettingsScreen() {
                   </View>
                 </View>
               </View>
-              <View style={[styles.modeChipsRow, { borderColor: colors.border }]}>
+              <View style={styles.modeChipsRow}>
                 {(["full", "short", "silent"] as AdhanMode[]).map((m) => {
                   const active = adhanMode === m;
                   const info = ADHAN_MODE_INFO[m];
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={m}
                       onPress={() => setAdhanMode(m)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
                       style={[
                         styles.modeChip,
                         {
-                          backgroundColor: active ? colors.tint + "18" : colors.surfaceElevated,
-                          borderColor: active ? colors.tint : colors.border,
+                          backgroundColor: active ? colors.gold + "12" : "transparent",
+                          borderColor: active ? colors.gold : colors.gold + "44",
                         },
                       ]}
                     >
                       <Text style={{ fontSize: 16 }}>{info.icon}</Text>
-                      <Text style={[styles.modeChipLabel, { color: active ? colors.tint : colors.text }]}>
-                        {info.label}
+                      <Text style={[styles.modeChipLabel, { color: active ? colors.gold : colors.text }]}>
+                        {info.label.toUpperCase()}
                       </Text>
                       <Text style={[styles.modeChipSub, { color: colors.textSecondary }]}>
                         {info.duration}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </View>
               {adhanMode === "short" && (
-                <View style={[styles.adhanInfoRow, { backgroundColor: colors.gold + "0C" }]}>
+                <View style={[styles.adhanInfoRow, { backgroundColor: colors.gold + "08" }]}>
                   <Feather name="sun" size={12} color={colors.gold} />
                   <Text style={[styles.adhanInfoText, { color: colors.textSecondary }]}>
                     Fajr uses a slightly longer recitation with the Fajr-specific call
                   </Text>
                 </View>
               )}
-            </>
-          )}
 
-          {/* Description */}
-          {adhanEnabled && (
-            <>
               <RowSeparator colors={colors} />
-              <View style={[styles.adhanInfoRow, { backgroundColor: colors.gold + "0C" }]}>
+              <View style={[styles.adhanInfoRow, { backgroundColor: colors.gold + "08" }]}>
                 <Feather name="map-pin" size={12} color={colors.gold} />
                 <Text style={[styles.adhanInfoText, { color: colors.textSecondary }]}>
                   {adhanCurrentStyle.location} · {adhanCurrentStyle.description}
@@ -848,17 +982,17 @@ export default function SettingsScreen() {
               </View>
             </>
           )}
-        </View>
+        </GroupCard>
 
         {/* ── NOTIFICATIONS ── */}
         {!isWeb && (
           <>
-            <SectionHeader title="NOTIFICATIONS" colors={colors} />
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <SectionDivider label="NOTIFICATIONS · الإشعارات" colors={colors} />
+            <GroupCard colors={colors}>
               <View style={styles.cardRow}>
                 <View style={styles.rowLeft}>
-                  <Feather name="bell" size={16} color={colors.tint} style={styles.rowIcon} />
-                  <View>
+                  <Feather name="bell" size={16} color={colors.gold} style={styles.rowIcon} />
+                  <View style={{ flex: 1 }}>
                     <Text style={[styles.rowLabel, { color: colors.text }]}>Prayer Alerts</Text>
                     <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
                       Receive a notification at each prayer time
@@ -868,18 +1002,19 @@ export default function SettingsScreen() {
                 <Switch
                   value={notificationsEnabled}
                   onValueChange={toggleNotifications}
-                  trackColor={{ false: colors.border, true: colors.tint + "80" }}
-                  thumbColor={notificationsEnabled ? colors.tint : colors.textSecondary}
+                  trackColor={{ false: colors.gold + "33", true: colors.gold + "AA" }}
+                  thumbColor={notificationsEnabled ? colors.gold : colors.textSecondary}
+                  ios_backgroundColor={colors.gold + "22"}
                 />
               </View>
 
               <RowSeparator colors={colors} />
 
-              {/* Jummah Reminder */}
+              {/* Jummah */}
               <View style={styles.cardRow}>
                 <View style={styles.rowLeft}>
-                  <MaterialCommunityIcons name="star-crescent" size={16} color={colors.tint} style={styles.rowIcon} />
-                  <View>
+                  <MaterialCommunityIcons name="star-crescent" size={16} color={colors.gold} style={styles.rowIcon} />
+                  <View style={{ flex: 1 }}>
                     <Text style={[styles.rowLabel, { color: colors.text }]}>Jummah Reminder</Text>
                     <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
                       Notify before Friday Dhuhr prayer
@@ -889,8 +1024,9 @@ export default function SettingsScreen() {
                 <Switch
                   value={jummahReminderEnabled}
                   onValueChange={(v) => setJummahReminder(v, jummahMinutesBefore)}
-                  trackColor={{ false: colors.border, true: colors.tint + "80" }}
-                  thumbColor={jummahReminderEnabled ? colors.tint : colors.textSecondary}
+                  trackColor={{ false: colors.gold + "33", true: colors.gold + "AA" }}
+                  thumbColor={jummahReminderEnabled ? colors.gold : colors.textSecondary}
+                  ios_backgroundColor={colors.gold + "22"}
                 />
               </View>
 
@@ -899,14 +1035,14 @@ export default function SettingsScreen() {
                   <RowSeparator colors={colors} />
                   <View style={styles.cardRow}>
                     <View style={styles.rowLeft}>
-                      <Feather name="clock" size={16} color={colors.tint} style={styles.rowIcon} />
+                      <Feather name="clock" size={16} color={colors.gold} style={styles.rowIcon} />
                       <Text style={[styles.rowLabel, { color: colors.text }]}>Minutes Before</Text>
                     </View>
-                    <SegmentControl<string>
+                    <ChipGroup<string>
                       options={[
-                        { value: "15", label: "15 min" },
-                        { value: "30", label: "30 min" },
-                        { value: "60", label: "60 min" },
+                        { value: "15", label: "15M" },
+                        { value: "30", label: "30M" },
+                        { value: "60", label: "60M" },
                       ]}
                       value={String(jummahMinutesBefore)}
                       onChange={(v) => setJummahReminder(jummahReminderEnabled, Number(v))}
@@ -918,11 +1054,11 @@ export default function SettingsScreen() {
 
               <RowSeparator colors={colors} />
 
-              {/* Ayah of the Day */}
+              {/* Ayah */}
               <View style={styles.cardRow}>
                 <View style={styles.rowLeft}>
-                  <Feather name="book" size={16} color={colors.tint} style={styles.rowIcon} />
-                  <View>
+                  <Feather name="book" size={16} color={colors.gold} style={styles.rowIcon} />
+                  <View style={{ flex: 1 }}>
                     <Text style={[styles.rowLabel, { color: colors.text }]}>Ayah of the Day</Text>
                     <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
                       Daily verse reminder
@@ -932,8 +1068,9 @@ export default function SettingsScreen() {
                 <Switch
                   value={ayahReminderEnabled}
                   onValueChange={(v) => setAyahReminder(v, ayahReminderHour, ayahReminderMinute)}
-                  trackColor={{ false: colors.border, true: colors.tint + "80" }}
-                  thumbColor={ayahReminderEnabled ? colors.tint : colors.textSecondary}
+                  trackColor={{ false: colors.gold + "33", true: colors.gold + "AA" }}
+                  thumbColor={ayahReminderEnabled ? colors.gold : colors.textSecondary}
+                  ios_backgroundColor={colors.gold + "22"}
                 />
               </View>
 
@@ -942,29 +1079,31 @@ export default function SettingsScreen() {
                   <RowSeparator colors={colors} />
                   <View style={styles.cardRow}>
                     <View style={styles.rowLeft}>
-                      <Feather name="clock" size={16} color={colors.tint} style={styles.rowIcon} />
+                      <Feather name="clock" size={16} color={colors.gold} style={styles.rowIcon} />
                       <Text style={[styles.rowLabel, { color: colors.text }]}>Reminder Time</Text>
                     </View>
-                    <TouchableOpacity
+                    <Pressable
                       onPress={() => setShowAyahTimePicker(true)}
-                      style={[styles.timeChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                      style={[styles.timeChip, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "10" }]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Change ayah reminder time"
                     >
-                      <Text style={[styles.timeChipText, { color: colors.tint }]}>
+                      <Text style={[styles.timeChipText, { color: colors.gold }]}>
                         {fmt12h(ayahReminderHour, ayahReminderMinute)}
                       </Text>
-                      <Feather name="chevron-right" size={14} color={colors.tint} />
-                    </TouchableOpacity>
+                      <Feather name="chevron-right" size={14} color={colors.gold} />
+                    </Pressable>
                   </View>
                 </>
               )}
 
               <RowSeparator colors={colors} />
 
-              {/* Hadith of the Day */}
+              {/* Hadith */}
               <View style={styles.cardRow}>
                 <View style={styles.rowLeft}>
-                  <MaterialCommunityIcons name="book-open-variant" size={16} color={colors.tint} style={styles.rowIcon} />
-                  <View>
+                  <MaterialCommunityIcons name="book-open-variant" size={16} color={colors.gold} style={styles.rowIcon} />
+                  <View style={{ flex: 1 }}>
                     <Text style={[styles.rowLabel, { color: colors.text }]}>Hadith of the Day</Text>
                     <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
                       Daily hadith reminder
@@ -974,8 +1113,9 @@ export default function SettingsScreen() {
                 <Switch
                   value={hadithReminderEnabled}
                   onValueChange={(v) => setHadithReminder(v, hadithReminderHour, hadithReminderMinute)}
-                  trackColor={{ false: colors.border, true: colors.tint + "80" }}
-                  thumbColor={hadithReminderEnabled ? colors.tint : colors.textSecondary}
+                  trackColor={{ false: colors.gold + "33", true: colors.gold + "AA" }}
+                  thumbColor={hadithReminderEnabled ? colors.gold : colors.textSecondary}
+                  ios_backgroundColor={colors.gold + "22"}
                 />
               </View>
 
@@ -984,29 +1124,31 @@ export default function SettingsScreen() {
                   <RowSeparator colors={colors} />
                   <View style={styles.cardRow}>
                     <View style={styles.rowLeft}>
-                      <Feather name="clock" size={16} color={colors.tint} style={styles.rowIcon} />
+                      <Feather name="clock" size={16} color={colors.gold} style={styles.rowIcon} />
                       <Text style={[styles.rowLabel, { color: colors.text }]}>Reminder Time</Text>
                     </View>
-                    <TouchableOpacity
+                    <Pressable
                       onPress={() => setShowHadithTimePicker(true)}
-                      style={[styles.timeChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                      style={[styles.timeChip, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "10" }]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Change hadith reminder time"
                     >
-                      <Text style={[styles.timeChipText, { color: colors.tint }]}>
+                      <Text style={[styles.timeChipText, { color: colors.gold }]}>
                         {fmt12h(hadithReminderHour, hadithReminderMinute)}
                       </Text>
-                      <Feather name="chevron-right" size={14} color={colors.tint} />
-                    </TouchableOpacity>
+                      <Feather name="chevron-right" size={14} color={colors.gold} />
+                    </Pressable>
                   </View>
                 </>
               )}
 
               <RowSeparator colors={colors} />
 
-              {/* Islamic Calendar Events */}
+              {/* Islamic Events */}
               <View style={styles.cardRow}>
                 <View style={styles.rowLeft}>
-                  <MaterialCommunityIcons name="calendar-star" size={16} color={colors.tint} style={styles.rowIcon} />
-                  <View>
+                  <MaterialCommunityIcons name="calendar-star" size={16} color={colors.gold} style={styles.rowIcon} />
+                  <View style={{ flex: 1 }}>
                     <Text style={[styles.rowLabel, { color: colors.text }]}>Islamic Events</Text>
                     <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
                       Eid, Ramadan, Laylatul Qadr & more
@@ -1016,15 +1158,16 @@ export default function SettingsScreen() {
                 <Switch
                   value={islamicEventsEnabled}
                   onValueChange={(v) => setIslamicEventsReminder(v)}
-                  trackColor={{ false: colors.border, true: colors.tint + "80" }}
-                  thumbColor={islamicEventsEnabled ? colors.tint : colors.textSecondary}
+                  trackColor={{ false: colors.gold + "33", true: colors.gold + "AA" }}
+                  thumbColor={islamicEventsEnabled ? colors.gold : colors.textSecondary}
+                  ios_backgroundColor={colors.gold + "22"}
                 />
               </View>
 
               {islamicEventsEnabled && (
                 <>
                   <RowSeparator colors={colors} />
-                  <View style={[styles.adhanInfoRow, { backgroundColor: colors.gold + "0C" }]}>
+                  <View style={[styles.adhanInfoRow, { backgroundColor: colors.gold + "08" }]}>
                     <MaterialCommunityIcons name="calendar-check" size={12} color={colors.gold} />
                     <Text style={[styles.adhanInfoText, { color: colors.textSecondary }]}>
                       Day-of reminders at 7 am · Eve reminders at 8 pm for major events · Laylatul Qadr alerts at 9 pm
@@ -1032,7 +1175,7 @@ export default function SettingsScreen() {
                   </View>
                 </>
               )}
-            </View>
+            </GroupCard>
           </>
         )}
 
@@ -1057,19 +1200,21 @@ export default function SettingsScreen() {
         />
 
         {/* ── ABOUT ── */}
-        <SectionHeader title="ABOUT" colors={colors} />
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <SectionDivider label="ABOUT · حول" colors={colors} />
+        <GroupCard colors={colors}>
           <View style={styles.cardRow}>
             <View style={styles.rowLeft}>
-              <Feather name="moon" size={16} color={colors.tint} style={styles.rowIcon} />
+              <Feather name="moon" size={16} color={colors.gold} style={styles.rowIcon} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>App</Text>
             </View>
-            <Text style={[styles.rowValue, { color: colors.textSecondary }]}>Nuur · نور</Text>
+            <Text style={[styles.rowValue, { color: colors.gold, fontFamily: "AmiriQuran_400Regular" }]}>
+              نور · Nuur
+            </Text>
           </View>
           <RowSeparator colors={colors} />
           <View style={styles.cardRow}>
             <View style={styles.rowLeft}>
-              <Feather name="info" size={16} color={colors.tint} style={styles.rowIcon} />
+              <Feather name="info" size={16} color={colors.gold} style={styles.rowIcon} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>Version</Text>
             </View>
             <Text style={[styles.rowValue, { color: colors.textSecondary }]}>1.0.0</Text>
@@ -1077,7 +1222,7 @@ export default function SettingsScreen() {
           <RowSeparator colors={colors} />
           <View style={styles.cardRow}>
             <View style={styles.rowLeft}>
-              <Feather name="book-open" size={16} color={colors.tint} style={styles.rowIcon} />
+              <Feather name="book-open" size={16} color={colors.gold} style={styles.rowIcon} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>Prayer Data</Text>
             </View>
             <Text style={[styles.rowValue, { color: colors.textSecondary }]}>adhan.js library</Text>
@@ -1085,7 +1230,7 @@ export default function SettingsScreen() {
           <RowSeparator colors={colors} />
           <View style={styles.cardRow}>
             <View style={styles.rowLeft}>
-              <Feather name="headphones" size={16} color={colors.tint} style={styles.rowIcon} />
+              <Feather name="headphones" size={16} color={colors.gold} style={styles.rowIcon} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>Audio Source</Text>
             </View>
             <Text style={[styles.rowValue, { color: colors.textSecondary }]}>verses.quran.com</Text>
@@ -1099,13 +1244,22 @@ export default function SettingsScreen() {
                 "https://petalite-quartz-769.notion.site/PRIVACY-POLICY-332facde3948808d9d41f9d3a6af97fb"
               )
             }
+            accessibilityRole="link"
+            accessibilityLabel="Open privacy policy"
           >
             <View style={styles.rowLeft}>
-              <Feather name="shield" size={16} color={colors.tint} style={styles.rowIcon} />
+              <Feather name="shield" size={16} color={colors.gold} style={styles.rowIcon} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>Privacy Policy</Text>
             </View>
-            <Feather name="external-link" size={16} color={colors.textSecondary} />
+            <Feather name="external-link" size={16} color={colors.gold + "AA"} />
           </TouchableOpacity>
+        </GroupCard>
+
+        {/* End ornament */}
+        <View style={styles.endOrnament}>
+          <View style={[styles.endLine, { backgroundColor: colors.gold + "44" }]} />
+          <Text style={[styles.endGlyph, { color: colors.gold }]}>﷽</Text>
+          <View style={[styles.endLine, { backgroundColor: colors.gold + "44" }]} />
         </View>
       </ScrollView>
 
@@ -1128,50 +1282,90 @@ export default function SettingsScreen() {
   );
 }
 
+/* ============================================================
+   Styles
+   ============================================================ */
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  backBtn: { alignSelf: "flex-start", marginBottom: 4 },
-  header: {
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-  },
-  headerTitle: { fontSize: 28, fontFamily: "Inter_700Bold", letterSpacing: 1 },
-  headerSub: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
-  scroll: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 20 },
 
-  sectionHeader: {
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1.2,
-    marginBottom: 8,
-    marginTop: 4,
-    marginLeft: 4,
+  /* Header */
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  card: {
-    borderRadius: 14,
+  headerTopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  headerTitles: { flex: 1 },
+  headerTitle: { fontSize: 24, fontFamily: "Inter_700Bold", letterSpacing: -0.3 },
+  headerArabic: { fontSize: 18, marginTop: 2, opacity: 0.95 },
+  headerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 4,
     borderWidth: 1,
-    marginBottom: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  headerBadgeText: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 16, paddingTop: 8 },
+
+  /* Section divider */
+  sectionDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 4,
+    paddingTop: 22,
+    paddingBottom: 12,
+  },
+  dividerRule: { flex: 1, height: StyleSheet.hairlineWidth },
+  sectionLabelText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 2,
+  },
+
+  /* Mushaf frame */
+  mushafOuter: {
+    borderWidth: 1.2,
+    padding: 4,
+    borderRadius: 2,
+  },
+  mushafInner: {
+    borderWidth: 0.6,
+    position: "relative",
     overflow: "hidden",
   },
+  cornerTL: { position: "absolute", top: -2, left: -2 },
+  cornerTR: { position: "absolute", top: -2, right: -2, transform: [{ scaleX: -1 }] },
+  cornerBL: { position: "absolute", bottom: -2, left: -2, transform: [{ scaleY: -1 }] },
+  cornerBR: { position: "absolute", bottom: -2, right: -2, transform: [{ scaleX: -1 }, { scaleY: -1 }] },
+
+  /* Group card (hairline rules + corner ticks) */
+  cardWrap: {
+    position: "relative",
+    paddingVertical: 4,
+  },
+  cardRuleTop: { position: "absolute", top: 0, left: 0, right: 0, height: 1 },
+  cardRuleBottom: { position: "absolute", bottom: 0, left: 0, right: 0, height: 1 },
+  tickTL: { position: "absolute", top: 0, left: 0, width: 8, height: 8, borderLeftWidth: 1, borderTopWidth: 1 },
+  tickTR: { position: "absolute", top: 0, right: 0, width: 8, height: 8, borderRightWidth: 1, borderTopWidth: 1 },
+  tickBL: { position: "absolute", bottom: 0, left: 0, width: 8, height: 8, borderLeftWidth: 1, borderBottomWidth: 1 },
+  tickBR: { position: "absolute", bottom: 0, right: 0, width: 8, height: 8, borderRightWidth: 1, borderBottomWidth: 1 },
+  cardInner: { paddingVertical: 4 },
+
+  /* Rows */
   cardRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     gap: 12,
-  },
-  columnRow: {
-    flexDirection: "column",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  swatchSection: {
-    flexDirection: "column",
-    alignItems: "flex-start",
-    gap: 16,
   },
   disabledRow: { opacity: 0.45 },
   rowLeft: {
@@ -1180,7 +1374,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 10,
   },
-  rowLabelFull: { flex: undefined, width: "100%" },
   rowIcon: { width: 20 },
   rowLabel: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   rowHint: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
@@ -1189,31 +1382,53 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     flexShrink: 0,
+    maxWidth: "55%",
   },
   rowValue: {
     fontSize: 13,
     fontFamily: "Inter_400Regular",
-    maxWidth: 160,
+    maxWidth: 180,
     textAlign: "right",
   },
-  separator: { height: 1, marginHorizontal: 16 },
+  separator: { height: StyleSheet.hairlineWidth, marginHorizontal: 14 },
 
-  segment: {
-    flexDirection: "row",
-    borderRadius: 8,
+  /* Ink stamp (for value chip) */
+  inkStamp: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 3,
     borderWidth: 1,
-    overflow: "hidden",
+    maxWidth: 180,
   },
-  segmentBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    alignItems: "center",
-    justifyContent: "center",
+  inkStampText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.2,
   },
-  segmentBtnBorder: { borderRightWidth: 1 },
-  segmentLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 
-  swatchRow: { flexDirection: "row", gap: 12, paddingLeft: 26 },
+  /* Chip group (replaces SegmentControl) */
+  chipPad: {
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+    paddingTop: 2,
+  },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  chipText: { fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+
+  /* Theme swatches */
+  swatchRow: {
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    paddingTop: 4,
+  },
   swatchWrapper: { alignItems: "center", gap: 6 },
   swatchOuter: {
     width: 48, height: 48, borderRadius: 24,
@@ -1223,35 +1438,16 @@ const styles = StyleSheet.create({
   swatchCheck: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
   swatchCheckText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
   swatchLabel: {
-    fontSize: 10, fontFamily: "Inter_600SemiBold",
-    textTransform: "uppercase", letterSpacing: 0.4,
+    fontSize: 9, fontFamily: "Inter_700Bold",
+    textTransform: "uppercase", letterSpacing: 1.2,
   },
 
-  chipGroup: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingLeft: 26 },
-  chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  chipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-
-  adhanStyleChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  adhanStyleChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  adhanInfoRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  adhanInfoText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
-
+  /* Adhan mode chips */
   modeChipsRow: {
     flexDirection: "row",
     gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 14,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
     paddingTop: 4,
   },
   modeChip: {
@@ -1259,19 +1455,62 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
+    borderRadius: 4,
+    borderWidth: 1,
   },
-  modeChipLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  modeChipLabel: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
   modeChipSub: { fontSize: 10, fontFamily: "Inter_400Regular", opacity: 0.8 },
 
+  adhanInfoRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    marginHorizontal: 14,
+    marginBottom: 10,
+    marginTop: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 4,
+  },
+  adhanInfoText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
+
+  /* Time chip (selected time on a row) */
+  timeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  timeChipText: { fontSize: 13, fontFamily: "Inter_700Bold", letterSpacing: 0.4 },
+
+  /* Offset stepper */
+  offsetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  offsetPrayerLabel: { fontSize: 14, fontFamily: "Inter_500Medium", flex: 1 },
+  offsetStepper: { flexDirection: "row", alignItems: "center", gap: 10 },
+  offsetBtn: {
+    width: 30, height: 30, borderRadius: 4,
+    borderWidth: 1, alignItems: "center", justifyContent: "center",
+  },
+  offsetValue: { fontSize: 13, fontFamily: "Inter_700Bold", minWidth: 56, textAlign: "center", letterSpacing: 0.3 },
+
+  /* Modal sheets */
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
   methodSheet: {
     position: "absolute",
     bottom: 0, left: 0, right: 0,
     maxHeight: "75%",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1,
   },
   sheetHandle: {
@@ -1281,65 +1520,55 @@ const styles = StyleSheet.create({
   sheetHeaderRow: {
     flexDirection: "row", alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1,
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12,
+    gap: 12,
   },
   sheetTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
-  sheetSubtitle: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
+  sheetSubtitle: { fontSize: 12, fontFamily: "AmiriQuran_400Regular", marginTop: 2 },
+  sheetRule: { height: StyleSheet.hairlineWidth, marginHorizontal: 16 },
   closeBtn: {
-    width: 30, height: 30, borderRadius: 15,
+    width: 30, height: 30, borderRadius: 4,
     borderWidth: 1, alignItems: "center", justifyContent: "center",
   },
   methodList: { flex: 1 },
   methodRow: {
     flexDirection: "row", alignItems: "center",
     paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth, gap: 12,
   },
   methodRowLeft: { flex: 1, gap: 2 },
   methodName: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   methodRegion: { fontSize: 12, fontFamily: "Inter_400Regular" },
   methodDetail: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
-  radioActive: {
-    width: 24, height: 24, borderRadius: 12,
+  checkActive: {
+    width: 24, height: 24, borderRadius: 12, borderWidth: 1,
     alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
-  radioInactive: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, flexShrink: 0 },
+  radioInactive: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, flexShrink: 0 },
 
+  /* Adhan modal rows */
   adhanRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 12,
   },
   adhanRowLeft: { flex: 1, gap: 4 },
   adhanNameRow: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
   adhanName: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  adhanArabic: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  adhanArabic: { fontSize: 14 },
   adhanReciter: { fontSize: 12, fontFamily: "Inter_400Regular" },
   adhanLocationRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   adhanLocation: { fontSize: 11, fontFamily: "Inter_400Regular" },
   adhanRowRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   previewBtn: {
-    width: 30, height: 30, borderRadius: 8,
+    width: 30, height: 30, borderRadius: 4,
     borderWidth: 1, alignItems: "center", justifyContent: "center",
   },
 
-  // Time chip (row button showing selected time)
-  timeChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  timeChipText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-
-  // TimePickerModal
+  /* Time picker modal */
   timeOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.55)",
@@ -1349,15 +1578,20 @@ const styles = StyleSheet.create({
   },
   timeSheet: {
     width: "100%",
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 24,
+    borderRadius: 4,
   },
+  timeSheetTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 14,
+  },
+  timeRule: { flex: 1, height: StyleSheet.hairlineWidth },
   timeSheetTitle: {
-    fontSize: 17,
+    fontSize: 10,
     fontFamily: "Inter_700Bold",
+    letterSpacing: 2,
     textAlign: "center",
-    marginBottom: 20,
   },
   timeWheelRow: {
     flexDirection: "row",
@@ -1379,32 +1613,27 @@ const styles = StyleSheet.create({
   ampmBtn: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 4,
     borderWidth: 1,
     alignItems: "center",
   },
-  ampmLabel: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  ampmLabel: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 1.5 },
   timeDoneBtn: {
     marginTop: 14,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 4,
     alignItems: "center",
   },
-  timeDoneLabel: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
+  timeDoneLabel: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 2 },
 
-  offsetRow: {
+  /* End ornament */
+  endOrnament: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderTopWidth: 1,
+    gap: 14,
+    marginTop: 24,
+    paddingHorizontal: 24,
   },
-  offsetPrayerLabel: { fontSize: 14, fontFamily: "Inter_500Medium", flex: 1 },
-  offsetStepper: { flexDirection: "row", alignItems: "center", gap: 10 },
-  offsetBtn: {
-    width: 30, height: 30, borderRadius: 8,
-    borderWidth: 1, alignItems: "center", justifyContent: "center",
-  },
-  offsetValue: { fontSize: 13, fontFamily: "Inter_600SemiBold", minWidth: 52, textAlign: "center" },
+  endLine: { flex: 1, height: StyleSheet.hairlineWidth },
+  endGlyph: { fontSize: 22, fontFamily: "AmiriQuran_400Regular" },
 });
