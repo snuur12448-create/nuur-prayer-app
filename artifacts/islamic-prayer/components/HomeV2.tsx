@@ -705,6 +705,9 @@ export function HomeV2(props: HomeV2Props) {
               <SvgText x={cx - R} y={cy - 11} textAnchor="middle" fill={inkSoft(0.7)} fontSize={9} fontWeight="600">
                 {prayerTimes.sunrise.timeString}
               </SvgText>
+              {notifEnabled?.sunrise && (
+                <Circle cx={cx - R + 10} cy={cy + 6} r={2} fill="#FFD27A" opacity={0.95} />
+              )}
             </G>
           )}
 
