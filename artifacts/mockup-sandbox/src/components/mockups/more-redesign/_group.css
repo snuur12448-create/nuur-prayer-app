@@ -1,0 +1,21 @@
+@import url("https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap");
+
+.nuur-bg { background:
+  radial-gradient(120% 80% at 50% 0%, rgba(201,147,58,0.10) 0%, transparent 60%),
+  radial-gradient(140% 90% at 50% 100%, rgba(201,147,58,0.06) 0%, transparent 55%),
+  #0b0b10;
+  color: #e9e3d3;
+}
+.nuur-surface { background-color: #15151c; }
+.nuur-surface-elev { background-color: #1c1c25; }
+.nuur-border { border-color: rgba(255,255,255,0.08); }
+.nuur-text { color: #e9e3d3; }
+.nuur-text-secondary { color: #8a8a96; }
+.nuur-gold { color: #c9933a; }
+.nuur-gold-bg { background-color: #c9933a; }
+.nuur-gold-soft { color: #d9b070; }
+.nuur-arabic { font-family: "Amiri", "Times New Roman", serif; }
+.nuur-sans { font-family: "Inter", system-ui, sans-serif; }
+.nuur-serif { font-family: Georgia, serif; }
+.hide-scroll::-webkit-scrollbar { display: none; }
+.hide-scroll { scrollbar-width: none; }
