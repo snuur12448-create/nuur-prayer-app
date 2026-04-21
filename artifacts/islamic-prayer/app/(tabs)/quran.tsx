@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Svg, { Circle, Polygon } from "react-native-svg";
+import Svg, { Circle, Line } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { useAppContext } from "@/context/AppContext";
@@ -71,22 +71,10 @@ type ListItem =
   | { type: "verse"; result: QuranSearchResult }
   | { type: "emptyState" };
 
-// ---------- Eight-pointed star rosette (surah number badge) ----------
-// Precompute 16-vertex star points for the default size once, since the
-// geometry never changes per row.
+// ---------- Surah number medallion (mushaf chapter mark) ----------
+// Concentric gold rings with small radial tick marks at cardinal points,
+// echoing classical Quran sūrah-heading medallions.
 const ROSETTE_SIZE = 44;
-const ROSETTE_POINTS = (() => {
-  const r = ROSETTE_SIZE / 2;
-  const outerR = r - 1;
-  const innerR = r * 0.42;
-  const pts: string[] = [];
-  for (let i = 0; i < 16; i++) {
-    const ang = (i * Math.PI) / 8 - Math.PI / 2;
-    const rad = i % 2 === 0 ? outerR : innerR;
-    pts.push(`${r + rad * Math.cos(ang)},${r + rad * Math.sin(ang)}`);
-  }
-  return pts.join(" ");
-})();
 
 const Rosette = React.memo(function Rosette({
   n,
@@ -99,19 +87,50 @@ const Rosette = React.memo(function Rosette({
   stroke: string;
   numberColor: string;
 }) {
-  const r = ROSETTE_SIZE / 2;
+  const s = ROSETTE_SIZE;
+  const c = s / 2;
+  const rOuter = c - 1;
+  const rMid = rOuter - 3;
+  const rInner = rOuter * 0.62;
+  // 8 tick marks just outside the inner disc
+  const ticks = Array.from({ length: 8 }, (_, i) => {
+    const a = (i * Math.PI) / 4 - Math.PI / 2;
+    return {
+      x1: c + Math.cos(a) * (rInner + 1.5),
+      y1: c + Math.sin(a) * (rInner + 1.5),
+      x2: c + Math.cos(a) * (rInner + 4),
+      y2: c + Math.sin(a) * (rInner + 4),
+    };
+  });
   return (
     <View
       style={{
-        width: ROSETTE_SIZE,
-        height: ROSETTE_SIZE,
+        width: s,
+        height: s,
         alignItems: "center",
         justifyContent: "center",
       }}
     >
-      <Svg width={ROSETTE_SIZE} height={ROSETTE_SIZE} style={{ position: "absolute" }}>
-        <Polygon points={ROSETTE_POINTS} fill={fill} stroke={stroke} strokeWidth={0.8} />
-        <Circle cx={r} cy={r} r={r * 0.46} fill={fill} stroke={stroke} strokeWidth={0.6} opacity={0.9} />
+      <Svg width={s} height={s} style={{ position: "absolute" }}>
+        {/* outer ring */}
+        <Circle cx={c} cy={c} r={rOuter} fill="none" stroke={stroke} strokeWidth={0.8} opacity={0.55} />
+        {/* mid ring */}
+        <Circle cx={c} cy={c} r={rMid} fill="none" stroke={stroke} strokeWidth={0.5} opacity={0.35} />
+        {/* radial ticks */}
+        {ticks.map((t, i) => (
+          <Line
+            key={i}
+            x1={t.x1}
+            y1={t.y1}
+            x2={t.x2}
+            y2={t.y2}
+            stroke={stroke}
+            strokeWidth={0.7}
+            opacity={0.6}
+          />
+        ))}
+        {/* inner filled disc */}
+        <Circle cx={c} cy={c} r={rInner} fill={fill} stroke={stroke} strokeWidth={0.7} opacity={0.95} />
       </Svg>
       <Text style={{ fontSize: 13, fontFamily: "Inter_700Bold", color: numberColor }}>
         {n}
