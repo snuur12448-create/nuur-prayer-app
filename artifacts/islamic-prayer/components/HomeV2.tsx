@@ -758,9 +758,9 @@ export function HomeV2(props: HomeV2Props) {
                   x={x + dx}
                   y={y + labelDy}
                   textAnchor={anchor}
-                  fill={inkSoft(0.95)}
-                  fontSize={9.5}
-                  fontWeight="700"
+                  fill={inkSoft(1)}
+                  fontSize={11}
+                  fontWeight="800"
                   opacity={groupOpacity}
                 >
                   {p.en.toUpperCase()}
@@ -769,9 +769,9 @@ export function HomeV2(props: HomeV2Props) {
                   x={x + dx}
                   y={y + timeDy}
                   textAnchor={anchor}
-                  fill={inkSoft(0.65)}
-                  fontSize={9}
-                  fontWeight="500"
+                  fill={inkSoft(0.88)}
+                  fontSize={10.5}
+                  fontWeight="600"
                   opacity={groupOpacity}
                 >
                   {p.time}
@@ -830,30 +830,30 @@ export function HomeV2(props: HomeV2Props) {
                 />
                 <SvgText
                   x={isLeft ? x + 14 : x - 14}
-                  y={y - 3}
+                  y={y - 4}
                   textAnchor={anchor}
-                  fill={now ? "rgba(255,228,181,1)" : "rgba(210,222,238,0.95)"}
-                  fontSize={10}
-                  fontWeight="700"
+                  fill={now ? "rgba(255,228,181,1)" : "rgba(232,240,252,1)"}
+                  fontSize={11.5}
+                  fontWeight="800"
                 >
                   {p.en.toUpperCase()}
                 </SvgText>
                 <SvgText
                   x={isLeft ? x + 14 : x - 14}
-                  y={y + 9}
+                  y={y + 10}
                   textAnchor={anchor}
-                  fill={now ? "rgba(255,228,181,0.75)" : "rgba(210,222,238,0.65)"}
-                  fontSize={9}
-                  fontWeight="500"
+                  fill={now ? "rgba(255,228,181,0.9)" : "rgba(232,240,252,0.85)"}
+                  fontSize={10.5}
+                  fontWeight="600"
                 >
                   {p.time}
                 </SvgText>
                 <SvgText
                   x={isLeft ? x + 14 : x - 14}
-                  y={y + 21}
+                  y={y + 23}
                   textAnchor={anchor}
-                  fill="rgba(210,222,238,0.4)"
-                  fontSize={8}
+                  fill="rgba(232,240,252,0.6)"
+                  fontSize={9}
                   fontWeight="500"
                   fontStyle="italic"
                 >
@@ -937,9 +937,9 @@ export function HomeV2(props: HomeV2Props) {
                   x={x + dx}
                   y={y + labelDy}
                   textAnchor={anchor}
-                  fill={isPrayer ? "rgba(255,228,181,0.95)" : "rgba(201,212,240,0.85)"}
-                  fontSize={isPrayer ? 9.5 : 8.5}
-                  fontWeight="700"
+                  fill={isPrayer ? "rgba(255,228,181,1)" : "rgba(220,228,248,0.95)"}
+                  fontSize={isPrayer ? 11 : 10}
+                  fontWeight="800"
                 >
                   {a.label}
                 </SvgText>
@@ -947,9 +947,9 @@ export function HomeV2(props: HomeV2Props) {
                   x={x + dx}
                   y={y + timeDy}
                   textAnchor={anchor}
-                  fill={isPrayer ? "rgba(255,228,181,0.7)" : "rgba(201,212,240,0.6)"}
-                  fontSize={9}
-                  fontWeight="500"
+                  fill={isPrayer ? "rgba(255,228,181,0.88)" : "rgba(220,228,248,0.78)"}
+                  fontSize={10.5}
+                  fontWeight="600"
                 >
                   {a.time}
                 </SvgText>
@@ -958,8 +958,8 @@ export function HomeV2(props: HomeV2Props) {
                     x={x + dx}
                     y={y + subDy}
                     textAnchor={anchor}
-                    fill="rgba(201,212,240,0.42)"
-                    fontSize={7.5}
+                    fill="rgba(220,228,248,0.62)"
+                    fontSize={9}
                     fontWeight="500"
                     fontStyle="italic"
                   >
@@ -998,7 +998,7 @@ export function HomeV2(props: HomeV2Props) {
               )}
               <Circle cx={bodyX} cy={bodyY} r={32} fill="url(#sunGlow)" />
               <Circle cx={bodyX} cy={bodyY} r={11} fill="#FFF1C4" />
-              <SvgText x={bodyX + 18} y={bodyY + 3} fill="#FFF1C4" fontSize={11} fontWeight="700">
+              <SvgText x={bodyX + 18} y={bodyY + 3.5} fill="#FFF8DC" fontSize={12.5} fontWeight="800">
                 {nowLabel}
               </SvgText>
             </G>
