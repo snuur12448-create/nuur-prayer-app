@@ -373,8 +373,7 @@ export function HomeV2(props: HomeV2Props) {
     if (nowMs >= SUNSET_FADE_END) return 1;
     return (nowMs - SUNSET_FADE_START) / (SUNSET_FADE_END - SUNSET_FADE_START);
   }, [prayerTimes, nowMs, isNight]);
-  const nightActive = nightT > 0.01;
-  const dayActive = nightT < 0.99;
+  // (`nightActive` / `dayActive` redefined below using swapT — see note.)
 
   // ── Sharp body swap ───────────────────────────────────────────────────────
   // The slow `nightT` cross-fade shows both bodies simultaneously for ~30
@@ -420,6 +419,14 @@ export function HomeV2(props: HomeV2Props) {
     };
     return Math.max(ramp(maghribMs + 15 * 1000), ramp(sunriseMs - 15 * 1000));
   }, [prayerTimes, nowMs, reduceMotion]);
+
+  // Gate dome groups on the sharp `swapT` (~1 min) so labels and arc
+  // anchors swap at the same speed as the body. Using the slow 30-min
+  // `nightT` here caused day AND night labels to render on top of each
+  // other for half an hour — and made offset adjustments visibly buggy
+  // because each tap landed mid-fade.
+  const nightActive = swapT > 0.01;
+  const dayActive = swapT < 0.99;
   // Dawn vs dusk (used to colour the flash differently)
   const isDawnFlash = useMemo(() => {
     if (!prayerTimes) return false;
@@ -801,7 +808,7 @@ export function HomeV2(props: HomeV2Props) {
               once we cross into the night scene where Sunrise re-anchors to
               the right horizon as the end of night. */}
           {prayerTimes && dayActive && (
-            <G opacity={1 - nightT}>
+            <G opacity={1 - swapT}>
               <Circle cx={cx - R} cy={cy - 4} r={2.2} fill={inkSoft(0.6)} />
               <SvgText x={cx - R} y={cy - 22} textAnchor="middle" fill={inkSoft(0.55)} fontSize={7.5} fontWeight="700">
                 SUNRISE
@@ -819,7 +826,7 @@ export function HomeV2(props: HomeV2Props) {
               as the sunset transition advances so Dhuhr/Asr stop sitting on
               the dome at night. */}
           {prayerTimes && dayActive && (
-          <G opacity={1 - nightT}>
+          <G opacity={1 - swapT}>
           {arcPrayers.map((p) => {
             const r = (p.angle * Math.PI) / 180;
             const x = cx + R * Math.cos(r);
@@ -895,7 +902,7 @@ export function HomeV2(props: HomeV2Props) {
           {/* Night-side moons (Fajr / Isha) — daytime convention. Replaced by
               proper arc anchors once we cross into the night scene. */}
           {prayerTimes && dayActive && (
-          <G opacity={1 - nightT}>
+          <G opacity={1 - swapT}>
           {nightPrayers.map((p) => {
             const isLeft = p.side === "left";
             const x = isLeft ? 28 : W - 28;
@@ -987,7 +994,7 @@ export function HomeV2(props: HomeV2Props) {
               (fajr ends), Fajr just before sunrise on the right. Mirrors the
               CelestialDomeNight mockup. */}
           {prayerTimes && nightActive && (
-          <G opacity={nightT}>
+          <G opacity={swapT}>
           {nightArcPrayers.map((a) => {
             const r = (a.angle * Math.PI) / 180;
             const x = cx + R * Math.cos(r);
@@ -1573,7 +1580,7 @@ export function HomeV2(props: HomeV2Props) {
           stay one tap away. Mirrors the agreed CelestialDomeNight mockup. */}
       {prayerTimes && nightActive && (
         <View
-          style={{ paddingHorizontal: 20, paddingTop: 0, paddingBottom: 14, opacity: nightT }}
+          style={{ paddingHorizontal: 20, paddingTop: 0, paddingBottom: 14, opacity: swapT }}
         >
           <View
             style={{
