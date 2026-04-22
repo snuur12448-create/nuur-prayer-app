@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   LayoutAnimation,
   Platform,
@@ -785,8 +785,20 @@ function PrayerCard({
 export default function SunnahPrayersScreen() {
   const { themeColors: colors, prayerTimes } = useAppContext();
   const insets = useSafeAreaInsets();
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterId>("all");
+  const params = useLocalSearchParams<{ filter?: string; open?: string }>();
+  const initialFilter: FilterId = useMemo(() => {
+    const allowed: FilterId[] = ["all", "rawatib", "special", "night", "occasional", "tracked"];
+    const f = params.filter as FilterId | undefined;
+    return f && allowed.includes(f) ? f : "all";
+  }, [params.filter]);
+  const [openId, setOpenId] = useState<string | null>(params.open ?? null);
+  const [filter, setFilter] = useState<FilterId>(initialFilter);
+
+  // React to deep-link changes (e.g. user re-taps Tahajjud quick action while on screen)
+  useEffect(() => {
+    if (params.filter) setFilter(initialFilter);
+    if (params.open) setOpenId(params.open);
+  }, [params.filter, params.open, initialFilter]);
   const { doneIds, toggle: toggleDone, streak, history } = useDailySunnah();
 
   const togglePrayer = (id: string) => {

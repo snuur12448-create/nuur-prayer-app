@@ -219,7 +219,10 @@ export default function PrayerScreen() {
   const goQibla = useCallback(() => router.push("/(tabs)/qibla"), []);
   const goQuran = useCallback(() => router.push("/(tabs)/quran"), []);
   const goAdhkar = useCallback(() => router.push("/dua"), []);
-  const goTahajjud = useCallback(() => router.push("/sunnah-prayers"), []);
+  const goTahajjud = useCallback(
+    () => router.push({ pathname: "/sunnah-prayers", params: { filter: "night", open: "tahajjud" } }),
+    []
+  );
   const goTracker = useCallback(() => router.push("/(tabs)/tracker"), []);
   const goCalendar = useCallback(() => router.push("/calendar"), []);
 

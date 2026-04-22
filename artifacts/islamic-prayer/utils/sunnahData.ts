@@ -338,6 +338,29 @@ export const SUNNAH_DATA: SunnahCategory[] = [
       "The night prayer — the honour of the believer — and Witr, the seal of the night.",
     prayers: [
       {
+        id: "tahajjud",
+        nameEn: "Tahajjud",
+        nameAr: "التهجد",
+        rakaat: "2 by 2 (commonly 8 + 3)",
+        status: "Recommended",
+        window: "After sleeping, in the last third of the night",
+        reward: "The most virtuous prayer after the obligatory.",
+        hadith: {
+          text: "The best prayer after the obligatory is the night prayer.",
+          source: "Ṣaḥīḥ Muslim 1163",
+          grade: "Ṣaḥīḥ",
+        },
+        notes: "Our Lord descends to the lowest heaven in the last third of the night, asking who will call upon Him to answer them. (Bukhārī 1145)",
+        howTo: {
+          steps: [
+            "After sleeping, rise in the last third of the night, perform wuḍūʾ.",
+            "Pray two rakʿahs at a time, lengthening the recitation if you can.",
+            "The Prophet ﷺ commonly prayed 8 rakʿahs of qiyām, then 3 of witr.",
+            "Conclude with witr — do not let it be the last prayer of the night.",
+          ],
+        },
+      },
+      {
         id: "witr",
         nameEn: "Witr",
         nameAr: "الوتر",
@@ -368,29 +391,6 @@ export const SUNNAH_DATA: SunnahCategory[] = [
           ],
           surahs: [
             { rakah: 3, surahNum: 112, nameEn: "Al-Ikhlāṣ", nameAr: "الإخلاص" },
-          ],
-        },
-      },
-      {
-        id: "tahajjud",
-        nameEn: "Tahajjud",
-        nameAr: "التهجد",
-        rakaat: "2 by 2 (commonly 8 + 3)",
-        status: "Recommended",
-        window: "After sleeping, in the last third of the night",
-        reward: "The most virtuous prayer after the obligatory.",
-        hadith: {
-          text: "The best prayer after the obligatory is the night prayer.",
-          source: "Ṣaḥīḥ Muslim 1163",
-          grade: "Ṣaḥīḥ",
-        },
-        notes: "Our Lord descends to the lowest heaven in the last third of the night, asking who will call upon Him to answer them. (Bukhārī 1145)",
-        howTo: {
-          steps: [
-            "After sleeping, rise in the last third of the night, perform wuḍūʾ.",
-            "Pray two rakʿahs at a time, lengthening the recitation if you can.",
-            "The Prophet ﷺ commonly prayed 8 rakʿahs of qiyām, then 3 of witr.",
-            "Conclude with witr — do not let it be the last prayer of the night.",
           ],
         },
       },
