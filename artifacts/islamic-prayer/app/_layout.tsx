@@ -21,6 +21,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NuurSplash } from "@/components/NuurSplash";
 import { Onboarding, ONBOARDING_KEY } from "@/components/Onboarding";
 import { PrayerNotifOnboarding, NOTIF_RITUAL_KEY } from "@/components/PrayerNotifOnboarding";
+import { ToastProvider } from "@/components/Toast";
 import { AppProvider, useAppContext } from "@/context/AppContext";
 import { PrayerTrackerProvider } from "@/context/PrayerTrackerContext";
 import { QuranPlayerProvider } from "@/context/QuranPlayerContext";
@@ -144,6 +145,7 @@ export default function RootLayout() {
               <AppProvider>
                 <PrayerTrackerProvider>
                 <QuranPlayerProvider>
+                <ToastProvider>
                   {/* Main app — only rendered once fonts are ready to prevent FOUT.
                       Contexts (AppProvider, QuranPlayerProvider) warm up above this,
                       so data loading is NOT blocked — only screen rendering is. */}
@@ -164,6 +166,7 @@ export default function RootLayout() {
                   {!splashDone && (
                     <NuurSplash onComplete={() => setAnimDone(true)} />
                   )}
+                </ToastProvider>
                 </QuranPlayerProvider>
                 </PrayerTrackerProvider>
               </AppProvider>

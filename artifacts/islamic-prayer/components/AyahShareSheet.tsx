@@ -4,7 +4,6 @@ import * as Sharing from "expo-sharing";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Modal,
   Platform,
@@ -16,6 +15,8 @@ import {
   View,
 } from "react-native";
 import { captureRef } from "react-native-view-shot";
+
+import { useToast } from "./Toast";
 
 import {
   Bismillah,
@@ -63,6 +64,7 @@ export default function AyahShareSheet({
   surahNumber,
   onClose,
 }: AyahShareSheetProps) {
+  const toast = useToast();
   const cardRef   = useRef<View>(null);
   const [saving,   setSaving]   = useState(false);
   const [sharing,  setSharing]  = useState(false);
@@ -81,13 +83,13 @@ export default function AyahShareSheet({
 
   const captureCard = async (): Promise<string | null> => {
     if (Platform.OS === "web") {
-      Alert.alert("Not supported", "Image export is not available in the browser.");
+      toast.show("Image export is not available in the browser.", { variant: "error" });
       return null;
     }
     try {
       return await captureRef(cardRef, { format: "png", quality: 1 });
     } catch {
-      Alert.alert("Error", "Could not capture the card. Please try again.");
+      toast.show("Could not capture the card. Please try again.", { variant: "error" });
       return null;
     }
   };
@@ -99,13 +101,13 @@ export default function AyahShareSheet({
       if (!uri) return;
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission needed", "Allow photo library access to save the image.");
+        toast.show("Allow photo library access to save the image.", { variant: "error" });
         return;
       }
       await MediaLibrary.saveToLibraryAsync(uri);
-      Alert.alert("Saved", `The ${isWallpaper ? "wallpaper" : "ayah card"} has been saved to your camera roll.`);
+      toast.show(`Saved ${isWallpaper ? "wallpaper" : "ayah card"} to your camera roll.`, { variant: "success" });
     } catch {
-      Alert.alert("Error", "Could not save the image.");
+      toast.show("Could not save the image.", { variant: "error" });
     } finally {
       setSaving(false);
     }
@@ -118,7 +120,7 @@ export default function AyahShareSheet({
       if (!uri) return;
       const available = await Sharing.isAvailableAsync();
       if (!available) {
-        Alert.alert("Not available", "Sharing is not supported on this device.");
+        toast.show("Sharing is not supported on this device.", { variant: "error" });
         return;
       }
       await Sharing.shareAsync(uri, {
@@ -126,7 +128,7 @@ export default function AyahShareSheet({
         dialogTitle: `${surahEnglish} ${surahNumber}:${verseNumber}`,
       });
     } catch {
-      Alert.alert("Error", "Could not open the share sheet.");
+      toast.show("Could not open the share sheet.", { variant: "error" });
     } finally {
       setSharing(false);
     }

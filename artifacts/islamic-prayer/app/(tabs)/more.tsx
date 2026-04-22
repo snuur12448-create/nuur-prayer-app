@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Constants from "expo-constants";
 import { NuurLogo } from "@/components/NuurLogo";
+import { useToast } from "@/components/Toast";
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import {
@@ -66,6 +67,7 @@ function calcStreak(data: TrackerData): number {
 
 export default function MoreScreen() {
   const { themeColors: colors, prayerTimes } = useAppContext();
+  const toast = useToast();
   const { trackerData } = usePrayerTracker();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
@@ -139,9 +141,8 @@ export default function MoreScreen() {
 
   const openLibrary = () => {
     if (savedCount === 0) {
-      Alert.alert(
-        "My Library",
-        "Anything you bookmark — hadiths, duas, mosques — will appear here. Try saving a hadith first.",
+      toast.show(
+        "Bookmark a hadith, dua, or mosque and it will appear in your library.",
       );
       return;
     }
@@ -272,7 +273,7 @@ export default function MoreScreen() {
     );
     Linking.openURL(`mailto:${FEEDBACK_EMAIL}?subject=${subject}&body=${body}`).catch(
       () => {
-        Alert.alert("Send feedback", `Email us at ${FEEDBACK_EMAIL}`);
+        toast.show(`Email us at ${FEEDBACK_EMAIL}`);
       },
     );
   };
