@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -121,8 +122,10 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const {
     requestLocation,
     setManualLocation,
+    isLocationPermDenied,
     toggleNotifications,
     notificationsEnabled,
+    notifPermBlocked,
     madhab,
     setMadhab,
   } = useAppContext();
@@ -218,21 +221,45 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
           </View>
 
           <View style={s.lower}>
-            <TouchableOpacity
-              style={[s.primary, locDone && s.primaryDone]}
-              onPress={handleLocation}
-              disabled={locLoading || locDone}
-              activeOpacity={0.82}
-            >
-              {locLoading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Feather name={locDone ? "check" : "map-pin"} size={16} color="#fff" />
-                  <Text style={s.primaryText}>{locDone ? "Location set" : "Allow Location Access"}</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {isLocationPermDenied && !locDone ? (
+              <>
+                {/* Denial recovery card — the primary button would otherwise
+                    just sit there doing nothing once iOS/Android has
+                    permanently denied. */}
+                <View style={s.deniedCard}>
+                  <View style={s.deniedIcon}>
+                    <Feather name="alert-circle" size={16} color="#E8B86A" />
+                  </View>
+                  <Text style={s.deniedText}>
+                    Location is blocked for Nuur. Open Settings to allow it, or pick your city manually.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={s.primary}
+                  onPress={() => Linking.openSettings().catch(() => {})}
+                  activeOpacity={0.82}
+                >
+                  <Feather name="external-link" size={16} color="#fff" />
+                  <Text style={s.primaryText}>Open Settings</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity
+                style={[s.primary, locDone && s.primaryDone]}
+                onPress={handleLocation}
+                disabled={locLoading || locDone}
+                activeOpacity={0.82}
+              >
+                {locLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Feather name={locDone ? "check" : "map-pin"} size={16} color="#fff" />
+                    <Text style={s.primaryText}>{locDone ? "Location set" : "Allow Location Access"}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={s.ghost}
@@ -263,26 +290,47 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
           </View>
 
           <View style={s.lower}>
-            <TouchableOpacity
-              style={[s.primary, notifDone && s.primaryDone]}
-              onPress={handleNotif}
-              disabled={notifLoading || notifDone}
-              activeOpacity={0.82}
-            >
-              {notifLoading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Feather name={notifDone ? "check" : "bell"} size={16} color="#fff" />
-                  <Text style={s.primaryText}>
-                    {notifDone ? "Notifications enabled" : "Enable Notifications"}
+            {notifPermBlocked && !notifDone ? (
+              <>
+                <View style={s.deniedCard}>
+                  <View style={s.deniedIcon}>
+                    <Feather name="bell-off" size={16} color="#E8B86A" />
+                  </View>
+                  <Text style={s.deniedText}>
+                    Notifications are blocked for Nuur. Open Settings to enable prayer alerts.
                   </Text>
-                </>
-              )}
-            </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  style={s.primary}
+                  onPress={() => Linking.openSettings().catch(() => {})}
+                  activeOpacity={0.82}
+                >
+                  <Feather name="external-link" size={16} color="#fff" />
+                  <Text style={s.primaryText}>Open Settings</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity
+                style={[s.primary, notifDone && s.primaryDone]}
+                onPress={handleNotif}
+                disabled={notifLoading || notifDone}
+                activeOpacity={0.82}
+              >
+                {notifLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Feather name={notifDone ? "check" : "bell"} size={16} color="#fff" />
+                    <Text style={s.primaryText}>
+                      {notifDone ? "Notifications enabled" : "Enable Notifications"}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity style={s.ghost} onPress={() => goTo(2)}>
-              <Text style={s.ghostText}>Maybe later</Text>
+              <Text style={s.ghostText}>{notifPermBlocked ? "Continue without alerts" : "Maybe later"}</Text>
             </TouchableOpacity>
 
             <Dots current={1} />
@@ -456,6 +504,37 @@ const s = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     textDecorationLine: "underline",
     textDecorationColor: GOLD + "55",
+  },
+
+  // Permission-denied recovery card
+  deniedCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    width: "100%",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: "rgba(232,184,106,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(232,184,106,0.30)",
+    marginBottom: 12,
+  },
+  deniedIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(232,184,106,0.14)",
+    marginTop: 1,
+  },
+  deniedText: {
+    flex: 1,
+    color: "rgba(240,237,228,0.85)",
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: "Inter_400Regular",
   },
 
   // Back button

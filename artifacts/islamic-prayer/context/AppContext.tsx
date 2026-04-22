@@ -76,6 +76,7 @@ interface AppContextType {
   effectiveDisplayMode: "dark" | "light";
   themeColors: ThemeColors;
   notificationsEnabled: boolean;
+  notifPermBlocked: boolean;
   toggleNotifications: () => Promise<void>;
   calcMethod: CalcMethodId;
   setCalcMethod: (method: CalcMethodId) => void;
@@ -205,6 +206,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [themeName, setThemeNameState] = useState<ThemeName>(DEFAULT_THEME);
   const [displayMode, setDisplayModeState] = useState<DisplayMode>(DEFAULT_DISPLAY_MODE);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notifPermBlocked, setNotifPermBlocked] = useState(false);
   const [calcMethod, setCalcMethodState] = useState<CalcMethodId>(DEFAULT_CALC_METHOD);
   const [calcMethodAutoSetLabel, setCalcMethodAutoSetLabel] = useState<string | null>(null);
   const calcMethodSavedRef = useRef(false);
@@ -619,6 +621,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const next = !notificationsRef.current;
     if (next) {
       const result = await requestNotificationPermissionDetailed();
+      // Track the blocked state so screens (e.g. onboarding) can swap their
+      // CTA to an inline "Open Settings" recovery card instead of leaving a
+      // dead "Enable" button.
+      setNotifPermBlocked(result === "blocked");
       if (result !== "granted") {
         // Don't silently no-op — tell the user *why* nothing happened so the
         // switch isn't a dead control. Three distinct cases get three messages.
@@ -1099,6 +1105,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         effectiveDisplayMode,
         themeColors,
         notificationsEnabled,
+        notifPermBlocked,
         toggleNotifications,
         calcMethod,
         setCalcMethod,
