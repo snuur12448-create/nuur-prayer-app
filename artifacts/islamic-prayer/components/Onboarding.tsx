@@ -11,7 +11,9 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppContext } from "@/context/AppContext";
+import { useAppContext, type LocationData } from "@/context/AppContext";
+import { LocationModal } from "@/components/LocationModal";
+import type { ThemeColors } from "@/constants/themes";
 import type { MadhabId } from "@/utils/prayerTimes";
 
 const { width: W } = Dimensions.get("window");
@@ -91,14 +93,44 @@ function MadhabCard({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+// Dark palette for the manual city picker so the modal blends into the
+// onboarding background instead of flashing the user's saved theme.
+const ONBOARDING_PICKER_COLORS: ThemeColors = {
+  text: TEXT,
+  textSecondary: TEXT_DIM,
+  background: BG,
+  surface: "#121C16",
+  surfaceElevated: "#172620",
+  border: BORDER_DIM,
+  tint: GOLD,
+  tintLight: GOLD + "33",
+  gold: GOLD,
+  goldLight: GOLD + "33",
+  goldGradient: [GOLD, "#8C6420"],
+  glow: GOLD + "22",
+  tabIconDefault: TEXT_DIM,
+  tabIconSelected: GOLD,
+  prayerCard: SURFACE,
+  prayerTime: TEXT,
+  accent: GOLD,
+  red: "#D9534F",
+};
+
 export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const insets = useSafeAreaInsets();
-  const { requestLocation, toggleNotifications, notificationsEnabled, madhab, setMadhab } =
-    useAppContext();
+  const {
+    requestLocation,
+    setManualLocation,
+    toggleNotifications,
+    notificationsEnabled,
+    madhab,
+    setMadhab,
+  } = useAppContext();
 
   const [step, setStep] = useState(0);
   const [locLoading, setLocLoading] = useState(false);
   const [locDone, setLocDone] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifDone, setNotifDone] = useState(false);
   const [selectedMadhab, setSelectedMadhab] = useState<MadhabId>(madhab);
@@ -125,6 +157,13 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     setLocLoading(true);
     try { await requestLocation(); } catch {}
     setLocLoading(false);
+    setLocDone(true);
+    setTimeout(() => goTo(1), 380);
+  };
+
+  const handleManualCity = async (loc: LocationData) => {
+    try { await setManualLocation(loc); } catch {}
+    setPickerVisible(false);
     setLocDone(true);
     setTimeout(() => goTo(1), 380);
   };
@@ -195,7 +234,15 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={s.ghost} onPress={() => goTo(1)}>
+            <TouchableOpacity
+              style={s.ghost}
+              onPress={() => setPickerVisible(true)}
+              disabled={locDone}
+            >
+              <Text style={s.ghostLink}>Pick city manually</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={s.ghostSmall} onPress={() => goTo(1)}>
               <Text style={s.ghostText}>Skip for now</Text>
             </TouchableOpacity>
 
@@ -294,6 +341,16 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
           </View>
         </View>
       </Animated.View>
+
+      {/* Manual city picker — opens when the user can't / won't grant GPS. */}
+      <LocationModal
+        visible={pickerVisible}
+        onClose={() => setPickerVisible(false)}
+        onRequestGps={handleLocation}
+        onSelectManual={handleManualCity}
+        colors={ONBOARDING_PICKER_COLORS}
+        isLoadingGps={locLoading}
+      />
     </Animated.View>
   );
 }
@@ -391,7 +448,15 @@ const s = StyleSheet.create({
   primaryDone: { backgroundColor: "#2A7A4F" },
   primaryText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
   ghost: { paddingVertical: 11, paddingHorizontal: 16 },
+  ghostSmall: { paddingVertical: 6, paddingHorizontal: 16 },
   ghostText: { color: TEXT_DIM, fontSize: 14, fontFamily: "Inter_400Regular" },
+  ghostLink: {
+    color: GOLD,
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    textDecorationLine: "underline",
+    textDecorationColor: GOLD + "55",
+  },
 
   // Back button
   backBtn: {
