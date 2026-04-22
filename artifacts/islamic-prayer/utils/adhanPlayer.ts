@@ -84,16 +84,34 @@ export async function stopAdhanAudio(): Promise<void> {
   }
 }
 
+// Generation token: every previewAdhan() call increments this. If a newer
+// call (or a stopAdhanAudio()) happens while we're awaiting createAsync /
+// audio.play(), the older call's resolved sound is stale — we must unload
+// it instead of attaching it to the module-level ref. Without this guard,
+// rapid taps on different reciters in onboarding can leave a "ghost" sound
+// playing in the background that was never tracked or stopped.
+let previewGen = 0;
+
 export async function previewAdhan(url: string): Promise<void> {
+  const myGen = ++previewGen;
   await stopAdhanAudio();
+  // stopAdhanAudio bumps no token of its own, but if another previewAdhan
+  // call slipped in during the await above, our generation is now stale.
+  if (myGen !== previewGen) return;
 
   if (Platform.OS === "web") {
     try {
       const audio = new window.Audio(url);
+      try { await audio.play(); } catch {}
+      // Re-check after the async play() — a newer preview may have started
+      // and we'd otherwise leave this audio playing untracked.
+      if (myGen !== previewGen) {
+        try { audio.pause(); audio.src = ""; } catch {}
+        return;
+      }
       webAudio = audio;
-      audio.onended = () => { webAudio = null; };
-      audio.onerror = () => { webAudio = null; };
-      await audio.play();
+      audio.onended = () => { if (webAudio === audio) webAudio = null; };
+      audio.onerror = () => { if (webAudio === audio) webAudio = null; };
     } catch {}
   } else {
     try {
@@ -106,10 +124,17 @@ export async function previewAdhan(url: string): Promise<void> {
         { uri: url },
         { shouldPlay: true, volume: 1.0 }
       );
+      // Same race check as web: if a newer preview started while createAsync
+      // was running, throw away this sound instead of attaching it.
+      if (myGen !== previewGen) {
+        try { await sound.stopAsync(); } catch {}
+        try { await sound.unloadAsync(); } catch {}
+        return;
+      }
       nativeSound = sound;
       sound.setOnPlaybackStatusUpdate((status) => {
         if (!status.isLoaded) return;
-        if (status.didJustFinish) {
+        if (status.didJustFinish && nativeSound === sound) {
           nativeSound = null;
         }
       });

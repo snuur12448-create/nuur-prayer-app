@@ -74,6 +74,10 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
   const [applying, setApplying] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Token guards an out-of-order race in togglePreview: tapping reciter A
+  // then B before A's previewAdhan() resolves. Each call increments the
+  // token; only the most recent call's auto-stop timer is allowed to fire.
+  const previewTokenRef = useRef(0);
 
   // Stop any in-flight preview when the onboarding unmounts or the user
   // leaves the reciter step — otherwise the audio keeps blasting after the
@@ -83,6 +87,9 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
       clearTimeout(previewTimerRef.current);
       previewTimerRef.current = null;
     }
+    // Bump the token so any in-flight togglePreview await that resolves
+    // *after* this call won't schedule a fresh auto-stop timer.
+    previewTokenRef.current += 1;
     stopAdhanAudio().catch(() => {});
     setPreviewingId(null);
   }, []);
@@ -102,14 +109,24 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
         stopPreview();
         return;
       }
+      // Cancel any pending auto-stop from a previous reciter *before* the
+      // await — otherwise the old timer can fire while we're starting the
+      // new audio and kill it instantly.
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+      const token = ++previewTokenRef.current;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       setPreviewingId(style.id);
       try {
         await previewAdhan(style.audioUrl);
       } catch {}
-      // ~3s audition window; user can also tap again to stop early.
-      if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+      // A newer tap (or a stopPreview) happened while we were awaiting —
+      // bail so we don't schedule a timer for stale audio.
+      if (previewTokenRef.current !== token) return;
       previewTimerRef.current = setTimeout(() => {
+        if (previewTokenRef.current !== token) return;
         stopAdhanAudio().catch(() => {});
         setPreviewingId(null);
         previewTimerRef.current = null;

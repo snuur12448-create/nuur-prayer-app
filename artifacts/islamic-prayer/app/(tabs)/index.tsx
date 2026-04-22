@@ -386,7 +386,7 @@ export default function PrayerScreen() {
       <LocationModal
         visible={showLocationModal}
         onClose={() => setShowLocationModal(false)}
-        onRequestGps={requestLocation}
+        onRequestGps={async () => { await requestLocation(); }}
         onSelectManual={setManualLocation}
         colors={colors}
         isLoadingGps={isLoadingLocation}

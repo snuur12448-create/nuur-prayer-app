@@ -185,8 +185,16 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const handleLocation = async () => {
     haptic.medium();
     setLocLoading(true);
-    try { await requestLocation(); } catch {}
+    let permanentlyDenied = false;
+    try {
+      const result = await requestLocation();
+      permanentlyDenied = result.permanentlyDenied;
+    } catch {}
     setLocLoading(false);
+    // If the OS reports the perm is permanently blocked, stay on this screen
+    // so the recovery card (which renders when isLocationPermDenied is true)
+    // is actually visible. Advancing here would defeat that whole UX.
+    if (permanentlyDenied) return;
     setLocDone(true);
     haptic.success();
     setTimeout(() => goTo(1), 380);
@@ -203,10 +211,19 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const handleNotif = async () => {
     haptic.medium();
     setNotifLoading(true);
+    let blocked = false;
     try {
-      if (!notificationsEnabled) await toggleNotifications();
+      if (!notificationsEnabled) {
+        const result = await toggleNotifications();
+        blocked = result.blocked;
+      }
     } catch {}
     setNotifLoading(false);
+    // Same reasoning as handleLocation: if the OS blocked notifs permanently,
+    // stay so the inline "Open Settings" recovery card can render. Plain
+    // first-tap "denied" still advances — they can re-prompt later from
+    // settings, and the rest of onboarding is still useful without alerts.
+    if (blocked) return;
     setNotifDone(true);
     haptic.success();
     setTimeout(() => goTo(2), 380);

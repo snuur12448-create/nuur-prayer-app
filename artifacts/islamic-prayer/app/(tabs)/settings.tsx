@@ -1001,7 +1001,7 @@ export default function SettingsScreen() {
                 </View>
                 <Switch
                   value={notificationsEnabled}
-                  onValueChange={toggleNotifications}
+                  onValueChange={() => { void toggleNotifications(); }}
                   trackColor={{ false: colors.gold + "33", true: colors.gold + "AA" }}
                   thumbColor={notificationsEnabled ? colors.gold : colors.textSecondary}
                   ios_backgroundColor={colors.gold + "22"}

@@ -170,7 +170,7 @@ export function NotifQuickSheet({ visible, onClose, nextPrayerTimeMs }: Props) {
             </View>
             <Switch
               value={notificationsEnabled}
-              onValueChange={toggleNotifications}
+              onValueChange={() => { void toggleNotifications(); }}
               trackColor={{ false: colors.border, true: colors.tint + "AA" }}
               thumbColor={notificationsEnabled ? colors.tint : colors.textSecondary}
             />

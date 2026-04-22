@@ -65,7 +65,11 @@ interface AppContextType {
   usingDefaultLocation: boolean;
   isLocationPermDenied: boolean;
   refreshPrayerTimes: () => void;
-  requestLocation: () => Promise<void>;
+  // Resolves with `permanentlyDenied: true` when the OS reports the perm is
+  // blocked (canAskAgain === false). Callers (e.g. onboarding) use this to
+  // keep the user on the same screen so a recovery CTA can render instead
+  // of silently advancing.
+  requestLocation: () => Promise<{ permanentlyDenied: boolean }>;
   setManualLocation: (loc: LocationData) => Promise<void>;
   bookmarkedSurahs: number[];
   toggleBookmark: (surahNumber: number) => void;
@@ -77,7 +81,10 @@ interface AppContextType {
   themeColors: ThemeColors;
   notificationsEnabled: boolean;
   notifPermBlocked: boolean;
-  toggleNotifications: () => Promise<void>;
+  // Resolves with `blocked: true` when iOS/Android has permanently denied
+  // notification permission, so onboarding can keep the user on the screen
+  // and render an "Open Settings" recovery card.
+  toggleNotifications: () => Promise<{ blocked: boolean }>;
   calcMethod: CalcMethodId;
   setCalcMethod: (method: CalcMethodId) => void;
   calcMethodAutoSetLabel: string | null;
@@ -617,14 +624,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const toggleNotifications = useCallback(async () => {
+  const toggleNotifications = useCallback(async (): Promise<{ blocked: boolean }> => {
     const next = !notificationsRef.current;
     if (next) {
       const result = await requestNotificationPermissionDetailed();
       // Track the blocked state so screens (e.g. onboarding) can swap their
       // CTA to an inline "Open Settings" recovery card instead of leaving a
       // dead "Enable" button.
-      setNotifPermBlocked(result === "blocked");
+      const blocked = result === "blocked";
+      setNotifPermBlocked(blocked);
       if (result !== "granted") {
         // Don't silently no-op — tell the user *why* nothing happened so the
         // switch isn't a dead control. Three distinct cases get three messages.
@@ -653,7 +661,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             [{ text: "OK" }],
           );
         }
-        return;
+        return { blocked };
       }
       setNotificationsEnabled(true);
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "true");
@@ -669,10 +677,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
         );
       }
+      return { blocked: false };
     } else {
       setNotificationsEnabled(false);
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "false");
       await cancelAllPrayerNotifications();
+      return { blocked: false };
     }
   }, [location]);
 
@@ -938,7 +948,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setLocation(loc);
   }, []);
 
-  const fetchGpsLocation = useCallback(async (showLoading: boolean) => {
+  const fetchGpsLocation = useCallback(async (showLoading: boolean): Promise<{ permanentlyDenied: boolean }> => {
     if (showLoading) {
       setIsLoadingLocation(true);
       setLocationError(null);
@@ -960,7 +970,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setUsingDefaultLocation(true);
           updateLocation(DEFAULT_LOCATION);
         }
-        return;
+        return { permanentlyDenied };
       }
       setIsLocationPermDenied(false);
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -1004,19 +1014,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
         );
       }
+      return { permanentlyDenied: false };
     } catch {
       if (showLoading) {
         setLocationError("Could not determine location. Using Makkah as default.");
         setUsingDefaultLocation(true);
         updateLocation(DEFAULT_LOCATION);
       }
+      // A thrown error is not a permission denial — it's a network/GPS
+      // glitch. Don't surface the blocked-recovery card for those.
+      return { permanentlyDenied: false };
     } finally {
       if (showLoading) setIsLoadingLocation(false);
     }
   }, [updateLocation]);
 
-  const requestLocation = useCallback(async () => {
-    await fetchGpsLocation(true);
+  const requestLocation = useCallback(async (): Promise<{ permanentlyDenied: boolean }> => {
+    return fetchGpsLocation(true);
   }, [fetchGpsLocation]);
 
   const setManualLocation = useCallback(async (loc: LocationData) => {
