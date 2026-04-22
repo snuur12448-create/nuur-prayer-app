@@ -378,8 +378,12 @@ function CelestialDomeInner(props: CelestialDomeProps) {
           </G>
         )}
 
-        {/* The body (sun by day, moon by night) */}
-        {prayerTimes && (
+        {/* The body (sun by day, moon by night).
+            NOTE: react-native-svg does not reliably propagate <G opacity> to children
+            whose fill is a gradient reference (url(#...)). So we ALSO conditionally
+            skip rendering the wrong body to avoid a "ghost sun" lingering at night
+            (or a ghost moon during the day). Keeps crossfade for the brief swap window. */}
+        {prayerTimes && dayActive && (
           <G opacity={1 - swapT}>
             {(glowBoost > 0.05 || sunsetFlash > 0.01) && (
               <Circle
@@ -404,7 +408,7 @@ function CelestialDomeInner(props: CelestialDomeProps) {
             </SvgText>
           </G>
         )}
-        {prayerTimes && (
+        {prayerTimes && nightActive && (
           <G opacity={swapT}>
             {(glowBoost > 0.05 || sunsetFlash > 0.01) && (
               <Circle
