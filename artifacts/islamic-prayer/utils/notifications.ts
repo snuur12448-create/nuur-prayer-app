@@ -147,7 +147,6 @@ export async function requestNotificationPermissionDetailed(): Promise<NotifPerm
         allowCriticalAlerts: false,
         provideAppNotificationSettings: true,
         allowProvisional: false,
-        allowAnnouncements: false,
       },
     });
   } catch {
