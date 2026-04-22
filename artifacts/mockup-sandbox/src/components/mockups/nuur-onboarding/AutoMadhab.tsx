@@ -1,322 +1,392 @@
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { Zap, Check, CheckCircle2, MapPin, ChevronDown, ChevronLeft, Moon } from "lucide-react";
 
+const BG = "#09150D";
 const GOLD = "#C9933A";
-const GOLD_SOFT = "#E0B968";
-const BG = "#0F0E0C";
-const PARCHMENT = "#F2E8D5";
-const DIM = "#A89C84";
-const SURFACE = "#171411";
+const TEXT = "#F0EDE4";
+const TEXT_DIM = "rgba(240,237,228,0.5)";
+const TEXT_DIM_STRONG = "rgba(240,237,228,0.85)";
+const SURFACE = "rgba(255,255,255,0.05)";
+const SURFACE_ACTIVE = "rgba(201,147,58,0.13)";
+const BORDER_DIM = "rgba(255,255,255,0.1)";
 
-type Choice = "standard" | "hanafi";
+const F_REG = "'Inter', system-ui, sans-serif";
+const F_SEMI = "'Inter', system-ui, sans-serif";
+const F_BOLD = "'Inter', system-ui, sans-serif";
+
+type Madhab = "Hanafi" | "Shafi";
 
 export function AutoMadhab() {
-  const [selected, setSelected] = useState<Choice>("hanafi");
-  const [tick, setTick] = useState(0);
-
-  // Loop the "auto-detect → suggest" sweep so the canvas viewer can see the badge
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 6000);
-    return () => clearInterval(id);
-  }, []);
+  const [selected, setSelected] = useState<Madhab>("Hanafi");
 
   return (
     <div
       className="min-h-screen w-full flex flex-col overflow-hidden relative"
-      style={{ backgroundColor: BG }}
+      style={{ backgroundColor: BG, fontFamily: F_REG }}
     >
-      <RadialGlow />
+      {/* Back button */}
+      <button
+        className="absolute left-3 top-12 p-2.5 z-10"
+        style={{ color: TEXT_DIM }}
+      >
+        <ChevronLeft size={22} strokeWidth={2} />
+      </button>
 
-      {/* top bar */}
-      <div className="flex items-center justify-between px-6 pt-14 pb-4 relative z-10">
-        <button className="text-[12px] tracking-[0.2em] uppercase font-['Inter']" style={{ color: DIM }}>
-          ← Back
-        </button>
-        <ProgressDots active={2} count={4} />
-        <div className="w-10" />
-      </div>
-
-      {/* header */}
-      <div className="px-6 pt-2 relative z-10">
-        <div
-          className="font-['Amiri'] text-xl mb-1"
-          style={{ color: PARCHMENT, opacity: 0.7 }}
-        >
-          الْمَذْهَبُ
+      {/* Upper content */}
+      <div className="flex-1 flex flex-col items-center px-6" style={{ paddingTop: 80 }}>
+        {/* Step icon: glow + ring + crescent-star */}
+        <div className="relative flex items-center justify-center mb-[22px]">
+          <div
+            className="absolute rounded-full"
+            style={{ width: 130, height: 130, backgroundColor: GOLD + "14" }}
+          />
+          <div
+            className="rounded-full flex items-center justify-center relative"
+            style={{
+              width: 96,
+              height: 96,
+              border: `1.5px solid ${GOLD}40`,
+              backgroundColor: GOLD + "0E",
+            }}
+          >
+            <CrescentStar size={48} color={GOLD} />
+          </div>
         </div>
+
+        {/* Title + subtitle */}
         <h1
-          className="font-['Playfair_Display'] text-[26px] leading-tight"
-          style={{ color: PARCHMENT }}
+          className="text-center"
+          style={{
+            fontFamily: F_BOLD,
+            fontWeight: 700,
+            fontSize: 26,
+            color: TEXT,
+            letterSpacing: -0.3,
+            lineHeight: 1.15,
+          }}
         >
-          When does Asr begin?
+          Asr Madhab
         </h1>
         <p
-          className="mt-2 font-['Inter'] text-[13px] leading-relaxed"
-          style={{ color: DIM }}
-        >
-          Asr starts when an object's shadow reaches a certain length. The school of thought you follow decides which.
-        </p>
-
-        {/* Auto-detected hint */}
-        <motion.div
-          key={`detect-${tick}`}
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mt-4 flex items-center gap-2 px-3 py-2 rounded-full self-start"
+          className="text-center mt-1.5"
           style={{
-            backgroundColor: GOLD + "12",
-            border: `1px solid ${GOLD}33`,
-            width: "fit-content",
+            fontFamily: F_REG,
+            fontSize: 15,
+            color: TEXT_DIM,
           }}
         >
-          <Spark />
-          <span
-            className="font-['Inter'] text-[11px] tracking-wide"
-            style={{ color: GOLD_SOFT }}
+          When does the afternoon prayer begin?
+        </p>
+
+        {/* Divider */}
+        <div
+          className="rounded-sm"
+          style={{
+            width: 36,
+            height: 1.5,
+            backgroundColor: GOLD + "55",
+            marginTop: 18,
+            marginBottom: 18,
+          }}
+        />
+
+        {/* Section label */}
+        <div className="w-full">
+          <div
+            className="flex items-center justify-between"
+            style={{
+              fontFamily: F_SEMI,
+              fontWeight: 600,
+              fontSize: 11,
+              color: TEXT_DIM,
+              letterSpacing: 1.2,
+              textTransform: "uppercase",
+              marginBottom: 10,
+            }}
           >
-            Detected from your location · Karachi, PK
-          </span>
-        </motion.div>
-      </div>
+            <span>School of Thought</span>
+            <span style={{ color: GOLD + "AA", letterSpacing: 0.5, textTransform: "none", fontSize: 10 }}>
+              tap to change
+            </span>
+          </div>
 
-      {/* options */}
-      <div className="px-5 mt-5 flex flex-col gap-3 relative z-10">
-        <MadhabOption
-          choice="hanafi"
-          selected={selected === "hanafi"}
-          isAuto
-          arabic="حَنَفِي"
-          name="Hanafi"
-          shadowDesc="Asr when shadow = 2× object height"
-          example="≈ 4:48 PM today"
-          regions="Common in: Pakistan, India, Turkey, Central Asia"
-          onSelect={() => setSelected("hanafi")}
-          shadowMultiplier={2}
-        />
-        <MadhabOption
-          choice="standard"
-          selected={selected === "standard"}
-          isAuto={false}
-          arabic="شَافِعِي"
-          name="Standard (Shafi'i, Maliki, Hanbali)"
-          shadowDesc="Asr when shadow = 1× object height"
-          example="≈ 3:18 PM today"
-          regions="Common in: Arab world, SE Asia, most of Africa"
-          onSelect={() => setSelected("standard")}
-          shadowMultiplier={1}
-        />
-      </div>
+          {/* Detected pill */}
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg mb-3"
+            style={{
+              backgroundColor: GOLD + "10",
+              border: `1px solid ${GOLD}33`,
+              width: "fit-content",
+            }}
+          >
+            <MapPin size={11} color={GOLD} strokeWidth={2.2} />
+            <span
+              style={{
+                fontFamily: F_REG,
+                fontSize: 11,
+                color: TEXT_DIM_STRONG,
+                letterSpacing: 0.2,
+              }}
+            >
+              Detected:&nbsp;
+              <span style={{ color: GOLD, fontFamily: F_SEMI, fontWeight: 600 }}>Karachi, PK</span>
+            </span>
+          </motion.div>
 
-      {/* gentle nudge */}
-      <div className="px-6 pt-4 relative z-10">
-        <div className="font-['Inter'] text-[11px] leading-relaxed flex items-start gap-2" style={{ color: DIM }}>
-          <span style={{ color: GOLD, marginTop: 1 }}>ⓘ</span>
-          <span>Not sure? Keep the suggestion — you can change it any time in Settings.</span>
+          {/* Madhab row — matches real app's two-card layout */}
+          <div className="flex gap-3 w-full mt-1">
+            <MadhabCard
+              isSelected={selected === "Hanafi"}
+              isAuto
+              arabic="حنفي"
+              name="Hanafi"
+              desc="Shadow = 2× height"
+              timing="≈ 4:48 PM"
+              onSelect={() => setSelected("Hanafi")}
+            />
+            <MadhabCard
+              isSelected={selected === "Shafi"}
+              isAuto={false}
+              arabic="شافعي"
+              name="Shafi'i"
+              desc="Shadow = 1× height"
+              timing="≈ 3:18 PM"
+              onSelect={() => setSelected("Shafi")}
+            />
+          </div>
+
+          {/* Reassurance */}
+          <p
+            className="mt-3.5"
+            style={{
+              fontFamily: F_REG,
+              fontSize: 12,
+              color: TEXT_DIM,
+              lineHeight: 1.5,
+            }}
+          >
+            Not sure? The suggestion is based on your region — most users keep it. You can change this any time in Settings.
+          </p>
         </div>
       </div>
 
-      {/* CTA */}
-      <div className="mt-auto px-6 pb-10 relative z-10">
+      {/* Lower CTA */}
+      <div className="px-6 pb-10 flex flex-col items-center w-full" style={{ paddingBottom: 36 }}>
         <button
-          className="w-full rounded-full py-4 font-['Inter'] text-[13px] tracking-[0.18em] uppercase flex items-center justify-center gap-2"
+          className="w-full flex items-center justify-center gap-2 rounded-[14px]"
           style={{
-            background: `linear-gradient(180deg, ${GOLD_SOFT}, ${GOLD})`,
-            color: BG,
-            fontWeight: 600,
+            backgroundColor: GOLD,
+            paddingTop: 15,
+            paddingBottom: 15,
+            marginBottom: 10,
           }}
         >
-          Continue <span>→</span>
+          <CheckCircle2 size={18} color="#fff" strokeWidth={2.2} />
+          <span
+            style={{
+              color: "#fff",
+              fontFamily: F_BOLD,
+              fontWeight: 700,
+              fontSize: 16,
+            }}
+          >
+            Get Started
+          </span>
         </button>
+
+        {/* Dots: matches real onboarding (3 dots, current=2 wider gold) */}
+        <div className="flex items-center gap-1.5 mt-5">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="rounded-sm"
+              style={{
+                height: 8,
+                width: i === 2 ? 22 : 8,
+                backgroundColor: i === 2 ? GOLD : GOLD + "30",
+                borderRadius: 4,
+              }}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-function MadhabOption({
-  choice,
-  selected,
+function MadhabCard({
+  isSelected,
   isAuto,
   arabic,
   name,
-  shadowDesc,
-  example,
-  regions,
+  desc,
+  timing,
   onSelect,
-  shadowMultiplier,
 }: {
-  choice: Choice;
-  selected: boolean;
+  isSelected: boolean;
   isAuto: boolean;
   arabic: string;
   name: string;
-  shadowDesc: string;
-  example: string;
-  regions: string;
+  desc: string;
+  timing: string;
   onSelect: () => void;
-  shadowMultiplier: 1 | 2;
 }) {
   return (
     <motion.button
       onClick={onSelect}
       animate={{
-        borderColor: selected ? GOLD : GOLD + "22",
-        boxShadow: selected
-          ? `0 0 0 3px ${GOLD}1A, 0 12px 30px -18px ${GOLD}66`
-          : "0 0 0 0 transparent",
+        borderColor: isSelected ? GOLD : BORDER_DIM,
+        backgroundColor: isSelected ? SURFACE_ACTIVE : SURFACE,
       }}
-      transition={{ duration: 0.3 }}
-      className="text-left rounded-2xl p-4 relative"
+      transition={{ duration: 0.25 }}
+      className="relative flex-1 rounded-2xl flex flex-col items-center"
       style={{
-        backgroundColor: selected ? "#1B1610" : SURFACE,
-        border: `1.5px solid ${GOLD}22`,
+        borderWidth: 1.5,
+        borderStyle: "solid",
+        padding: 16,
+        gap: 3,
       }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span
-              className="font-['Amiri'] text-2xl"
-              style={{ color: selected ? GOLD : PARCHMENT }}
-            >
-              {arabic}
-            </span>
-            {isAuto && (
-              <motion.span
-                initial={{ scale: 0.85, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.4, delay: 0.5 }}
-                className="font-['Inter'] text-[9px] tracking-[0.2em] uppercase px-2 py-0.5 rounded-full"
-                style={{
-                  backgroundColor: GOLD,
-                  color: BG,
-                  fontWeight: 700,
-                }}
-              >
-                Auto
-              </motion.span>
-            )}
-          </div>
-          <div
-            className="font-['Inter'] text-[13px] mt-0.5"
-            style={{ color: selected ? PARCHMENT : DIM, fontWeight: selected ? 600 : 400 }}
-          >
-            {name}
-          </div>
-        </div>
-
-        <ShadowDiagram multiplier={shadowMultiplier} active={selected} />
-      </div>
-
-      <div
-        className="mt-3 font-['Inter'] text-[11px]"
-        style={{ color: DIM }}
-      >
-        {shadowDesc}
-      </div>
-
-      <div className="mt-2.5 flex items-center justify-between">
-        <span
-          className="font-['Inter'] text-[10px] tracking-wider"
-          style={{ color: DIM, opacity: 0.8 }}
-        >
-          {regions}
-        </span>
-        <span
-          className="font-['Inter'] text-[12px] tabular-nums"
-          style={{ color: selected ? GOLD : GOLD + "88", fontWeight: 600 }}
-        >
-          {example}
-        </span>
-      </div>
-
-      {selected && (
+      {/* Selected check (top right) */}
+      {isSelected && (
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 500, damping: 22 }}
-          className="absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: GOLD }}
+          className="absolute rounded-full flex items-center justify-center"
+          style={{
+            top: 10,
+            right: 10,
+            width: 18,
+            height: 18,
+            border: `1px solid ${GOLD}`,
+            backgroundColor: GOLD + "18",
+          }}
         >
-          <span className="text-[11px]" style={{ color: BG, fontWeight: 800 }}>✓</span>
+          <Check size={10} color={GOLD} strokeWidth={3} />
         </motion.div>
       )}
+
+      {/* Auto badge (top left, only on suggested) */}
+      {isAuto && (
+        <motion.div
+          initial={{ scale: 0.85, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.4 }}
+          className="absolute flex items-center gap-1 rounded-full"
+          style={{
+            top: 8,
+            left: 8,
+            paddingLeft: 6,
+            paddingRight: 7,
+            paddingTop: 2,
+            paddingBottom: 2,
+            backgroundColor: GOLD + "1F",
+            border: `1px solid ${GOLD}55`,
+          }}
+        >
+          <Zap size={9} color={GOLD} fill={GOLD} strokeWidth={2} />
+          <span
+            style={{
+              fontFamily: F_SEMI,
+              fontWeight: 600,
+              fontSize: 9,
+              color: GOLD,
+              letterSpacing: 0.6,
+              textTransform: "uppercase",
+            }}
+          >
+            Auto
+          </span>
+        </motion.div>
+      )}
+
+      {/* Arabic name */}
+      <div
+        style={{
+          fontFamily: F_BOLD,
+          fontWeight: 700,
+          fontSize: 22,
+          color: isSelected ? GOLD : TEXT_DIM,
+          marginTop: 14,
+        }}
+      >
+        {arabic}
+      </div>
+
+      {/* English name */}
+      <div
+        style={{
+          fontFamily: F_SEMI,
+          fontWeight: 600,
+          fontSize: 14,
+          color: isSelected ? TEXT : TEXT_DIM,
+        }}
+      >
+        {name}
+      </div>
+
+      {/* Mini divider */}
+      <div
+        style={{
+          width: 24,
+          height: 1,
+          backgroundColor: GOLD + "30",
+          marginTop: 6,
+          marginBottom: 6,
+        }}
+      />
+
+      {/* Description */}
+      <div
+        style={{
+          fontFamily: F_REG,
+          fontSize: 11,
+          color: isSelected ? TEXT_DIM : "rgba(240,237,228,0.25)",
+          textAlign: "center",
+          lineHeight: 1.3,
+        }}
+      >
+        {desc}
+      </div>
+
+      {/* Timing */}
+      <div
+        style={{
+          fontFamily: F_SEMI,
+          fontWeight: 600,
+          fontSize: 12,
+          color: isSelected ? GOLD : GOLD + "50",
+          marginTop: 2,
+        }}
+      >
+        {timing}
+      </div>
     </motion.button>
   );
 }
 
-function ShadowDiagram({ multiplier, active }: { multiplier: 1 | 2; active: boolean }) {
-  // Mini visualization: a "stick" with its shadow stretching to the right.
-  const stickColor = active ? GOLD : DIM;
-  const shadowLen = multiplier === 1 ? 24 : 48;
+function CrescentStar({ size = 48, color = GOLD }: { size?: number; color?: string }) {
+  // Approximation of MaterialCommunityIcons "star-crescent": waxing crescent + small star.
   return (
-    <div className="flex items-end h-10" style={{ width: 70 }}>
-      <div className="flex flex-col items-center">
-        {/* sun */}
-        <motion.div
-          animate={{ opacity: active ? [0.6, 1, 0.6] : 0.4 }}
-          transition={{ duration: 3, repeat: Infinity }}
-          className="rounded-full mb-0.5"
-          style={{
-            width: 6, height: 6,
-            backgroundColor: stickColor,
-            boxShadow: active ? `0 0 6px ${GOLD}` : "none",
-          }}
-        />
-        {/* stick */}
-        <div style={{ width: 2, height: 22, backgroundColor: stickColor }} />
-      </div>
-      {/* shadow */}
-      <motion.div
-        animate={{ width: shadowLen, backgroundColor: stickColor + "55" }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        style={{
-          height: 2,
-          marginBottom: 0,
-          marginLeft: 0,
-        }}
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Crescent: outer circle minus offset inner circle */}
+      <defs>
+        <mask id="crescent-mask">
+          <rect width="24" height="24" fill="white" />
+          <circle cx="14" cy="11" r="7.2" fill="black" />
+        </mask>
+      </defs>
+      <circle cx="11" cy="12" r="9" fill={color} mask="url(#crescent-mask)" />
+      {/* Small 5-point star to right */}
+      <path
+        d="M19 6.2 L19.65 7.7 L21.25 7.85 L20 8.95 L20.4 10.5 L19 9.65 L17.6 10.5 L18 8.95 L16.75 7.85 L18.35 7.7 Z"
+        fill={color}
       />
-    </div>
-  );
-}
-
-function ProgressDots({ active, count }: { active: number; count: number }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className="rounded-full transition-all"
-          style={{
-            backgroundColor: i === active ? GOLD : GOLD + "33",
-            width: i === active ? 18 : 6,
-            height: 6,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function Spark() {
-  return (
-    <motion.span
-      animate={{ rotate: [0, 12, -8, 0], scale: [1, 1.15, 0.95, 1] }}
-      transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-      style={{ color: GOLD, fontSize: 11, lineHeight: 1 }}
-    >
-      ✦
-    </motion.span>
-  );
-}
-
-function RadialGlow() {
-  return (
-    <div
-      className="absolute inset-0 pointer-events-none"
-      style={{
-        background: `radial-gradient(ellipse at 50% 0%, ${GOLD}10 0%, transparent 50%)`,
-      }}
-    />
+    </svg>
   );
 }
