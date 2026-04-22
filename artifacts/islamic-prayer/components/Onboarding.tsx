@@ -6,6 +6,9 @@ import {
   Animated,
   Dimensions,
   Linking,
+  Modal,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext, type LocationData } from "@/context/AppContext";
 import { LocationModal } from "@/components/LocationModal";
 import type { ThemeColors } from "@/constants/themes";
-import type { MadhabId } from "@/utils/prayerTimes";
+import { CALC_METHODS, type CalcMethodId, type MadhabId } from "@/utils/prayerTimes";
 
 const { width: W } = Dimensions.get("window");
 export const ONBOARDING_KEY = "nuur_onboarding_done";
@@ -128,6 +131,9 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     notifPermBlocked,
     madhab,
     setMadhab,
+    calcMethod,
+    setCalcMethod,
+    calcMethodAutoSetLabel,
   } = useAppContext();
 
   const [step, setStep] = useState(0);
@@ -137,7 +143,16 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifDone, setNotifDone] = useState(false);
   const [selectedMadhab, setSelectedMadhab] = useState<MadhabId>(madhab);
+  const [selectedMethod, setSelectedMethod] = useState<CalcMethodId>(calcMethod);
+  const [methodSheetVisible, setMethodSheetVisible] = useState(false);
   const [finishing, setFinishing] = useState(false);
+
+  // Keep the local picker mirror in sync if the GPS-driven auto-suggest
+  // arrives after this screen mounts (user landed on step 0, granted GPS,
+  // context updated calcMethod, then user advanced to step 2).
+  useEffect(() => { setSelectedMethod(calcMethod); }, [calcMethod]);
+
+  const currentMethodInfo = CALC_METHODS.find((m) => m.id === selectedMethod);
 
   const slideX = useRef(new Animated.Value(0)).current;
   const fadeIn = useRef(new Animated.Value(0)).current;
@@ -184,6 +199,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const handleDone = async () => {
     setFinishing(true);
     setMadhab(selectedMadhab);
+    if (selectedMethod !== calcMethod) setCalcMethod(selectedMethod);
     await AsyncStorage.setItem(ONBOARDING_KEY, "true");
     Animated.timing(fadeIn, { toValue: 0, duration: 380, useNativeDriver: false }).start(() =>
       onComplete(),
@@ -337,17 +353,42 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
           </View>
         </View>
 
-        {/* ── Step 2 : Madhab ── */}
+        {/* ── Step 2 : Calculation method + Madhab ── */}
         <View style={[s.slide, { width: W, paddingTop: insets.top + 56, paddingBottom: insets.bottom + 24 }]}>
           <View style={s.upper}>
             <StepIcon icon="star-crescent" size={48} />
-            <Text style={s.title}>Asr Calculation</Text>
-            <Text style={s.subtitle}>Choose your school of thought</Text>
+            <Text style={s.title}>Prayer Calculation</Text>
+            <Text style={s.subtitle}>Tune Nuur to your region</Text>
             <View style={s.divider} />
-            <Text style={s.body}>
-              Your madhab determines when Asr begins. This can be changed at any time in Settings.
-            </Text>
 
+            {/* ── Calculation method picker ── */}
+            <Text style={s.sectionLabel}>Calculation Method</Text>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => setMethodSheetVisible(true)}
+              style={s.methodPickerRow}
+            >
+              <View style={{ flex: 1 }}>
+                <View style={s.methodPickerLabelRow}>
+                  <Text style={s.methodPickerName} numberOfLines={1}>
+                    {currentMethodInfo?.label ?? selectedMethod}
+                  </Text>
+                  {calcMethodAutoSetLabel && selectedMethod === calcMethod && (
+                    <View style={s.autoBadge}>
+                      <Feather name="zap" size={9} color={GOLD} />
+                      <Text style={s.autoBadgeText}>Auto</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={s.methodPickerRegion} numberOfLines={1}>
+                  {currentMethodInfo?.region ?? ""}
+                </Text>
+              </View>
+              <Feather name="chevron-down" size={18} color={GOLD} />
+            </TouchableOpacity>
+
+            {/* ── Madhab section ── */}
+            <Text style={[s.sectionLabel, { marginTop: 18 }]}>Asr Madhab</Text>
             <View style={s.madhabRow}>
               <MadhabCard
                 name="Hanafi"
@@ -389,6 +430,65 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
           </View>
         </View>
       </Animated.View>
+
+      {/* Calculation method bottom sheet */}
+      <Modal
+        transparent
+        visible={methodSheetVisible}
+        animationType="slide"
+        onRequestClose={() => setMethodSheetVisible(false)}
+      >
+        <Pressable style={s.sheetBackdrop} onPress={() => setMethodSheetVisible(false)} />
+        <View style={[s.sheet, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={s.sheetHandle} />
+          <View style={s.sheetHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.sheetTitle}>Calculation Method</Text>
+              <Text style={s.sheetSub}>طريقة الحساب</Text>
+            </View>
+            <TouchableOpacity onPress={() => setMethodSheetVisible(false)} style={s.sheetClose}>
+              <Feather name="x" size={16} color={GOLD} />
+            </TouchableOpacity>
+          </View>
+          <View style={s.sheetRule} />
+          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+            {CALC_METHODS.map((m, i) => {
+              const active = m.id === selectedMethod;
+              return (
+                <TouchableOpacity
+                  key={m.id}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    setSelectedMethod(m.id);
+                    setMethodSheetVisible(false);
+                  }}
+                  style={[
+                    s.methodRow,
+                    i === CALC_METHODS.length - 1 && { borderBottomWidth: 0 },
+                    active && { backgroundColor: GOLD + "0E" },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.methodName, { color: active ? GOLD : TEXT }]} numberOfLines={1}>
+                      {m.label}
+                    </Text>
+                    <Text style={s.methodRegion} numberOfLines={1}>{m.region}</Text>
+                    <Text style={s.methodDetail} numberOfLines={1}>{m.detail}</Text>
+                  </View>
+                  {active ? (
+                    <View style={s.methodCheck}>
+                      <Feather name="check" size={12} color={GOLD} />
+                    </View>
+                  ) : (
+                    <View style={s.methodRadio} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+            <View style={{ height: 24 }} />
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* Manual city picker — opens when the user can't / won't grant GPS. */}
       <LocationModal
@@ -588,4 +688,119 @@ const s = StyleSheet.create({
   madhabDivider: { width: 24, height: 1, backgroundColor: GOLD + "30", marginVertical: 6 },
   madhabDesc: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "center" },
   madhabTiming: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginTop: 2 },
+
+  // Section label above pickers
+  sectionLabel: {
+    alignSelf: "flex-start",
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    color: TEXT_DIM,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+
+  // Calc method picker row (closed state)
+  methodPickerRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER_DIM,
+  },
+  methodPickerLabelRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  methodPickerName: { color: TEXT, fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  methodPickerRegion: { color: TEXT_DIM, fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  autoBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: GOLD + "1A",
+    borderWidth: 1,
+    borderColor: GOLD + "55",
+  },
+  autoBadgeText: {
+    color: GOLD,
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+
+  // Bottom sheet
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  sheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#121C16",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderTopWidth: 1,
+    borderColor: GOLD + "55",
+    paddingHorizontal: 18,
+    paddingTop: 10,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: GOLD + "44",
+    marginBottom: 10,
+  },
+  sheetHeader: { flexDirection: "row", alignItems: "center", paddingVertical: 6 },
+  sheetTitle: { color: TEXT, fontSize: 17, fontFamily: "Inter_700Bold" },
+  sheetSub: { color: GOLD, fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  sheetClose: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: GOLD + "55",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetRule: { height: 1, backgroundColor: GOLD + "33", marginVertical: 10 },
+  methodRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: GOLD + "1A",
+  },
+  methodName: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  methodRegion: { color: TEXT_DIM, fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  methodDetail: { color: TEXT_DIM, fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
+  methodCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: GOLD,
+    backgroundColor: GOLD + "1A",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  methodRadio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: GOLD + "44",
+  },
 });
