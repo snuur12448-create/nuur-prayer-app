@@ -42,6 +42,7 @@ const PRAYER_STATIC: Record<string, [string, string]> = {
 export default function PrayerScreen() {
   const {
     prayerTimes, location, isLoadingLocation, locationError, isLocationPermDenied,
+    usingDefaultLocation,
     refreshPrayerTimes, requestLocation, setManualLocation,
     themeColors: colors, notificationsEnabled,
     timeFormat, calcMethod, madhab, highLatRule, prayerOffsets,
@@ -300,6 +301,38 @@ export default function PrayerScreen() {
             <Text style={bannerStyles.deniedCardButtonText}>Open Settings</Text>
           </TouchableOpacity>
         </View>
+      ) : usingDefaultLocation && !isLoadingLocation ? (
+        // Persistent reminder when prayer times are computed from the
+        // fall-back coordinates (Makkah). Stays visible until the user grants
+        // location or sets one manually — at which point usingDefaultLocation
+        // flips to false and this banner is gone. No dismiss action: the only
+        // way out is to actually fix it. Mirrors the auto-madhab banner shape
+        // for visual consistency.
+        <View
+          style={[
+            bannerStyles.autoMethodBanner,
+            { backgroundColor: colors.gold + "18", borderColor: colors.gold + "55" },
+          ]}
+        >
+          <View style={bannerStyles.autoMethodBannerLeft}>
+            <Feather name="map-pin" size={14} color={colors.gold} />
+            <Text style={[bannerStyles.autoMethodText, { color: colors.text }]}>
+              Times shown for{" "}
+              <Text style={{ fontFamily: "Inter_600SemiBold", color: colors.gold }}>
+                {location?.city ?? "Makkah"}
+              </Text>
+              {" "}— set your location for accurate times
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => requestLocation()}
+            style={[bannerStyles.bannerCta, { backgroundColor: colors.gold }]}
+            hitSlop={6}
+            activeOpacity={0.85}
+          >
+            <Text style={bannerStyles.bannerCtaText}>Use mine</Text>
+          </TouchableOpacity>
+        </View>
       ) : locationError ? (
         <View style={[bannerStyles.errorBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Feather name="info" size={14} color={colors.textSecondary} />
@@ -531,6 +564,16 @@ const bannerStyles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     flex: 1,
+  },
+  bannerCta: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  bannerCtaText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    color: "#09150D",
   },
 });
 
