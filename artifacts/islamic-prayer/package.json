@@ -56,6 +56,7 @@
     "@expo-google-fonts/amiri-quran": "^0.4.1",
     "@expo/cli": "54.0.23",
     "@nkzw/create-context-hook": "^1.1.0",
+    "@shopify/flash-list": "2.0.2",
     "adhan": "^4.4.3",
     "expo": "~54.0.27",
     "expo-av": "^16.0.8",

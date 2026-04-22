@@ -6,7 +6,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import * as Clipboard from "expo-clipboard";
 import {
   ActivityIndicator,
-  FlatList,
   Modal,
   Platform,
   Pressable,
@@ -16,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { FlashList, FlashListRef } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import type { ThemeColors } from "@/constants/themes";
@@ -583,7 +583,7 @@ export default function QuranDetailScreen() {
   const [reciterListAtBottom, setReciterListAtBottom] = useState(false);
   const previewAudioRef = useRef<any>(null);
   const isMountedRef = useRef(true);
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlashListRef<Verse>>(null);
 
   // ── Last-read position ─────────────────────────────────────────────────────
   const LAST_READ_KEY = "nuur_last_read_position";
@@ -1303,43 +1303,26 @@ export default function QuranDetailScreen() {
           <Text style={[styles.errorSub, { color: colors.textSecondary }]}>Check your internet connection</Text>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           key={hafidhMode ? "hafidh" : "reading"}
-          style={styles.verseList}
           ref={flatListRef}
-          data={verses}
+          data={verses ?? []}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
-          getItemLayout={hafidhMode ? getHafidhItemLayout : undefined}
           contentContainerStyle={{ padding: 16, paddingBottom: isWeb ? 34 : insets.bottom + 20 }}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={hafidhMode ? 15 : 12}
-          maxToRenderPerBatch={hafidhMode ? 20 : 15}
-          windowSize={hafidhMode ? 11 : 21}
-          updateCellsBatchingPeriod={50}
-          removeClippedSubviews={false}
-          // Keep currently-visible verses anchored when items above the viewport
-          // change height — e.g. the user toggles A-B-C (transliteration) or
-          // Word-by-Word during playback. Without this prop, every re-rendered
-          // item above the anchor shifts the scroll offset by its delta-height,
-          // making the page appear to drift / "scroll in a confused way".
-          // Hafidh mode has fixed-height rows + getItemLayout, so it does not
-          // need this anchor (and turning it on there can fight getItemLayout).
+          // FlashList v2 auto-measures and recycles cells, so it doesn't need
+          // FlatList's getItemLayout / initialNumToRender / windowSize knobs.
+          // It also keeps visible content anchored by default when items above
+          // resize (e.g. when the user toggles transliteration or word-by-word
+          // mid-scroll), which previously required maintainVisibleContentPosition
+          // on FlatList. Hafidh mode opts out via the disabled flag because its
+          // rows are uniform and the auto-anchor can fight programmatic scroll.
           maintainVisibleContentPosition={
-            hafidhMode ? undefined : { minIndexForVisible: 0 }
+            hafidhMode ? { disabled: true } : undefined
           }
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
-          onScrollToIndexFailed={({ index }) => {
-            // Jump to the estimated offset so items near the target render, then retry.
-            flatListRef.current?.scrollToOffset({
-              offset: LIST_HEADER_H + estimatedItemHeightRef.current * index,
-              animated: false,
-            });
-            setTimeout(() => {
-              flatListRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0.15 });
-            }, 200);
-          }}
           ListHeaderComponent={
             <>
               {playingVerse !== null && (
