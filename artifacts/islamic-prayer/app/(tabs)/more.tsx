@@ -149,17 +149,17 @@ export default function MoreScreen() {
     if (libCounts.hadiths)
       opts.push({
         text: `Hadiths (${libCounts.hadiths})`,
-        onPress: () => router.push("/(tabs)/hadiths" as any),
+        onPress: () => router.push("/hadiths" as any),
       });
     if (libCounts.duas)
       opts.push({
         text: `Duas (${libCounts.duas})`,
-        onPress: () => router.push("/(tabs)/dua" as any),
+        onPress: () => router.push("/dua" as any),
       });
     if (libCounts.mosques)
       opts.push({
         text: `Mosques (${libCounts.mosques})`,
-        onPress: () => router.push("/(tabs)/mosques" as any),
+        onPress: () => router.push("/mosques" as any),
       });
     opts.push({ text: "Cancel", style: "cancel" });
     Alert.alert("My Library", `${savedCount} saved item${savedCount === 1 ? "" : "s"}`, opts);
@@ -175,7 +175,7 @@ export default function MoreScreen() {
           label: "Duas & Adhkar",
           arabic: "الأدعية والأذكار",
           description: "Daily supplications, morning & evening adhkar",
-          route: "/(tabs)/dua",
+          route: "/dua",
           icon: <Feather name="heart" size={22} color="#E8A87C" />,
           accentColor: "#E8A87C",
         },
@@ -183,7 +183,7 @@ export default function MoreScreen() {
           label: "Tasbeeh & Dhikr",
           arabic: "التسبيح",
           description: "Counter with preset phrases and post-prayer guide",
-          route: "/(tabs)/tasbeeh",
+          route: "/tasbeeh",
           icon: <MaterialCommunityIcons name="hands-pray" size={22} color="#80CBC4" />,
           accentColor: "#80CBC4",
         },
@@ -191,7 +191,7 @@ export default function MoreScreen() {
           label: "99 Names of Allah",
           arabic: "أسماء الله الحسنى",
           description: "Meanings, transliterations and reflections",
-          route: "/(tabs)/names",
+          route: "/names",
           icon: <MaterialCommunityIcons name="star-circle-outline" size={22} color="#B39DDB" />,
           accentColor: "#B39DDB",
         },
@@ -205,7 +205,7 @@ export default function MoreScreen() {
           label: "Sahih Hadiths",
           arabic: "الأحاديث الصحيحة",
           description: "Bukhari & Muslim with live Sunnah.com content",
-          route: "/(tabs)/hadiths",
+          route: "/hadiths",
           icon: <MaterialCommunityIcons name="book-open-page-variant" size={22} color="#A5D6A7" />,
           accentColor: "#A5D6A7",
         },
@@ -227,7 +227,7 @@ export default function MoreScreen() {
           label: "Mosque Finder",
           arabic: "المساجد القريبة",
           description: "Nearest mosques with directions, hours & contact",
-          route: "/(tabs)/mosques",
+          route: "/mosques",
           icon: <MaterialCommunityIcons name="mosque" size={22} color="#4DB6AC" />,
           accentColor: "#4DB6AC",
         },
@@ -241,7 +241,7 @@ export default function MoreScreen() {
           label: "Settings",
           arabic: "الإعدادات",
           description: "Calculation method, adhan style, theme, time format",
-          route: "/(tabs)/settings",
+          route: "/settings",
           icon: <Feather name="settings" size={22} color="#90A4AE" />,
           accentColor: "#90A4AE",
         },

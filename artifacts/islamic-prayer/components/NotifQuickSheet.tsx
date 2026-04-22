@@ -113,7 +113,7 @@ export function NotifQuickSheet({ visible, onClose, nextPrayerTimeMs }: Props) {
 
   const openFullSettings = () => {
     onClose();
-    setTimeout(() => router.push("/(tabs)/settings"), 200);
+    setTimeout(() => router.push("/settings"), 200);
   };
 
   return (

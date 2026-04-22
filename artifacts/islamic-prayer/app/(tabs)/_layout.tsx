@@ -199,13 +199,9 @@ function ClassicTabLayout() {
         />
 
         {/* ── Hidden from tab bar — accessible via More screen ── */}
-        <Tabs.Screen name="dua"      options={{ href: null }} />
-        <Tabs.Screen name="names"    options={{ href: null }} />
-        <Tabs.Screen name="tasbeeh"  options={{ href: null }} />
-        <Tabs.Screen name="settings" options={{ href: null }} />
-        <Tabs.Screen name="mosques"  options={{ href: null }} />
-        <Tabs.Screen name="guide"    options={{ href: null }} />
-        <Tabs.Screen name="hadiths"  options={{ href: null }} />
+        {/* dua, names, tasbeeh, settings, mosques, guide, hadiths now live as
+            root Stack screens (see app/_layout.tsx) — they push on top of the
+            tab navigator instead of pretending to be hidden tabs. */}
       </Tabs>
       <MiniPlayer />
     </View>
