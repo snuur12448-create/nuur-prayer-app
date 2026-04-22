@@ -201,7 +201,7 @@ export default function HadithsScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 16, borderBottomColor: colors.gold + "22" }]}>
         <View style={styles.headerTop}>
-          <Pressable onPress={() => router.navigate("/(tabs)/more")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
+          <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
             <Feather name="chevron-left" size={24} color={colors.gold} />
           </Pressable>
           <View style={styles.headerTitles}>

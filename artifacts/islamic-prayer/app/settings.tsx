@@ -632,7 +632,7 @@ export default function SettingsScreen() {
       >
         <View style={styles.headerTopRow}>
           <Pressable
-            onPress={() => router.navigate("/(tabs)/more")}
+            onPress={() => router.back()}
             hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="Go back"

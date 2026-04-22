@@ -262,7 +262,7 @@ export default function NamesScreen() {
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topInset + 16, backgroundColor: colors.surface }]}>
-        <Pressable onPress={() => router.navigate("/(tabs)/more")} style={styles.backBtn} hitSlop={10}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
           <Feather name="chevron-left" size={24} color={colors.tint} />
         </Pressable>
         <View style={styles.headerContent}>

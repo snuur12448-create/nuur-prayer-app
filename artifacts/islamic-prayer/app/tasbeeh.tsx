@@ -940,7 +940,7 @@ export default function TasbeehScreen() {
       {/* ── Header ── */}
       <View style={[cs.header, { paddingTop: topPad + 14, borderBottomColor: colors.border }]}>
         <View style={cs.headerRow}>
-          <Pressable onPress={() => router.navigate("/(tabs)/more")} hitSlop={10} style={cs.backBtn}>
+          <Pressable onPress={() => router.back()} hitSlop={10} style={cs.backBtn}>
             <Feather name="chevron-left" size={24} color={colors.tint} />
           </Pressable>
 

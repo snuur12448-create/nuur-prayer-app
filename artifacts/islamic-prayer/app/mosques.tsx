@@ -754,7 +754,7 @@ export default function MosquesScreen() {
 
         {/* Header text */}
         <View style={styles.headerContent}>
-          <Pressable onPress={() => router.navigate("/(tabs)/more")} hitSlop={10} style={styles.backBtn}>
+          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backBtn}>
             <Feather name="chevron-left" size={24} color={colors.tint} />
           </Pressable>
           <Text style={[styles.headerArabic, { color: colors.gold }]}>المساجد القريبة</Text>
