@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -161,7 +162,17 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     Animated.timing(fadeIn, { toValue: 1, duration: 380, useNativeDriver: false }).start();
   }, []);
 
+  // Tiny helper so the haptics calls don't drown out the actual flow code
+  // and so a single missing API in Expo Go doesn't crash the screen.
+  const haptic = {
+    tap: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}),
+    medium: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}),
+    select: () => Haptics.selectionAsync().catch(() => {}),
+    success: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}),
+  };
+
   const goTo = (n: number) => {
+    if (n !== step) haptic.tap();
     Animated.spring(slideX, {
       toValue: -n * W,
       useNativeDriver: false,
@@ -172,10 +183,12 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   };
 
   const handleLocation = async () => {
+    haptic.medium();
     setLocLoading(true);
     try { await requestLocation(); } catch {}
     setLocLoading(false);
     setLocDone(true);
+    haptic.success();
     setTimeout(() => goTo(1), 380);
   };
 
@@ -183,20 +196,24 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     try { await setManualLocation(loc); } catch {}
     setPickerVisible(false);
     setLocDone(true);
+    haptic.success();
     setTimeout(() => goTo(1), 380);
   };
 
   const handleNotif = async () => {
+    haptic.medium();
     setNotifLoading(true);
     try {
       if (!notificationsEnabled) await toggleNotifications();
     } catch {}
     setNotifLoading(false);
     setNotifDone(true);
+    haptic.success();
     setTimeout(() => goTo(2), 380);
   };
 
   const handleDone = async () => {
+    haptic.success();
     setFinishing(true);
     setMadhab(selectedMadhab);
     if (selectedMethod !== calcMethod) setCalcMethod(selectedMethod);
@@ -365,7 +382,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
             <Text style={s.sectionLabel}>Calculation Method</Text>
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={() => setMethodSheetVisible(true)}
+              onPress={() => { haptic.tap(); setMethodSheetVisible(true); }}
               style={s.methodPickerRow}
             >
               <View style={{ flex: 1 }}>
@@ -396,7 +413,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
                 desc="Shadow = 2× height"
                 timing="Later Asr"
                 selected={selectedMadhab === "Hanafi"}
-                onPress={() => setSelectedMadhab("Hanafi")}
+                onPress={() => { haptic.select(); setSelectedMadhab("Hanafi"); }}
               />
               <MadhabCard
                 name="Shafi"
@@ -404,7 +421,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
                 desc="Shadow = 1× height"
                 timing="Earlier Asr"
                 selected={selectedMadhab === "Shafi"}
-                onPress={() => setSelectedMadhab("Shafi")}
+                onPress={() => { haptic.select(); setSelectedMadhab("Shafi"); }}
               />
             </View>
           </View>
@@ -459,6 +476,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
                   key={m.id}
                   activeOpacity={0.85}
                   onPress={() => {
+                    haptic.select();
                     setSelectedMethod(m.id);
                     setMethodSheetVisible(false);
                   }}

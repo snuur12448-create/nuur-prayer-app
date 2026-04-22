@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { ADHAN_STYLES, DEFAULT_ADHAN_STYLE_ID } from "@/utils/adhanData";
+import { previewAdhan, stopAdhanAudio } from "@/utils/adhanPlayer";
 import {
   DEFAULT_PRAYER_NOTIF_CONFIG,
   DEFAULT_PRAYER_NOTIF_SETTINGS,
@@ -71,6 +72,51 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
   const [alert, setAlert] = useState<AlertChoice>("adhan");
   const [reciterId, setReciterId] = useState<string>(DEFAULT_ADHAN_STYLE_ID);
   const [applying, setApplying] = useState(false);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Stop any in-flight preview when the onboarding unmounts or the user
+  // leaves the reciter step — otherwise the audio keeps blasting after the
+  // user moves on. Also clears the auto-stop timer.
+  const stopPreview = React.useCallback(() => {
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    stopAdhanAudio().catch(() => {});
+    setPreviewingId(null);
+  }, []);
+
+  useEffect(() => {
+    return () => { stopPreview(); };
+  }, [stopPreview]);
+
+  useEffect(() => {
+    // Leaving the reciter step? Cut the audio.
+    if (step !== 1) stopPreview();
+  }, [step, stopPreview]);
+
+  const togglePreview = React.useCallback(
+    async (style: { id: string; audioUrl: string }) => {
+      if (previewingId === style.id) {
+        stopPreview();
+        return;
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      setPreviewingId(style.id);
+      try {
+        await previewAdhan(style.audioUrl);
+      } catch {}
+      // ~3s audition window; user can also tap again to stop early.
+      if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = setTimeout(() => {
+        stopAdhanAudio().catch(() => {});
+        setPreviewingId(null);
+        previewTimerRef.current = null;
+      }, 3000);
+    },
+    [previewingId, stopPreview],
+  );
 
   const fade = useRef(new Animated.Value(0)).current;
   const stepFade = useRef(new Animated.Value(1)).current;
@@ -246,6 +292,7 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
             <View style={styles.reciterList}>
               {ADHAN_STYLES.map((s) => {
                 const sel = reciterId === s.id;
+                const isPreviewing = previewingId === s.id;
                 return (
                   <Pressable
                     key={s.id}
@@ -265,6 +312,24 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
                         {s.location}
                       </Text>
                     </View>
+
+                    {/* Preview button — auditions ~3 seconds. Stops on
+                        re-tap, on leaving the step, or on unmount. */}
+                    <TouchableOpacity
+                      onPress={() => togglePreview(s)}
+                      hitSlop={10}
+                      style={[
+                        styles.previewBtn,
+                        isPreviewing && styles.previewBtnActive,
+                      ]}
+                    >
+                      <Feather
+                        name={isPreviewing ? "square" : "play"}
+                        size={12}
+                        color={isPreviewing ? GOLD : TEXT}
+                      />
+                    </TouchableOpacity>
+
                     {sel ? (
                       <View style={styles.checkDot}>
                         <Feather name="check" size={12} color="#1A1822" />
@@ -614,6 +679,23 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.12)",
+  },
+
+  // Reciter audition button
+  previewBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  previewBtnActive: {
+    backgroundColor: "rgba(201,147,58,0.18)",
+    borderColor: BORDER_GOLD,
   },
 
   // Summary
