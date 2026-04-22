@@ -64,10 +64,10 @@ function Dots({ current }: { current: number }) {
 }
 
 function MadhabCard({
-  name, arabicName, desc, timing, selected, onPress,
+  name, arabicName, desc, timing, selected, isAuto, onPress,
 }: {
   name: string; arabicName: string; desc: string; timing: string;
-  selected: boolean; onPress: () => void;
+  selected: boolean; isAuto?: boolean; onPress: () => void;
 }) {
   return (
     <TouchableOpacity
@@ -85,7 +85,13 @@ function MadhabCard({
           <Feather name="check" size={10} color={GOLD} />
         </View>
       )}
-      <Text style={[s.madhabAr, { color: selected ? GOLD : TEXT_DIM }]}>{arabicName}</Text>
+      {isAuto && (
+        <View style={s.madhabAutoBadge}>
+          <Feather name="zap" size={8} color={GOLD} />
+          <Text style={s.madhabAutoBadgeText}>Auto</Text>
+        </View>
+      )}
+      <Text style={[s.madhabAr, { color: selected ? GOLD : TEXT_DIM, marginTop: isAuto ? 14 : 0 }]}>{arabicName}</Text>
       <Text style={[s.madhabEn, { color: selected ? TEXT : TEXT_DIM }]}>{name}</Text>
       <View style={s.madhabDivider} />
       <Text style={[s.madhabDesc, { color: selected ? TEXT_DIM : "rgba(240,237,228,0.25)" }]}>
@@ -132,9 +138,11 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     notifPermBlocked,
     madhab,
     setMadhab,
+    madhabAutoSetLabel,
     calcMethod,
     setCalcMethod,
     calcMethodAutoSetLabel,
+    location,
   } = useAppContext();
 
   const [step, setStep] = useState(0);
@@ -152,6 +160,8 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   // arrives after this screen mounts (user landed on step 0, granted GPS,
   // context updated calcMethod, then user advanced to step 2).
   useEffect(() => { setSelectedMethod(calcMethod); }, [calcMethod]);
+  // Same mirror for auto-detected madhab.
+  useEffect(() => { setSelectedMadhab(madhab); }, [madhab]);
 
   const currentMethodInfo = CALC_METHODS.find((m) => m.id === selectedMethod);
 
@@ -423,6 +433,15 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
 
             {/* ── Madhab section ── */}
             <Text style={[s.sectionLabel, { marginTop: 18 }]}>Asr Madhab</Text>
+            {madhabAutoSetLabel && selectedMadhab === madhab && location?.city && (
+              <View style={s.madhabDetectedPill}>
+                <Feather name="map-pin" size={10} color={GOLD} />
+                <Text style={s.madhabDetectedText}>
+                  Detected:{" "}
+                  <Text style={s.madhabDetectedCity}>{location.city}</Text>
+                </Text>
+              </View>
+            )}
             <View style={s.madhabRow}>
               <MadhabCard
                 name="Hanafi"
@@ -430,17 +449,24 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
                 desc="Shadow = 2× height"
                 timing="Later Asr"
                 selected={selectedMadhab === "Hanafi"}
+                isAuto={!!madhabAutoSetLabel && madhab === "Hanafi" && selectedMadhab === "Hanafi"}
                 onPress={() => { haptic.select(); setSelectedMadhab("Hanafi"); }}
               />
               <MadhabCard
-                name="Shafi"
+                name="Shafi'i"
                 arabicName="شافعي"
                 desc="Shadow = 1× height"
                 timing="Earlier Asr"
                 selected={selectedMadhab === "Shafi"}
+                isAuto={!!madhabAutoSetLabel && madhab === "Shafi" && selectedMadhab === "Shafi"}
                 onPress={() => { haptic.select(); setSelectedMadhab("Shafi"); }}
               />
             </View>
+            {madhabAutoSetLabel && (
+              <Text style={s.madhabHint}>
+                Not sure? Keep the suggestion — you can change it any time in Settings.
+              </Text>
+            )}
           </View>
 
           <View style={s.lower}>
@@ -717,6 +743,58 @@ const s = StyleSheet.create({
     backgroundColor: GOLD + "18",
     alignItems: "center",
     justifyContent: "center",
+  },
+  madhabAutoBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingLeft: 5,
+    paddingRight: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: GOLD + "1F",
+    borderWidth: 1,
+    borderColor: GOLD + "55",
+  },
+  madhabAutoBadgeText: {
+    color: GOLD,
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  madhabDetectedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    alignSelf: "flex-start",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: GOLD + "10",
+    borderWidth: 1,
+    borderColor: GOLD + "33",
+    marginBottom: 10,
+  },
+  madhabDetectedText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: "rgba(240,237,228,0.85)",
+    letterSpacing: 0.2,
+  },
+  madhabDetectedCity: {
+    color: GOLD,
+    fontFamily: "Inter_600SemiBold",
+  },
+  madhabHint: {
+    marginTop: 12,
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: TEXT_DIM,
+    lineHeight: 17,
   },
   madhabAr: { fontSize: 22, fontFamily: "Inter_700Bold" },
   madhabEn: { fontSize: 14, fontFamily: "Inter_600SemiBold" },

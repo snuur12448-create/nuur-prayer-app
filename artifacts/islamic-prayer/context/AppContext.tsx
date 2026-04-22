@@ -19,6 +19,7 @@ import {
   DEFAULT_TIME_FORMAT,
 } from "@/utils/prayerTimes";
 import { suggestCalcMethod, getCalcMethodLabel } from "@/utils/calcMethodByCountry";
+import { suggestMadhab, getMadhabLabel } from "@/utils/madhabByCountry";
 import {
   DEFAULT_THEME,
   DEFAULT_DISPLAY_MODE,
@@ -91,6 +92,8 @@ interface AppContextType {
   dismissCalcMethodNotice: () => void;
   madhab: MadhabId;
   setMadhab: (madhab: MadhabId) => void;
+  madhabAutoSetLabel: string | null;
+  dismissMadhabNotice: () => void;
   highLatRule: HighLatRuleId;
   setHighLatRule: (rule: HighLatRuleId) => void;
   timeFormat: TimeFormat;
@@ -218,6 +221,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [calcMethodAutoSetLabel, setCalcMethodAutoSetLabel] = useState<string | null>(null);
   const calcMethodSavedRef = useRef(false);
   const [madhab, setMadhabState] = useState<MadhabId>(DEFAULT_MADHAB);
+  const [madhabAutoSetLabel, setMadhabAutoSetLabel] = useState<string | null>(null);
+  const madhabSavedRef = useRef(false);
   const [highLatRule, setHighLatRuleState] = useState<HighLatRuleId>(DEFAULT_HIGH_LAT_RULE);
   const [timeFormat, setTimeFormatState] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
 
@@ -482,7 +487,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (mode === "auto" || mode === "dark" || mode === "light") setDisplayModeState(mode);
       if (notifs === "true") setNotificationsEnabled(true);
       if (method) { setCalcMethodState(method as CalcMethodId); calcMethodSavedRef.current = true; }
-      if (madhabVal === "Hanafi" || madhabVal === "Shafi") setMadhabState(madhabVal);
+      if (madhabVal === "Hanafi" || madhabVal === "Shafi") {
+        setMadhabState(madhabVal);
+        madhabSavedRef.current = true;
+      }
       if (latRule) setHighLatRuleState(latRule as HighLatRuleId);
       if (fmt === "12h" || fmt === "24h") setTimeFormatState(fmt);
       if (adhanOn === "true") setAdhanEnabled(true);
@@ -594,7 +602,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setMadhab = useCallback(async (m: MadhabId) => {
     setMadhabState(m);
+    madhabSavedRef.current = true;
+    setMadhabAutoSetLabel(null);
     try { await AsyncStorage.setItem(STORAGE_KEYS.MADHAB, m); } catch {}
+  }, []);
+
+  const dismissMadhabNotice = useCallback(() => {
+    setMadhabAutoSetLabel(null);
   }, []);
 
   const setHighLatRule = useCallback(async (rule: HighLatRuleId) => {
@@ -993,6 +1007,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setCalcMethodAutoSetLabel(getCalcMethodLabel(suggested));
         }
       }
+      if (detectedCountryCode && !madhabSavedRef.current) {
+        const suggestedMadhab = suggestMadhab(detectedCountryCode);
+        if (suggestedMadhab) {
+          setMadhabState(suggestedMadhab);
+          madhabRef.current = suggestedMadhab;
+          madhabSavedRef.current = true;
+          try { await AsyncStorage.setItem(STORAGE_KEYS.MADHAB, suggestedMadhab); } catch {}
+          setMadhabAutoSetLabel(getMadhabLabel(suggestedMadhab));
+        }
+      }
       const tz = getTimezoneOffset();
       const locationData: LocationData = {
         latitude, longitude,
@@ -1127,6 +1151,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         dismissCalcMethodNotice,
         madhab,
         setMadhab,
+        madhabAutoSetLabel,
+        dismissMadhabNotice,
         highLatRule,
         setHighLatRule,
         timeFormat,
