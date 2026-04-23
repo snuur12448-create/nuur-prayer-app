@@ -145,9 +145,22 @@ export async function previewAdhan(url: string, cb?: PreviewCallbacks): Promise<
         staysActiveInBackground: false,
         allowsRecordingIOS: false,
       });
+      // Track whether we've already fired onPlaybackStarted, since with
+      // progressive streaming (downloadFirst=false) we hand back a Sound
+      // instance immediately and watch the status updates for the first
+      // moment isPlaying flips true. Without this guard we'd fire the
+      // callback dozens of times.
+      let startedNotified = false;
+
       const { sound } = await Audio.Sound.createAsync(
         { uri: url },
-        { shouldPlay: true, volume: 1.0 }
+        { shouldPlay: true, volume: 1.0, progressUpdateIntervalMillis: 200 },
+        null,
+        // Critical: false = progressive streaming. Default (true) makes
+        // expo-av download the ENTIRE mp3 before reporting loaded — which
+        // means a 3.4 MB Madinah adhan can spend 4-6 seconds buffering on
+        // cellular before any sound emits. Streaming starts within ~500 ms.
+        false,
       );
       // Same race check as web: if a newer preview started while createAsync
       // was running, throw away this sound instead of attaching it.
@@ -157,7 +170,6 @@ export async function previewAdhan(url: string, cb?: PreviewCallbacks): Promise<
         return;
       }
       nativeSound = sound;
-      cb?.onPlaybackStarted?.();
       sound.setOnPlaybackStatusUpdate((status) => {
         if (!status.isLoaded) {
           // Load failure mid-stream (network drop, decode error, etc.) lands
@@ -169,6 +181,14 @@ export async function previewAdhan(url: string, cb?: PreviewCallbacks): Promise<
             if (myGen === previewGen) cb?.onFinishOrError?.(true);
           }
           return;
+        }
+        // Fire onPlaybackStarted the first time the sound is actually emitting
+        // (isPlaying === true). With progressive streaming this can be
+        // slightly later than createAsync resolution, so the spinner stays
+        // up until audio truly begins — honest UI.
+        if (!startedNotified && status.isPlaying) {
+          startedNotified = true;
+          if (myGen === previewGen) cb?.onPlaybackStarted?.();
         }
         if (status.didJustFinish && nativeSound === sound) {
           nativeSound = null;
