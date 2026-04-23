@@ -199,6 +199,20 @@ export default function MoreScreen() {
       ],
     },
     {
+      title: "LEARN",
+      arabic: "التعلم",
+      items: [
+        {
+          label: "How to Pray & Wudu",
+          arabic: "كيفية الصلاة والوضوء",
+          description: "Step-by-step illustrated guide for salah and wudu",
+          route: "/guide",
+          icon: <MaterialCommunityIcons name="hands-pray" size={22} color="#F5D27A" />,
+          accentColor: "#F5D27A",
+        },
+      ],
+    },
+    {
       title: "KNOWLEDGE",
       arabic: "المعرفة",
       items: [
