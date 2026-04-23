@@ -93,14 +93,17 @@ export function Hadith() {
 
             <div style={{
               fontFamily: "'Playfair Display', 'Cormorant Garamond', serif",
-              fontSize: 17,
-              lineHeight: 1.8,
+              fontSize: 19,
+              lineHeight: 1.55,
               textAlign: "center",
-              color: "rgba(245, 236, 215, 0.85)",
-              fontStyle: "italic",
-              maxWidth: "90%",
+              color: "#FBF3DE",
+              fontStyle: "normal",
+              fontWeight: 600,
+              letterSpacing: "0.005em",
+              maxWidth: "92%",
+              textShadow: "0 1px 2px rgba(0,0,0,0.85), 0 0 18px rgba(0,0,0,0.55)",
             }}>
-              "Actions are but by intentions, and every man shall have only that which he intended."
+              “Actions are but by intentions, and every man shall have only that which he intended.”
             </div>
           </div>
 
