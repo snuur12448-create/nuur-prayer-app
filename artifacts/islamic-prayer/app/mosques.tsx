@@ -9,6 +9,7 @@ import {
   FlatList,
   Linking,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -464,6 +465,17 @@ function MosqueDetailSheet({
   const insets = useSafeAreaInsets();
   const [copied, setCopied] = useState(false);
   useEffect(() => { if (!visible) setCopied(false); }, [visible]);
+
+  const dismissPan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 50 || g.vy > 0.5) onClose();
+      },
+    })
+  ).current;
+
   if (!mosque) return null;
 
   const onCopyAddress = async () => {
@@ -527,7 +539,14 @@ function MosqueDetailSheet({
           ]}
         >
           {/* Drag handle */}
-          <View style={[sheetStyles.handle, { backgroundColor: colors.border }]} />
+          <Pressable
+            onPress={onClose}
+            hitSlop={16}
+            style={sheetStyles.handleArea}
+            {...dismissPan.panHandlers}
+          >
+            <View style={[sheetStyles.handle, { backgroundColor: colors.border }]} />
+          </Pressable>
 
           {/* Header */}
           <View style={sheetStyles.header}>
@@ -1247,12 +1266,16 @@ const sheetStyles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 10,
   },
+  handleArea: {
+    alignSelf: "stretch",
+    alignItems: "center",
+    paddingVertical: 8,
+    marginBottom: 6,
+  },
   handle: {
     width: 38,
     height: 4,
     borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 12,
   },
   header: {
     flexDirection: "row",

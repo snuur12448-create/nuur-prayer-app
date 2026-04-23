@@ -5,6 +5,7 @@ import {
   FlatList,
   Keyboard,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -146,6 +147,16 @@ export function LocationModal({
 
   const showResults = results.length > 0 && query.trim().length >= 2;
 
+  const dismissPan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 50 || g.vy > 0.5) onClose();
+      },
+    })
+  ).current;
+
   return (
     <Modal
       visible={visible}
@@ -158,7 +169,7 @@ export function LocationModal({
       </TouchableWithoutFeedback>
 
       <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Pressable onPress={onClose} hitSlop={16} style={styles.handleArea}>
+        <Pressable onPress={onClose} hitSlop={16} style={styles.handleArea} {...dismissPan.panHandlers}>
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
         </Pressable>
 

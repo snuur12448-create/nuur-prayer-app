@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import {
   Animated,
   Modal,
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
@@ -120,6 +121,16 @@ export function ThemePicker({
     setThemeName(name);
   };
 
+  const dismissPan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 50 || g.vy > 0.5) onClose();
+      },
+    })
+  ).current;
+
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
@@ -134,7 +145,9 @@ export function ThemePicker({
         ]}
       >
         {/* Handle bar */}
-        <View style={[styles.handle, { backgroundColor: themeColors.border }]} />
+        <Pressable onPress={onClose} hitSlop={16} style={styles.handleArea} {...dismissPan.panHandlers}>
+          <View style={[styles.handle, { backgroundColor: themeColors.border }]} />
+        </Pressable>
 
         {/* Header */}
         <View style={styles.header}>
@@ -193,12 +206,16 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingTop: 12,
   },
+  handleArea: {
+    alignSelf: "stretch",
+    alignItems: "center",
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 16,
   },
   header: {
     flexDirection: "row",
