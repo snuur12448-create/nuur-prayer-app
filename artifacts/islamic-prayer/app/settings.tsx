@@ -675,8 +675,8 @@ export default function SettingsScreen() {
               الإعدادات
             </Text>
           </View>
-          <View style={[styles.headerBadge, { borderColor: colors.gold + "55" }]}>
-            <NuurMark size={11} />
+          <View style={[styles.headerBadge, { borderColor: colors.gold, backgroundColor: colors.gold + "1A" }]}>
+            <NuurMark size={12} />
             <Text style={[styles.headerBadgeText, { color: colors.gold }]}>NUUR</Text>
           </View>
         </View>
