@@ -203,9 +203,9 @@ export default function MoreScreen() {
       arabic: "التعلم",
       items: [
         {
-          label: "How to Pray & Wudu",
-          arabic: "كيفية الصلاة والوضوء",
-          description: "Step-by-step illustrated guide for salah and wudu",
+          label: "How to Pray, Wudu & Ghusl",
+          arabic: "الصلاة والوضوء والغسل",
+          description: "Step-by-step guides for salah, wudu and full purification",
           route: "/guide",
           icon: <MaterialCommunityIcons name="hands-pray" size={22} color="#F5D27A" />,
           accentColor: "#F5D27A",

@@ -211,7 +211,79 @@ const PRAYER_STEPS: GuideStep[] = [
   },
 ];
 
-type Tab = "wudhu" | "prayer";
+const GHUSL_STEPS: GuideStep[] = [
+  {
+    number: 1,
+    title: "Make Intention (Niyyah)",
+    arabic: "نِيَّة",
+    description: "Intend in your heart that you are performing ghusl to lift major impurity (janabah, end of menses or nifas) and to purify yourself for worship. The intention is silent.",
+    tip: "Ghusl without niyyah is just a bath — the intention is what makes it an act of worship.",
+  },
+  {
+    number: 2,
+    title: "Say Bismillah",
+    arabic: "بِسْمِ اللَّهِ",
+    description: "Begin by saying 'Bismillah' (In the name of Allah), as the Prophet ﷺ did before all acts of purification.",
+    dua: "بِسْمِ اللَّهِ",
+    duaTranslation: "In the name of Allah",
+  },
+  {
+    number: 3,
+    title: "Wash Hands Three Times",
+    arabic: "غَسْلُ الْيَدَيْنِ",
+    description: "Wash both hands up to and including the wrists three times, ensuring water reaches between the fingers. Start with the right.",
+  },
+  {
+    number: 4,
+    title: "Wash the Private Parts",
+    arabic: "غَسْلُ الْفَرْج",
+    description: "Using your left hand, wash the private parts and any area that may have impurity on it. Then wash your left hand thoroughly with soap and water.",
+    tip: "This step removes any impurity (najasah) before the main washing begins.",
+  },
+  {
+    number: 5,
+    title: "Perform a Full Wudhu",
+    arabic: "الْوُضُوء",
+    description: "Perform a complete wudhu as you would for prayer, with one option: you may delay washing your feet until the very end of the ghusl, after stepping out of the washing area.",
+    tip: "Check the Wudhu tab if you need a refresher on the steps.",
+  },
+  {
+    number: 6,
+    title: "Pour Water Over the Head",
+    arabic: "إِفَاضَةُ الْمَاءِ عَلَى الرَّأْس",
+    description: "Pour water over your head three times, working your fingers through your scalp and hair so the water reaches the roots. Women with braided hair do not need to undo their braids — pouring water until it reaches the scalp is sufficient.",
+    tip: "If you are not certain water reached the scalp, do it again. The roots must be wet.",
+  },
+  {
+    number: 7,
+    title: "Pour Water Over the Right Side",
+    arabic: "إِفَاضَةُ الْمَاءِ عَلَى الْجَانِبِ الأَيْمَن",
+    description: "Pour water over the right side of your body — from shoulder to foot — making sure water flows over the entire right half. Rub the body to ensure water reaches every area, including under the arms, navel and behind the ears.",
+  },
+  {
+    number: 8,
+    title: "Pour Water Over the Left Side",
+    arabic: "إِفَاضَةُ الْمَاءِ عَلَى الْجَانِبِ الأَيْسَر",
+    description: "Pour water over the left side of your body in the same manner. No part of the skin or hair root may be left dry — if a single dry spot remains, the ghusl is not complete.",
+    tip: "Pay attention to folds: behind the knees, between the toes, the navel, the inner ears.",
+  },
+  {
+    number: 9,
+    title: "Wash the Feet (if delayed)",
+    arabic: "غَسْلُ الْقَدَمَيْنِ",
+    description: "If you delayed washing your feet during step 5, step away from the washing area and wash both feet now — right first, then left, up to and including the ankles.",
+  },
+  {
+    number: 10,
+    title: "Closing Dua",
+    arabic: "دُعَاءُ الطُّهُورِ",
+    description: "After completing ghusl, the same supplication recited after wudhu may be said.",
+    dua: "أَشْهَدُ أَنْ لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، وَأَشْهَدُ أَنَّ مُحَمَّداً عَبْدُهُ وَرَسُولُهُ",
+    duaTranslation: "I bear witness that there is no god but Allah alone, with no partner, and I bear witness that Muhammad is His servant and messenger.",
+  },
+];
+
+type Tab = "wudhu" | "prayer" | "ghusl";
 
 export default function GuideScreen() {
   const { themeColors: colors } = useAppContext();
@@ -221,7 +293,25 @@ export default function GuideScreen() {
   const topPad = isWeb ? Math.max(insets.top, 67) : insets.top;
   const [activeTab, setActiveTab] = useState<Tab>("wudhu");
 
-  const steps = activeTab === "wudhu" ? WUDHU_STEPS : PRAYER_STEPS;
+  const steps =
+    activeTab === "wudhu" ? WUDHU_STEPS :
+    activeTab === "prayer" ? PRAYER_STEPS :
+    GHUSL_STEPS;
+
+  const headerTitle =
+    activeTab === "wudhu" ? "Wudhu Guide" :
+    activeTab === "prayer" ? "How to Pray" :
+    "Ghusl Guide";
+
+  const headerArabic =
+    activeTab === "wudhu" ? "دَلِيلُ الْوُضُوء" :
+    activeTab === "prayer" ? "كَيْفِيَّةُ الصَّلَاة" :
+    "دَلِيلُ الْغُسْل";
+
+  const headerSub =
+    activeTab === "wudhu" ? `${WUDHU_STEPS.length} steps · Following the Sunnah of the Prophet ﷺ` :
+    activeTab === "prayer" ? `${PRAYER_STEPS.length} steps · Step-by-step Salah guide` :
+    `${GHUSL_STEPS.length} steps · Full ritual purification (janabah, menses, reverts)`;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -232,22 +322,15 @@ export default function GuideScreen() {
         </Pressable>
 
         <View style={styles.headerContent}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            {activeTab === "wudhu" ? "Wudhu Guide" : "How to Pray"}
-          </Text>
-          <Text style={[styles.headerArabic, { color: colors.tint }]}>
-            {activeTab === "wudhu" ? "دَلِيلُ الْوُضُوء" : "كَيْفِيَّةُ الصَّلَاة"}
-          </Text>
-          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>
-            {activeTab === "wudhu"
-              ? `${WUDHU_STEPS.length} steps · Following the Sunnah of the Prophet ﷺ`
-              : `${PRAYER_STEPS.length} steps · Step-by-step Salah guide`}
-          </Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>{headerTitle}</Text>
+          <Text style={[styles.headerArabic, { color: colors.tint }]}>{headerArabic}</Text>
+          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>{headerSub}</Text>
         </View>
 
-        {/* Tab switcher */}
+        {/* Tab switcher — three tabs now; labels stay short so all three fit on
+            the narrowest phone widths without the text wrapping. */}
         <View style={[styles.tabRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {(["wudhu", "prayer"] as Tab[]).map((tab) => (
+          {(["wudhu", "prayer", "ghusl"] as Tab[]).map((tab) => (
             <Pressable
               key={tab}
               onPress={() => setActiveTab(tab)}
@@ -260,7 +343,7 @@ export default function GuideScreen() {
                 styles.tabBtnText,
                 { color: activeTab === tab ? "#fff" : colors.textSecondary },
               ]}>
-                {tab === "wudhu" ? "🌊 Wudhu" : "🕌 Prayer"}
+                {tab === "wudhu" ? "🌊 Wudhu" : tab === "prayer" ? "🕌 Prayer" : "💧 Ghusl"}
               </Text>
             </Pressable>
           ))}
@@ -287,7 +370,9 @@ export default function GuideScreen() {
           <View style={[styles.noteAccent, { backgroundColor: colors.gold }]} />
           <View style={styles.noteInner}>
             <Text style={[styles.noteTitle, { color: colors.gold }]}>
-              {activeTab === "wudhu" ? "What Breaks Wudhu?" : "Common Mistakes to Avoid"}
+              {activeTab === "wudhu" ? "What Breaks Wudhu?" :
+               activeTab === "prayer" ? "Common Mistakes to Avoid" :
+               "When is Ghusl Required?"}
             </Text>
             {activeTab === "wudhu" ? (
               <>
@@ -297,13 +382,22 @@ export default function GuideScreen() {
                 <NoteItem colors={colors} text="Touching private parts directly (according to some scholars)" />
                 <NoteItem colors={colors} text="Eating camel meat (according to some madhabs)" />
               </>
-            ) : (
+            ) : activeTab === "prayer" ? (
               <>
                 <NoteItem colors={colors} text="Forgetting to recite Al-Fatihah in a raka'ah (it is a pillar)" />
                 <NoteItem colors={colors} text="Not completing the seven prostration limbs in sujud" />
                 <NoteItem colors={colors} text="Rushing through ruku or sujud without being still (tuma'ninah)" />
                 <NoteItem colors={colors} text="Talking or laughing during prayer — it invalidates it" />
                 <NoteItem colors={colors} text="Performing actions outside of prayer (eating, drinking) invalidates it" />
+              </>
+            ) : (
+              <>
+                <NoteItem colors={colors} text="After sexual intercourse or any release of sexual fluid (janabah)" />
+                <NoteItem colors={colors} text="At the end of menstruation (haid)" />
+                <NoteItem colors={colors} text="At the end of postnatal bleeding (nifas)" />
+                <NoteItem colors={colors} text="When embracing Islam — recommended for the new Muslim" />
+                <NoteItem colors={colors} text="Before Friday (Jumu'ah) prayer — strongly recommended Sunnah" />
+                <NoteItem colors={colors} text="Before the two Eid prayers — recommended Sunnah" />
               </>
             )}
           </View>
