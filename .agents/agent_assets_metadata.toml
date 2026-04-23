@@ -1,5 +1,10 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "Tym14Gy3EuOw5ezWkE_4Z"
+uri = "file://artifacts/mockup-sandbox/public/images/hadith-lamp.png"
+type = "image"
+title = "antique brass mosque lamp glowing"
 
 [[outputs]]
 id = "7TUHSGXs-Ags9m_n5lXzg"
