@@ -1,0 +1,86 @@
+import { ImageSourcePropType } from 'react-native';
+
+export type CardCategory =
+  // Morning
+  | 'morning_adhkar' | 'morning_dua'
+  // Evening
+  | 'evening_adhkar' | 'evening_dua'
+  // Night
+  | 'night_dua' | 'istighfar' | 'isha_reflection'
+  // Names of Allah — grouped by theme
+  | 'name_mercy'      // Ar-Rahman, Ar-Rahim, Al-Wadud, Al-Ghafur
+  | 'name_power'      // Al-Aziz, Al-Jabbar, Al-Qahhar
+  | 'name_knowledge'  // Al-Alim, Al-Hakim, Al-Khabir
+  | 'name_general'
+  // Ayahs — grouped by theme
+  | 'ayah_patience'   // trial, endurance, sabr
+  | 'ayah_mercy'      // compassion, forgiveness
+  | 'ayah_general'
+  // Hadiths — grouped by theme
+  | 'hadith_prayer'
+  | 'hadith_knowledge'
+  | 'hadith_intentions'
+  | 'hadith_general';
+
+export const categoryBackgrounds: Record<CardCategory, ImageSourcePropType> = {
+  morning_adhkar:   require('../assets/backgrounds/dawn-minaret.webp'),
+  morning_dua:      require('../assets/backgrounds/dawn-minaret.webp'),
+  evening_adhkar:   require('../assets/backgrounds/dusk-mosque.webp'),
+  evening_dua:      require('../assets/backgrounds/dusk-mosque.webp'),
+  night_dua:        require('../assets/backgrounds/night-mosque.webp'),
+  istighfar:        require('../assets/backgrounds/night-mosque.webp'),
+  isha_reflection:  require('../assets/backgrounds/night-mosque.webp'),
+  name_mercy:       require('../assets/backgrounds/warm-garden.webp'),
+  name_power:       require('../assets/backgrounds/starry-sky.webp'),
+  name_knowledge:   require('../assets/backgrounds/starry-sky.webp'),
+  name_general:     require('../assets/backgrounds/warm-garden.webp'),
+  ayah_patience:    require('../assets/backgrounds/misty-mountain.webp'),
+  ayah_mercy:       require('../assets/backgrounds/warm-garden.webp'),
+  ayah_general:     require('../assets/backgrounds/starry-sky.webp'),
+  hadith_prayer:    require('../assets/backgrounds/night-mosque.webp'),
+  hadith_knowledge: require('../assets/backgrounds/starry-sky.webp'),
+  hadith_intentions:require('../assets/backgrounds/night-mosque.webp'),
+  hadith_general:   require('../assets/backgrounds/night-mosque.webp'),
+};
+
+export const categoryAccents: Record<CardCategory, string> = {
+  morning_adhkar:   '#F5C77E',
+  morning_dua:      '#F5C77E',
+  evening_adhkar:   '#D4A574',
+  evening_dua:      '#D4A574',
+  night_dua:        '#C9B896',
+  istighfar:        '#A8B5C8',
+  isha_reflection:  '#C9B896',
+  name_mercy:       '#E8C88A',
+  name_power:       '#B8A5D1',
+  name_knowledge:   '#A8B5D8',
+  name_general:     '#E8C88A',
+  ayah_patience:    '#C8B89A',
+  ayah_mercy:       '#E8C88A',
+  ayah_general:     '#C9B896',
+  hadith_prayer:    '#D4B27E',
+  hadith_knowledge: '#C9B896',
+  hadith_intentions:'#D4B27E',
+  hadith_general:   '#D4B27E',
+};
+
+export const categoryLabels: Record<CardCategory, string> = {
+  morning_adhkar:   'Morning Adhkār',
+  morning_dua:      'Morning Duʿāʾ',
+  evening_adhkar:   'Evening Adhkār',
+  evening_dua:      'Evening Duʿāʾ',
+  night_dua:        'Night Duʿāʾ',
+  istighfar:        'Istighfār',
+  isha_reflection:  'Night · Reflection',
+  name_mercy:       'The 99 Names',
+  name_power:       'The 99 Names',
+  name_knowledge:   'The 99 Names',
+  name_general:     'The 99 Names',
+  ayah_patience:    'Qurʾān · Ayah',
+  ayah_mercy:       'Qurʾān · Ayah',
+  ayah_general:     'Qurʾān · Ayah',
+  hadith_prayer:    'Ḥadīth · Ṣalāh',
+  hadith_knowledge: 'Ḥadīth · ʿIlm',
+  hadith_intentions:'Ḥadīth · Niyyah',
+  hadith_general:   'Ḥadīth · Ṣaḥīḥ',
+};
