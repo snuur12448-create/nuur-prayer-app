@@ -173,14 +173,6 @@ export default function MoreScreen() {
       arabic: "العبادة",
       items: [
         {
-          label: "Duas & Adhkar",
-          arabic: "الأدعية والأذكار",
-          description: "Daily supplications, morning & evening adhkar",
-          route: "/dua",
-          icon: <Feather name="heart" size={22} color="#E8A87C" />,
-          accentColor: "#E8A87C",
-        },
-        {
           label: "Tasbeeh & Dhikr",
           arabic: "التسبيح",
           description: "Counter with preset phrases and post-prayer guide",
