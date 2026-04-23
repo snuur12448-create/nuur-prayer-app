@@ -173,6 +173,14 @@ export default function MoreScreen() {
       arabic: "العبادة",
       items: [
         {
+          label: "Prayer Tracker",
+          arabic: "متابعة الصلوات",
+          description: "Daily streak, week view and milestones",
+          route: "/tracker",
+          icon: <Feather name="zap" size={22} color="#F77F2E" />,
+          accentColor: "#F77F2E",
+        },
+        {
           label: "Tasbeeh & Dhikr",
           arabic: "التسبيح",
           description: "Counter with preset phrases and post-prayer guide",
