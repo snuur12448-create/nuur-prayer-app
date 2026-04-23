@@ -3,7 +3,7 @@ import { BrandLockup, CardFrame, CREAM, CREAM_DIM, GOLD, LabelBand, NuurMark, St
 
 export function Hadith() {
   return (
-    <CardFrame bgUrl="/__mockup/images/bg-hadith.png">
+    <CardFrame glow="warm" decor="mosque-right">
       {/* TOP: Nuur mark */}
       <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
         <NuurMark size={32} />

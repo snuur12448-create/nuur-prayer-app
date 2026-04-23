@@ -125,14 +125,62 @@ export function BrandLockup() {
   );
 }
 
-/** Card frame: full-bleed background image + dark vignette + content slot. */
-export function CardFrame({
-  bgUrl,
-  children,
-}: {
-  bgUrl: string;
+/** Subtle mosque silhouette with two domes + minaret. */
+function MosqueSilhouette({ side = "right" }: { side?: "left" | "right" }) {
+  const flip = side === "left" ? "scaleX(-1)" : "none";
+  return (
+    <svg
+      width={220}
+      height={120}
+      viewBox="0 0 220 120"
+      style={{ display: "block", transform: flip }}
+    >
+      <g fill="rgba(6, 14, 9, 0.85)">
+        {/* far dome */}
+        <path d="M40,120 L40,80 Q40,55 60,55 Q80,55 80,80 L80,120 Z" />
+        {/* main dome */}
+        <path d="M85,120 L85,70 Q85,40 115,40 Q145,40 145,70 L145,120 Z" />
+        {/* tip */}
+        <rect x="113" y="28" width="4" height="16" />
+        {/* minaret */}
+        <rect x="160" y="40" width="8" height="80" />
+        <path d="M160,40 L168,40 L164,30 Z" />
+        {/* base wall */}
+        <rect x="20" y="100" width="200" height="20" />
+      </g>
+    </svg>
+  );
+}
+
+/** Subtle decorative leaf cluster. */
+function LeafCluster() {
+  return (
+    <svg width={140} height={200} viewBox="0 0 140 200" style={{ display: "block" }}>
+      <g fill="rgba(6, 14, 9, 0.75)" stroke="rgba(20, 40, 28, 0.6)" strokeWidth={0.5}>
+        <path d="M70,200 Q60,160 90,140 Q110,160 100,200 Z" />
+        <path d="M55,200 Q40,140 75,110 Q100,140 90,200 Z" />
+        <path d="M85,200 Q90,150 120,130 Q130,170 115,200 Z" />
+        <path d="M40,200 Q30,170 55,150 Q70,180 60,200 Z" />
+      </g>
+    </svg>
+  );
+}
+
+interface CardFrameProps {
+  /** "warm" puts a sun-glow center; "rise" puts the glow at lower-left like sunrise. */
+  glow?: "warm" | "rise";
+  /** Optional silhouette decoration corner. */
+  decor?: "mosque-right" | "mosque-leaves" | "leaves-right" | "none";
   children: React.ReactNode;
-}) {
+}
+
+/** Card frame: deep-green canvas with procedural sun-glow + silhouettes. */
+export function CardFrame({ glow = "warm", decor = "mosque-right", children }: CardFrameProps) {
+  const glowStyle =
+    glow === "rise"
+      ? "radial-gradient(circle at 18% 60%, rgba(255, 178, 90, 0.32) 0%, rgba(201, 147, 58, 0.12) 22%, rgba(9, 21, 13, 0) 55%)"
+      : "radial-gradient(circle at 50% 38%, rgba(255, 200, 110, 0.30) 0%, rgba(201, 147, 58, 0.12) 25%, rgba(9, 21, 13, 0) 60%)";
+
   return (
     <div
       style={{
@@ -154,27 +202,42 @@ export function CardFrame({
           overflow: "hidden",
           boxShadow: "0 20px 50px rgba(0,0,0,0.55)",
           color: CREAM,
-          backgroundColor: "#09150D",
+          background:
+            "linear-gradient(180deg, #0B1812 0%, #0A1610 45%, #07110B 100%)",
         }}
       >
-        <img
-          src={bgUrl}
-          alt=""
+        {/* Sun glow */}
+        <div
           style={{
             position: "absolute",
             inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
+            background: glowStyle,
+            pointerEvents: "none",
           }}
         />
-        {/* subtle vignette for legibility */}
+        {/* Decor silhouettes */}
+        {(decor === "mosque-right" || decor === "mosque-leaves") && (
+          <div style={{ position: "absolute", right: -10, bottom: 0, opacity: 0.95, pointerEvents: "none" }}>
+            <MosqueSilhouette side="right" />
+          </div>
+        )}
+        {(decor === "leaves-right" || decor === "mosque-leaves") && (
+          <div style={{ position: "absolute", right: -20, bottom: -10, opacity: 0.9, pointerEvents: "none" }}>
+            <LeafCluster />
+          </div>
+        )}
+        {decor === "mosque-leaves" && (
+          <div style={{ position: "absolute", left: -10, bottom: 0, opacity: 0.95, pointerEvents: "none" }}>
+            <MosqueSilhouette side="left" />
+          </div>
+        )}
+        {/* Vignette */}
         <div
           style={{
             position: "absolute",
             inset: 0,
             background:
-              "radial-gradient(ellipse at center, rgba(9,21,13,0) 35%, rgba(9,21,13,0.4) 100%)",
+              "radial-gradient(ellipse at center, rgba(9,21,13,0) 40%, rgba(4,10,7,0.55) 100%)",
             pointerEvents: "none",
           }}
         />
@@ -184,7 +247,7 @@ export function CardFrame({
             inset: 0,
             display: "flex",
             flexDirection: "column",
-            padding: "36px 36px 36px 36px",
+            padding: "36px 36px 32px 36px",
           }}
         >
           {children}

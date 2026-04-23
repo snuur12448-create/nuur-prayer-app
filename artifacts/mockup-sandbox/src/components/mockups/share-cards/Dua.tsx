@@ -3,7 +3,7 @@ import { BrandLockup, CardFrame, CREAM, CREAM_DIM, GOLD, LabelBand, NuurMark, St
 
 export function Dua() {
   return (
-    <CardFrame bgUrl="/__mockup/images/bg-dua.png">
+    <CardFrame glow="rise" decor="mosque-leaves">
       {/* TOP: Nuur mark */}
       <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
         <NuurMark size={32} />
