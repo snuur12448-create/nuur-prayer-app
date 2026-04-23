@@ -902,9 +902,9 @@ export default function SettingsScreen() {
             <View style={styles.rowLeft}>
               <Feather name="volume-2" size={16} color={colors.gold} style={styles.rowIcon} />
               <View style={{ flex: 1 }}>
-                <Text style={[styles.rowLabel, { color: colors.text }]}>Play Adhan</Text>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Adhan at prayer time</Text>
                 <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
-                  Plays the call to prayer at each prayer time
+                  Full call to prayer plays for Fajr, Dhuhr, Asr, Maghrib & Isha
                 </Text>
               </View>
             </View>
