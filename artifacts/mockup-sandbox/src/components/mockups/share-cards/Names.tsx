@@ -3,7 +3,7 @@ import { BrandLockup, CardFrame, CREAM, CREAM_DIM, GOLD, GOLD_DIM, LabelBand, Nu
 
 export function Names() {
   return (
-    <CardFrame bgUrl="/__mockup/images/bg-names.png">
+    <CardFrame glow="warm" decor="mosque-right">
       {/* TOP: Nuur mark */}
       <div style={{ display: "flex", justifyContent: "center", marginTop: 6 }}>
         <NuurMark size={32} />
