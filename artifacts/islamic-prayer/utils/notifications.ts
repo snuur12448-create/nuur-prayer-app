@@ -18,6 +18,30 @@ import { PrayerNotifConfig, PrayerKey } from "./prayerNotifData";
 export const NOTIF_SNOOZE_UNTIL_KEY = "notif_snooze_until";
 export const PRAYER_PRE_REMINDER_KEY = "prayer_pre_reminder_minutes";
 
+// Wall-clock timestamp (ms) of the last successful schedulePrayerNotifications
+// call. Used by the AppState foreground listener in AppContext to decide whether
+// the rolling 7-day notification window needs to be refreshed. Without this,
+// users who keep the app installed but rarely open settings will silently run
+// out of scheduled notifications after ~7 days.
+export const NOTIF_LAST_SCHEDULED_KEY = "notif_last_scheduled_at";
+
+/**
+ * Returns the age in ms of the most recent schedule, or Number.POSITIVE_INFINITY
+ * if we've never scheduled (or storage is unreadable). Callers use this to
+ * decide whether to reschedule on app foreground.
+ */
+export async function getMillisSinceLastSchedule(): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(NOTIF_LAST_SCHEDULED_KEY);
+    if (!raw) return Number.POSITIVE_INFINITY;
+    const t = Number(raw);
+    if (!Number.isFinite(t)) return Number.POSITIVE_INFINITY;
+    return Math.max(0, Date.now() - t);
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
 async function readSnoozeUntil(): Promise<number> {
   try {
     const raw = await AsyncStorage.getItem(NOTIF_SNOOZE_UNTIL_KEY);
@@ -555,6 +579,14 @@ export async function schedulePrayerNotifications(
       }
     }
   }
+
+  // Mark this schedule run so the foreground listener can decide when the
+  // rolling 7-day window has gone stale (see getMillisSinceLastSchedule).
+  // Wrapped in try/catch so AsyncStorage failures never bubble up — the
+  // notifications themselves were already scheduled successfully above.
+  try {
+    await AsyncStorage.setItem(NOTIF_LAST_SCHEDULED_KEY, String(Date.now()));
+  } catch {}
 }
 
 export async function cancelAllPrayerNotifications(): Promise<void> {

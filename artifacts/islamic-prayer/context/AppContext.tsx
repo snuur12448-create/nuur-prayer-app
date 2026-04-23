@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Alert, Linking, Platform, useColorScheme } from "react-native";
+import { Alert, AppState, Linking, Platform, useColorScheme } from "react-native";
 import {
   calculatePrayerTimes,
   applyPrayerOffsets,
@@ -30,6 +30,7 @@ import {
 } from "@/constants/themes";
 import {
   cancelAllPrayerNotifications,
+  getMillisSinceLastSchedule,
   requestNotificationPermission,
   requestNotificationPermissionDetailed,
   schedulePrayerNotifications,
@@ -818,6 +819,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
     );
   }, [location]);
+
+  // ── Foreground reschedule (rolling 7-day window) ─────────────────────────
+  // We only schedule the next ~7 days of prayer notifications at a time
+  // (iOS hard-caps pending local notifications at 64). If the user keeps the
+  // app installed but rarely opens it, the queue drains and notifications
+  // silently stop firing after a week.
+  //
+  // To keep the queue topped up: every time the app comes to the foreground,
+  // if the last successful schedule run is older than the threshold below,
+  // we transparently reschedule using the current settings. The user sees
+  // nothing — it's just a silent refresh that makes the rolling window real.
+  //
+  // Threshold rationale: 6 hours is short enough that a daily user always has
+  // a fresh queue, but long enough that opening the app many times in a row
+  // (e.g. flipping between tabs while idle) doesn't thrash the OS scheduler.
+  const FOREGROUND_RESCHEDULE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    let inFlight = false;
+    const maybeReschedule = async () => {
+      if (inFlight) return;
+      if (!notificationsRef.current || !location) return;
+      const ageMs = await getMillisSinceLastSchedule();
+      if (ageMs < FOREGROUND_RESCHEDULE_MAX_AGE_MS) return;
+      inFlight = true;
+      try {
+        await rescheduleAll();
+      } finally {
+        inFlight = false;
+      }
+    };
+    // Run once on mount in case startup reschedule was skipped (e.g. notifs
+    // were toggled on later) and the queue is now stale from a previous session.
+    maybeReschedule();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void maybeReschedule();
+    });
+    return () => sub.remove();
+  }, [location, rescheduleAll]);
 
   const setNotifSnoozeUntil = useCallback(async (timestamp: number) => {
     setNotifSnoozeUntilState(timestamp);
