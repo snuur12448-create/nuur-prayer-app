@@ -658,16 +658,24 @@ export default function QuranDetailScreen() {
   // Load verses — cache first (instant), then network if not cached.
   // After verses are on screen, silently prefetch the next two surahs so the
   // next "next" tap is instant even on a flight or in a masjid basement.
-  useEffect(() => {
-    isMountedRef.current = true;
+  //
+  // The loader is held in a ref so the Retry button in the error UI below can
+  // re-trigger it without remounting the screen (which would also drop the
+  // user's reciter, transliteration toggle, audio state, etc.). The current
+  // AbortController is also tracked so retry cancels any in-flight request.
+  const loadVersesAbortRef = useRef<AbortController | null>(null);
+  const runLoadVerses = useCallback(() => {
+    loadVersesAbortRef.current?.abort();
+    const controller = new AbortController();
+    loadVersesAbortRef.current = controller;
+
     setVerses(null);
     setVersesError(false);
     setLoadingVerses(true);
 
-    const controller = new AbortController();
     loadVerses(surahNumber, controller.signal)
       .then((mapped) => {
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current || controller.signal.aborted) return;
         setVerses(mapped as Verse[]);
         setLoadingVerses(false);
         // Quietly warm up neighbours after current surah is on screen.
@@ -678,12 +686,16 @@ export default function QuranDetailScreen() {
         setVersesError(true);
         setLoadingVerses(false);
       });
+  }, [surahNumber]);
 
+  useEffect(() => {
+    isMountedRef.current = true;
+    runLoadVerses();
     return () => {
-      controller.abort();
+      loadVersesAbortRef.current?.abort();
       isMountedRef.current = false;
     };
-  }, [surahNumber]);
+  }, [runLoadVerses]);
 
   // Load word-by-word — cache first, network fallback.
   useEffect(() => {
@@ -1301,6 +1313,22 @@ export default function QuranDetailScreen() {
           <Feather name="wifi-off" size={40} color={colors.textSecondary} />
           <Text style={[styles.errorTitle, { color: colors.text }]}>Unable to load verses</Text>
           <Text style={[styles.errorSub, { color: colors.textSecondary }]}>Check your internet connection</Text>
+          <Pressable
+            onPress={runLoadVerses}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading verses"
+            style={({ pressed }) => [
+              styles.errorRetryBtn,
+              {
+                backgroundColor: colors.tint + "20",
+                borderColor: colors.tint + "55",
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Feather name="refresh-cw" size={14} color={colors.tint} />
+            <Text style={[styles.errorRetryText, { color: colors.tint }]}>Try Again</Text>
+          </Pressable>
         </View>
       ) : (
         <FlashList
@@ -1612,6 +1640,17 @@ const styles = StyleSheet.create({
   loadingText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   errorTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold" },
   errorSub: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  errorRetryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginTop: 16,
+  },
+  errorRetryText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   header: { paddingHorizontal: 20, paddingBottom: 16 },
   headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
   backBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
