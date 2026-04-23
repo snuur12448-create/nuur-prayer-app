@@ -582,6 +582,36 @@ function fmt12h(h24: number, minute: number): string {
   return `${h12}:${mm} ${isPM ? "PM" : "AM"}`;
 }
 
+/* ── Privacy pledge row ─────────────────────────────────────
+   Stacked icon + title + body inside a GroupCard slot. The body
+   text wraps and adds vertical breathing room compared to a
+   single-line cardRow. Icon is constrained to Feather glyphs so
+   colors stay consistent with the rest of the section.            */
+
+function PledgeRow({
+  colors,
+  icon,
+  title,
+  body,
+}: {
+  colors: any;
+  icon: React.ComponentProps<typeof Feather>["name"];
+  title: string;
+  body: string;
+}) {
+  return (
+    <View style={styles.pledgeRow}>
+      <View style={[styles.pledgeIconWrap, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "12" }]}>
+        <Feather name={icon} size={14} color={colors.gold} />
+      </View>
+      <View style={styles.pledgeTextCol}>
+        <Text style={[styles.pledgeTitle, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.pledgeBody, { color: colors.textSecondary }]}>{body}</Text>
+      </View>
+    </View>
+  );
+}
+
 /* ============================================================
    Settings screen
    ============================================================ */
@@ -1199,6 +1229,51 @@ export default function SettingsScreen() {
           colors={colors}
         />
 
+        {/* ── PRIVACY ── */}
+        {/*
+          A "Privacy Centre" inspired by Pillars. Three goals:
+            1. Reassure the user — Nuur is local-first by design.
+            2. Help with App Store review — explicit "no GPS leaves this device" claim.
+            3. Be honest — disclose the *one* network request the app makes
+               (audio recitations stream from verses.quran.com when played).
+          Plain-English copy, no legalese — the formal Privacy Policy link is
+          still in About below.
+        */}
+        <SectionDivider label="PRIVACY · الخصوصية" colors={colors} />
+        <Text style={[styles.privacyIntro, { color: colors.textSecondary }]}>
+          Nuur is built to live on your phone, not on a server. Your location,
+          prayer history, and bookmarks never leave this device.
+        </Text>
+        <GroupCard colors={colors}>
+          <PledgeRow
+            colors={colors}
+            icon="map-pin"
+            title="No location ever leaves this device"
+            body="Your coordinates are used only on this phone to compute prayer times and Qibla direction. Nuur has no servers — your location can't be sent anywhere."
+          />
+          <RowSeparator colors={colors} />
+          <PledgeRow
+            colors={colors}
+            icon="user-x"
+            title="No accounts, no sign-in"
+            body="Nuur doesn't ask who you are. There are no profiles to create and nothing to log into."
+          />
+          <RowSeparator colors={colors} />
+          <PledgeRow
+            colors={colors}
+            icon="eye-off"
+            title="No analytics, no trackers"
+            body="No third-party SDKs measure how you use the app. Your prayer tracker, qadā count, and adhkār streaks stay private to you."
+          />
+          <RowSeparator colors={colors} />
+          <PledgeRow
+            colors={colors}
+            icon="download-cloud"
+            title="What does leave your phone — honestly"
+            body="When you tap play on a recitation, the audio file is fetched from verses.quran.com (Quran.com's CDN). That single audio request is the only network call Nuur makes."
+          />
+        </GroupCard>
+
         {/* ── ABOUT ── */}
         <SectionDivider label="ABOUT · حول" colors={colors} />
         <GroupCard colors={colors}>
@@ -1636,4 +1711,44 @@ const styles = StyleSheet.create({
   },
   endLine: { flex: 1, height: StyleSheet.hairlineWidth },
   endGlyph: { fontSize: 22, fontFamily: "AmiriQuran_400Regular" },
+
+  /* Privacy section */
+  privacyIntro: {
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: "Inter_400Regular",
+    paddingHorizontal: 18,
+    paddingBottom: 14,
+    paddingTop: 2,
+  },
+  pledgeRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 12,
+  },
+  pledgeIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 4,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  pledgeTextCol: {
+    flex: 1,
+    gap: 4,
+  },
+  pledgeTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    lineHeight: 19,
+  },
+  pledgeBody: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontFamily: "Inter_400Regular",
+  },
 });
