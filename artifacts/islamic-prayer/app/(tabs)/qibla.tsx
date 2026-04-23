@@ -197,7 +197,7 @@ function KaabahSilhouette({ size, color }: { size: number; color: string }) {
 // extends OUTER_R+7 from center and the drop-shadow even further. We keep the
 // visual dial size identical (OUTER_R = 144 just like before) and grow the
 // outer canvas instead, so the bezel + shadow no longer get clipped.
-const COMPASS_SIZE = 316;
+const COMPASS_SIZE = 348;
 const CX = COMPASS_SIZE / 2;
 const OUTER_R = COMPASS_SIZE / 2 - 14; // = 144 (preserves prior dial diameter)
 const INNER_R = OUTER_R - 28;
@@ -425,17 +425,6 @@ function QiblaNeedle({ size, aligned }: { size: number; aligned: boolean }) {
   const halfW = 11;
   const tailHalfW = 7;
 
-  // Kaaba icon centred just inside the upper needle face
-  const kaabaW = 20;
-  const kaabaH = 15;
-  const kaabaMidY = tipY + 30;          // centre of Kaaba body (well inside SVG)
-  const kaabaX = cx - kaabaW / 2;
-  const kaabaTY = kaabaMidY - kaabaH / 2;
-
-  // Pole from needle tip up to Kaaba bottom
-  const poleTop = tipY + 2;
-  const poleBot = kaabaTY;
-
   return (
     <Svg width={size} height={size}>
       <Defs>
@@ -499,39 +488,8 @@ function QiblaNeedle({ size, aligned }: { size: number; aligned: boolean }) {
         fill="url(#tailRight)"
       />
 
-      {/* ── Ka'bah icon at the needle tip ────────────────── */}
-      {/* Finial pole from needle tip to Ka'bah base */}
-      <Rect x={cx - 1.1} y={poleTop} width={2.2} height={Math.max(poleBot - poleTop, 0)} fill={accent} opacity={0.75} rx={1} />
-
-      {/* Ka'bah body */}
-      <Rect
-        x={kaabaX} y={kaabaTY}
-        width={kaabaW} height={kaabaH}
-        rx={1.5}
-        fill="#000"
-        stroke={accent}
-        strokeWidth={1.3}
-        opacity={0.98}
-      />
-      {/* Kiswa stripe */}
-      <Rect
-        x={kaabaX} y={kaabaTY + kaabaH * 0.28}
-        width={kaabaW} height={kaabaH * 0.17}
-        fill={accent}
-        opacity={0.85}
-      />
-      {/* Door arch */}
-      <Path
-        d={`M ${cx - 3} ${kaabaTY + kaabaH - 1}
-            L ${cx - 3} ${kaabaTY + kaabaH * 0.6}
-            A 3 3 0 0 1 ${cx + 3} ${kaabaTY + kaabaH * 0.6}
-            L ${cx + 3} ${kaabaTY + kaabaH - 1} Z`}
-        fill={accent}
-        opacity={0.4}
-      />
-      {/* Steps */}
-      <Rect x={kaabaX - 2} y={kaabaTY + kaabaH} width={kaabaW + 4} height={2} rx={0.8} fill={accent} opacity={0.55} />
-      <Rect x={kaabaX - 4} y={kaabaTY + kaabaH + 2} width={kaabaW + 8} height={1.5} rx={0.8} fill={accent} opacity={0.32} />
+      {/* Ka'bah finial removed — the needle alone is cleaner and lets the
+          dial face read at full strength without a competing focal point. */}
 
       {/* ── Brass center pivot ───────────────────────────── */}
       {/* Outer shadow ring */}
@@ -1257,6 +1215,8 @@ const styles = StyleSheet.create({
   headingRow: {
     flexDirection: "row",
     gap: 12,
+    marginTop: 14,
+    marginBottom: 28,
   },
   headingCard: {
     alignItems: "center",
