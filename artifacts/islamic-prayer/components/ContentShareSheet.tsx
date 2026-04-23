@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -17,32 +17,28 @@ import {
 } from "react-native";
 import { captureRef } from "react-native-view-shot";
 
-import { useToast } from "./Toast";
+import { CardCategory, duaCategoryFor, hadithCategoryFor } from "@/constants/cardBackgrounds";
 
-import {
-  Bismillah,
-  CornerFloret,
-  CREAM,
-  CREAM_DIM,
-  cornerPos,
-  GOLD,
-  GOLD_LIGHT,
-  HeroMedallion,
-  NuurLockup,
-  OrnamentalDivider,
-  PALETTES,
-  RefRow,
-  ShareBackground,
-  ShareFrame,
-} from "./share/ShareDecor";
+import { ShareCard } from "./cards/ShareCard";
+import { WallpaperCard } from "./cards/WallpaperCard";
+import { InfoCell } from "./cards/InfoStrip";
+import { CardData } from "./cards/types";
+import { useToast } from "./Toast";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
-const CARD_SIZE   = Math.min(SCREEN_W - 32, 370);
-const WALLPAPER_W = SCREEN_W;
-const WALLPAPER_H = SCREEN_H;
+const PREVIEW_CARD_W = Math.min(SCREEN_W - 32, 370);
+const PREVIEW_WALLPAPER_W = Math.min(SCREEN_W - 80, 240);
 
-type Theme    = "hadith" | "dua" | "name";
+// Export targets per spec (in pixels — pinned via captureRef width/height)
+const EXPORT_CARD_W = 1080;
+const EXPORT_CARD_H = 1350;          // 1080 * 5/4
+const EXPORT_WALLPAPER_W = 1170;
+const EXPORT_WALLPAPER_H = 2535;     // 1170 * 19.5/9
+
+const GOLD = "#C9933A";
+
+type Theme = "hadith" | "dua" | "name";
 type SizeMode = "card" | "wallpaper";
 
 export interface ContentShareSheetProps {
@@ -51,6 +47,7 @@ export interface ContentShareSheetProps {
   theme: Theme;
   sheetTitle: string;
   shareTitle: string;
+  /** Legacy label, e.g. "HADITH · INTENTIONS" — used to infer category. */
   label: string;
   secondaryTitle?: string;
   arabicText?: string;
@@ -58,49 +55,119 @@ export interface ContentShareSheetProps {
   bodyItalic?: string;
   bodyText: string;
   source?: string;
+
+  /** New: optional category override (else inferred from theme + label). */
+  category?: CardCategory;
+  /** New: optional hook line ("What makes the <em>same</em> ..."). */
+  hook?: string | null;
+  /** New: optional info-strip cells. If omitted, sensible defaults are derived. */
+  info?: InfoCell[];
+  /** New: optional ref number, e.g. "Bukhari · 1". */
+  refNumber?: string;
 }
 
-export default function ContentShareSheet({
-  visible,
-  onClose,
-  theme,
-  sheetTitle,
-  shareTitle,
-  label,
-  secondaryTitle,
-  arabicText,
-  arabicFontSize,
-  bodyItalic,
-  bodyText,
-  source,
-}: ContentShareSheetProps) {
+function inferCategory(theme: Theme, label: string, override?: CardCategory): CardCategory {
+  if (override) return override;
+  switch (theme) {
+    case "hadith": {
+      const after = label.split(/[·•]/).pop()?.trim() ?? "";
+      return hadithCategoryFor(after);
+    }
+    case "dua": {
+      const after = label.split(/[·•]/).pop()?.trim() ?? "";
+      return duaCategoryFor(after);
+    }
+    case "name": return "name_general";
+  }
+}
+
+function buildCard(p: ContentShareSheetProps, category: CardCategory): CardData {
+  const refNumber = p.refNumber ?? p.source;
+  const info: InfoCell[] = p.info ?? defaultInfo(p);
+
+  switch (p.theme) {
+    case "name":
+      return {
+        kind: "name",
+        category,
+        refNumber,
+        arabic: p.arabicText ?? "",
+        pronunciation: p.secondaryTitle ?? p.shareTitle,
+        meaning: p.bodyText,
+        hook: p.hook,
+        info,
+      };
+    case "dua":
+      return {
+        kind: "dua",
+        category,
+        refNumber,
+        arabic: p.arabicText ?? "",
+        transliteration: p.bodyItalic,
+        translation: p.bodyText,
+        hook: p.hook,
+        info,
+        sourceType: "non-quran",
+      };
+    case "hadith":
+      return {
+        kind: "hadith",
+        category,
+        refNumber,
+        arabic: p.arabicText,
+        translation: p.bodyText,
+        hook: p.hook,
+        info,
+      };
+  }
+}
+
+function defaultInfo(p: ContentShareSheetProps): InfoCell[] {
+  const labelParts = p.label.split(/[·•]/).map((s) => s.trim()).filter(Boolean);
+  const topicLabel = labelParts.length > 1 ? labelParts.slice(1).join(" · ") : labelParts[0] ?? "—";
+  switch (p.theme) {
+    case "hadith":
+      return [
+        { label: "Grade", value: "Ṣaḥīḥ" },
+        { label: "Topic", value: topicLabel },
+        { label: "Source", value: p.source ?? "—" },
+      ];
+    case "dua":
+      return [
+        { label: "When", value: topicLabel },
+        { label: "Repeat", value: "—" },
+        { label: "Source", value: p.source ?? "—" },
+      ];
+    case "name":
+      return [
+        { label: "Meaning", value: "Allah's Name" },
+        { label: "In Quran", value: "Yes" },
+        { label: "Pronounce", value: p.secondaryTitle ?? p.shareTitle },
+      ];
+  }
+}
+
+export default function ContentShareSheet(props: ContentShareSheetProps) {
+  const { visible, onClose, sheetTitle, shareTitle, theme, label } = props;
   const toast = useToast();
-  const cardRef   = useRef<View>(null);
-  const [saving,   setSaving]   = useState(false);
-  const [sharing,  setSharing]  = useState(false);
-  const [cardH,    setCardH]    = useState(CARD_SIZE);
+  const previewRef = useRef<View>(null);
+  const exportRef = useRef<View>(null);
+  const [saving, setSaving]   = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [sizeMode, setSizeMode] = useState<SizeMode>("card");
+
+  const category = useMemo(() => inferCategory(theme, label, props.category), [theme, label, props.category]);
+  const card = useMemo(() => buildCard(props, category), [props, category]);
 
   const dismissPan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
-      onPanResponderRelease: (_, g) => {
-        if (g.dy > 50 || g.vy > 0.5) onClose();
-      },
+      onPanResponderRelease: (_, g) => { if (g.dy > 50 || g.vy > 0.5) onClose(); },
     })
   ).current;
 
   const isWallpaper = sizeMode === "wallpaper";
-  const cardW       = isWallpaper ? WALLPAPER_W : CARD_SIZE;
-  const currentH    = isWallpaper ? WALLPAPER_H : cardH;
-  const FS          = isWallpaper ? 1.32 : 1;
-  const cornSize    = isWallpaper ? 44 : 30;
-  const hPad        = isWallpaper ? 38 : 24;
-  const divW        = cardW - hPad * 2 - 12;
-  const palette     = PALETTES[theme];
-  const medallion   = isWallpaper ? Math.min(cardW, currentH) * 0.78 : cardW * 0.82;
-  const baseArabic  = arabicFontSize ?? 22;
 
   const captureCard = async (): Promise<string | null> => {
     if (Platform.OS === "web") {
@@ -108,7 +175,9 @@ export default function ContentShareSheet({
       return null;
     }
     try {
-      return await captureRef(cardRef, { format: "png", quality: 1 });
+      const w = isWallpaper ? EXPORT_WALLPAPER_W : EXPORT_CARD_W;
+      const h = isWallpaper ? EXPORT_WALLPAPER_H : EXPORT_CARD_H;
+      return await captureRef(exportRef, { format: "png", quality: 1, width: w, height: h });
     } catch {
       toast.show("Could not capture the card.", { variant: "error" });
       return null;
@@ -192,94 +261,11 @@ export default function ContentShareSheet({
             contentContainerStyle={{ paddingBottom: 8 }}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={[styles.cardOuter, isWallpaper && { marginHorizontal: -16 }]}>
-              <View
-                ref={cardRef}
-                style={{
-                  width: cardW,
-                  height: isWallpaper ? WALLPAPER_H : undefined,
-                  borderRadius: isWallpaper ? 0 : 22,
-                  overflow: "hidden",
-                  backgroundColor: palette.edge,
-                }}
-                collapsable={false}
-                onLayout={(e) => setCardH(e.nativeEvent.layout.height)}
-              >
-                <ShareBackground w={cardW} h={currentH} palette={palette} />
-
-                <View
-                  pointerEvents="none"
-                  style={{
-                    position: "absolute",
-                    left: (cardW - medallion) / 2,
-                    top: (currentH - medallion) / 2 - (isWallpaper ? 30 : 8),
-                  }}
-                >
-                  <HeroMedallion size={medallion} opacity={isWallpaper ? 0.16 : 0.20} />
-                </View>
-
-                <ShareFrame w={cardW} h={currentH} inset={isWallpaper ? 18 : 12} />
-
-                <View style={[cornerPos.base, cornerPos.tl]}><CornerFloret size={cornSize} /></View>
-                <View style={[cornerPos.base, cornerPos.tr]}><CornerFloret size={cornSize} /></View>
-                <View style={[cornerPos.base, cornerPos.bl]}><CornerFloret size={cornSize} /></View>
-                <View style={[cornerPos.base, cornerPos.br]}><CornerFloret size={cornSize} /></View>
-
-                <View style={[s.cardInner, { paddingHorizontal: hPad }, isWallpaper && s.cardInnerWP]}>
-                  {isWallpaper && (
-                    <View style={{ alignItems: "center", marginTop: 4 }}>
-                      <Bismillah scale={1.05} />
-                    </View>
-                  )}
-
-                  {isWallpaper && <View style={{ flex: 1 }} />}
-
-                  <View style={{ alignItems: "center", width: "100%" }}>
-                    <RefRow label={label} scale={FS} />
-
-                    {secondaryTitle ? (
-                      <Text style={[s.secondaryTitle, { fontSize: 16 * FS, lineHeight: 23 * FS }]}>
-                        {secondaryTitle}
-                      </Text>
-                    ) : null}
-
-                    {arabicText ? (
-                      <View style={s.arabicWrap}>
-                        <Text style={[
-                          s.arabicTxt,
-                          { fontSize: baseArabic * FS, lineHeight: baseArabic * FS * 1.85 },
-                        ]}>
-                          {arabicText}
-                        </Text>
-                      </View>
-                    ) : null}
-
-                    <View style={{ alignItems: "center", marginVertical: isWallpaper ? 16 : 10 }}>
-                      <OrnamentalDivider width={divW} />
-                    </View>
-
-                    {bodyItalic ? (
-                      <Text style={[s.italicTxt, { fontSize: 12.5 * FS, lineHeight: 19.5 * FS }]}>
-                        {bodyItalic}
-                      </Text>
-                    ) : null}
-
-                    <Text style={[s.bodyTxt, { fontSize: 12 * FS, lineHeight: 19 * FS }]}>
-                      {bodyText}
-                    </Text>
-
-                    {source ? (
-                      <Text style={[s.sourceTxt, { fontSize: 9.5 * FS }]}>— {source}</Text>
-                    ) : null}
-                  </View>
-
-                  {isWallpaper && <View style={{ flex: 1 }} />}
-
-                  <View style={{ width: "100%", alignItems: "center" }}>
-                    <View style={[s.brandRule, { width: divW * 0.6 }]} />
-                    <NuurLockup size={isWallpaper ? "md" : "sm"} showTagline />
-                  </View>
-                </View>
+            <View style={styles.cardOuter}>
+              <View ref={previewRef} collapsable={false}>
+                {isWallpaper
+                  ? <WallpaperCard card={card} width={PREVIEW_WALLPAPER_W} />
+                  : <ShareCard card={card} width={PREVIEW_CARD_W} />}
               </View>
             </View>
 
@@ -314,73 +300,19 @@ export default function ContentShareSheet({
             </View>
           </ScrollView>
         </View>
+
+        {/* Off-screen export target rendered at full target resolution. */}
+        <View style={styles.offscreen} pointerEvents="none">
+          <View ref={exportRef} collapsable={false}>
+            {isWallpaper
+              ? <WallpaperCard card={card} width={EXPORT_WALLPAPER_W} />
+              : <ShareCard card={card} width={EXPORT_CARD_W} />}
+          </View>
+        </View>
       </View>
     </Modal>
   );
 }
-
-const s = StyleSheet.create({
-  cardInner: {
-    paddingTop: 22,
-    paddingBottom: 22,
-    alignItems: "center",
-  },
-  cardInnerWP: {
-    flex: 1,
-    paddingTop: 64,
-    paddingBottom: 52,
-  },
-  secondaryTitle: {
-    color: CREAM,
-    fontFamily: "Inter_600SemiBold",
-    marginTop: 12,
-    opacity: 0.92,
-    letterSpacing: 0.3,
-    textAlign: "center",
-  },
-  arabicWrap: {
-    width: "100%",
-    paddingHorizontal: 4,
-    marginTop: 14,
-    marginBottom: 4,
-  },
-  arabicTxt: {
-    color: GOLD_LIGHT,
-    textAlign: "center",
-    writingDirection: "rtl",
-    fontFamily: "AmiriQuran_400Regular",
-  },
-  italicTxt: {
-    color: CREAM,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    fontStyle: "italic",
-    opacity: 0.85,
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  bodyTxt: {
-    color: CREAM_DIM,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    paddingHorizontal: 4,
-  },
-  sourceTxt: {
-    color: GOLD,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1.2,
-    textAlign: "center",
-    marginTop: 12,
-    opacity: 0.85,
-  },
-  brandRule: {
-    height: 1,
-    backgroundColor: GOLD,
-    opacity: 0.28,
-    marginTop: 16,
-    marginBottom: 12,
-  },
-});
 
 const styles = StyleSheet.create({
   overlay: {
@@ -392,7 +324,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#111",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: Dimensions.get("window").height * 0.92,
+    maxHeight: SCREEN_H * 0.92,
     paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 36,
@@ -403,12 +335,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingHorizontal: 60,
   },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#444",
-  },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "#444" },
   sheetHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -439,17 +366,9 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 11,
   },
-  sizePillActive: {
-    backgroundColor: GOLD,
-  },
-  sizePillText: {
-    color: "#888",
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-  sizePillTextActive: {
-    color: "#0D2018",
-  },
+  sizePillActive: { backgroundColor: GOLD },
+  sizePillText: { color: "#888", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  sizePillTextActive: { color: "#0D2018" },
   cardOuter: {
     alignItems: "center",
     marginBottom: 22,
@@ -459,11 +378,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 16,
   },
-  actions: {
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 4,
-  },
+  actions: { flexDirection: "row", gap: 12, paddingHorizontal: 4 },
   saveBtn: {
     flex: 1,
     flexDirection: "row",
@@ -476,11 +391,7 @@ const styles = StyleSheet.create({
     borderColor: GOLD,
     backgroundColor: "rgba(201,147,58,0.08)",
   },
-  saveTxt: {
-    color: GOLD,
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-  },
+  saveTxt: { color: GOLD, fontSize: 14, fontFamily: "Inter_600SemiBold" },
   shareBtn: {
     flex: 1,
     flexDirection: "row",
@@ -491,9 +402,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: GOLD,
   },
-  shareTxt: {
-    color: "#0D2018",
-    fontSize: 14,
-    fontFamily: "Inter_700Bold",
+  shareTxt: { color: "#0D2018", fontSize: 14, fontFamily: "Inter_700Bold" },
+  offscreen: {
+    position: "absolute",
+    left: -99999,
+    top: 0,
+    opacity: 0,
   },
 });
