@@ -6,6 +6,42 @@ uri = "file://artifacts/mockup-sandbox/public/images/hadith-lamp.png"
 type = "image"
 title = "antique brass mosque lamp glowing"
 
+[[generated]]
+id = "Ha21jJ3yWCkuOZSvaQe2a"
+uri = "file://artifacts/islamic-prayer/assets/backgrounds/dawn-minaret.png"
+type = "image"
+title = "dawn minaret"
+
+[[generated]]
+id = "e6v2cmMxUbV5bf9skw-oL"
+uri = "file://artifacts/islamic-prayer/assets/backgrounds/dusk-mosque.png"
+type = "image"
+title = "dusk mosque"
+
+[[generated]]
+id = "OU0rhMTaBpacYBOpwxXeA"
+uri = "file://artifacts/islamic-prayer/assets/backgrounds/night-mosque.png"
+type = "image"
+title = "night mosque"
+
+[[generated]]
+id = "jPqFZnFWFsDU99yXyIwM4"
+uri = "file://artifacts/islamic-prayer/assets/backgrounds/warm-garden.png"
+type = "image"
+title = "warm garden"
+
+[[generated]]
+id = "7q3d8S9c9yVUBv20jMqqL"
+uri = "file://artifacts/islamic-prayer/assets/backgrounds/misty-mountain.png"
+type = "image"
+title = "misty mountain"
+
+[[generated]]
+id = "SHzuYWJKF0GvRfDSyBINb"
+uri = "file://artifacts/islamic-prayer/assets/backgrounds/starry-sky.png"
+type = "image"
+title = "starry sky"
+
 [[outputs]]
 id = "7TUHSGXs-Ags9m_n5lXzg"
 uri = "file://nuur-islamic-prayer.zip"
@@ -23,3 +59,39 @@ id = "_AfysPpjO5eiQGdY_P3KP"
 uri = "file://exports/nuur-source.zip"
 type = "unspecified"
 title = "Nuur — Full Source Code (zip)"
+
+[[outputs]]
+id = "uzP6RwR4W-7M9ZzjKawY1"
+uri = "file://artifacts/islamic-prayer/assets/backgrounds/dawn-minaret.png"
+type = "image"
+title = "1. dawn-minaret — Morning"
+
+[[outputs]]
+id = "vnJmXJ6BrHDKfLaoWdylN"
+uri = "file://artifacts/islamic-prayer/assets/backgrounds/dusk-mosque.png"
+type = "image"
+title = "2. dusk-mosque — Evening"
+
+[[outputs]]
+id = "8XSc6fjnW9kIoGRXZBWpc"
+uri = "file://artifacts/islamic-prayer/assets/backgrounds/night-mosque.png"
+type = "image"
+title = "3. night-mosque — Deep Night"
+
+[[outputs]]
+id = "sue3-7PF3zMZWBKRBCpvC"
+uri = "file://artifacts/islamic-prayer/assets/backgrounds/warm-garden.png"
+type = "image"
+title = "4. warm-garden — Mercy & Intimacy"
+
+[[outputs]]
+id = "wvdCzwW6ZjUat2r0enS05"
+uri = "file://artifacts/islamic-prayer/assets/backgrounds/misty-mountain.png"
+type = "image"
+title = "5. misty-mountain — Patience"
+
+[[outputs]]
+id = "WfPx4_Fe1QeqZPcHsB8pg"
+uri = "file://artifacts/islamic-prayer/assets/backgrounds/starry-sky.png"
+type = "image"
+title = "6. starry-sky — Knowledge & Wisdom"

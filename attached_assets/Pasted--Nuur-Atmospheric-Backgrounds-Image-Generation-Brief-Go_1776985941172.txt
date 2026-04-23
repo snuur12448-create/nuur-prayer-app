@@ -1,0 +1,131 @@
+# Nuur Atmospheric Backgrounds — Image Generation Brief
+
+## Goal
+
+Produce **6 photo-realistic atmospheric backgrounds** that feel like one family. Each is mood-mapped to a content category. Cards overlay content on these — so the images must have strong negative space in the upper two-thirds and silhouetted detail concentrated at the bottom edges.
+
+## Shared Visual DNA (applies to all 6)
+
+Every image must share these qualities so the library feels cohesive:
+
+- **Cinematic photography**, medium format look — *not* illustration, *not* cartoon, *not* painting
+- **Moody, dark overall** — deep shadows dominate, one concentrated light source per image
+- **Empty upper ~60%** of the frame (this is where Arabic + translation will sit)
+- **Silhouetted detail in lower ~40%** — architecture, foliage, or horizon
+- **Atmospheric haze / subtle mist** — softens edges, adds depth
+- **Film grain texture** — prevents that flat “AI render” feel
+- **No text. No calligraphy. No Arabic lettering. No logos. No people. No faces.**
+- **No prominent religious symbols** (no explicit crescent-stars, no mihrabs with text, no obvious Quran pages)
+- **Aspect ratio 2:3** (for share card at 4:5 we crop; for wallpaper at 9:19.5 we extend — generate tall)
+- **Minimum resolution: 2160×3240** (retina 2× for 1080×1620 display)
+
+## Negative Prompt (paste on every image)
+
+`text, calligraphy, arabic script, letters, watermark, logo, signature, people, faces, humans, cartoon, illustration, anime, painterly, oversaturated, kitsch, clipart, sticker`
+
+-----
+
+## The 6 Backgrounds
+
+### 1. `dawn-minaret.webp` — Morning
+
+**Used for:** morning adhkar, morning duas, Fajr-adjacent content
+
+**Prompt:**
+
+> Silhouetted Islamic minaret rising from distant rolling hills, warm sunrise breaking over the horizon in the lower-left third, golden amber and soft peach light diffusing through atmospheric haze, deep indigo sky fading to near-black at the top, cinematic photography, shot on medium format film, Leica 85mm, subtle lens bloom, film grain, dreamy, moody, empty sky in upper two-thirds, vertical composition, 2:3 aspect ratio
+
+**Midjourney parameters:** `--ar 2:3 --style raw --v 6 --s 250`
+
+-----
+
+### 2. `dusk-mosque.webp` — Evening
+
+**Used for:** evening adhkar, Maghrib content, sunset duas
+
+**Prompt:**
+
+> Distant silhouetted mosque with twin minarets and central dome, rose-gold and warm amber horizon glow behind the architecture, deep navy transitioning to violet in the upper sky, subtle evening mist drifting low, mosque grounded in the lower third of the frame, vast empty sky above, cinematic dusk photography, shot on medium format film, atmospheric, contemplative, film grain, vertical composition, 2:3 aspect ratio
+
+**Midjourney:** `--ar 2:3 --style raw --v 6 --s 250`
+
+-----
+
+### 3. `night-mosque.webp` — Deep Night
+
+**Used for:** Isha duas, istighfar, nighttime hadith, contemplative content
+
+**Prompt:**
+
+> Mosque silhouetted against deep night sky scattered with stars, thin crescent moon visible in the upper portion of the frame, a single warm window light glowing softly from within the architecture, near-darkness dominating the composition, architectural silhouette grounded in the lower third, dark navy and charcoal tones, atmospheric astrophotography, cinematic, quiet, still, film grain, vertical composition, 2:3 aspect ratio
+
+**Midjourney:** `--ar 2:3 --style raw --v 6 --s 250`
+
+-----
+
+### 4. `warm-garden.webp` — Mercy & Intimacy
+
+**Used for:** mercy-themed names (Ar-Raḥmān, Ar-Raḥīm, Al-Wadūd), gentle duas, compassion hadiths
+
+**Prompt:**
+
+> Intimate dark garden scene at night, single warm golden light source glowing softly from the center of the frame like a lantern in darkness, silhouetted leaves and plant branches framing the edges, deep forest green and warm amber tones, atmospheric mist, shallow depth of field, bokeh, dreamy, the center slightly lit with the edges falling into shadow, cinematic photography, film grain, vertical composition, 2:3 aspect ratio
+
+**Midjourney:** `--ar 2:3 --style raw --v 6 --s 350`
+
+-----
+
+### 5. `misty-mountain.webp` — Patience & Endurance
+
+**Used for:** patience ayahs, trial-related content, perseverance hadiths
+
+**Prompt:**
+
+> Distant layered misty mountains receding into fog, cool blue-grey palette with subtle warm light breaking at the low horizon, vast empty overcast sky filling the upper two-thirds of the frame, atmospheric haze softening all edges, moody landscape photography, solitude, contemplation, cinematic, film grain, vertical composition, no buildings, no people, 2:3 aspect ratio
+
+**Midjourney:** `--ar 2:3 --style raw --v 6 --s 250`
+
+-----
+
+### 6. `starry-sky.webp` — Knowledge & Wisdom
+
+**Used for:** hadith on intentions, knowledge duas, wisdom content, general ayah of the day
+
+**Prompt:**
+
+> Deep night sky rich with stars and subtle nebula tones of violet and deep blue, thin crescent moon in the upper-right corner, atmospheric haze, very low horizon line with barely-visible silhouetted distant architecture or mountains at the bottom edge, vast negative space for text overlay, cinematic astrophotography shot, Milky Way subtle in the background, film grain, contemplative, vertical composition, 2:3 aspect ratio
+
+**Midjourney:** `--ar 2:3 --style raw --v 6 --s 300`
+
+-----
+
+## Achieving Consistency Across the Set
+
+The biggest failure mode is the 6 images looking like they came from 6 different photographers. Three techniques to prevent this:
+
+### Technique 1: Style reference (Midjourney)
+
+Generate the first image you’re happy with. Copy its URL. Append `--sref <url>` to the other 5 prompts. This locks the aesthetic.
+
+### Technique 2: Seed locking (any tool)
+
+If your tool supports seeds, use the same seed across all 6 generations after finding one that works.
+
+### Technique 3: Style suffix
+
+Append the same style phrase to every prompt:
+
+> `...shot on Hasselblad 500C, Kodak Portra 400, dreamy cinematic tone, subtle halation, consistent warm shadows, editorial photography`
+
+-----
+
+## Post-Processing Checklist
+
+Before bundling each image:
+
+1. **Darken the upper portion** an extra 10-15% if text legibility might be an issue (Photoshop curves or free alternative: Photopea)
+1. **Verify dominant negative space** is in the upper 60% — if the image is too busy up top, the Arabic won’t read
+1. **Export as WebP at quality 80-85** (better size/quality ratio than JPG for photos)
+1. **Target file size: 180-280 KB per image** — the whole background library should stay under 1.5 MB bundled
+1. **Rename exactly to the filenames above** — `dawn-minaret.webp`, etc. — the code references these
+
