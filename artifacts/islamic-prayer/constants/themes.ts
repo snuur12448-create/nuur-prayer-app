@@ -191,6 +191,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       prayerTime: "#2C2000",
       accent: "#7A5A00",
       red: "#DC2626",
+      paperTop: "#F6EDD6", paperBot: "#EFE3C6", paperBand: "#EBDDB8",
+      paperInk: "#1F1A12", paperInkDim: "#6B5A3B", paperRule: "#B89856",
     },
   },
   slate: {
@@ -216,6 +218,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       prayerTime: "#E6EDF3",
       accent: "#94A3B8",
       red: "#F87171",
+      paperTop: "#F1EEDF", paperBot: "#E6E0C9", paperBand: "#DCD5BB",
+      paperInk: "#161A20", paperInkDim: "#5A5648", paperRule: "#8E8868",
     },
     lightColors: {
       text: "#0A1628",
@@ -236,6 +240,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       prayerTime: "#0A1628",
       accent: "#475569",
       red: "#DC2626",
+      paperTop: "#F1EEDF", paperBot: "#E6E0C9", paperBand: "#DCD5BB",
+      paperInk: "#161A20", paperInkDim: "#5A5648", paperRule: "#8E8868",
     },
   },
   burgundy: {
@@ -261,6 +267,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       prayerTime: "#FFE8F0",
       accent: "#C2185B",
       red: "#F87171",
+      paperTop: "#F5EAD8", paperBot: "#EBDFC2", paperBand: "#E0D2B0",
+      paperInk: "#2A0F1B", paperInkDim: "#6B4438", paperRule: "#A87A52",
     },
     lightColors: {
       text: "#38060D",
@@ -281,6 +289,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       prayerTime: "#38060D",
       accent: "#880E4F",
       red: "#DC2626",
+      paperTop: "#F5EAD8", paperBot: "#EBDFC2", paperBand: "#E0D2B0",
+      paperInk: "#2A0F1B", paperInkDim: "#6B4438", paperRule: "#A87A52",
     },
   },
 };

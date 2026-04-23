@@ -1,18 +1,10 @@
-import React, { memo } from "react";
+import React, { memo, useMemo } from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import Svg, { Path } from "react-native-svg";
 import type { ThemeColors } from "@/constants/themes";
 import type { DailyAyah } from "@/utils/ayahData";
-
-const PAPER_TOP = "#F6EDD6";
-const PAPER_BOT = "#EFE3C6";
-const PAPER_BAND = "#EBDDB8";
-const PAPER_INK = "#1F1A12";
-const PAPER_INK_DIM = "#6B5A3B";
-const PAPER_RULE = "#B89856";
-const PAPER_RULE_SOFT = "rgba(184, 152, 86, 0.4)";
 
 const SURAH_ARABIC: Record<number, string> = {
   1: "الفاتحة",   2: "البقرة",    3: "آل عمران",  17: "الإسراء",
@@ -41,6 +33,7 @@ function MushafLeafVerseInner({ colors, ayah, ayahCopied, onCopy, onShare, onRea
   // every accent — especially Gold (warm-on-warm) and Burgundy (warm-on-pink).
   const leafEdge = colors.tint + "40";
   const leafShadow = colors.glow;
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
     <View style={styles.wrapper}>
@@ -81,7 +74,7 @@ function MushafLeafVerseInner({ colors, ayah, ayahCopied, onCopy, onShare, onRea
         ]}
       >
         <LinearGradient
-          colors={[PAPER_TOP, PAPER_BOT]}
+          colors={[colors.paperTop, colors.paperBot]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={styles.leafPaper}
@@ -124,10 +117,10 @@ function MushafLeafVerseInner({ colors, ayah, ayahCopied, onCopy, onShare, onRea
             </Text>
 
             {/* Corner ornaments */}
-            <CornerOrn pos="tl" />
-            <CornerOrn pos="tr" />
-            <CornerOrn pos="bl" />
-            <CornerOrn pos="br" />
+            <CornerOrn pos="tl" stroke={colors.paperRule} />
+            <CornerOrn pos="tr" stroke={colors.paperRule} />
+            <CornerOrn pos="bl" stroke={colors.paperRule} />
+            <CornerOrn pos="br" stroke={colors.paperRule} />
           </View>
         </LinearGradient>
       </View>
@@ -151,7 +144,7 @@ function MushafLeafVerseInner({ colors, ayah, ayahCopied, onCopy, onShare, onRea
   );
 }
 
-function CornerOrn({ pos }: { pos: "tl" | "tr" | "bl" | "br" }) {
+function CornerOrn({ pos, stroke }: { pos: "tl" | "tr" | "bl" | "br"; stroke: string }) {
   const rotation = pos === "tl" ? 0 : pos === "tr" ? 90 : pos === "br" ? 180 : 270;
   const positionStyle = {
     top: pos.startsWith("t") ? 4 : undefined,
@@ -160,11 +153,11 @@ function CornerOrn({ pos }: { pos: "tl" | "tr" | "bl" | "br" }) {
     right: pos.endsWith("r") ? 4 : undefined,
   };
   return (
-    <View style={[styles.cornerOrn, positionStyle, { transform: [{ rotate: `${rotation}deg` }] }]} pointerEvents="none">
+    <View style={[ornStyles.cornerOrn, positionStyle, { transform: [{ rotate: `${rotation}deg` }] }]} pointerEvents="none">
       <Svg width={14} height={14} viewBox="0 0 14 14">
         <Path
           d="M1 1 L1 6 M1 1 L6 1 M1 1 Q4 1 4 4 Q4 4 1 4"
-          stroke={PAPER_RULE}
+          stroke={stroke}
           strokeWidth={0.8}
           fill="none"
           opacity={0.55}
@@ -174,186 +167,190 @@ function CornerOrn({ pos }: { pos: "tl" | "tr" | "bl" | "br" }) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    paddingHorizontal: 0,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 4,
-    marginBottom: 12,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  badgeText: {
-    fontSize: 9,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1.2,
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  iconBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // ── leaf ────────────────────────────────────────────────
-  leafShadow: {
-    borderRadius: 6,
-    borderWidth: 1,
-    // Theme-tinted halo so the cream paper feels integrated, not pasted-on
-    shadowOpacity: Platform.OS === "ios" ? 0.18 : 0,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: Platform.OS === "android" ? 4 : 0,
-  },
-  leafPaper: {
-    borderRadius: 5,
-    padding: 8,
-  },
-  leafFrame: {
-    borderWidth: 1,
-    borderColor: PAPER_RULE,
-    borderRadius: 3,
-    paddingHorizontal: 14,
-    paddingBottom: 16,
-    position: "relative",
-  },
-  surahBand: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginHorizontal: -14,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: PAPER_RULE_SOFT,
-    backgroundColor: PAPER_BAND,
-    marginTop: 8,
-    marginBottom: 14,
-    gap: 8,
-  },
-  surahSide: {
-    fontSize: 9,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1.2,
-    color: PAPER_INK_DIM,
-  },
-  surahArabic: {
-    fontSize: 18,
-    fontFamily: "AmiriQuran_400Regular",
-    color: PAPER_INK,
-    includeFontPadding: false,
-    lineHeight: 22,
-  },
-  bandOrn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 12,
-  },
-  bandLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: PAPER_RULE,
-    opacity: 0.55,
-  },
-  bandDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: PAPER_RULE,
-    marginHorizontal: 4,
-    opacity: 0.7,
-  },
-  bismillah: {
-    textAlign: "center",
-    fontFamily: "AmiriQuran_400Regular",
-    fontSize: 18,
-    color: PAPER_INK,
-    opacity: 0.85,
-    marginBottom: 12,
-    includeFontPadding: false,
-    lineHeight: 28,
-  },
-  verse: {
-    fontFamily: "AmiriQuran_400Regular",
-    fontSize: 24,
-    lineHeight: 44,
-    color: PAPER_INK,
-    textAlign: "center",
-    writingDirection: "rtl",
-    includeFontPadding: false,
-    paddingTop: 4,
-    paddingBottom: 6,
-  },
-  verseStamp: {
-    fontFamily: "AmiriQuran_400Regular",
-    fontSize: 22,
-    color: PAPER_RULE,
-    includeFontPadding: false,
-  },
+const ornStyles = StyleSheet.create({
   cornerOrn: {
     position: "absolute",
     width: 14,
     height: 14,
   },
-  // ── below the leaf ───────────────────────────────────────
-  translit: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    fontStyle: "italic",
-    textAlign: "center",
-    marginTop: 14,
-  },
-  translation: {
-    fontSize: 13,
-    lineHeight: 19,
-    fontFamily: "Inter_400Regular",
-    fontStyle: "italic",
-    textAlign: "center",
-    marginTop: 6,
-    paddingHorizontal: 4,
-  },
-  readBtn: {
-    marginTop: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  readText: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
 });
+
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    wrapper: {
+      paddingHorizontal: 0,
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 4,
+      marginBottom: 12,
+    },
+    headerLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    badge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 999,
+      borderWidth: 1,
+    },
+    badgeText: {
+      fontSize: 9,
+      fontFamily: "Inter_700Bold",
+      letterSpacing: 1.2,
+    },
+    actionRow: {
+      flexDirection: "row",
+      gap: 6,
+    },
+    iconBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: 8,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    // ── leaf ────────────────────────────────────────────────
+    leafShadow: {
+      borderRadius: 6,
+      borderWidth: 1,
+      // Theme-tinted halo so the cream paper feels integrated, not pasted-on
+      shadowOpacity: Platform.OS === "ios" ? 0.18 : 0,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: Platform.OS === "android" ? 4 : 0,
+    },
+    leafPaper: {
+      borderRadius: 5,
+      padding: 8,
+    },
+    leafFrame: {
+      borderWidth: 1,
+      borderColor: c.paperRule,
+      borderRadius: 3,
+      paddingHorizontal: 14,
+      paddingBottom: 16,
+      position: "relative",
+    },
+    surahBand: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginHorizontal: -14,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: c.paperRule + "66",
+      backgroundColor: c.paperBand,
+      marginTop: 8,
+      marginBottom: 14,
+      gap: 8,
+    },
+    surahSide: {
+      fontSize: 9,
+      fontFamily: "Inter_700Bold",
+      letterSpacing: 1.2,
+      color: c.paperInkDim,
+    },
+    surahArabic: {
+      fontSize: 18,
+      fontFamily: "AmiriQuran_400Regular",
+      color: c.paperInk,
+      includeFontPadding: false,
+      lineHeight: 22,
+    },
+    bandOrn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: 12,
+    },
+    bandLine: {
+      flex: 1,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: c.paperRule,
+      opacity: 0.55,
+    },
+    bandDot: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.paperRule,
+      marginHorizontal: 4,
+      opacity: 0.7,
+    },
+    bismillah: {
+      textAlign: "center",
+      fontFamily: "AmiriQuran_400Regular",
+      fontSize: 18,
+      color: c.paperInk,
+      opacity: 0.85,
+      marginBottom: 12,
+      includeFontPadding: false,
+      lineHeight: 28,
+    },
+    verse: {
+      fontFamily: "AmiriQuran_400Regular",
+      fontSize: 24,
+      lineHeight: 44,
+      color: c.paperInk,
+      textAlign: "center",
+      writingDirection: "rtl",
+      includeFontPadding: false,
+      paddingTop: 4,
+      paddingBottom: 6,
+    },
+    verseStamp: {
+      fontFamily: "AmiriQuran_400Regular",
+      fontSize: 22,
+      color: c.paperRule,
+      includeFontPadding: false,
+    },
+    // ── below the leaf ───────────────────────────────────────
+    translit: {
+      fontSize: 12,
+      fontFamily: "Inter_500Medium",
+      fontStyle: "italic",
+      textAlign: "center",
+      marginTop: 14,
+    },
+    translation: {
+      fontSize: 13,
+      lineHeight: 19,
+      fontFamily: "Inter_400Regular",
+      fontStyle: "italic",
+      textAlign: "center",
+      marginTop: 6,
+      paddingHorizontal: 4,
+    },
+    readBtn: {
+      marginTop: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+      borderWidth: 1,
+    },
+    readText: {
+      fontSize: 12,
+      fontFamily: "Inter_600SemiBold",
+      letterSpacing: 1,
+      textTransform: "uppercase",
+    },
+  });
 
 // Memoized — the verse only changes once per day, so we want to skip
 // re-rendering the entire leaf on every minute-tick of the parent screen.

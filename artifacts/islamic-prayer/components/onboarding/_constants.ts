@@ -29,4 +29,10 @@ export const ONBOARDING_PICKER_COLORS: ThemeColors = {
   prayerTime: TEXT,
   accent: GOLD,
   red: "#D9534F",
+  paperTop: "#F4EDD6",
+  paperBot: "#EBE0BD",
+  paperBand: "#E5D6A8",
+  paperInk: "#1F1A12",
+  paperInkDim: "#6B5A3B",
+  paperRule: "#9D8F4A",
 };
