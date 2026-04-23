@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import React, { useState, useRef, useCallback, useLayoutEffect } from "react";
 import {
+  ActivityIndicator,
   Linking,
   Modal,
   NativeSyntheticEvent,
@@ -246,28 +247,86 @@ function AdhanStyleModal({
   visible: boolean; current: string; onSelect: (id: string) => void;
   onClose: () => void; colors: any;
 }) {
-  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  // Three-state preview model so the UI never lies:
+  //   loadingId  → tap registered, audio is downloading/decoding (spinner)
+  //   playingId  → audio is actually emitting sound (stop icon)
+  //   neither    → idle (play icon)
+  // The previous implementation cleared its single state the moment
+  // createAsync resolved, which is BEFORE playback starts. That's why
+  // "Makkah seems to work but the others don't" — Makkah was the default
+  // selected style so the user heard it from the foreground audio path,
+  // while preview taps for the other styles silently failed UI-side.
+  const [loadingId, setLoadingId] = React.useState<string | null>(null);
+  const [playingId, setPlayingId] = React.useState<string | null>(null);
+  const previewTokenRef = React.useRef(0);
+  const autoStopTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearAutoStop = React.useCallback(() => {
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
+  }, []);
+
+  const stopPreview = React.useCallback(async () => {
+    clearAutoStop();
+    previewTokenRef.current += 1; // invalidate any in-flight callbacks
+    await stopAdhanAudio();
+    setLoadingId(null);
+    setPlayingId(null);
+  }, [clearAutoStop]);
 
   const handlePreview = async (style: AdhanStyle) => {
-    if (previewingId === style.id) {
-      await stopAdhanAudio();
-      setPreviewingId(null);
-    } else {
-      setPreviewingId(style.id);
-      await previewAdhan(style.audioUrl);
-      setPreviewingId(null);
+    // Re-tap on the same row → stop.
+    if (playingId === style.id || loadingId === style.id) {
+      await stopPreview();
+      return;
     }
+
+    clearAutoStop();
+    const token = ++previewTokenRef.current;
+    setLoadingId(style.id);
+    setPlayingId(null);
+
+    await previewAdhan(style.audioUrl, {
+      onPlaybackStarted: () => {
+        if (previewTokenRef.current !== token) return;
+        setLoadingId(null);
+        setPlayingId(style.id);
+        // Auto-stop after 12 s — long enough to hear the reciter's character
+        // (the "Allahu Akbar Allahu Akbar" opening + first phrase) without
+        // forcing the user to sit through the full 3-minute call.
+        clearAutoStop();
+        autoStopTimerRef.current = setTimeout(() => {
+          if (previewTokenRef.current !== token) return;
+          void stopPreview();
+        }, 12_000);
+      },
+      onFinishOrError: (didError) => {
+        if (previewTokenRef.current !== token) return;
+        clearAutoStop();
+        setLoadingId(null);
+        setPlayingId(null);
+        if (didError) {
+          console.warn(`[AdhanStyleModal] Preview failed for ${style.id}`);
+        }
+      },
+    });
   };
 
+  // Always cut audio + clear timers when the modal goes away.
+  React.useEffect(() => {
+    if (!visible) void stopPreview();
+    return () => { void stopPreview(); };
+  }, [visible, stopPreview]);
+
   const handleClose = async () => {
-    await stopAdhanAudio();
-    setPreviewingId(null);
+    await stopPreview();
     onClose();
   };
 
   const handleSelect = async (id: string) => {
-    await stopAdhanAudio();
-    setPreviewingId(null);
+    await stopPreview();
     onSelect(id);
     onClose();
   };
@@ -294,7 +353,9 @@ function AdhanStyleModal({
         <ScrollView showsVerticalScrollIndicator={false} style={styles.methodList}>
           {ADHAN_STYLES.map((style, i) => {
             const active = style.id === current;
-            const isPreviewing = previewingId === style.id;
+            const isLoading = loadingId === style.id;
+            const isPlaying = playingId === style.id;
+            const isBusy = isLoading || isPlaying;
             return (
               <TouchableOpacity
                 key={style.id}
@@ -333,16 +394,26 @@ function AdhanStyleModal({
                     style={[
                       styles.previewBtn,
                       {
-                        backgroundColor: isPreviewing ? colors.gold + "22" : "transparent",
+                        backgroundColor: isBusy ? colors.gold + "22" : "transparent",
                         borderColor: colors.gold + "55",
                       },
                     ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      isLoading ? `Loading ${style.name} preview`
+                        : isPlaying ? `Stop ${style.name} preview`
+                        : `Preview ${style.name}`
+                    }
                   >
-                    <Feather
-                      name={isPreviewing ? "square" : "play"}
-                      size={12}
-                      color={colors.gold}
-                    />
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color={colors.gold} />
+                    ) : (
+                      <Feather
+                        name={isPlaying ? "square" : "play"}
+                        size={12}
+                        color={colors.gold}
+                      />
+                    )}
                   </TouchableOpacity>
 
                   {active ? (

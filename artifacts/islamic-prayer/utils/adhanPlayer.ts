@@ -92,7 +92,17 @@ export async function stopAdhanAudio(): Promise<void> {
 // playing in the background that was never tracked or stopped.
 let previewGen = 0;
 
-export async function previewAdhan(url: string): Promise<void> {
+export interface PreviewCallbacks {
+  // Resolves the moment audio is loaded enough to begin playback (so the UI
+  // can flip from "loading…" → "playing"). Not called if the load fails or
+  // a newer preview interrupted us.
+  onPlaybackStarted?: () => void;
+  // Fires when the file finishes naturally OR when the load fails. Lets the
+  // UI clear the "playing" indicator without polling.
+  onFinishOrError?: (didError: boolean) => void;
+}
+
+export async function previewAdhan(url: string, cb?: PreviewCallbacks): Promise<void> {
   const myGen = ++previewGen;
   await stopAdhanAudio();
   // stopAdhanAudio bumps no token of its own, but if another previewAdhan
@@ -102,7 +112,21 @@ export async function previewAdhan(url: string): Promise<void> {
   if (Platform.OS === "web") {
     try {
       const audio = new window.Audio(url);
-      try { await audio.play(); } catch {}
+      audio.oncanplay = () => {
+        if (myGen === previewGen) cb?.onPlaybackStarted?.();
+      };
+      audio.onended = () => {
+        if (webAudio === audio) webAudio = null;
+        if (myGen === previewGen) cb?.onFinishOrError?.(false);
+      };
+      audio.onerror = () => {
+        if (webAudio === audio) webAudio = null;
+        if (myGen === previewGen) cb?.onFinishOrError?.(true);
+      };
+      try { await audio.play(); } catch {
+        cb?.onFinishOrError?.(true);
+        return;
+      }
       // Re-check after the async play() — a newer preview may have started
       // and we'd otherwise leave this audio playing untracked.
       if (myGen !== previewGen) {
@@ -110,9 +134,10 @@ export async function previewAdhan(url: string): Promise<void> {
         return;
       }
       webAudio = audio;
-      audio.onended = () => { if (webAudio === audio) webAudio = null; };
-      audio.onerror = () => { if (webAudio === audio) webAudio = null; };
-    } catch {}
+    } catch (e) {
+      console.warn("[Adhan Preview] Web audio error:", e);
+      cb?.onFinishOrError?.(true);
+    }
   } else {
     try {
       await Audio.setAudioModeAsync({
@@ -132,14 +157,29 @@ export async function previewAdhan(url: string): Promise<void> {
         return;
       }
       nativeSound = sound;
+      cb?.onPlaybackStarted?.();
       sound.setOnPlaybackStatusUpdate((status) => {
-        if (!status.isLoaded) return;
+        if (!status.isLoaded) {
+          // Load failure mid-stream (network drop, decode error, etc.) lands
+          // here with status.error populated. Surface it to the UI so the
+          // user isn't stuck staring at a "playing" spinner forever.
+          if ("error" in status && status.error) {
+            console.warn("[Adhan Preview] Playback error:", status.error);
+            if (nativeSound === sound) nativeSound = null;
+            if (myGen === previewGen) cb?.onFinishOrError?.(true);
+          }
+          return;
+        }
         if (status.didJustFinish && nativeSound === sound) {
           nativeSound = null;
+          if (myGen === previewGen) cb?.onFinishOrError?.(false);
         }
       });
     } catch (e) {
-      console.warn("[Adhan Preview] Audio error:", e);
+      // createAsync rejected — most often network failure or unsupported codec.
+      // Without surfacing this, the modal sits with a dead "stop" button.
+      console.warn("[Adhan Preview] createAsync error for", url, e);
+      cb?.onFinishOrError?.(true);
     }
   }
 }
