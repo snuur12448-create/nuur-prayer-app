@@ -19,6 +19,21 @@ export type ThemeColors = {
   prayerTime: string;
   accent: string;
   red: string;
+  /**
+   * Mushaf-leaf paper palette. The leaf insert (Verse-of-the-Day, hadith
+   * scholars card, etc.) uses these instead of the surrounding chrome colors
+   * so it always reads as a printed-paper artefact — but tinted slightly per
+   * theme so the cream parchment doesn't clash against burgundy / midnight /
+   * slate surfaces. The rule color picks up the theme accent at low chroma.
+   *
+   * Convention: paperRuleSoft is derived as `paperRule + "66"` at consumer.
+   */
+  paperTop: string;     // top of the paper gradient
+  paperBot: string;     // bottom of the paper gradient
+  paperBand: string;    // surah-header band fill
+  paperInk: string;     // primary ink (Arabic body)
+  paperInkDim: string;  // secondary ink (caption text on paper)
+  paperRule: string;    // rule lines, ornaments, ayah stamp
 };
 
 export type ThemeName = "emerald" | "midnight" | "gold" | "slate" | "burgundy";
@@ -56,6 +71,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       prayerTime: "#F0EDE5",
       accent: "#F4C842",
       red: "#E55555",
+      paperTop: "#F4EDD6", paperBot: "#EBE0BD", paperBand: "#E5D6A8",
+      paperInk: "#1F1A12", paperInkDim: "#6B5A3B", paperRule: "#9D8F4A",
     },
     lightColors: {
       text: "#0D2919",
@@ -76,6 +93,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       prayerTime: "#0D2919",
       accent: "#92400E",
       red: "#DC2626",
+      paperTop: "#F4EDD6", paperBot: "#EBE0BD", paperBand: "#E5D6A8",
+      paperInk: "#1F1A12", paperInkDim: "#6B5A3B", paperRule: "#9D8F4A",
     },
   },
   midnight: {
@@ -101,6 +120,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       prayerTime: "#E8F0FF",
       accent: "#93C5FD",
       red: "#F87171",
+      paperTop: "#EFEAD7", paperBot: "#E3DDC1", paperBand: "#DAD3AE",
+      paperInk: "#1A1F2E", paperInkDim: "#5C5840", paperRule: "#9A8E58",
     },
     lightColors: {
       text: "#0A1A3D",
@@ -121,6 +142,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       prayerTime: "#0A1A3D",
       accent: "#3B82F6",
       red: "#DC2626",
+      paperTop: "#EFEAD7", paperBot: "#E3DDC1", paperBand: "#DAD3AE",
+      paperInk: "#1A1F2E", paperInkDim: "#5C5840", paperRule: "#9A8E58",
     },
   },
   gold: {
@@ -146,6 +169,8 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       prayerTime: "#FFF8E7",
       accent: "#D4AF37",
       red: "#F87171",
+      paperTop: "#F6EDD6", paperBot: "#EFE3C6", paperBand: "#EBDDB8",
+      paperInk: "#1F1A12", paperInkDim: "#6B5A3B", paperRule: "#B89856",
     },
     lightColors: {
       text: "#2C2000",
