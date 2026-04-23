@@ -53,12 +53,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
-    "@expo-google-fonts/amiri": "^0.4.1",
     "@expo-google-fonts/amiri-quran": "^0.4.1",
-    "@expo-google-fonts/cormorant-garamond": "^0.4.1",
-    "@expo-google-fonts/dm-sans": "^0.4.2",
-    "@expo-google-fonts/fraunces": "^0.4.1",
-    "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo/cli": "54.0.23",
     "@nkzw/create-context-hook": "^1.1.0",
     "@shopify/flash-list": "2.0.2",

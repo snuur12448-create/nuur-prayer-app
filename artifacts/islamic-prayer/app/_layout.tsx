@@ -1,18 +1,4 @@
-import { Amiri_400Regular } from "@expo-google-fonts/amiri";
 import { AmiriQuran_400Regular } from "@expo-google-fonts/amiri-quran";
-import {
-  CormorantGaramond_400Regular_Italic,
-  CormorantGaramond_500Medium_Italic,
-} from "@expo-google-fonts/cormorant-garamond";
-import {
-  DMSans_400Regular,
-  DMSans_500Medium,
-} from "@expo-google-fonts/dm-sans";
-import {
-  Fraunces_400Regular_Italic,
-  Fraunces_500Medium,
-  Fraunces_600SemiBold,
-} from "@expo-google-fonts/fraunces";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -20,10 +6,6 @@ import {
   Inter_700Bold,
   useFonts,
 } from "@expo-google-fonts/inter";
-import {
-  JetBrainsMono_400Regular,
-  JetBrainsMono_500Medium,
-} from "@expo-google-fonts/jetbrains-mono";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
@@ -115,27 +97,12 @@ function AdhanGate() {
 }
 
 export default function RootLayout() {
-  // Critical fonts: gate the splash on these (used across primary screens).
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
     AmiriQuran_400Regular,
-  });
-  // Editorial fonts (only used on share / wallpaper cards). Load in parallel
-  // but DO NOT block app startup — cards fall back to system fonts briefly.
-  useFonts({
-    Amiri_400Regular,
-    Fraunces_400Regular_Italic,
-    Fraunces_500Medium,
-    Fraunces_600SemiBold,
-    CormorantGaramond_400Regular_Italic,
-    CormorantGaramond_500Medium_Italic,
-    DMSans_400Regular,
-    DMSans_500Medium,
-    JetBrainsMono_400Regular,
-    JetBrainsMono_500Medium,
   });
 
   // Three-gate system: splash hides only when animation, fonts, AND onboarding

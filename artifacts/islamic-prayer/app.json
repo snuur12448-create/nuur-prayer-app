@@ -10,7 +10,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "backgroundColor": "#000000"
+      "backgroundColor": "#09150D"
     },
     "ios": {
       "supportsTablet": false,
