@@ -120,6 +120,33 @@ function nextMilestone(streak: number): number {
   return MILESTONE_DAYS[MILESTONE_DAYS.length - 1];
 }
 
+/**
+ * Compute the visual fill % (0..1) for the milestone bar so that the fill reaches
+ * each tick's visual position when the streak hits that milestone. Ticks are laid
+ * out at positions (i+1)/N of the bar (with 0 days at the left edge), and progress
+ * is interpolated linearly between adjacent ticks. This avoids the prior bug where
+ * `streak / nextMilestone` was applied to the full bar width and visually overshot
+ * every tick.
+ */
+function milestoneFillPct(streak: number): number {
+  if (streak <= 0) return 0;
+  const N = MILESTONE_DAYS.length;
+  if (streak >= MILESTONE_DAYS[N - 1]) return 1;
+  let prevDays = 0;
+  let prevPos = 0;
+  for (let i = 0; i < N; i++) {
+    const tickDays = MILESTONE_DAYS[i];
+    const tickPos = (i + 1) / N;
+    if (streak < tickDays) {
+      const span = tickDays - prevDays;
+      return prevPos + ((streak - prevDays) / span) * (tickPos - prevPos);
+    }
+    prevDays = tickDays;
+    prevPos = tickPos;
+  }
+  return 1;
+}
+
 const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 
 /** ──────────────────────────────────────────────────────────
@@ -226,7 +253,7 @@ export default function TrackerScreen() {
   const heatmap = useMemo(() => get28DayHeatmap(trackerData), [trackerData]);
   const monthTotal = useMemo(() => heatmap.reduce((s, c) => s + c.count, 0), [heatmap]);
   const milestone = nextMilestone(streak);
-  const milestonePct = Math.min(streak / milestone, 1);
+  const milestonePct = milestoneFillPct(streak);
 
   const topInset = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
   const goldAccent = colors.tint;
@@ -359,13 +386,21 @@ export default function TrackerScreen() {
                 <View style={[styles.milestoneFill, { width: `${milestonePct * 100}%` as any, backgroundColor: goldAccent }]} />
               </View>
 
-              {/* Milestone tick row */}
+              {/* Milestone tick row — each tick absolutely positioned at (i+1)/N of the bar
+                  so the visual position matches the milestoneFillPct() math. */}
               <View style={styles.milestoneTicks}>
-                {MILESTONE_DAYS.map((m) => {
+                {MILESTONE_DAYS.map((m, i) => {
                   const reached = streak >= m;
                   const isCurrent = m === milestone;
+                  const leftPct = ((i + 1) / MILESTONE_DAYS.length) * 100;
                   return (
-                    <View key={m} style={styles.tickCol}>
+                    <View
+                      key={m}
+                      style={[
+                        styles.tickCol,
+                        { left: `${leftPct}%` as any, marginLeft: -14 },
+                      ]}
+                    >
                       <View style={[
                         styles.tickDot,
                         {
@@ -654,8 +689,8 @@ const styles = StyleSheet.create({
   milestoneText: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginTop: 2 },
   milestoneTrack: { height: 5, borderRadius: 3, overflow: "hidden", marginTop: 8 },
   milestoneFill: { height: 5, borderRadius: 3 },
-  milestoneTicks: { flexDirection: "row", justifyContent: "space-between", marginTop: 6, paddingHorizontal: 1 },
-  tickCol: { alignItems: "center" },
+  milestoneTicks: { position: "relative", height: 22, marginTop: 6 },
+  tickCol: { position: "absolute", top: 0, width: 28, alignItems: "center" },
   tickDot: { width: 6, height: 6, borderRadius: 3, marginBottom: 3 },
   tickLabel: { fontSize: 9, fontVariant: ["tabular-nums"] },
 
