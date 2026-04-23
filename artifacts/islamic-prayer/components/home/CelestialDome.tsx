@@ -343,17 +343,28 @@ function CelestialDomeInner(props: CelestialDomeProps) {
                   >
                     {a.label}
                   </SvgText>
-                  <SvgText
-                    x={x + dx}
-                    y={y + timeDy}
-                    textAnchor={anchor}
-                    fill={isPrayer ? "rgba(255,228,181,0.88)" : "rgba(220,228,248,0.78)"}
-                    fontSize={10.5}
-                    fontWeight="600"
-                  >
-                    {a.time}
-                  </SvgText>
-                  {a.sub && (
+                  {/* Suppress time + subtitle for past gateways (in practice
+                      Maghrib, which is the very anchor point of the night arc).
+                      When the moon is near Maghrib (the first ~30 min of night)
+                      its label gets flipped above to dodge the moon, which then
+                      crashes into Isha's labels just to the right. The time and
+                      "sunset · night begins" hint are also redundant once
+                      Maghrib is in the past — the EARLIER TODAY chip below
+                      already shows the exact time. Keep just the marker + tiny
+                      "MAGHRIB" label as a quiet visual anchor. */}
+                  {!(a.kind === "gateway" && past) && (
+                    <SvgText
+                      x={x + dx}
+                      y={y + timeDy}
+                      textAnchor={anchor}
+                      fill={isPrayer ? "rgba(255,228,181,0.88)" : "rgba(220,228,248,0.78)"}
+                      fontSize={10.5}
+                      fontWeight="600"
+                    >
+                      {a.time}
+                    </SvgText>
+                  )}
+                  {a.sub && !(a.kind === "gateway" && past) && (
                     <SvgText
                       x={x + dx}
                       y={y + subDy}
