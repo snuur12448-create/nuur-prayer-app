@@ -12,7 +12,9 @@
  * Used by AyahShareSheet (Quran) and ContentShareSheet (Hadith / Dua / Name).
  */
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
+
+const NUUR_ICON = require("@/assets/images/icon.png");
 import Svg, {
   Circle,
   Defs,
@@ -218,27 +220,16 @@ export function NuurMark({ size = 30 }: { size?: number }) {
   // Crescent constructed as the difference of two arcs; small 5-point star tucked in
   const goldId = useSvgId("nm-gold");
   return (
-    <Svg width={size} height={size} viewBox="0 0 40 40">
-      <Defs>
-        <LinearGradient id={goldId} x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0%"   stopColor={GOLD_LIGHT} />
-          <Stop offset="100%" stopColor={GOLD_DEEP} />
-        </LinearGradient>
-      </Defs>
-      <Circle cx={20} cy={20} r={18.5} fill="none" stroke={`url(#${goldId})`} strokeWidth="0.9" opacity="0.7" />
-      <Circle cx={20} cy={20} r={16.5} fill="none" stroke={GOLD} strokeWidth="0.4" opacity="0.35" />
-      {/* crescent: full disc minus offset disc */}
-      <Path
-        d="M 27 12 A 10 10 0 1 0 27 28 A 8 8 0 1 1 27 12 Z"
-        fill={`url(#${goldId})`}
-      />
-      {/* tiny 4-point star in the crescent's mouth */}
-      <Polygon
-        points="29.5,17 30.7,19.8 33.5,21 30.7,22.2 29.5,25 28.3,22.2 25.5,21 28.3,19.8"
-        fill={GOLD_LIGHT}
-        opacity="0.95"
-      />
-    </Svg>
+    <Image
+      source={NUUR_ICON}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.22,
+      }}
+      resizeMode="cover"
+      accessibilityLabel="Nuur"
+    />
   );
 }
 
