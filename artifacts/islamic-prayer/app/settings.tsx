@@ -31,7 +31,7 @@ import {
   PrayerOffsets,
 } from "@/utils/prayerTimes";
 import { ADHAN_STYLES, AdhanStyle, AdhanMode, ADHAN_MODE_INFO } from "@/utils/adhanData";
-import { previewAdhan, stopAdhanAudio } from "@/utils/adhanPlayer";
+import { prefetchAdhanAudio, previewAdhan, stopAdhanAudio } from "@/utils/adhanPlayer";
 import { CornerFloret, NuurMark } from "@/components/share/ShareDecor";
 
 const isWeb = Platform.OS === "web";
@@ -319,6 +319,16 @@ function AdhanStyleModal({
     if (!visible) void stopPreview();
     return () => { void stopPreview(); };
   }, [visible, stopPreview]);
+
+  // When the modal opens, kick off a background prefetch of every reciter's
+  // mp3 so that whichever one the user taps starts playing within ~1 s
+  // instead of the 6-8 s cold-network start we saw with Madinah. iOS's URL
+  // cache holds the bytes for `cache-control: max-age` (server returns 70
+  // days), so this only runs once per session in practice.
+  React.useEffect(() => {
+    if (!visible) return;
+    prefetchAdhanAudio(ADHAN_STYLES.map((s) => s.audioUrl));
+  }, [visible]);
 
   const handleClose = async () => {
     await stopPreview();

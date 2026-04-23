@@ -84,6 +84,47 @@ export async function stopAdhanAudio(): Promise<void> {
   }
 }
 
+// Track which URLs we've already prefetched this session so we don't refetch
+// on every modal open. iOS's URL cache persists across app launches so a hit
+// here usually means the bytes are already on disk too.
+const prefetchedUrls = new Set<string>();
+
+/**
+ * Warm iOS's HTTP cache for the given adhan audio URLs by issuing a
+ * lightweight fetch of each. The response is read fully so the bytes land
+ * in NSURLCache (the server sends `cache-control: max-age=6048000` so this
+ * is honored). Subsequent `Audio.Sound.createAsync` calls then load from
+ * the local cache instead of from the network — turning what was an 8-second
+ * cold-start into a sub-second warm playback.
+ *
+ * Call this when the AdhanStyleModal becomes visible. Failures are silent
+ * because this is a pure performance optimization — playback paths still
+ * work without it.
+ */
+export function prefetchAdhanAudio(urls: string[]): void {
+  if (Platform.OS === "web") return; // web uses a different cache path
+  for (const url of urls) {
+    if (prefetchedUrls.has(url)) continue;
+    prefetchedUrls.add(url);
+    // Fire-and-forget. We don't await; we just want the bytes flowing into
+    // the URL cache. AbortController unused because cancelling mid-flight
+    // would defeat the purpose.
+    fetch(url)
+      .then(async (res) => {
+        if (!res.ok) {
+          prefetchedUrls.delete(url); // allow retry on next modal open
+          return;
+        }
+        // Drain the body so iOS actually stores it in the cache. Without
+        // this, the connection sits open and bytes never get cached.
+        try { await res.arrayBuffer(); } catch {}
+      })
+      .catch(() => {
+        prefetchedUrls.delete(url); // network error → allow retry
+      });
+  }
+}
+
 // Generation token: every previewAdhan() call increments this. If a newer
 // call (or a stopAdhanAudio()) happens while we're awaiting createAsync /
 // audio.play(), the older call's resolved sound is stale — we must unload
