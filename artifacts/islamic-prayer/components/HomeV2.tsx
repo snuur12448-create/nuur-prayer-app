@@ -81,9 +81,9 @@ export interface HomeV2Props {
   onCopyAyah: () => void;
   onShareAyah: () => void;
   onReadAyah: () => void;
-  onQibla: () => void;
-  onQuran: () => void;
-  onAdhkar: () => void;
+  onTasbeeh: () => void;
+  onTracker: () => void;
+  onHadith: () => void;
   onTahajjud: () => void;
 }
 
@@ -94,7 +94,7 @@ export function HomeV2(props: HomeV2Props) {
     prayedCount, nowPrayedAtMs, ayah, isVerseOfNight, ayahCopied, bell, banners,
     notifEnabled, onLocationPress, onCalendarPress, onBellPress, onTogglePrayed,
     onPrayerSettingsPress, onViewTracker, onCopyAyah, onShareAyah, onReadAyah,
-    onQibla, onQuran, onAdhkar, onTahajjud,
+    onTasbeeh, onTracker, onHadith, onTahajjud,
   } = props;
 
   // ── Geometry ──────────────────────────────────────────────────────────────
@@ -322,9 +322,9 @@ export function HomeV2(props: HomeV2Props) {
       <QuickActions
         colors={colors}
         showTahajjud={showTahajjud}
-        onQibla={onQibla}
-        onQuran={onQuran}
-        onAdhkar={onAdhkar}
+        onTasbeeh={onTasbeeh}
+        onTracker={onTracker}
+        onHadith={onHadith}
         onTahajjud={onTahajjud}
       />
     </View>

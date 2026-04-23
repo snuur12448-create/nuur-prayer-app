@@ -6,25 +6,29 @@ import { SERIF, type ThemeColors } from "./constants";
 export interface QuickActionsProps {
   colors: ThemeColors;
   showTahajjud: boolean;
-  onQibla: () => void;
-  onQuran: () => void;
-  onAdhkar: () => void;
+  onTasbeeh: () => void;
+  onTracker: () => void;
+  onHadith: () => void;
   onTahajjud: () => void;
 }
 
 function QuickActionsInner({
-  colors, showTahajjud, onQibla, onQuran, onAdhkar, onTahajjud,
+  colors, showTahajjud, onTasbeeh, onTracker, onHadith, onTahajjud,
 }: QuickActionsProps) {
+  // Day: Tasbeeh · Tracker · Hadith — surfaces second-tier worship tools
+  // that otherwise live only under More. At night, swap Hadith for the
+  // Tahajjud prompt so the screen still nudges the actionable night
+  // prayer rather than reading material.
   const actions = showTahajjud
     ? [
+        { icon: "circle" as const, label: "Tasbeeh", onPress: onTasbeeh },
+        { icon: "zap" as const, label: "Tracker", onPress: onTracker },
         { icon: "moon" as const, label: "Tahajjud", onPress: onTahajjud },
-        { icon: "book" as const, label: "Quran", onPress: onQuran },
-        { icon: "star" as const, label: "Adhkar", onPress: onAdhkar },
       ]
     : [
-        { icon: "compass" as const, label: "Qibla", onPress: onQibla },
-        { icon: "book" as const, label: "Quran", onPress: onQuran },
-        { icon: "star" as const, label: "Adhkar", onPress: onAdhkar },
+        { icon: "circle" as const, label: "Tasbeeh", onPress: onTasbeeh },
+        { icon: "zap" as const, label: "Tracker", onPress: onTracker },
+        { icon: "book-open" as const, label: "Hadith", onPress: onHadith },
       ];
 
   return (

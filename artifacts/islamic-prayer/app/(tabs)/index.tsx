@@ -224,6 +224,8 @@ export default function PrayerScreen() {
     []
   );
   const goTracker = useCallback(() => router.push("/tracker"), []);
+  const goTasbeeh = useCallback(() => router.push("/tasbeeh"), []);
+  const goHadith = useCallback(() => router.push("/hadiths"), []);
   const goCalendar = useCallback(() => router.push("/calendar"), []);
 
   // ── Tracker map for the day's record + 5/5 count ──────────────────────────
@@ -412,9 +414,9 @@ export default function PrayerScreen() {
           onCopyAyah={handleCopyAyah}
           onShareAyah={handleShareAyah}
           onReadAyah={handleReadAyahSurah}
-          onQibla={goQibla}
-          onQuran={goQuran}
-          onAdhkar={goAdhkar}
+          onTasbeeh={goTasbeeh}
+          onTracker={goTracker}
+          onHadith={goHadith}
           onTahajjud={goTahajjud}
         />
       </ScrollView>
