@@ -42,7 +42,7 @@ function RootLayoutNav() {
       <Stack.Screen name="sunnah-prayers" options={{ headerShown: false, presentation: "card" }} />
       {/* Promoted from (tabs)/ — these are reachable from More and Home QuickActions,
           but they are not tabs and now push on top of the tab navigator. */}
-      <Stack.Screen name="dua" options={{ headerShown: false, presentation: "card" }} />
+      <Stack.Screen name="tracker" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="names" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="tasbeeh" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="settings" options={{ headerShown: false, presentation: "card" }} />

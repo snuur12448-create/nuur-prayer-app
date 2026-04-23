@@ -162,14 +162,14 @@ function ClassicTabLayout() {
           }}
         />
         <Tabs.Screen
-          name="tracker"
+          name="dua"
           options={{
-            title: "Tracker",
+            title: "Adhkar",
             tabBarIcon: ({ color }) =>
               isIOS ? (
-                <SymbolView name="checkmark.circle.fill" tintColor={color} size={24} />
+                <SymbolView name="hands.sparkles.fill" tintColor={color} size={24} />
               ) : (
-                <Feather name="check-circle" size={22} color={color} />
+                <MaterialCommunityIcons name="hands-pray" size={22} color={color} />
               ),
           }}
         />

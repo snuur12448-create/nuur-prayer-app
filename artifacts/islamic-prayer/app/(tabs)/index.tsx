@@ -223,7 +223,7 @@ export default function PrayerScreen() {
     () => router.push({ pathname: "/sunnah-prayers", params: { filter: "night", open: "tahajjud" } }),
     []
   );
-  const goTracker = useCallback(() => router.push("/(tabs)/tracker"), []);
+  const goTracker = useCallback(() => router.push("/tracker"), []);
   const goCalendar = useCallback(() => router.push("/calendar"), []);
 
   // ── Tracker map for the day's record + 5/5 count ──────────────────────────

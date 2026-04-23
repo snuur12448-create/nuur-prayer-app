@@ -505,9 +505,7 @@ export default function DuaScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 16, borderBottomColor: colors.gold + "22" }]}>
         <View style={styles.headerTop}>
-          <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
-            <Feather name="chevron-left" size={24} color={colors.gold} />
-          </Pressable>
+          {/* No back button — Adhkar is a top-level tab. */}
           <View style={styles.headerTitles}>
             <Text style={[styles.headerTitle, { color: colors.text }]}>Du'a &amp; Adhkār</Text>
             <Text style={[styles.headerArabic, { color: colors.gold, fontFamily: "AmiriQuran_400Regular" }]}>
