@@ -1038,7 +1038,7 @@ export default function QiblaScreen() {
         {/* ── Sun-shadow method card ─────────────────────────────────────── */}
         {/* Works without a compass — useful in steel buildings, planes, etc. */}
         {sunInfo && (
-          <View style={[styles.sunCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.sunCard, { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: insets.bottom + 90 }]}>
             <View style={styles.sunHeader}>
               <View style={[styles.sunIconWrap, { backgroundColor: colors.gold + "22" }]}>
                 <MaterialCommunityIcons
