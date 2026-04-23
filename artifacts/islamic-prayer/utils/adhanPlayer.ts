@@ -143,7 +143,14 @@ export interface PreviewCallbacks {
   onFinishOrError?: (didError: boolean) => void;
 }
 
-export async function previewAdhan(url: string, cb?: PreviewCallbacks): Promise<void> {
+export async function previewAdhan(
+  url: string,
+  cb?: PreviewCallbacks,
+  // Optional offset (ms) into the file to start playback at. Used to skip
+  // dead-air intros on certain reciters (e.g. Madinah's a1.mp3 has ~6s of
+  // low-volume buildup). 0 / undefined plays from the very start.
+  startAtMs: number = 0,
+): Promise<void> {
   const myGen = ++previewGen;
   await stopAdhanAudio();
   // stopAdhanAudio bumps no token of its own, but if another previewAdhan
@@ -153,6 +160,13 @@ export async function previewAdhan(url: string, cb?: PreviewCallbacks): Promise<
   if (Platform.OS === "web") {
     try {
       const audio = new window.Audio(url);
+      if (startAtMs > 0) {
+        // Seek as soon as the browser knows the duration. Setting
+        // currentTime before metadata is loaded is silently ignored.
+        audio.addEventListener("loadedmetadata", () => {
+          try { audio.currentTime = startAtMs / 1000; } catch {}
+        });
+      }
       audio.oncanplay = () => {
         if (myGen === previewGen) cb?.onPlaybackStarted?.();
       };
@@ -195,7 +209,14 @@ export async function previewAdhan(url: string, cb?: PreviewCallbacks): Promise<
 
       const { sound } = await Audio.Sound.createAsync(
         { uri: url },
-        { shouldPlay: true, volume: 1.0, progressUpdateIntervalMillis: 200 },
+        {
+          shouldPlay: true,
+          volume: 1.0,
+          progressUpdateIntervalMillis: 200,
+          // Skip dead-air intros (e.g. Madinah) so the preview cuts straight
+          // to the reciter. positionMillis is honored on the very first load.
+          positionMillis: startAtMs > 0 ? startAtMs : 0,
+        },
         null,
         // Critical: false = progressive streaming. Default (true) makes
         // expo-av download the ENTIRE mp3 before reporting loaded — which

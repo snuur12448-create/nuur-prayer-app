@@ -13,6 +13,11 @@ export interface AdhanStyle {
   fajrAudioUrl: string;   // Adhan Al-Fajr — includes "As-salatu khayrun minan nawm" (~3–5 min)
   shortAudioUrl: string;  // Short Adhan — condensed (~2 min)
   cafFilename: string;    // Bundled .caf file for iOS background notifications (28s clip)
+  // Optional: skip this many ms at the start of the preview so the user
+  // doesn't sit through dead air / mic-warmup / a slow takbir intro before
+  // hearing the reciter's character. Only applied to in-app previews —
+  // notifications and full prayer-time playback always start from 0.
+  previewSkipMs?: number;
 }
 
 // AlAdhan CDN — production-grade Islamic audio CDN (128–226 kbps)
@@ -43,6 +48,10 @@ export const ADHAN_STYLES: AdhanStyle[] = [
     fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan10.mp3", // Madinah Fajr (best available)
     shortAudioUrl: `${ALA}/a6.mp3`,                                   // Salah Mansoor Az-Zahrani, 128 kbps
     cafFilename: "adhan_madinah.caf",
+    // The Madinah file (a1.mp3) opens with ~6s of low-volume buildup before
+    // the first audible takbir. Skip it so the preview is representative
+    // of the reciter, not the silence.
+    previewSkipMs: 6000,
   },
   {
     id: "afasy",

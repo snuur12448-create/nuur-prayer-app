@@ -288,30 +288,35 @@ function AdhanStyleModal({
     setLoadingId(style.id);
     setPlayingId(null);
 
-    await previewAdhan(style.audioUrl, {
-      onPlaybackStarted: () => {
-        if (previewTokenRef.current !== token) return;
-        setLoadingId(null);
-        setPlayingId(style.id);
-        // Auto-stop after 12 s — long enough to hear the reciter's character
-        // (the "Allahu Akbar Allahu Akbar" opening + first phrase) without
-        // forcing the user to sit through the full 3-minute call.
-        clearAutoStop();
-        autoStopTimerRef.current = setTimeout(() => {
+    await previewAdhan(
+      style.audioUrl,
+      {
+        onPlaybackStarted: () => {
           if (previewTokenRef.current !== token) return;
-          void stopPreview();
-        }, 12_000);
+          setLoadingId(null);
+          setPlayingId(style.id);
+          // Auto-stop after 12 s — long enough to hear the reciter's character
+          // (the "Allahu Akbar Allahu Akbar" opening + first phrase) without
+          // forcing the user to sit through the full 3-minute call.
+          clearAutoStop();
+          autoStopTimerRef.current = setTimeout(() => {
+            if (previewTokenRef.current !== token) return;
+            void stopPreview();
+          }, 12_000);
+        },
+        onFinishOrError: (didError) => {
+          if (previewTokenRef.current !== token) return;
+          clearAutoStop();
+          setLoadingId(null);
+          setPlayingId(null);
+          if (didError) {
+            console.warn(`[AdhanStyleModal] Preview failed for ${style.id}`);
+          }
+        },
       },
-      onFinishOrError: (didError) => {
-        if (previewTokenRef.current !== token) return;
-        clearAutoStop();
-        setLoadingId(null);
-        setPlayingId(null);
-        if (didError) {
-          console.warn(`[AdhanStyleModal] Preview failed for ${style.id}`);
-        }
-      },
-    });
+      // Per-reciter intro-skip (e.g. Madinah trims its 6 s buildup).
+      style.previewSkipMs ?? 0,
+    );
   };
 
   // Always cut audio + clear timers when the modal goes away.
