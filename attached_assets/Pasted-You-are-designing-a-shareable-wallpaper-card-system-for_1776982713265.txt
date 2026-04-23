@@ -1,0 +1,63 @@
+You are designing a shareable wallpaper/card system for an Islamic mobile app called "Nuur" (meaning light).
+
+IMPORTANT:
+The goal is a premium, minimal, modern aesthetic — NOT traditional decorative Islamic designs. Avoid anything that looks like a template or overdesigned.
+
+Use the attached examples ONLY as reference for content structure, NOT for visual style. The current designs are too busy and need to be simplified.
+
+CORE DESIGN DIRECTION:
+- Minimal, calm, and spacious
+- Focus on "light" (noor), not decoration
+- Feels like a modern meditation app, not a typical Islamic app
+- Highly shareable (Instagram story, WhatsApp, lockscreen)
+
+STRICT RULES:
+- NO heavy borders
+- NO busy geometric patterns
+- NO excessive stars or particles
+- NO crowded layouts
+- Limit gold accents (use sparingly)
+- Prioritise whitespace and readability
+
+LAYOUT STRUCTURE (must be consistent across all cards):
+1. Small top label (e.g. "HADITH • INTENTIONS", "MORNING DUA", "99 NAMES OF ALLAH")
+2. Main Arabic text (large, centered, dominant)
+3. Translation (smaller, max 2–4 lines)
+4. Reference (subtle)
+5. Small Nuur branding at bottom
+
+STYLE SPECIFICATIONS:
+
+Background:
+- Deep dark tone (dark green/black)
+- Very subtle radial glow behind Arabic text (to represent "noor")
+- No heavy textures or images
+
+Typography:
+- Arabic: elegant, clean, highly legible (primary focus)
+- English: modern sans-serif (simple, clean)
+- Clear hierarchy: Arabic > Translation > Reference
+
+Color:
+- Arabic: soft off-white
+- Translation: muted grey
+- Accent: soft gold or green (very minimal use)
+
+99 NAMES OF ALLAH:
+- Arabic name should be the main focal point (very large)
+- Include transliteration and meaning
+- Visual changes should be subtle (slight tone or glow differences), NOT literal imagery
+
+DUAS / ADHKAR:
+- Slightly warmer tone for emotional feel
+- Keep layout clean and readable
+
+HADITH / QURAN:
+- Focus on clarity and balance
+- Avoid long dense text blocks
+
+GOAL:
+The final output should feel calm, premium, and instantly recognisable as a unified design system for the Nuur app.
+
+It should NOT look like a generic Islamic quote image.
+It should feel like a high-end product.

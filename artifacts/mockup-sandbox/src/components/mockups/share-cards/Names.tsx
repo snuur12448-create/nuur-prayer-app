@@ -1,30 +1,24 @@
 import React from "react";
-import { BrandLockup, CardFrame, CREAM, CREAM_DIM, GOLD, GOLD_DIM, LabelBand, NuurMark, StarDivider, StarOrnament } from "./_shared";
+import { CardFrame, CREAM, CREAM_DIM, GOLD, NuurMark, Reference, TopLabel } from "./_shared";
 
 export function Names() {
   return (
-    <CardFrame glow="warm" decor="mosque-right">
-      {/* TOP: Nuur mark */}
-      <div style={{ display: "flex", justifyContent: "center", marginTop: 6 }}>
-        <NuurMark size={32} />
-      </div>
+    <CardFrame tone="warm">
+      <TopLabel>99 Names of Allah</TopLabel>
 
-      {/* Label band */}
-      <div style={{ marginTop: 16 }}>
-        <LabelBand>99 Names of Allah</LabelBand>
-      </div>
+      <div style={{ flex: 1 }} />
 
-      {/* Monumental Arabic name */}
+      {/* Arabic name — the focal point */}
       <div
         style={{
-          marginTop: 28,
           fontFamily: "'Amiri Quran', 'Amiri', serif",
-          fontSize: 92,
-          lineHeight: 1.15,
+          fontSize: 96,
+          lineHeight: 1.1,
           textAlign: "center",
           direction: "rtl",
           color: CREAM,
-          textShadow: "0 0 36px rgba(201, 163, 95, 0.35), 0 0 12px rgba(245, 236, 215, 0.2)",
+          fontWeight: 400,
+          textShadow: "0 0 30px rgba(255, 210, 140, 0.18)",
         }}
       >
         ٱلرَّحْمَـٰن
@@ -33,104 +27,48 @@ export function Names() {
       {/* Transliteration */}
       <div
         style={{
-          marginTop: 14,
+          marginTop: 18,
           fontFamily: "'Inter', sans-serif",
-          fontSize: 18,
-          letterSpacing: "0.28em",
+          fontSize: 16,
+          letterSpacing: "0.3em",
           textTransform: "uppercase",
           textAlign: "center",
           color: CREAM,
-          fontWeight: 500,
+          fontWeight: 400,
         }}
       >
         Ar-Rahman
       </div>
 
-      {/* Divider */}
-      <div style={{ marginTop: 16 }}>
-        <StarDivider width={50} />
-      </div>
-
-      {/* Meaning header */}
+      {/* Meaning */}
       <div
         style={{
           marginTop: 22,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-        }}
-      >
-        <StarOrnament size={11} />
-        <div
-          style={{
-            fontSize: 11,
-            letterSpacing: "0.4em",
-            color: GOLD,
-            fontWeight: 600,
-            textTransform: "uppercase",
-            fontFamily: "'Inter', sans-serif",
-          }}
-        >
-          Meaning
-        </div>
-      </div>
-
-      {/* Meaning text */}
-      <div
-        style={{
-          marginTop: 10,
           fontFamily: "'Inter', sans-serif",
-          fontSize: 16,
-          lineHeight: 1.55,
+          fontSize: 14.5,
+          lineHeight: 1.65,
           textAlign: "center",
-          color: CREAM,
-          padding: "0 20px",
+          color: CREAM_DIM,
           fontWeight: 400,
+          maxWidth: 320,
+          alignSelf: "center",
         }}
       >
-        The Most Compassionate,<br />
-        The Entirely Merciful.
+        The Most Compassionate, the Entirely Merciful.
       </div>
 
-      {/* Divider with diamond */}
-      <div
-        style={{
-          marginTop: 22,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-        }}
-      >
-        <div style={{ width: 70, height: 1, background: GOLD_DIM }} />
-        <div style={{ width: 6, height: 6, background: GOLD, transform: "rotate(45deg)" }} />
-        <div style={{ width: 70, height: 1, background: GOLD_DIM }} />
-      </div>
+      <div style={{ flex: 1 }} />
 
-      {/* Verse where the name is mentioned */}
+      {/* Quran intro — single muted line */}
       <div
         style={{
-          marginTop: 14,
-          textAlign: "center",
-          color: GOLD,
-          fontFamily: "'Playfair Display', serif",
+          fontFamily: "'Amiri', serif",
           fontSize: 18,
-          lineHeight: 1,
-          fontWeight: 700,
-        }}
-      >
-        “
-      </div>
-      <div
-        style={{
-          marginTop: 4,
-          fontFamily: "'Amiri Quran', 'Amiri', serif",
-          fontSize: 22,
-          lineHeight: 1.7,
+          lineHeight: 1.6,
           textAlign: "center",
           direction: "rtl",
-          color: CREAM,
+          color: CREAM_DIM,
+          fontWeight: 400,
         }}
       >
         وَرَحْمَتِي وَسِعَتْ كُلَّ شَيْءٍ
@@ -139,46 +77,23 @@ export function Names() {
         style={{
           marginTop: 8,
           fontFamily: "'Inter', sans-serif",
-          fontSize: 13,
+          fontSize: 12,
+          lineHeight: 1.6,
           textAlign: "center",
           color: CREAM_DIM,
           fontWeight: 400,
-          padding: "0 20px",
+          fontStyle: "italic",
         }}
       >
-        And My mercy encompasses all things.
+        “And My mercy encompasses all things.”
       </div>
 
-      {/* Source: — QURAN 7:156 — */}
-      <div
-        style={{
-          marginTop: 12,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-        }}
-      >
-        <div style={{ width: 14, height: 1, background: GOLD }} />
-        <div
-          style={{
-            fontSize: 10.5,
-            letterSpacing: "0.32em",
-            color: GOLD,
-            fontWeight: 600,
-            textTransform: "uppercase",
-            fontFamily: "'Inter', sans-serif",
-          }}
-        >
-          Quran 7:156
-        </div>
-        <div style={{ width: 14, height: 1, background: GOLD }} />
+      <div style={{ marginTop: 18 }}>
+        <Reference>Quran 7:156</Reference>
       </div>
 
-      <div style={{ flex: 1 }} />
-
-      <div style={{ marginBottom: 4 }}>
-        <BrandLockup />
+      <div style={{ marginTop: 24 }}>
+        <NuurMark />
       </div>
     </CardFrame>
   );
