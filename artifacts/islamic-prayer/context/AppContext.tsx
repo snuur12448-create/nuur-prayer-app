@@ -701,7 +701,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [location]);
 
+  // Forward-declared ref for setAllPrayersNotifType so toggleAdhan (defined
+  // first) can call into it without a cyclic useCallback dependency.
+  const setAllPrayersNotifTypeRef = useRef<((t: "silent" | "notification" | "adhan") => Promise<void>) | null>(null);
+
   // ── Adhan callbacks ──
+  // The "Play Adhan" switch in Settings and the "Adhan" sound mode in the
+  // quick-sheet are presented to users as one unified setting. We keep them in
+  // sync by writing to BOTH stores from BOTH entry points:
+  //   • adhanEnabled boolean → drives in-app foreground audio playback
+  //   • per-prayer cfg.type → drives the OS notification sound (.caf)
+  // Toggling here also bulk-updates the 5 obligatory prayers' notification
+  // type, and setAllPrayersNotifType (below) mirrors back into adhanEnabled.
   const toggleAdhan = useCallback(async () => {
     const next = !adhanEnabledRef.current;
     setAdhanEnabled(next);
@@ -712,6 +723,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setAdhanPrayerName(null);
       setAdhanPrayerArabicName(null);
     }
+    // Mirror into per-prayer notification sound so the quick-sheet agrees.
+    // ON  → all 5 obligatory prayers play full adhan as their notification sound.
+    // OFF → revert to standard notification banner sound (preserves "silent"
+    //       overrides only by replacing them too — acceptable because the user
+    //       just took an explicit action on the master adhan toggle).
+    void setAllPrayersNotifTypeRef.current?.(next ? "adhan" : "notification");
   }, []);
 
   const setAdhanStyleId = useCallback(async (id: string) => {
@@ -902,8 +919,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(next)).catch(() => {});
       return next;
     });
+
+    // Mirror into the adhanEnabled boolean so Settings → "Play Adhan" agrees
+    // with the quick-sheet sound mode. ON only when user explicitly chose
+    // "adhan"; choosing silent/notification turns the in-app audio off too.
+    const adhanNext = type === "adhan";
+    if (adhanEnabledRef.current !== adhanNext) {
+      setAdhanEnabled(adhanNext);
+      try { await AsyncStorage.setItem(STORAGE_KEYS.ADHAN_ENABLED, adhanNext ? "true" : "false"); } catch {}
+      if (!adhanNext) {
+        await stopAdhanAudio();
+        setAdhanPlaying(false);
+        setAdhanPrayerName(null);
+        setAdhanPrayerArabicName(null);
+      }
+    }
+
     setTimeout(() => { rescheduleAll(captured); }, 50);
   }, [rescheduleAll]);
+
+  // Wire the forward-ref so toggleAdhan can call into setAllPrayersNotifType.
+  useEffect(() => { setAllPrayersNotifTypeRef.current = setAllPrayersNotifType; }, [setAllPrayersNotifType]);
 
   const setJummahReminder = useCallback(async (enabled: boolean, minutes: number) => {
     setJummahReminderEnabledState(enabled);
