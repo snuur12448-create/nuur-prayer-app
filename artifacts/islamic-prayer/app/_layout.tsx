@@ -115,12 +115,17 @@ function AdhanGate() {
 }
 
 export default function RootLayout() {
+  // Critical fonts: gate the splash on these (used across primary screens).
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
     AmiriQuran_400Regular,
+  });
+  // Editorial fonts (only used on share / wallpaper cards). Load in parallel
+  // but DO NOT block app startup — cards fall back to system fonts briefly.
+  useFonts({
     Amiri_400Regular,
     Fraunces_400Regular_Italic,
     Fraunces_500Medium,

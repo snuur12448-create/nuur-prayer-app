@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   outer: {
     overflow: "hidden",
     borderRadius: 22,
-    backgroundColor: "#08110C",
+    backgroundColor: "#000000",
   },
   bg: { flex: 1 },
   content: {

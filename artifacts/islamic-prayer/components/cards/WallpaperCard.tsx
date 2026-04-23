@@ -26,11 +26,12 @@ const ASPECT = 19.5 / 9; // 9:19.5 portrait
 
 export function WallpaperCard({ card, width }: WallpaperCardProps) {
   const height = width * ASPECT;
-  // Reference width is 1170 (full export), so scale based on that.
-  const scale = width / 1170 * 1.6;
-  const padding = 40 * scale * 1.6;
-  const padTop = height * 0.35;        // Masthead at ~35% from top
-  const padBottom = height * 0.04;
+  // Scale 1.0 at export width (1170). Sizes inside content components are tuned
+  // for that scale and should not be inflated further.
+  const scale = width / 1170;
+  const padding = 56 * scale;
+  const padTop = height * 0.30;        // Masthead at ~30% from top (matches ref)
+  const padBottom = height * 0.05;
   const accent = categoryAccents[card.category];
   const bg = categoryBackgrounds[card.category];
   const categoryLabel = categoryLabels[card.category];
@@ -123,7 +124,7 @@ function CardBody({ card, accent, scale }: { card: CardData; accent: string; sca
 const styles = StyleSheet.create({
   outer: {
     overflow: "hidden",
-    backgroundColor: "#08110C",
+    backgroundColor: "#000000",
   },
   bg: { flex: 1 },
   content: {

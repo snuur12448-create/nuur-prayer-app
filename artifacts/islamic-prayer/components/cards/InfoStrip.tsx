@@ -21,9 +21,8 @@ export function InfoStrip({ cells, cardPadding, scale = 1 }: InfoStripProps) {
         {
           marginHorizontal: -cardPadding,
           paddingHorizontal: cardPadding,
-          paddingVertical: 14 * scale,
+          paddingVertical: 16 * scale,
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderBottomWidth: StyleSheet.hairlineWidth,
         },
       ]}
     >
@@ -53,8 +52,8 @@ export function InfoStrip({ cells, cardPadding, scale = 1 }: InfoStripProps) {
 const styles = StyleSheet.create({
   strip: {
     flexDirection: "row",
-    backgroundColor: "rgba(0,0,0,0.15)",
-    borderColor: "rgba(245,238,220,0.12)",
+    backgroundColor: "transparent",
+    borderColor: "rgba(245,238,220,0.16)",
     width: "auto",
   },
   cell: {
