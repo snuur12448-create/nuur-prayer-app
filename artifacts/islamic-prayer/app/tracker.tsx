@@ -357,7 +357,21 @@ export default function TrackerScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Hero: streak ember ── */}
-        <View style={[styles.hero, { paddingTop: topInset + 16, backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View style={[styles.hero, { paddingTop: topInset + 12, backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          {/* Back chevron — tracker is a stack screen (not a tab), so without
+              this the only escape is the OS back gesture, which web users and
+              first-time iOS users don't always discover. */}
+          <View style={styles.backRow}>
+            <TouchableOpacity
+              onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              style={[styles.backBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+            >
+              <Feather name="chevron-left" size={18} color={colors.text} />
+            </TouchableOpacity>
+          </View>
           <View style={styles.eyebrowRow}>
             <Text style={[styles.eyebrow, { color: goldAccent }]}>PRAYER · TRACKER</Text>
             <Text style={[styles.headerAr, { color: goldAccent }]}>متابعة الصلوات</Text>
@@ -663,6 +677,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 18,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  backRow: { marginBottom: 12 },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    justifyContent: "center",
   },
   eyebrowRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
   eyebrow: { fontSize: 10, letterSpacing: 3, fontFamily: "Inter_600SemiBold" },
