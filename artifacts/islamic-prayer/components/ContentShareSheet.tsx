@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -80,6 +81,16 @@ export default function ContentShareSheet({
   const [cardH,    setCardH]    = useState(CARD_SIZE);
   const [sizeMode, setSizeMode] = useState<SizeMode>("card");
 
+  const dismissPan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 50 || g.vy > 0.5) onClose();
+      },
+    })
+  ).current;
+
   const isWallpaper = sizeMode === "wallpaper";
   const cardW       = isWallpaper ? WALLPAPER_W : CARD_SIZE;
   const currentH    = isWallpaper ? WALLPAPER_H : cardH;
@@ -146,7 +157,7 @@ export default function ContentShareSheet({
       <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.sheet}>
-          <Pressable onPress={onClose} hitSlop={16} style={styles.handleArea}>
+          <Pressable onPress={onClose} hitSlop={16} style={styles.handleArea} {...dismissPan.panHandlers}>
             <View style={styles.handle} />
           </Pressable>
           <View style={styles.sheetHeader}>
