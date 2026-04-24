@@ -2,7 +2,6 @@ import React from "react";
 import Svg, {
   Defs,
   Ellipse,
-  G,
   LinearGradient as SvgLinearGradient,
   RadialGradient,
   Rect,
@@ -12,34 +11,39 @@ import Svg, {
 import type { ShareTheme, ThemeBackgroundProps } from "../types";
 
 /* ─────────────────────────────────────────────────────────────────────────
- * Dawn Glow
- * Wine / burgundy gradient with a soft peach radial sun-glow centred on
- * the Arabic line. Optimised for morning adhkar, fajr du'a, and any
- * dawn-time content.
+ * Dawn Glow  (matches IMG_7899 wallpaper / IMG_7900 card)
+ *
+ * Deep wine / burgundy gradient with a single LARGE soft cream-to-peach
+ * radial sun-glow centred behind the Arabic. No frame, no extra
+ * ornament — the glow IS the ornament.
  * ──────────────────────────────────────────────────────────────────────── */
 
 const palette = {
   isLight: false,
-  bgTop:    "#3F1A22",
-  bgMid:    "#2B121C",
-  bgBottom: "#1A080F",
-  accent:     "#F2D7B5",
+  bgTop:    "#3A0F1B",
+  bgMid:    "#270A14",
+  bgBottom: "#15050A",
+  accent:     "#F4DEC5",
   accentSoft: "#C9933A",
-  text:       "rgba(248,234,219,0.98)",
-  textMuted:  "rgba(248,234,219,0.62)",
-  rule:       "rgba(242,215,181,0.32)",
+  text:       "rgba(252,242,228,0.98)",
+  textMuted:  "rgba(252,242,228,0.62)",
+  rule:       "rgba(244,222,197,0.34)",
 };
 
 function RoseBackground({ width, height, mode, palette: p }: ThemeBackgroundProps) {
-  const bgId   = `rose_bg_${width.toFixed(0)}_${height.toFixed(0)}`;
-  const glowId = `rose_glow_${width.toFixed(0)}_${height.toFixed(0)}`;
-  const haloId = `rose_halo_${width.toFixed(0)}_${height.toFixed(0)}`;
+  const bgId      = `rose_bg_${width.toFixed(0)}_${height.toFixed(0)}`;
+  const sunId     = `rose_sun_${width.toFixed(0)}_${height.toFixed(0)}`;
+  const haloId    = `rose_halo_${width.toFixed(0)}_${height.toFixed(0)}`;
+  const bottomId  = `rose_bot_${width.toFixed(0)}_${height.toFixed(0)}`;
 
-  // Sun glow centre — sits behind the Arabic block (~upper third on card,
-  // ~middle on wallpaper, just below the clock zone).
+  // Sun centre — sits behind the Arabic block.
+  // Card: ~38 % from top.   Wallpaper: ~22 % from top (under the clock zone).
   const cx = width / 2;
-  const cy = mode === "wallpaper" ? height * 0.50 : height * 0.36;
-  const glowR = width * 0.65;
+  const sunCy = mode === "wallpaper" ? height * 0.22 : height * 0.38;
+
+  // Sun radius
+  const sunR  = width * (mode === "wallpaper" ? 0.35 : 0.45);
+  const haloR = sunR * 2.5;
 
   return (
     <Svg width={width} height={height} style={{ position: "absolute", top: 0, left: 0 }}>
@@ -49,34 +53,43 @@ function RoseBackground({ width, height, mode, palette: p }: ThemeBackgroundProp
           <Stop offset="55%" stopColor={p.bgMid} />
           <Stop offset="100%" stopColor={p.bgBottom} />
         </SvgLinearGradient>
-        <RadialGradient id={glowId} cx="50%" cy="50%" r="50%">
-          <Stop offset="0%"   stopColor={p.accent} stopOpacity={0.55} />
-          <Stop offset="40%"  stopColor={p.accent} stopOpacity={0.25} />
+        <RadialGradient id={haloId} cx="50%" cy="50%" r="50%">
+          <Stop offset="0%"   stopColor={p.accent} stopOpacity={0.40} />
+          <Stop offset="35%"  stopColor={p.accent} stopOpacity={0.22} />
+          <Stop offset="65%"  stopColor={p.accent} stopOpacity={0.10} />
           <Stop offset="100%" stopColor={p.accent} stopOpacity={0} />
         </RadialGradient>
-        <RadialGradient id={haloId} cx="50%" cy="50%" r="50%">
-          <Stop offset="0%"   stopColor={p.accentSoft} stopOpacity={0.40} />
-          <Stop offset="100%" stopColor={p.accentSoft} stopOpacity={0} />
+        <RadialGradient id={sunId} cx="50%" cy="50%" r="50%">
+          <Stop offset="0%"   stopColor="#FFFAEC" stopOpacity={0.95} />
+          <Stop offset="20%"  stopColor="#FBEBC9" stopOpacity={0.70} />
+          <Stop offset="55%"  stopColor={p.accent} stopOpacity={0.35} />
+          <Stop offset="100%" stopColor={p.accent} stopOpacity={0} />
+        </RadialGradient>
+        <RadialGradient id={bottomId} cx="50%" cy="50%" r="50%">
+          <Stop offset="0%"   stopColor="#7A2A3E" stopOpacity={0.45} />
+          <Stop offset="100%" stopColor="#7A2A3E" stopOpacity={0} />
         </RadialGradient>
       </Defs>
+
+      {/* Base burgundy gradient */}
       <Rect x={0} y={0} width={width} height={height} fill={`url(#${bgId})`} />
 
-      {/* Outer warm halo */}
-      <Ellipse cx={cx} cy={cy} rx={glowR * 1.15} ry={glowR * 1.0} fill={`url(#${haloId})`} />
-      {/* Inner cream-peach glow */}
-      <Ellipse cx={cx} cy={cy} rx={glowR * 0.78} ry={glowR * 0.62} fill={`url(#${glowId})`} />
+      {/* Outer warm halo (the dawn glow) */}
+      <Ellipse cx={cx} cy={sunCy} rx={haloR} ry={haloR * 0.95} fill={`url(#${haloId})`} />
 
-      {/* Faint horizon line beneath the glow — adds the "dawn" cue */}
-      <G>
-        <Rect
-          x={width * 0.15}
-          y={cy + glowR * 0.45}
-          width={width * 0.70}
-          height={1}
-          fill={p.accent}
-          opacity={0.30}
+      {/* Inner cream-peach sun disc */}
+      <Ellipse cx={cx} cy={sunCy} rx={sunR} ry={sunR} fill={`url(#${sunId})`} />
+
+      {/* Soft burgundy bloom near the bottom — gives the references' lift */}
+      {mode === "wallpaper" ? (
+        <Ellipse
+          cx={cx}
+          cy={height * 0.86}
+          rx={width * 0.55}
+          ry={width * 0.55}
+          fill={`url(#${bottomId})`}
         />
-      </G>
+      ) : null}
     </Svg>
   );
 }

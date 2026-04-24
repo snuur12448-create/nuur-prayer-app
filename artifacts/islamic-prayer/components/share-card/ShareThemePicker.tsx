@@ -41,7 +41,21 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const SLIDE_W                  = SCREEN_W;
 const SLIDE_PAD                = 32;
 const PREVIEW_CARD_W           = Math.min(SCREEN_W - SLIDE_PAD * 2, 340);
-const PREVIEW_WALLPAPER_W      = Math.min(SCREEN_W - SLIDE_PAD * 2 - 80, 220);
+// Wallpaper preview is taller (≈ 2.17×). Cap its width so the resulting
+// height (W × 2.17) fits inside the available pager band of the sheet on
+// small devices like the iPhone SE (375 × 667). Sheet chrome (handle,
+// header, toggle, meta + dots, actions, paddings) ≈ 290 dp.
+const SHEET_CHROME_H           = 290;
+const WALLPAPER_PREVIEW_ASPECT = 2535 / 1170;
+const MAX_WALLPAPER_PREVIEW_H  = SCREEN_H * 0.94 - SHEET_CHROME_H;
+const PREVIEW_WALLPAPER_W      = Math.max(
+  160,
+  Math.min(
+    240,                                                  // visual cap
+    SCREEN_W - SLIDE_PAD * 2 - 60,                        // horizontal cap
+    MAX_WALLPAPER_PREVIEW_H / WALLPAPER_PREVIEW_ASPECT,   // vertical cap
+  ),
+);
 const EXPORT_CARD_W            = 1080;
 const EXPORT_CARD_H            = 1350;
 const EXPORT_WALLPAPER_W       = 1170;
