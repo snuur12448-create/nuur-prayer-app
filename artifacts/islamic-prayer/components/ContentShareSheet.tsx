@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { captureRef } from "react-native-view-shot";
 
-import { QuoteCard, QuoteCardMode } from "./cards/QuoteCard";
+import { QuoteCard, QuoteCardMode, QuoteCardPalette } from "./cards/QuoteCard";
 import { useToast } from "./Toast";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -68,6 +68,7 @@ export default function ContentShareSheet(p: ContentShareSheetProps) {
   const [mode, setMode]       = useState<QuoteCardMode>("card");
 
   const { eyebrow, attributionTail } = useMemo(() => splitLabel(p.label), [p.label]);
+  const palette: QuoteCardPalette = p.theme === "hadith" ? "hadith" : p.theme === "name" ? "name" : "dua";
 
   const dismissPan = useRef(
     PanResponder.create({
@@ -189,6 +190,7 @@ export default function ContentShareSheet(p: ContentShareSheetProps) {
             <View style={styles.cardOuter}>
               <QuoteCard
                 {...cardProps}
+                palette={palette}
                 mode={mode}
                 width={isWallpaper ? PREVIEW_WALLPAPER_W : PREVIEW_CARD_W}
               />
@@ -227,6 +229,7 @@ export default function ContentShareSheet(p: ContentShareSheetProps) {
           <View ref={exportRef} collapsable={false}>
             <QuoteCard
               {...cardProps}
+              palette={palette}
               mode={mode}
               width={isWallpaper ? EXPORT_WALLPAPER_W : EXPORT_CARD_W}
             />

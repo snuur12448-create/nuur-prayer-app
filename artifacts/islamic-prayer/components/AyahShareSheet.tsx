@@ -174,6 +174,7 @@ export default function AyahShareSheet({
             <View style={styles.cardOuter}>
               <QuoteCard
                 {...cardProps}
+                palette="quran"
                 mode={mode}
                 width={isWallpaper ? PREVIEW_WALLPAPER_W : PREVIEW_CARD_W}
               />
@@ -211,6 +212,7 @@ export default function AyahShareSheet({
           <View ref={exportRef} collapsable={false}>
             <QuoteCard
               {...cardProps}
+              palette="quran"
               mode={mode}
               width={isWallpaper ? EXPORT_WALLPAPER_W : EXPORT_CARD_W}
             />
