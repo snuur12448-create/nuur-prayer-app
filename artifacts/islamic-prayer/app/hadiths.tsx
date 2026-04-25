@@ -2,6 +2,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import * as Clipboard from "expo-clipboard";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ActivityIndicator,
   FlatList,
@@ -89,6 +90,28 @@ function shortNarrator(n: string): string {
   return n.replace(/^Narrated\s+by\s+/i, "").replace(/^Transmitted\s+by\s+/i, "").trim();
 }
 
+const ARABIC_PREF_KEY = "nuur:hadiths:showArabic";
+
+function useShowArabic(): [boolean, (next: boolean) => void] {
+  const [value, setValue] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(ARABIC_PREF_KEY)
+      .then((raw) => {
+        if (!cancelled && raw === "1") setValue(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const update = useCallback((next: boolean) => {
+    setValue(next);
+    AsyncStorage.setItem(ARABIC_PREF_KEY, next ? "1" : "0").catch(() => {});
+  }, []);
+  return [value, update];
+}
+
 export default function HadithsScreen() {
   const { themeColors: colors } = useAppContext();
   const insets = useSafeAreaInsets();
@@ -106,6 +129,7 @@ export default function HadithsScreen() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [shareHadith, setShareHadith] = useState<Hadith | LiveHadith | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showArabic, setShowArabic] = useShowArabic();
 
   const hijriToday = useMemo(() => approximateHijriToday(), []);
 
@@ -232,28 +256,64 @@ export default function HadithsScreen() {
           )}
         </View>
 
-        {/* Collection filter — gold-bordered chips */}
+        {/* Collection filter — gold-bordered chips, with Arabic toggle on the right */}
         <View style={styles.collectionRow}>
-          {(["all", "Bukhari", "Muslim", "Both"] as CollectionFilter[]).map((c) => {
-            const active = activeCollection === c;
-            return (
-              <Pressable
-                key={c}
-                onPress={() => setActiveCollection(c)}
-                style={[
-                  styles.collChip,
-                  {
-                    backgroundColor: active ? colors.gold : "transparent",
-                    borderColor: active ? colors.gold : colors.gold + "44",
-                  },
-                ]}
-              >
-                <Text style={[styles.collChipText, { color: active ? colors.background : colors.textSecondary }]}>
-                  {c === "all" ? "All" : c === "Both" ? "Both" : c}
-                </Text>
-              </Pressable>
-            );
-          })}
+          <View style={styles.collectionChips}>
+            {(["all", "Bukhari", "Muslim", "Both"] as CollectionFilter[]).map((c) => {
+              const active = activeCollection === c;
+              return (
+                <Pressable
+                  key={c}
+                  onPress={() => setActiveCollection(c)}
+                  style={[
+                    styles.collChip,
+                    {
+                      backgroundColor: active ? colors.gold : "transparent",
+                      borderColor: active ? colors.gold : colors.gold + "44",
+                    },
+                  ]}
+                >
+                  <Text style={[styles.collChipText, { color: active ? colors.background : colors.textSecondary }]}>
+                    {c === "all" ? "All" : c === "Both" ? "Both" : c}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Pressable
+            onPress={() => setShowArabic(!showArabic)}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: showArabic }}
+            accessibilityLabel={showArabic ? "Hide Arabic text" : "Show Arabic text"}
+            style={[
+              styles.arabicToggle,
+              {
+                backgroundColor: showArabic ? colors.gold : "transparent",
+                borderColor: showArabic ? colors.gold : colors.gold + "55",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.arabicToggleGlyph,
+                {
+                  color: showArabic ? colors.background : colors.gold,
+                  fontFamily: "AmiriQuran_400Regular",
+                },
+              ]}
+            >
+              أ
+            </Text>
+            <Text
+              style={[
+                styles.arabicToggleLabel,
+                { color: showArabic ? colors.background : colors.gold + "CC" },
+              ]}
+            >
+              {showArabic ? "ON" : "OFF"}
+            </Text>
+          </Pressable>
         </View>
       </View>
 
@@ -318,6 +378,7 @@ export default function HadithsScreen() {
               onCopy={() => liveHadith && handleCopy(liveHadith)}
               onBookmark={() => liveHadith && toggleBookmark(liveHadith.id)}
               onShare={() => liveHadith && setShareHadith(liveHadith)}
+              showArabic={showArabic}
               colors={colors}
             />
 
@@ -341,6 +402,7 @@ export default function HadithsScreen() {
             onCopy={() => handleCopy(item)}
             onBookmark={() => toggleBookmark(item.id)}
             onShare={() => setShareHadith(item)}
+            showArabic={showArabic}
             colors={colors}
           />
         )}
@@ -431,7 +493,7 @@ function MushafFrame({ children, color }: { children: React.ReactNode; color: st
 /* ─── Featured hero card ─────────────────────────────────────────────────── */
 
 function FeaturedHadithCard({
-  hadith, loading, isFeatured, hijriDate, onRefresh, copied, bookmarked, onCopy, onBookmark, onShare, colors,
+  hadith, loading, isFeatured, hijriDate, onRefresh, copied, bookmarked, onCopy, onBookmark, onShare, showArabic, colors,
 }: {
   hadith: LiveHadith | null;
   loading: boolean;
@@ -443,6 +505,7 @@ function FeaturedHadithCard({
   onCopy: () => void;
   onBookmark: () => void;
   onShare: () => void;
+  showArabic: boolean;
   colors: any;
 }) {
   return (
@@ -468,7 +531,7 @@ function FeaturedHadithCard({
             </View>
           ) : hadith ? (
             <>
-              {hadith.arabic ? (
+              {showArabic && hadith.arabic ? (
                 <Text
                   style={[styles.heroArabic, { color: colors.text }]}
                   numberOfLines={4}
@@ -533,7 +596,7 @@ function collectionAccent(coll: string, fallback: string): string {
 }
 
 function HadithListCard({
-  hadith, expanded, onToggleExpand, copied, bookmarked, onCopy, onBookmark, onShare, colors,
+  hadith, expanded, onToggleExpand, copied, bookmarked, onCopy, onBookmark, onShare, showArabic, colors,
 }: {
   hadith: Hadith;
   expanded: boolean;
@@ -543,6 +606,7 @@ function HadithListCard({
   onCopy: () => void;
   onBookmark: () => void;
   onShare: () => void;
+  showArabic: boolean;
   colors: any;
 }) {
   const accent = collectionAccent(hadith.collection, colors.gold);
@@ -594,7 +658,7 @@ function HadithListCard({
 
         {/* Tappable text region — toggles expand */}
         <Pressable onPress={onToggleExpand}>
-          {hadith.arabic ? (
+          {showArabic && hadith.arabic ? (
             <Text
               style={[styles.cardArabic, { color: colors.text }]}
               numberOfLines={expanded ? undefined : 1}
@@ -717,7 +781,18 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
 
   /* Collection chips */
-  collectionRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  collectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  collectionChips: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+    flexShrink: 1,
+  },
   collChip: {
     borderRadius: 4,
     borderWidth: 1,
@@ -725,6 +800,26 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   collChipText: { fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+
+  /* Arabic toggle pill */
+  arabicToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 4,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  arabicToggleGlyph: {
+    fontSize: 16,
+    lineHeight: 18,
+  },
+  arabicToggleLabel: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.4,
+  },
 
   /* Topic rail */
   topicList: {},
