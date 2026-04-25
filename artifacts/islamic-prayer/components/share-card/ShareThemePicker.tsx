@@ -27,7 +27,7 @@ import { useAppContext } from "@/context/AppContext";
 import { ShareCard } from "./ShareCard";
 import { THEME_ORDER, THEMES } from "./themes";
 import { getCurrentPrayerWindow, pickDefaultTheme } from "./autoSelect";
-import { useLastShareTheme } from "./storage";
+import { useLastShareTheme, useShowArabicInShare } from "./storage";
 import type {
   ShareCardContent,
   ShareCardMode,
@@ -82,6 +82,7 @@ export function ShareThemePicker({
   const toast = useToast();
   const { prayerTimes } = useAppContext();
   const [lastTheme, setLastTheme, lastReady] = useLastShareTheme();
+  const [showArabic, setShowArabic] = useShowArabicInShare();
 
   const exportRef = useRef<View>(null);
   const flatRef   = useRef<FlatList<ShareThemeId>>(null);
@@ -89,6 +90,15 @@ export function ShareThemePicker({
   const [mode, setMode]     = useState<ShareCardMode>("card");
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
+
+  /** Strip Arabic from the content payload when the user has Arabic OFF. */
+  const effectiveContent = useMemo<ShareCardContent>(
+    () => (showArabic ? content : { ...content, arabic: undefined }),
+    [content, showArabic],
+  );
+
+  /** Whether the source content has Arabic available to toggle. */
+  const hasArabic = !!content.arabic && content.arabic.trim().length > 0;
 
   // Resolve initial theme: last manual pick if present, else auto-select.
   const autoTheme = useMemo<ShareThemeId>(() => {
@@ -226,12 +236,12 @@ export function ShareThemePicker({
           ]}
         >
           <View style={{ borderRadius: 22, overflow: "hidden" }}>
-            <ShareCard themeId={item} mode={mode} width={w} {...content} />
+            <ShareCard themeId={item} mode={mode} width={w} {...effectiveContent} />
           </View>
         </View>
       </View>
     );
-  }, [isWallpaper, mode, content]);
+  }, [isWallpaper, mode, effectiveContent]);
 
   // Required for FlatList paging on web/older iOS where layouts can be off.
   const getItemLayout = useCallback((_: unknown, index: number) => ({
@@ -259,9 +269,44 @@ export function ShareThemePicker({
           {/* Header */}
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>{sheetTitle}</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={12}>
-              <Feather name="x" size={20} color="#888" />
-            </TouchableOpacity>
+            <View style={styles.sheetHeaderRight}>
+              {hasArabic && (
+                <TouchableOpacity
+                  onPress={() => setShowArabic(!showArabic)}
+                  activeOpacity={0.78}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: showArabic }}
+                  accessibilityLabel={showArabic ? "Hide Arabic in share card" : "Show Arabic in share card"}
+                  style={[
+                    styles.arabicToggle,
+                    {
+                      backgroundColor: showArabic ? GOLD : "transparent",
+                      borderColor: showArabic ? GOLD : "rgba(201,147,58,0.45)",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.arabicToggleGlyph,
+                      { color: showArabic ? "#0D2018" : GOLD, fontFamily: "AmiriQuran_400Regular" },
+                    ]}
+                  >
+                    أ
+                  </Text>
+                  <Text
+                    style={[
+                      styles.arabicToggleLabel,
+                      { color: showArabic ? "#0D2018" : "rgba(201,147,58,0.85)" },
+                    ]}
+                  >
+                    {showArabic ? "ON" : "OFF"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={onClose} hitSlop={12}>
+                <Feather name="x" size={20} color="#888" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Card / Wallpaper toggle */}
@@ -372,7 +417,7 @@ export function ShareThemePicker({
               themeId={currentThemeId}
               mode={mode}
               width={isWallpaper ? EXPORT_WALLPAPER_W : EXPORT_CARD_W}
-              {...content}
+              {...effectiveContent}
             />
           </View>
         </View>
@@ -413,11 +458,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 12,
   },
+  sheetHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   sheetTitle: {
     fontSize: 17,
     fontFamily: "Inter_700Bold",
     color: "#fff",
     letterSpacing: -0.2,
+  },
+  arabicToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  arabicToggleGlyph: {
+    fontSize: 15,
+    lineHeight: 17,
+  },
+  arabicToggleLabel: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.4,
   },
   sizeToggle: {
     flexDirection: "row",
