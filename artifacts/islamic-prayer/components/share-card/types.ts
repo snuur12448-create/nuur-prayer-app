@@ -1,4 +1,5 @@
 import type React from "react";
+import type { ImageSourcePropType } from "react-native";
 
 /* Public types shared across the share-card module. */
 
@@ -10,7 +11,14 @@ export type ShareThemeId =
   | "emerald"
   | "rose"
   | "sepia"
-  | "parchment";
+  | "parchment"
+  /** New ornate "frame" themes — exclusive to dua / adhkar share cards. */
+  | "frame01"
+  | "frame02"
+  | "frame03"
+  | "frame04"
+  | "frame05"
+  | "frame06";
 
 /** Content category — drives auto-selection and a small label hint. */
 export type ShareContentKind = "quran" | "hadith" | "dua" | "name" | "adhkar";
@@ -45,6 +53,24 @@ export interface ThemeBackgroundProps {
   palette: ShareThemePalette;
 }
 
+/**
+ * Frame-style theme metadata. When present, ShareCard switches to the
+ * "ornate frame" render path: a centred painted-arch panel with content
+ * laid out inside the arch's safe area.
+ */
+export interface ShareFrameMeta {
+  /** Bundled square panel image (512×512 source, scaled at render time). */
+  image: ImageSourcePropType;
+  /** Foreground tone — drives text colour & shadow strategy. */
+  tone: "ink" | "cream";
+  /** Safe area inside the arch, expressed in 512-px source coordinates. */
+  safe: { t: number; r: number; b: number; l: number };
+  /** Solid colour used to fill the letterbox bands outside the square panel. */
+  bgFill: string;
+  /** Optional accent override (gold) — defaults vary by tone. */
+  accent?: string;
+}
+
 /** A theme module. Each theme file exports one of these. */
 export interface ShareTheme {
   id: ShareThemeId;
@@ -52,6 +78,10 @@ export interface ShareTheme {
   /** Short adjective shown under the theme name in the picker. */
   blurb: string;
   palette: ShareThemePalette;
+  /** Default ("default") = SVG chrome layout. "frame" = painted-arch layout. */
+  chrome?: "default" | "frame";
+  /** Required when `chrome === "frame"`. */
+  frame?: ShareFrameMeta;
   /** Renders the full-bleed background incl. ornaments. */
   Background: React.ComponentType<ThemeBackgroundProps>;
 }

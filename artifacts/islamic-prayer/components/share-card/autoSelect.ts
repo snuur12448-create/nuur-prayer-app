@@ -60,11 +60,17 @@ export function pickDefaultTheme(
   kind: ShareContentKind,
   window: PrayerWindow | null,
 ): ShareThemeId {
-  // 1. Adhkar bias is strongest — morning glow and night sky carry the mood.
-  if (kind === "adhkar") {
-    if (window === "fajr" || window === "dhuhr") return "rose";
-    if (window === "maghrib" || window === "isha") return "starry";
-    return "rose";
+  // 1. Dua / Adhkar share cards are restricted to the painted-frame themes
+  //    (frame01..frame06). Pick a default frame that fits the time of day.
+  if (kind === "dua" || kind === "adhkar") {
+    // Morning windows → cream / palm / sage panels (warm light).
+    if (window === "fajr") return "frame01";
+    if (window === "dhuhr") return "frame03";
+    if (window === "asr") return "frame04";
+    // Evening / night windows → deep-tone panels.
+    if (window === "maghrib") return "frame02";
+    if (window === "isha") return "frame05";
+    return "frame01";
   }
 
   // 2. Time-of-day biases (mild) for the other kinds.
@@ -81,9 +87,9 @@ export function pickDefaultTheme(
   const kindDefault: Record<ShareContentKind, ShareThemeId> = {
     quran:  "emerald",
     hadith: "midnight",
-    dua:    "emerald",
+    dua:    "frame01",   // unreachable — handled above, kept for completeness
     name:   "midnight",
-    adhkar: "rose",
+    adhkar: "frame01",   // unreachable — handled above
   };
 
   const def = kindDefault[kind];
@@ -94,10 +100,6 @@ export function pickDefaultTheme(
     if (kind === "quran" && window === "dhuhr") return "parchment";
     // Quran in evening looks gorgeous on starry sky.
     if (kind === "quran" && window === "isha") return "starry";
-    // Du'a in evening leans towards starry.
-    if (kind === "dua" && window === "isha") return "starry";
-    // Du'a in morning leans towards rose.
-    if (kind === "dua" && window === "fajr") return "rose";
   }
   return def;
 }

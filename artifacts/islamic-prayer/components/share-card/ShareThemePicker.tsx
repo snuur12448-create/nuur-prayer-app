@@ -25,7 +25,7 @@ import { useToast } from "../Toast";
 import { useAppContext } from "@/context/AppContext";
 
 import { ShareCard } from "./ShareCard";
-import { THEME_ORDER, THEMES } from "./themes";
+import { getThemesForKind, THEMES } from "./themes";
 import { getCurrentPrayerWindow, pickDefaultTheme } from "./autoSelect";
 import { useLastShareTheme, useShowArabicInShare } from "./storage";
 import type {
@@ -81,7 +81,7 @@ export function ShareThemePicker({
 }: ShareThemePickerProps) {
   const toast = useToast();
   const { prayerTimes } = useAppContext();
-  const [lastTheme, setLastTheme, lastReady] = useLastShareTheme();
+  const [lastTheme, setLastTheme, lastReady] = useLastShareTheme(kind);
   const [showArabic, setShowArabic] = useShowArabicInShare();
 
   const exportRef = useRef<View>(null);
@@ -100,34 +100,42 @@ export function ShareThemePicker({
   /** Whether the source content has Arabic available to toggle. */
   const hasArabic = !!content.arabic && content.arabic.trim().length > 0;
 
-  // Resolve initial theme: last manual pick if present, else auto-select.
+  // The set of themes available for this content kind. Dua / Adhkar are
+  // restricted to the new ornate frame themes; everything else uses the
+  // legacy gradient themes. The list is recomputed per kind so the picker
+  // reflects the correct ordering, dot row, and pager pages.
+  const themeOrder = useMemo<ShareThemeId[]>(() => getThemesForKind(kind), [kind]);
+
+  // Resolve initial theme: last manual pick (if it's still allowed for this
+  // kind), else auto-select.
   const autoTheme = useMemo<ShareThemeId>(() => {
     const window = getCurrentPrayerWindow(prayerTimes);
     return pickDefaultTheme(kind, window);
   }, [kind, prayerTimes]);
 
-  const initialTheme = lastTheme ?? autoTheme;
+  const lastThemeForKind = lastTheme && themeOrder.includes(lastTheme) ? lastTheme : null;
+  const initialTheme = lastThemeForKind ?? autoTheme;
   const [themeIndex, setThemeIndex] = useState<number>(() => {
-    const i = THEME_ORDER.indexOf(initialTheme);
+    const i = themeOrder.indexOf(initialTheme);
     return i >= 0 ? i : 0;
   });
 
-  // Once we know `lastTheme` (after AsyncStorage read), snap to it.
+  // Once we know `lastTheme` (after AsyncStorage read), snap to it. Also
+  // re-snap whenever `kind` changes, since the themeOrder differs.
   useEffect(() => {
     if (!visible) return;
     if (!lastReady) return;
-    const target = lastTheme ?? autoTheme;
-    const i = THEME_ORDER.indexOf(target);
+    const target = lastThemeForKind ?? autoTheme;
+    const i = themeOrder.indexOf(target);
     if (i >= 0 && i !== themeIndex) {
       setThemeIndex(i);
-      // Defer scroll until FlatList has laid out.
       requestAnimationFrame(() => {
         flatRef.current?.scrollToIndex({ index: i, animated: false });
       });
     }
-  }, [visible, lastReady, lastTheme, autoTheme]);
+  }, [visible, lastReady, lastThemeForKind, autoTheme, themeOrder]);
 
-  const currentThemeId = THEME_ORDER[themeIndex] ?? "midnight";
+  const currentThemeId = themeOrder[themeIndex] ?? themeOrder[0];
   const currentTheme   = THEMES[currentThemeId];
 
   /* ── Swipe-to-dismiss for the sheet handle ─────────────────────────── */
@@ -149,17 +157,17 @@ export function ShareThemePicker({
     const i = Math.round(x / SLIDE_W);
     if (i !== themeIndex) {
       setThemeIndex(i);
-      const id = THEME_ORDER[i];
+      const id = themeOrder[i];
       if (id) setLastTheme(id);
     }
-  }, [themeIndex, setLastTheme]);
+  }, [themeIndex, themeOrder, setLastTheme]);
 
   const handleDotPress = useCallback((i: number) => {
     flatRef.current?.scrollToIndex({ index: i, animated: true });
     setThemeIndex(i);
-    const id = THEME_ORDER[i];
+    const id = themeOrder[i];
     if (id) setLastTheme(id);
-  }, [setLastTheme]);
+  }, [themeOrder, setLastTheme]);
 
   /* ── Capture / save / share ────────────────────────────────────────── */
 
@@ -336,7 +344,7 @@ export function ShareThemePicker({
           {/* Theme pager */}
           <FlatList
             ref={flatRef}
-            data={THEME_ORDER}
+            data={themeOrder}
             keyExtractor={(id) => id}
             horizontal
             pagingEnabled
@@ -367,7 +375,7 @@ export function ShareThemePicker({
               {currentTheme.blurb}
             </Text>
             <View style={styles.dotRow}>
-              {THEME_ORDER.map((id, i) => (
+              {themeOrder.map((id, i) => (
                 <Pressable key={id} hitSlop={10} onPress={() => handleDotPress(i)}>
                   <View
                     style={[
