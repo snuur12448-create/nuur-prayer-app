@@ -6,11 +6,11 @@ export const Frame03Theme: ShareTheme = {
   label: "Beige Palm",
   blurb: "Warm sand · palm",
   chrome: "frame",
-  palette: makeFramePalette({ ink: true, bgFill: "#E0D0B5" }),
+  palette: makeFramePalette({ ink: true, bgFill: "#DECBB3" }),
   frame: {
     image: require("../../../assets/images/share-frames/frame03.png"),
     tone: "ink",
-    bgFill: "#E0D0B5",
+    bgFill: "#DECBB3",
     safe: { t: 138, r: 142, b: 86, l: 130 },
   },
   Background: FrameNoopBackground,

@@ -8,14 +8,14 @@ export const Frame02Theme: ShareTheme = {
   chrome: "frame",
   palette: makeFramePalette({
     ink: false,
-    bgFill: "#4B5B3C",
+    bgFill: "#555633",
     accent: "#E2C788",
   }),
   frame: {
     image: require("../../../assets/images/share-frames/frame02.png"),
     tone: "cream",
     accent: "#E2C788",
-    bgFill: "#4B5B3C",
+    bgFill: "#555633",
     safe: { t: 138, r: 130, b: 88, l: 130 },
   },
   Background: FrameNoopBackground,

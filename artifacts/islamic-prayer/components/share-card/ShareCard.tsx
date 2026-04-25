@@ -471,7 +471,7 @@ interface FrameLayoutProps extends ShareCardContent {
 
 function FrameLayout({
   theme, width, height, isWallpaper,
-  eyebrow, arabic, transliteration, body, caption, attribution,
+  eyebrow, arabic, body, caption, attribution,
 }: FrameLayoutProps) {
   const meta = theme.frame!;
   const tone = meta.tone;
@@ -482,32 +482,65 @@ function FrameLayout({
   const shadowColor = ink ? "transparent" : "rgba(0,0,0,0.55)";
   const shadowRadius = ink ? 0 : 6;
 
-  // Panel sits as a square the full width of the card.
-  const panelSize = width;
-  const panelX    = 0;
-  const panelY    = isWallpaper
-    ? height * 0.32                          // sit just below the iOS clock
-    : (height - panelSize) / 2;              // vertical centre on the card
+  /* ── Panel placement ───────────────────────────────────────────────────
+   *  CARD MODE (4:5):     The painted panel covers the entire 4:5 area
+   *                       (resizeMode="cover"), so there are no cream/white
+   *                       letterbox bands. The panel is square (1:1) so
+   *                       cover-scaling crops a small slice off each side
+   *                       (~10% of source); the painted decoration is
+   *                       concentrated inside the safe arch so this is
+   *                       cosmetic.
+   *
+   *  WALLPAPER MODE (9:19.5):
+   *                       The painted panel is too tall to "cover" without
+   *                       cropping nearly all of the leaves and arch, so we
+   *                       keep it as a centred 1:1 element under the iOS
+   *                       clock. The bgFill is sampled from the panel's
+   *                       outer edge so the seam between panel and band is
+   *                       invisible.
+   * ──────────────────────────────────────────────────────────────────── */
 
-  // Convert source-px safe insets (512-coord) to actual panel-px insets.
-  const scale = panelSize / 512;
-  const safe = {
-    t: meta.safe.t * scale,
-    r: meta.safe.r * scale,
-    b: meta.safe.b * scale,
-    l: meta.safe.l * scale,
-  };
+  let panelLeft: number;
+  let panelTop: number;
+  let panelRenderedSize: number;
+  let visibleSrcLeft: number;
+  let visibleSrcTop: number;
+  let srcToScreen: number;
 
-  const safeLeft   = panelX + safe.l;
-  const safeTop    = panelY + safe.t;
-  const safeWidth  = panelSize - safe.l - safe.r;
-  const safeHeight = panelSize - safe.t - safe.b;
+  if (isWallpaper) {
+    panelRenderedSize = width;
+    panelLeft         = 0;
+    panelTop          = height * 0.32;
+    visibleSrcLeft    = 0;
+    visibleSrcTop     = 0;
+    srcToScreen       = panelRenderedSize / 512;
+  } else {
+    // cover-fit a 512×512 image into a width × height card.
+    srcToScreen       = Math.max(width / 512, height / 512);
+    panelRenderedSize = 512 * srcToScreen;
+    panelLeft         = (width - panelRenderedSize) / 2;
+    panelTop          = (height - panelRenderedSize) / 2;
+    // How much of the source PNG is actually visible after cover-cropping.
+    visibleSrcLeft    = -panelLeft / srcToScreen;
+    visibleSrcTop     = -panelTop / srcToScreen;
+  }
+
+  // Safe-area rectangle in source coords, clipped to the visible region.
+  const srcSafeLeft   = Math.max(meta.safe.l, visibleSrcLeft);
+  const srcSafeTop    = Math.max(meta.safe.t, visibleSrcTop);
+  const srcSafeRight  = Math.min(512 - meta.safe.r, 512 - visibleSrcLeft);
+  const srcSafeBottom = Math.min(512 - meta.safe.b, 512 - visibleSrcTop);
+
+  // Convert to screen coords.
+  const safeLeft   = panelLeft + srcSafeLeft   * srcToScreen;
+  const safeTop    = panelTop  + srcSafeTop    * srcToScreen;
+  const safeWidth  = (srcSafeRight  - srcSafeLeft) * srcToScreen;
+  const safeHeight = (srcSafeBottom - srcSafeTop)  * srcToScreen;
 
   const arabicSize       = fitArabicForFrame(arabic, safeWidth);
   const bodySize         = fitBodyForFrame(body, safeWidth);
   const eyebrowSize      = Math.max(9,  safeWidth * 0.038);
   const captionSize      = Math.max(10, safeWidth * 0.044);
-  const transliterSize   = Math.max(9,  safeWidth * 0.040);
   const attributionSize  = Math.max(8,  safeWidth * 0.034);
   const lockupName       = Math.max(10, safeWidth * 0.044);
   const lockupTag        = Math.max(9,  safeWidth * 0.036);
@@ -536,10 +569,10 @@ function FrameLayout({
         source={meta.image}
         style={{
           position: "absolute",
-          left: panelX,
-          top: panelY,
-          width: panelSize,
-          height: panelSize,
+          left: panelLeft,
+          top: panelTop,
+          width: panelRenderedSize,
+          height: panelRenderedSize,
         }}
         resizeMode="cover"
       />
@@ -623,30 +656,9 @@ function FrameLayout({
           </Text>
         ) : null}
 
-        {/* Transliteration (italic, between Arabic and English) */}
-        {transliteration ? (
-          <Text
-            numberOfLines={3}
-            ellipsizeMode="tail"
-            style={[
-              {
-                marginTop: safeHeight * 0.025,
-                fontFamily: "Inter_400Regular",
-                fontStyle: "italic",
-                color: fgDim,
-                fontSize: transliterSize,
-                lineHeight: transliterSize * 1.45,
-                textAlign: "center",
-                width: "100%",
-              },
-              textShadow,
-            ]}
-          >
-            {transliteration}
-          </Text>
-        ) : null}
-
-        {/* English / translation body */}
+        {/* English / translation body
+            (Per design: dua/adhkar frames render Arabic + translation
+            only — transliteration is intentionally omitted.) */}
         {body ? (
           <Text
             numberOfLines={6}

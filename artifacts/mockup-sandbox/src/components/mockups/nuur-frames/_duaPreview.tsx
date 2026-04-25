@@ -84,8 +84,6 @@ export function FrameDuaPreview({
   const fgDim = ink ? "rgba(42,32,24,0.74)" : "rgba(244,236,216,0.78)";
   const safeRef = SAFE_INSET[panel];
 
-  // Aspect: 4:5 card or 9:19.5 wallpaper, fitted to viewport.
-  const aspect = mode === "card" ? 5 / 4 : 19.5 / 9;
   const containerStyle: React.CSSProperties = {
     position: "fixed",
     inset: 0,
@@ -93,31 +91,56 @@ export function FrameDuaPreview({
     padding: 0,
     background: bgFill,
     overflow: "hidden",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: mode === "card" ? "center" : "flex-start",
   };
 
-  // Panel size = full viewport width (it's a square within the portrait card).
-  // We use a vw-relative size so the preview adapts to the iframe size.
-  const panelW = "100vw";
-  const panelOffsetTop = mode === "wallpaper" ? "32%" : "auto";
+  // Mirror the React-Native FrameLayout:
+  //   • CARD MODE     → painted panel covers the full viewport (no bands).
+  //   • WALLPAPER MODE→ painted square sits at top 32 %, bgFill above/below.
+  // For card mode, cover-scaling crops ~10 % off the sides of the source PNG.
+  // The safe-area maths is computed in source coords (0..512), then clipped
+  // to the visible portion before being projected onto the viewport.
+  const aspect = mode === "card" ? 5 / 4 : 19.5 / 9;
+  // Viewport coordinate system: 100 vw wide, (100 * aspect) vw tall.
+  const viewportH = 100 * aspect;
 
-  // Per-panel safe inset, expressed as a % of the panel size (512 source).
-  const safePct = {
-    t: (safeRef.t / 512) * 100,
-    r: (safeRef.r / 512) * 100,
-    b: (safeRef.b / 512) * 100,
-    l: (safeRef.l / 512) * 100,
-  };
+  let panelLeftVw: number;
+  let panelTopVw: number;
+  let panelSizeVw: number;
+  let visibleSrcLeft: number;
+  let visibleSrcTop: number;
+  let srcToVw: number;
 
-  // Viewport-relative font sizing: safeWidth ≈ 100vw * (1 - (l+r)/100).
-  const safeWidthVw = 100 - safePct.l - safePct.r;
-  const arabicSizeVw = fitArabic(arabic, safeWidthVw);
-  const bodySizeVw = fitBody(english, safeWidthVw);
+  if (mode === "wallpaper") {
+    panelSizeVw    = 100;
+    panelLeftVw    = 0;
+    panelTopVw     = viewportH * 0.32;
+    visibleSrcLeft = 0;
+    visibleSrcTop  = 0;
+    srcToVw        = panelSizeVw / 512;
+  } else {
+    // cover-fit a 1:1 panel into a 4:5 viewport.
+    srcToVw        = Math.max(100 / 512, viewportH / 512);
+    panelSizeVw    = 512 * srcToVw;
+    panelLeftVw    = (100 - panelSizeVw) / 2;
+    panelTopVw     = (viewportH - panelSizeVw) / 2;
+    visibleSrcLeft = -panelLeftVw / srcToVw;
+    visibleSrcTop  = -panelTopVw  / srcToVw;
+  }
+
+  const srcSafeLeft   = Math.max(safeRef.l, visibleSrcLeft);
+  const srcSafeTop    = Math.max(safeRef.t, visibleSrcTop);
+  const srcSafeRight  = Math.min(512 - safeRef.r, 512 - visibleSrcLeft);
+  const srcSafeBottom = Math.min(512 - safeRef.b, 512 - visibleSrcTop);
+
+  const safeLeftVw   = panelLeftVw + srcSafeLeft   * srcToVw;
+  const safeTopVw    = panelTopVw  + srcSafeTop    * srcToVw;
+  const safeWidthVw  = (srcSafeRight  - srcSafeLeft) * srcToVw;
+  const safeHeightVw = (srcSafeBottom - srcSafeTop) * srcToVw;
+
+  const arabicSizeVw  = fitArabic(arabic, safeWidthVw);
+  const bodySizeVw    = fitBody(english, safeWidthVw);
   const eyebrowSizeVw = Math.max(1.6, safeWidthVw * 0.058);
-  const refSizeVw = Math.max(1.4, safeWidthVw * 0.052);
+  const refSizeVw     = Math.max(1.4, safeWidthVw * 0.052);
 
   const textShadow = ink ? "none" : "0 1px 4px rgba(0,0,0,0.5)";
 
@@ -127,17 +150,14 @@ export function FrameDuaPreview({
       <div
         style={{
           position: "absolute",
-          left: 0,
-          top: panelOffsetTop,
-          width: panelW,
-          height: panelW,
+          left:   `${panelLeftVw}vw`,
+          top:    `${panelTopVw}vw`,
+          width:  `${panelSizeVw}vw`,
+          height: `${panelSizeVw}vw`,
           backgroundImage: `url(${refImg})`,
           backgroundSize: "300% 200%",
           backgroundPosition: PANEL_POS[panel],
           backgroundRepeat: "no-repeat",
-          ...(mode === "card"
-            ? { top: "50%", transform: "translateY(-50%)" }
-            : {}),
         }}
       />
 
@@ -145,16 +165,10 @@ export function FrameDuaPreview({
       <div
         style={{
           position: "absolute",
-          left: `${safePct.l}vw`,
-          width: `${safeWidthVw}vw`,
-          top: `calc(${
-            mode === "wallpaper" ? "32%" : "50%"
-          } ${
-            mode === "wallpaper"
-              ? `+ ${safePct.t}vw`
-              : `- 50vw + ${safePct.t}vw`
-          })`,
-          height: `${100 - safePct.t - safePct.b}vw`,
+          left:   `${safeLeftVw}vw`,
+          top:    `${safeTopVw}vw`,
+          width:  `${safeWidthVw}vw`,
+          height: `${safeHeightVw}vw`,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",

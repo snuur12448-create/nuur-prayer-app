@@ -6,11 +6,11 @@ export const Frame01Theme: ShareTheme = {
   label: "Cream Vase",
   blurb: "Beige · botanical",
   chrome: "frame",
-  palette: makeFramePalette({ ink: true, bgFill: "#E5DCC5" }),
+  palette: makeFramePalette({ ink: true, bgFill: "#E2D9C7" }),
   frame: {
     image: require("../../../assets/images/share-frames/frame01.png"),
     tone: "ink",
-    bgFill: "#E5DCC5",
+    bgFill: "#E2D9C7",
     safe: { t: 138, r: 130, b: 86, l: 130 },
   },
   Background: FrameNoopBackground,
