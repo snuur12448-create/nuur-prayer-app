@@ -232,6 +232,14 @@ export default function MoreScreen() {
           icon: <MaterialCommunityIcons name="calendar-month" size={22} color="#C9933A" />,
           accentColor: "#C9933A",
         },
+        {
+          label: "Zakat Calculator",
+          arabic: "حاسبة الزكاة",
+          description: "Calculate your annual Zakat obligation",
+          route: "/zakat",
+          icon: <MaterialCommunityIcons name="gold" size={22} color="#E2B843" />,
+          accentColor: "#E2B843",
+        },
       ],
     },
     {

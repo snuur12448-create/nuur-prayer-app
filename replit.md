@@ -35,6 +35,7 @@ The project is structured as a pnpm monorepo, separating deployable applications
 - **Prayer Tracker:** Daily tracking of 5 prayers, 7-day week strip, Gregorian and Hijri dates, daily and weekly stats.
 - **99 Names of Allah:** Searchable grid with detailed descriptions for each name.
 - **Tasbeeh Counter:** Tap counter with haptic feedback and preset dhikr.
+- **Zakat Calculator:** Annual Zakat calculator with Gold (85g) / Silver (612g) Nisab toggle, GBP/USD currency switch, asset and debt inputs, parchment-styled result card, share via the existing share-card system, and AsyncStorage persistence.
 - **Settings:** Comprehensive customization for display mode, themes, prayer calculation methods, Adhan toggles and styles (with preview), and prayer notifications.
 - **Adhan System:** 5 distinct Adhan styles with audio playback, full-screen overlay for visual cue. Timer-based notification.
 - **Localization:** Automatic suggestion of prayer calculation method based on country code.

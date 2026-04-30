@@ -6,11 +6,24 @@ const monorepoRoot = path.resolve(projectRoot, "../..");
 
 const config = getDefaultConfig(projectRoot);
 
-config.watchFolders = [monorepoRoot];
+// Watch only the directories that Metro actually needs to resolve modules
+// from. Watching the whole monorepoRoot pulls in `.local/`, where the agent
+// runtime creates and deletes ephemeral `.tmp-*` files; the FallbackWatcher
+// crashes with ENOENT when one of those files vanishes between the readdir
+// and the watch() call.
+config.watchFolders = [
+  path.resolve(monorepoRoot, "node_modules"),
+  path.resolve(monorepoRoot, "artifacts"),
+];
 
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, "node_modules"),
   path.resolve(monorepoRoot, "node_modules"),
+];
+
+// Belt-and-braces: also block the agent skills tmp churn from resolution.
+config.resolver.blockList = [
+  /[/\\]\.local[/\\].*/,
 ];
 
 // Stub shaka-player on web — react-native-track-player's web fallback
