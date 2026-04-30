@@ -507,23 +507,19 @@ function FrameLayout({
   let visibleSrcTop: number;
   let srcToScreen: number;
 
-  if (isWallpaper) {
-    panelRenderedSize = width;
-    panelLeft         = 0;
-    panelTop          = height * 0.32;
-    visibleSrcLeft    = 0;
-    visibleSrcTop     = 0;
-    srcToScreen       = panelRenderedSize / 512;
-  } else {
-    // cover-fit a 512×512 image into a width × height card.
-    srcToScreen       = Math.max(width / 512, height / 512);
-    panelRenderedSize = 512 * srcToScreen;
-    panelLeft         = (width - panelRenderedSize) / 2;
-    panelTop          = (height - panelRenderedSize) / 2;
-    // How much of the source PNG is actually visible after cover-cropping.
-    visibleSrcLeft    = -panelLeft / srcToScreen;
-    visibleSrcTop     = -panelTop / srcToScreen;
-  }
+  // Cover-fit the painted panel for both modes. This eliminates the
+  // visible "panel-in-frame" seam in wallpaper mode (where a square panel
+  // used to sit on top of a flat bgFill band, exposing the panel's outer
+  // edge as a thin line). With cover scaling the painted scene fills the
+  // entire card / wallpaper, blending seamlessly with bgFill — and the
+  // safe-area rectangle naturally lands around the vertical centre,
+  // which sits well clear of the iOS lock-screen clock.
+  srcToScreen       = Math.max(width / 512, height / 512);
+  panelRenderedSize = 512 * srcToScreen;
+  panelLeft         = (width - panelRenderedSize) / 2;
+  panelTop          = (height - panelRenderedSize) / 2;
+  visibleSrcLeft    = -panelLeft / srcToScreen;
+  visibleSrcTop     = -panelTop / srcToScreen;
 
   // Safe-area rectangle in source coords, clipped to the visible region.
   const srcSafeLeft   = Math.max(meta.safe.l, visibleSrcLeft);

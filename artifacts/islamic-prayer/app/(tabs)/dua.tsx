@@ -653,6 +653,25 @@ export default function DuaScreen() {
           const catId = (shareDua as any).categoryId ?? selectedCategoryId;
           const cat = ALL_DUA_CATEGORIES.find((c) => c.id === catId);
           const catName = shareDua.categoryName ?? cat?.name ?? "Dua";
+          // Build a clean eyebrow label. Most duas show "<CATEGORY> · <TITLE>",
+          // but adhkar entries are titled the same as their category
+          // (e.g. category "Morning Adhkar" + title "Morning Adhkar"),
+          // which produced the truncated "MORNING ADHKAR · MORN…". Collapse
+          // to the category alone only on a true normalized-equality match,
+          // never on partial overlap — otherwise legitimate titles like
+          // "Dua for Travel" under a generic "Dua" category would be lost.
+          const norm = (s: string) =>
+            s
+              .toUpperCase()
+              .replace(/[^\p{L}\p{N}]+/gu, " ")
+              .trim();
+          const catUpper = catName.toUpperCase().trim();
+          const titleUpper = (shareDua.title ?? "").toUpperCase().trim();
+          const isExactDup =
+            !titleUpper || norm(titleUpper) === norm(catUpper);
+          const label = isExactDup
+            ? catUpper
+            : `${catUpper}  ·  ${titleUpper}`;
           return (
             <ContentShareSheet
               visible={true}
@@ -660,7 +679,7 @@ export default function DuaScreen() {
               theme="dua"
               sheetTitle="Share Du'a"
               shareTitle={shareDua.title}
-              label={`${catName.toUpperCase()}  ·  ${shareDua.title.toUpperCase()}`}
+              label={label}
               arabicText={shareDua.arabic}
               bodyItalic={shareDua.transliteration}
               bodyText={shareDua.translation}
