@@ -346,13 +346,34 @@ export default function ZakatScreen() {
               },
             ]}
           >
-            <View style={styles.resultRibbon}>
-              <Text style={styles.resultRibbonText}>YOUR ZAKAT</Text>
+            {/* Ribbon centred via a full-width absolute wrapper. We can't
+                use translateX-by-half because the ribbon width depends on
+                the rendered text and we don't measure it. */}
+            <View style={styles.resultRibbonWrap}>
+              <View style={styles.resultRibbon}>
+                <Text style={styles.resultRibbonText}>YOUR ZAKAT</Text>
+              </View>
             </View>
 
             <View style={styles.resultRow}>
-              <Text style={styles.resultRowLabel}>Total Wealth</Text>
+              <Text style={styles.resultRowLabel}>Total Assets</Text>
               <Text style={styles.resultRowValue}>
+                {formatCurrency(computation.totalAssets, currency)}
+              </Text>
+            </View>
+            {computation.totalDebts > 0 && (
+              <View style={styles.resultRow}>
+                <Text style={styles.resultRowLabel}>Less: Debts</Text>
+                <Text style={styles.resultRowValue}>
+                  − {formatCurrency(computation.totalDebts, currency)}
+                </Text>
+              </View>
+            )}
+            <View style={styles.resultRow}>
+              <Text style={[styles.resultRowLabel, styles.resultRowLabelStrong]}>
+                Zakatable Wealth
+              </Text>
+              <Text style={[styles.resultRowValue, styles.resultRowValueStrong]}>
                 {formatCurrency(computation.zakatableWealth, currency)}
               </Text>
             </View>
@@ -665,16 +686,18 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
-  resultRibbon: {
+  resultRibbonWrap: {
     position: "absolute",
     top: -10,
-    alignSelf: "center",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  resultRibbon: {
     backgroundColor: "#7A5A2E",
     paddingHorizontal: 14,
     paddingVertical: 4,
     borderRadius: 999,
-    left: "50%",
-    transform: [{ translateX: -50 }],
   },
   resultRibbonText: {
     color: "#F4ECD8",
@@ -693,10 +716,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_500Medium",
   },
+  resultRowLabelStrong: {
+    color: "#2A2018",
+    fontFamily: "Inter_600SemiBold",
+  },
   resultRowValue: {
     color: "#2A2018",
     fontSize: 14,
     fontFamily: "Inter_700Bold",
+  },
+  resultRowValueStrong: {
+    fontSize: 16,
   },
   resultDivider: {
     height: 1,
