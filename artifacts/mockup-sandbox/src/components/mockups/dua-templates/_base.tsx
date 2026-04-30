@@ -1,5 +1,128 @@
 import React from "react";
-import { ARABIC_FONT, FullBleed, NuurMark, SANS_FONT, SERIF_FONT } from "../nuur-templates/_shared";
+import { ARABIC_FONT, FullBleed, SANS_FONT, SERIF_FONT } from "../nuur-templates/_shared";
+
+const TAGLINE_FONT = "'Cormorant Garamond', Georgia, serif";
+
+/**
+ * Nuur brand mark + wordmark + tagline footer used on every dua share card.
+ * Mirrors the in-app splash logo: a ring with the Arabic letter ن inside,
+ * surrounded by eight short rays. Text reads "NUUR" with the tagline
+ * "Light for your daily deen".
+ */
+export function NuurBrandFooter({
+  color,
+  dim,
+}: {
+  /** primary brand ink (rays, ن, NUUR wordmark) */
+  color: string;
+  /** dim secondary tone (tagline, ring stroke) */
+  dim: string;
+}) {
+  const rays = [0, 45, 90, 135, 180, 225, 270, 315];
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      {/* Logo mark — concentric rings with ن and 8 rays */}
+      <div
+        style={{
+          position: "relative",
+          width: 36,
+          height: 36,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {/* Outer ring */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "50%",
+            border: `1px solid ${dim}`,
+            opacity: 0.55,
+          }}
+        />
+        {/* 8 rays around the ring */}
+        {rays.map((angle) => (
+          <div
+            key={angle}
+            style={{
+              position: "absolute",
+              top: -4,
+              left: "50%",
+              width: 1.2,
+              height: 5,
+              background: color,
+              borderRadius: 1,
+              transform: `translateX(-50%) rotate(${angle}deg)`,
+              transformOrigin: "50% 22px",
+              opacity: 0.85,
+            }}
+          />
+        ))}
+        {/* Inner core circle */}
+        <div
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: "50%",
+            border: `1px solid ${color}`,
+            background: "transparent",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: ARABIC_FONT,
+              fontSize: 14,
+              lineHeight: 1,
+              color: color,
+              marginTop: -1,
+            }}
+          >
+            ن
+          </span>
+        </div>
+      </div>
+
+      {/* Wordmark */}
+      <div
+        style={{
+          fontFamily: TAGLINE_FONT,
+          fontSize: 11,
+          letterSpacing: "0.5em",
+          paddingLeft: "0.5em",
+          color: color,
+          fontWeight: 500,
+        }}
+      >
+        NUUR
+      </div>
+
+      {/* Tagline */}
+      <div
+        style={{
+          fontFamily: TAGLINE_FONT,
+          fontSize: 9.5,
+          fontStyle: "italic",
+          letterSpacing: "0.12em",
+          color: dim,
+        }}
+      >
+        Light for your daily deen
+      </div>
+    </div>
+  );
+}
 
 const RAW_BASE = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
 const BASE = RAW_BASE.endsWith("/") ? RAW_BASE : `${RAW_BASE}/`;
@@ -198,7 +321,7 @@ export function DuaImageCard({
         ) : null}
       </div>
 
-      {/* Nuur emblem at bottom */}
+      {/* Nuur brand footer at bottom */}
       <div
         style={{
           position: "absolute",
@@ -209,7 +332,7 @@ export function DuaImageCard({
           justifyContent: "center",
         }}
       >
-        <NuurMark color={theme.emblemColor} dim={theme.emblemDim} />
+        <NuurBrandFooter color={theme.emblemColor} dim={theme.emblemDim} />
       </div>
     </FullBleed>
   );
