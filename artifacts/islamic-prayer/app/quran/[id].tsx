@@ -24,6 +24,8 @@ import { SURAHS } from "@/utils/islamicData";
 import { RECITERS, getVerseAudioUrl, Reciter } from "@/utils/audioData";
 import { loadVerses, loadWords, prefetchNextSurahs } from "@/utils/quranCache";
 import AyahShareSheet from "@/components/AyahShareSheet";
+import TafsirSheet from "@/components/TafsirSheet";
+import { useTafsir } from "@/hooks/useTafsir";
 
 interface Verse {
   number: number;
@@ -120,6 +122,7 @@ interface VerseCardProps {
   onPlay: () => void;
   onCopy: () => void;
   onShare: () => void;
+  onTafsir: () => void;
   isSaved: boolean;
   onToggleSave: () => void;
   hafidhMode: boolean;
@@ -144,6 +147,7 @@ const VerseCard = React.memo(function VerseCard({
   onPlay,
   onCopy,
   onShare,
+  onTafsir,
   isSaved,
   onToggleSave,
   hafidhMode,
@@ -218,6 +222,14 @@ const VerseCard = React.memo(function VerseCard({
               </TouchableOpacity>
               <TouchableOpacity onPress={onShare} style={[styles.copyBtn, { backgroundColor: "transparent" }]} hitSlop={10}>
                 <Feather name="share-2" size={15} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={onTafsir}
+                style={[styles.copyBtn, { backgroundColor: "transparent" }]}
+                hitSlop={10}
+                accessibilityLabel="Open tafsir"
+              >
+                <Feather name="book-open" size={15} color={colors.textSecondary} />
               </TouchableOpacity>
             </>
           )}
@@ -499,6 +511,7 @@ export default function QuranDetailScreen() {
   const [showWordByWord, setShowWordByWord] = useState(false);
   const [copiedVerse, setCopiedVerse] = useState<number | null>(null);
   const [shareVerse, setShareVerse] = useState<Verse | null>(null);
+  const [tafsirVerse, setTafsirVerse] = useState<Verse | null>(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [verses, setVerses] = useState<Verse[] | null>(null);
   const [loadingVerses, setLoadingVerses] = useState(false);
@@ -510,6 +523,15 @@ export default function QuranDetailScreen() {
   const [hafidhMode, setHafidhMode] = useState(false);
   const [hafidhDifficulty, setHafidhDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [revealedAyahs, setRevealedAyahs] = useState<Set<number>>(new Set());
+
+  // ── Tafsir (Ibn Kathir abridged) — surah-scoped fetch + cache ──────────────
+  // Whole-surah load triggered by surahNumber change; per-ayah lookup is
+  // synchronous via getEntry. The sheet only mounts when tafsirVerse is set.
+  const {
+    loading: tafsirLoading,
+    error: tafsirError,
+    getEntry: getTafsirEntry,
+  } = useTafsir(surahNumber);
 
   // ── Word-by-word ────────────────────────────────────────────────────────────
   const [wordsByVerse, setWordsByVerse] = useState<Record<number, WordInfo[]>>({});
@@ -1034,6 +1056,7 @@ export default function QuranDetailScreen() {
           onPlay={() => togglePlayPause(verse)}
           onCopy={() => copyVerse(verse)}
           onShare={() => setShareVerse(verse)}
+          onTafsir={() => setTafsirVerse(verse)}
           isSaved={savedAyahs.has(`${surahNumber}:${verse.number}`)}
           onToggleSave={() => toggleSavedAyah(verse.number)}
           hafidhMode={hafidhMode}
@@ -1511,6 +1534,25 @@ export default function QuranDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ── Tafsir sheet (Ibn Kathir abridged) ──────────────────────────── */}
+      {tafsirVerse && (
+        <TafsirSheet
+          visible={true}
+          verseLabel={`${surah.englishName.toUpperCase()}  ·  ${surahNumber}:${tafsirVerse.number}`}
+          arabicAnchor={tafsirVerse.text}
+          blocks={
+            // While the surah-level fetch is in flight, getEntry returns null
+            // and we want the loading state — not the empty state — to render.
+            tafsirLoading ? null : getTafsirEntry(tafsirVerse.number)?.blocks ?? []
+          }
+          loading={tafsirLoading}
+          error={tafsirError}
+          colors={colors}
+          bottomInset={insets.bottom}
+          onClose={() => setTafsirVerse(null)}
+        />
+      )}
 
       {/* ── Word-by-word sheet ──────────────────────────────────────────── */}
       <WordSheet
