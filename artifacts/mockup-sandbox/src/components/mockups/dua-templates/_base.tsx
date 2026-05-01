@@ -3,96 +3,48 @@ import { ARABIC_FONT, FullBleed, SANS_FONT, SERIF_FONT } from "../nuur-templates
 
 const TAGLINE_FONT = "'Cormorant Garamond', Georgia, serif";
 
+const RAW_BASE_URL = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
+const BASE_URL = RAW_BASE_URL.endsWith("/") ? RAW_BASE_URL : `${RAW_BASE_URL}/`;
+const NUUR_LOGO_URL = `${BASE_URL}images/nuur-premium/nuur-logo.png`;
+
 /**
- * Nuur brand mark + wordmark + tagline footer used on every dua share card.
- * Mirrors the in-app splash logo: a ring with the Arabic letter ن inside,
- * surrounded by eight short rays. Text reads "NUUR" with the tagline
- * "Light for your daily deen".
+ * Nuur brand mark + wordmark + tagline footer used on every Nuur share card.
+ * Uses the real app icon: dark rounded square with gold ن and rays.
+ * `color`/`dim` apply to the wordmark and tagline. The icon adapts via an
+ * optional inverted treatment for darker cards.
  */
 export function NuurBrandFooter({
   color,
   dim,
+  iconSize = 36,
 }: {
-  /** primary brand ink (rays, ن, NUUR wordmark) */
+  /** primary brand ink for the NUUR wordmark */
   color: string;
-  /** dim secondary tone (tagline, ring stroke) */
+  /** dim secondary tone for the tagline */
   dim: string;
+  /** logo size in px (default 36) */
+  iconSize?: number;
 }) {
-  const rays = [0, 45, 90, 135, 180, 225, 270, 315];
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 6,
+        gap: 8,
       }}
     >
-      {/* Logo mark — concentric rings with ن and 8 rays */}
-      <div
+      {/* Logo mark — actual Nuur app icon */}
+      <img
+        src={NUUR_LOGO_URL}
+        alt="Nuur"
         style={{
-          position: "relative",
-          width: 36,
-          height: 36,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          width: iconSize,
+          height: iconSize,
+          borderRadius: iconSize * 0.22,
+          display: "block",
         }}
-      >
-        {/* Outer ring */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: "50%",
-            border: `1px solid ${dim}`,
-            opacity: 0.55,
-          }}
-        />
-        {/* 8 rays around the ring */}
-        {rays.map((angle) => (
-          <div
-            key={angle}
-            style={{
-              position: "absolute",
-              top: -4,
-              left: "50%",
-              width: 1.2,
-              height: 5,
-              background: color,
-              borderRadius: 1,
-              transform: `translateX(-50%) rotate(${angle}deg)`,
-              transformOrigin: "50% 22px",
-              opacity: 0.85,
-            }}
-          />
-        ))}
-        {/* Inner core circle */}
-        <div
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: "50%",
-            border: `1px solid ${color}`,
-            background: "transparent",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: ARABIC_FONT,
-              fontSize: 14,
-              lineHeight: 1,
-              color: color,
-              marginTop: -1,
-            }}
-          >
-            ن
-          </span>
-        </div>
-      </div>
+      />
 
       {/* Wordmark */}
       <div

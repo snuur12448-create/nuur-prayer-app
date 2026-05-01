@@ -90,6 +90,18 @@ uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/name-wallpaper
 type = "image"
 title = "Twilight pink mosque sky"
 
+[[generated]]
+id = "IAqni-vRBWzcMsCjccV15"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/dua-share-v2.png"
+type = "image"
+title = "dua share botanical v2"
+
+[[generated]]
+id = "SHVIRlMELnVMKYNny7tK1"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/ayah-share-v2.png"
+type = "image"
+title = "ayah share night scene v2"
+
 [[outputs]]
 id = "7TUHSGXs-Ags9m_n5lXzg"
 uri = "file://nuur-islamic-prayer.zip"
