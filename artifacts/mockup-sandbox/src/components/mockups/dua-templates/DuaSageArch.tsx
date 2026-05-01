@@ -13,10 +13,10 @@ export function DuaSageArch() {
         englishSize: 14.5,
         textShadow: "0 1px 6px rgba(0,0,0,0.25)",
         body: {
-          top: 360,
+          top: 340,
           left: 70,
           width: 292,
-          height: 240,
+          height: 220,
           justify: "center",
           align: "center",
         },

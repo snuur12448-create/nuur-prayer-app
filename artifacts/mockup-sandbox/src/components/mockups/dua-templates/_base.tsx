@@ -152,9 +152,9 @@ export interface BodyBox {
 export interface DuaImageTheme {
   /** filename in /public/dua-images */
   image: string;
-  /** ink color for the dua text */
+  /** ink color for the Arabic dua text and the English translation */
   ink: string;
-  /** softer secondary text color (english/source) */
+  /** softer secondary text color used for the source caption */
   inkDim: string;
   /** Arabic font size (default 38) */
   arabicSize?: number;
@@ -187,6 +187,9 @@ export function DuaImageCard({
   const englishSize = theme.englishSize ?? 16;
   const arabicLh = theme.arabicLineHeight ?? 1.6;
 
+  // NOTE: All `top/left/width/height` values below are pixels in the design
+  // reference of 432×768 (9:16). The hosting iframe MUST be sized to that
+  // ratio for layout to read correctly.
   return (
     <FullBleed background="#000" ratio="9/16">
       <img
