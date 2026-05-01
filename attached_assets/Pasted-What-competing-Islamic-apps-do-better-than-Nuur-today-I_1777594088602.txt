@@ -1,0 +1,60 @@
+What competing Islamic apps do better than Nuur today
+I cross-referenced the current Nuur feature set against the eight most-installed apps in the category. Here's where Nuur is clearly behind, grouped by category and ordered by how often the gap shows up in competitor reviews and product copy.
+
+1. Quran depth — biggest gap
+Nuur ships Mushaf + Sahih translation only. Competitors go much deeper:
+
+Tafsir layers (Ibn Kathir, Saadi, Maududi) — Quran.com app
+Word-by-word translation with per-word audio tap — Sajda, Quran.com
+AI recitation correction — Tarteel. You recite into the mic, it highlights mistakes verse-by-verse. This is the single most "moat-y" feature in the category.
+Voice search — recite a verse to find it — Tarteel
+Memorization mode that hides ayahs progressively — Tarteel
+Continuous Quran radio — Quran.com
+2. Home-screen presence — Nuur ships zero
+iOS & Android home-screen widgets for next-prayer countdown — Pillars, Athan Pro
+Apple Watch / Wear OS app with adhan on wrist — Pillars, Athan Pro
+Live Activities / Dynamic Island countdown — Pillars
+This is "table stakes" now. Reviews on Pillars repeatedly praise widgets; reviews on Muslim Pro complain about the lack of a watch app.
+3. Lifestyle utilities
+Zakat calculator — Muslim Pro, Sajda (universal expectation in 'all-in-one' apps)
+Halal food / restaurant finder — Muslim Pro, Athan Pro. Nuur has mosques but not food.
+Hajj / Umrah digital guides with step-by-step rites — Muslim Pro
+Charity / sadaqa gateway with donation tracking — Muslim Pro, Salaam
+4. Ramadan & seasonal
+30-day Ramadan planner with daily goals — Ramadan Legacy, Muslim Pro
+Reflection journal / spiritual notes — Ramadan Legacy, Pillars Plus
+Iftar / suhoor countdown card — Muslim Pro, Athan Pro
+These drive a huge engagement spike each year. Nuur has Hijri events but no Ramadan-specific surface.
+5. Content & learning
+Video courses / Islamic streaming (Qalbox, Quran Academy) — Muslim Pro
+Audio lectures / podcasts with offline download
+Nuur's "How to Pray" guide is text-only.
+6. Community & social
+Prayer-request feed — Muslim Pro
+Group Khatam (collaborative Quran completion) — Sajda
+Family / friend prayer streaks with shared accountability — Pillars
+Mosque check-ins — Athan Pro
+7. Polish on what Nuur already has
+Pillars' tracker UI is widely cited as the best in the market — heatmap calendar, gentler streak psychology, zero-shame missed-prayer recovery.
+Athan Pro's adhan notification uses rich-media notifications (artwork + reciter name) instead of plain text.
+8. AI delighters (where the bar is moving)
+AI dua suggestions based on mood / situation
+AI dream interpretation (controversial but downloaded heavily)
+Personalized daily verse explanation — Muslim Pro is hiring for this; Tarteel ships it
+Where Nuur already wins (honest counterweight)
+Share cards — your painted-frame share system is genuinely better than anything Muslim Pro / Pillars ship; their share output is plain Sahih-text on a flat color.
+Visual restraint — no ads, no privacy scandals, no feature-bloat menu. Pillars is the only competitor in your league here.
+Adhkar curation — your morning/evening adhkar surface is cleaner than Muslim Pro's buried list.
+Theme system — 5 hand-tuned themes vs. competitors' 1–2.
+If I had to pick the top 5 to close the gap
+#	Feature	Why	Reference
+1	iOS + Android home-screen widget (next prayer)	Highest review-mentioned gap, lowest build cost	Pillars, Athan Pro
+2	Tafsir layer in Quran (start with Ibn Kathir English)	Closes the biggest content gap vs Quran.com	Quran.com
+3	Apple Watch app (athan + tracker tap)	Pillars' #1 differentiator; cheap with Expo + WatchKit bridge	Pillars
+4	Zakat calculator	Universal expectation; ~1 day of work	Muslim Pro, Sajda
+5	Ramadan dashboard (planner + iftar countdown + journal)	Drives the annual install spike	Muslim Pro, Ramadan Legacy
+Want me to:
+
+Spin this into a polished PDF / slide deck competitive report,
+Drop a Canvas mock of a home-screen widget + Apple Watch app to explore visually before building,
+Or go straight to building one of the top-5 (e.g., the iOS widget) in the actual app?
