@@ -39,8 +39,7 @@ export function NameWallpaperV4() {
         <div style={{ fontFamily: "'Amiri Quran', serif", fontSize: 72, lineHeight: 1.2, color: INK, direction: "rtl", textShadow: HALO, marginBottom: 16 }}>
           ٱلْقُدُّوس
         </div>
-        <div style={{ width: 40, height: 1, background: ACCENT, opacity: 0.7, marginBottom: 20 }} />
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 700, letterSpacing: "0.05em", color: INK, marginBottom: 8, textShadow: HALO }}>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 700, letterSpacing: "0.05em", color: INK, marginBottom: 8, textShadow: HALO }}>
           Al-Quddus
         </div>
         <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontStyle: "italic", color: ACCENT, opacity: 1, textShadow: HALO }}>

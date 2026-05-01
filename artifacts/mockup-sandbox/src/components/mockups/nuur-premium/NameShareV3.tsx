@@ -37,8 +37,7 @@ export function NameShareV3() {
         <div style={{ fontFamily: "'Amiri Quran', serif", fontSize: 64, lineHeight: 1.2, color: "#E8F2F8", direction: "rtl", textShadow: "0px 2px 8px rgba(0,0,0,0.7)", marginBottom: 8 }}>
           ٱلرَّحْمَٰن
         </div>
-        <div style={{ width: 40, height: 1, background: ACCENT, opacity: 0.55, marginBottom: 16 }} />
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 600, letterSpacing: "0.05em", color: "#E0EBF2", marginBottom: 6, textShadow: "0px 1px 4px rgba(0,0,0,0.6)" }}>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 600, letterSpacing: "0.05em", color: "#E0EBF2", marginBottom: 6, textShadow: "0px 1px 4px rgba(0,0,0,0.6)" }}>
           Ar-Rahman
         </div>
         <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 16, fontStyle: "italic", color: "#B8D0DC", opacity: 0.9, textShadow: "0px 1px 3px rgba(0,0,0,0.55)" }}>

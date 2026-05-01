@@ -54,8 +54,7 @@ export function NameShare() {
           ٱلرَّحْمَٰن
         </div>
         
-        <div style={{ width: 40, height: 1, background: "#D4AF37", opacity: 0.5, marginBottom: 16 }} />
-        
+                
         <div style={{
           fontFamily: "'Cormorant Garamond', serif",
           fontSize: 22,

@@ -54,8 +54,6 @@ export function NameWallpaper() {
           ٱلْقُدُّوس
         </div>
         
-        <div style={{ width: 40, height: 1, background: "#D4AF37", opacity: 0.4, marginBottom: 20 }} />
-        
         <div style={{
           fontFamily: "'Cormorant Garamond', serif",
           fontSize: 26,
