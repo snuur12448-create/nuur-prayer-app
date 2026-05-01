@@ -1,8 +1,9 @@
 import React from "react";
-import { NuurBrandFooter } from "../dua-templates/_base";
+import { NuurBrandFooter, autoHalo } from "../dua-templates/_base";
 
-const INK = "#3A2418";
-const ACCENT = "#7A4A2E";
+const INK = "#2A170D";
+const ACCENT = "#5C3520";
+const HALO = autoHalo(INK, 2);
 
 export function HadithWallpaperV3() {
   return (
@@ -23,7 +24,7 @@ export function HadithWallpaperV3() {
       <div
         style={{
           position: "absolute",
-          top: "45%",
+          top: "26%",
           left: 0,
           right: 0,
           zIndex: 10,
@@ -34,16 +35,16 @@ export function HadithWallpaperV3() {
           textAlign: "center",
         }}
       >
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 500, lineHeight: 1.4, color: INK, marginBottom: 24, textShadow: "0px 1px 2px rgba(255,235,210,0.6)" }}>
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 600, lineHeight: 1.4, color: INK, marginBottom: 24, textShadow: HALO }}>
           "The best of people are those who bring most benefit to the people."
         </div>
-        <div style={{ width: 40, height: 1, background: ACCENT, opacity: 0.6, marginBottom: 24 }} />
-        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: ACCENT, opacity: 0.9 }}>
+        <div style={{ width: 40, height: 1, background: ACCENT, opacity: 0.75, marginBottom: 24 }} />
+        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", color: ACCENT, opacity: 1, fontWeight: 500, textShadow: HALO }}>
           Daraqutni
         </div>
       </div>
-      <div style={{ position: "absolute", bottom: 40, left: 0, right: 0 }}>
-        <NuurBrandFooter color={INK} dim="rgba(122, 74, 46, 0.6)" />
+      <div style={{ position: "absolute", bottom: 280, left: 0, right: 0 }}>
+        <NuurBrandFooter color={INK} dim="rgba(92, 53, 32, 0.95)" iconSize={32} />
       </div>
     </div>
   );

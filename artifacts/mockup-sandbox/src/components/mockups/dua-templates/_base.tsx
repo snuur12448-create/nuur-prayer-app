@@ -3,71 +3,233 @@ import { ARABIC_FONT, FullBleed, SANS_FONT, SERIF_FONT } from "../nuur-templates
 
 const TAGLINE_FONT = "'Cormorant Garamond', Georgia, serif";
 
-const RAW_BASE_URL = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
-const BASE_URL = RAW_BASE_URL.endsWith("/") ? RAW_BASE_URL : `${RAW_BASE_URL}/`;
-const NUUR_LOGO_URL = `${BASE_URL}images/nuur-premium/nuur-logo.png`;
+/**
+ * Parse a CSS color string (#RGB, #RRGGBB, rgb(), rgba()) into [r,g,b] 0–255.
+ * Returns null for unrecognised input.
+ */
+function parseColor(input: string): [number, number, number] | null {
+  const s = input.trim();
+  if (s.startsWith("#")) {
+    const hex = s.slice(1);
+    if (hex.length === 3) {
+      const r = parseInt(hex[0] + hex[0], 16);
+      const g = parseInt(hex[1] + hex[1], 16);
+      const b = parseInt(hex[2] + hex[2], 16);
+      return [r, g, b];
+    }
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return [r, g, b];
+    }
+  }
+  const m = s.match(/rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/);
+  if (m) return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
+  return null;
+}
+
+/** Perceived luminance 0..1 (Rec. 709). */
+function luminance(input: string): number {
+  const rgb = parseColor(input);
+  if (!rgb) return 0.5;
+  const [r, g, b] = rgb;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+/** Parse the alpha channel out of a CSS rgba() / hex string. */
+function parseAlpha(input: string): number {
+  const s = input.trim();
+  if (s.startsWith("#")) return 1;
+  const m = s.match(/rgba?\(\s*\d+[\s,]+\d+[\s,]+\d+[\s,/]+([0-9.]+)/);
+  if (m) return Math.min(1, Math.max(0, parseFloat(m[1])));
+  return 1;
+}
+
+/**
+ * Ensure a CSS color has at least `min` alpha. If it's already opaque enough,
+ * the original is returned. Used to keep the tagline from disappearing when a
+ * variant passes a too-faint `dim` color.
+ */
+function ensureMinAlpha(input: string, min: number): string {
+  const rgb = parseColor(input);
+  if (!rgb) return input;
+  const a = parseAlpha(input);
+  if (a >= min) return input;
+  return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${min})`;
+}
+
+/**
+ * Halo text-shadow that auto-flips polarity based on the ink color.
+ * Dark ink → soft white glow (for dark text on light backgrounds).
+ * Light ink → soft dark glow (for light text on dark backgrounds).
+ * The result is layered (tight + diffuse) for a subtle "punch".
+ */
+export function autoHalo(inkColor: string, strength: 1 | 2 = 1): string {
+  const isDarkInk = luminance(inkColor) < 0.55;
+  const haloRgb = isDarkInk ? "255,255,255" : "0,0,0";
+  const a1 = strength === 2 ? 0.85 : 0.7;
+  const a2 = strength === 2 ? 0.55 : 0.35;
+  return `0 0 1px rgba(${haloRgb},${a1}), 0 1px 3px rgba(${haloRgb},${a2}), 0 0 8px rgba(${haloRgb},${a2 * 0.5})`;
+}
+
+/**
+ * Build a single CSS drop-shadow value that contrasts with the ink, suitable
+ * for use inside `filter: drop-shadow(...)`. Unlike `autoHalo` (which produces
+ * a multi-layer text-shadow string), this returns one well-formed shadow.
+ */
+function autoDropShadow(inkColor: string): string {
+  const isDarkInk = luminance(inkColor) < 0.55;
+  const haloRgb = isDarkInk ? "255,255,255" : "0,0,0";
+  return `0 1px 2px rgba(${haloRgb},0.55)`;
+}
+
+/**
+ * Inline SVG of the Nuur mark — gold sun-rays around an Arabic ن.
+ * Transparent background (no dark squircle), tints to whatever color is passed.
+ * Drop-in replacement for the previous PNG logo: it picks up the surrounding
+ * card's ink so it blends into pastel skies, deep blues, parchment, etc.
+ */
+export function NuurMarkSVG({ size, color }: { size: number; color: string }) {
+  const rays = [0, 45, 90, 135, 180, 225, 270, 315];
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      style={{ display: "block", color, overflow: "visible" }}
+      aria-hidden="true"
+    >
+      {/* Outer thin ring */}
+      <circle cx="50" cy="50" r="34" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.55" />
+      {/* Inner ring (around the noon) */}
+      <circle cx="50" cy="50" r="18" fill="none" stroke="currentColor" strokeWidth="1.1" opacity="0.85" />
+      {/* 8 sun rays */}
+      {rays.map((deg) => {
+        const rad = (deg * Math.PI) / 180;
+        const x1 = 50 + Math.cos(rad) * 38;
+        const y1 = 50 + Math.sin(rad) * 38;
+        const x2 = 50 + Math.cos(rad) * 46;
+        const y2 = 50 + Math.sin(rad) * 46;
+        return (
+          <line
+            key={deg}
+            x1={x1}
+            y1={y1}
+            x2={x2}
+            y2={y2}
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            opacity="0.9"
+          />
+        );
+      })}
+      {/* ن (noon) */}
+      <text
+        x="50"
+        y="59"
+        textAnchor="middle"
+        fontFamily="'Amiri Quran', 'Amiri', serif"
+        fontSize="20"
+        fill="currentColor"
+        fontWeight="500"
+      >
+        ن
+      </text>
+    </svg>
+  );
+}
 
 /**
  * Nuur brand mark + wordmark + tagline footer used on every Nuur share card.
- * Uses the real app icon: dark rounded square with gold ن and rays.
- * `color`/`dim` apply to the wordmark and tagline. The icon adapts via an
- * optional inverted treatment for darker cards.
+ * The mark is rendered as inline SVG so it has a transparent background and
+ * automatically picks up the `color` prop — no more dark squircle that fights
+ * with the underlying photo. `color` drives both the mark and the wordmark;
+ * `dim` is used as the tagline tint. Both lines get an auto-flipping halo
+ * so they stay legible on busy or light backgrounds.
  */
 export function NuurBrandFooter({
   color,
   dim,
   iconSize = 36,
+  scrim = false,
 }: {
-  /** primary brand ink for the NUUR wordmark */
+  /** primary brand ink for the mark + NUUR wordmark */
   color: string;
   /** dim secondary tone for the tagline */
   dim: string;
   /** logo size in px (default 36) */
   iconSize?: number;
+  /** Render a soft contrast scrim behind the footer for variants where the
+   *  bottom of the photo has a busy/focal subject (lanterns, palms, mosque
+   *  silhouette). Auto-flips polarity based on ink luminance. */
+  scrim?: boolean;
 }) {
+  const halo = autoHalo(color, 1);
+  const dropShadow = autoDropShadow(color);
+  const isDarkInk = luminance(color) < 0.55;
+  // Scrim color matches the halo polarity: light scrim under dark ink, dark
+  // scrim under light ink. Radial gradient so edges fade out invisibly.
+  const scrimRgb = isDarkInk ? "255,255,255" : "0,0,0";
   return (
     <div
       style={{
+        position: "relative",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         gap: 8,
+        padding: scrim ? "14px 32px 12px" : 0,
       }}
     >
-      {/* Logo mark — actual Nuur app icon */}
-      <img
-        src={NUUR_LOGO_URL}
-        alt="Nuur"
-        style={{
-          width: iconSize,
-          height: iconSize,
-          borderRadius: iconSize * 0.22,
-          display: "block",
-        }}
-      />
+      {scrim ? (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `radial-gradient(ellipse 70% 80% at 50% 60%, rgba(${scrimRgb},0.35) 0%, rgba(${scrimRgb},0.18) 55%, rgba(${scrimRgb},0) 100%)`,
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+      ) : null}
+      {/* Mark — inline SVG, transparent, tinted to match the card's ink */}
+      <div style={{ filter: `drop-shadow(${dropShadow})`, position: "relative", zIndex: 1 }}>
+        <NuurMarkSVG size={iconSize} color={color} />
+      </div>
 
       {/* Wordmark */}
       <div
         style={{
           fontFamily: TAGLINE_FONT,
-          fontSize: 11,
+          fontSize: 12,
           letterSpacing: "0.5em",
           paddingLeft: "0.5em",
           color: color,
-          fontWeight: 500,
+          fontWeight: 600,
+          textShadow: halo,
+          position: "relative",
+          zIndex: 1,
         }}
       >
         NUUR
       </div>
 
-      {/* Tagline */}
+      {/* Tagline — clamped to a minimum alpha so it stays readable even when
+          a variant passes a faint `dim` color (the dark-bg variants used to
+          set 0.3–0.55 which became invisible against busy photography). */}
       <div
         style={{
           fontFamily: TAGLINE_FONT,
-          fontSize: 9.5,
+          fontSize: 11,
           fontStyle: "italic",
-          letterSpacing: "0.12em",
-          color: dim,
+          letterSpacing: "0.14em",
+          color: ensureMinAlpha(dim, 0.78),
+          textShadow: halo,
+          position: "relative",
+          zIndex: 1,
         }}
       >
         Light for your daily deen

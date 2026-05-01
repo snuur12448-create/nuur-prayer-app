@@ -1,8 +1,9 @@
 import React from "react";
-import { NuurBrandFooter } from "../dua-templates/_base";
+import { NuurBrandFooter, autoHalo } from "../dua-templates/_base";
 
-const INK = "#3F2A1A";
-const INK_DIM = "rgba(63, 42, 26, 0.6)";
+const INK = "#2A1A0E";
+const INK_DIM = "rgba(42, 26, 14, 0.85)";
+const HALO = autoHalo(INK, 1);
 
 export function DuaShareV4() {
   return (
@@ -45,25 +46,25 @@ export function DuaShareV4() {
             lineHeight: 1.85,
             color: INK,
             direction: "rtl",
-            textShadow: "0 1px 3px rgba(255,235,200,0.7)",
+            textShadow: HALO,
             marginBottom: 22,
           }}
         >
           لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ
         </div>
 
-        <div style={{ width: 40, height: 1, background: INK, opacity: 0.4, marginBottom: 22 }} />
+        <div style={{ width: 40, height: 1, background: INK, opacity: 0.5, marginBottom: 22 }} />
 
         <div
           style={{
             fontFamily: "'Cormorant Garamond', Georgia, serif",
-            fontSize: 18,
+            fontSize: 19,
             fontStyle: "italic",
             lineHeight: 1.45,
             color: INK,
-            opacity: 0.92,
+            opacity: 1,
             marginBottom: 18,
-            textShadow: "0 1px 2px rgba(255,235,200,0.6)",
+            textShadow: HALO,
           }}
         >
           "There is no might nor power except with Allah."
@@ -72,11 +73,13 @@ export function DuaShareV4() {
         <div
           style={{
             fontFamily: "'Inter', system-ui, sans-serif",
-            fontSize: 9,
+            fontSize: 10,
             letterSpacing: "0.22em",
             textTransform: "uppercase",
             color: INK,
-            opacity: 0.65,
+            opacity: 0.88,
+            fontWeight: 500,
+            textShadow: HALO,
           }}
         >
           Bukhari · Daily Adhkar

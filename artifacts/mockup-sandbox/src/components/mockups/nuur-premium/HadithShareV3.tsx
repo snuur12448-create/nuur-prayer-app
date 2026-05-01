@@ -1,9 +1,10 @@
 import React from "react";
-import { NuurBrandFooter } from "../dua-templates/_base";
+import { NuurBrandFooter, autoHalo } from "../dua-templates/_base";
 
-const INK = "#3A1F12";
-const ACCENT = "#7A4A2E";
-const INK_DIM = "rgba(122, 74, 46, 0.7)";
+const INK = "#2A150A";
+const ACCENT = "#5C3520";
+const INK_DIM = "rgba(92, 53, 32, 0.9)";
+const HALO = autoHalo(INK, 2);
 
 export function HadithShareV3() {
   return (
@@ -35,15 +36,15 @@ export function HadithShareV3() {
           textAlign: "center",
         }}
       >
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 500, lineHeight: 1.3, color: INK, marginBottom: 16, textShadow: "0px 1px 2px rgba(255,235,210,0.6)" }}>
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 600, lineHeight: 1.3, color: INK, marginBottom: 16, textShadow: HALO }}>
           Actions are but by intentions.
         </div>
-        <div style={{ width: 30, height: 1, background: ACCENT, opacity: 0.7, marginBottom: 16 }} />
-        <div style={{ fontFamily: "'Amiri Quran', serif", fontSize: 18, color: INK, direction: "rtl", opacity: 0.9, marginBottom: 20, textShadow: "0px 1px 2px rgba(255,235,210,0.6)" }}>
+        <div style={{ width: 30, height: 1, background: ACCENT, opacity: 0.8, marginBottom: 16 }} />
+        <div style={{ fontFamily: "'Amiri Quran', serif", fontSize: 19, color: INK, direction: "rtl", opacity: 1, marginBottom: 20, textShadow: HALO }}>
           إنما الأعمال بالنيات
         </div>
-        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: ACCENT, opacity: 0.85 }}>
-          Bukhari & Muslim
+        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: ACCENT, opacity: 0.95, fontWeight: 500, textShadow: HALO }}>
+          Bukhari &amp; Muslim
         </div>
       </div>
       <div style={{ position: "absolute", bottom: 24, left: 0, right: 0 }}>

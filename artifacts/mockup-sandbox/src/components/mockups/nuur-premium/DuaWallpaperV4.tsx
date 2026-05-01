@@ -1,7 +1,8 @@
 import React from "react";
-import { NuurBrandFooter } from "../dua-templates/_base";
+import { NuurBrandFooter, autoHalo } from "../dua-templates/_base";
 
-const INK = "#3F2A1A";
+const INK = "#2A1A0E";
+const HALO = autoHalo(INK, 2);
 
 export function DuaWallpaperV4() {
   return (
@@ -33,19 +34,19 @@ export function DuaWallpaperV4() {
           textAlign: "center",
         }}
       >
-        <div style={{ fontFamily: "'Amiri Quran', serif", fontSize: 32, lineHeight: 1.8, color: INK, direction: "rtl", textShadow: "0px 1px 3px rgba(255,235,200,0.7)", marginBottom: 24 }}>
+        <div style={{ fontFamily: "'Amiri Quran', serif", fontSize: 32, lineHeight: 1.8, color: INK, direction: "rtl", textShadow: HALO, marginBottom: 24 }}>
           لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ
         </div>
-        <div style={{ width: 40, height: 1, background: INK, opacity: 0.4, marginBottom: 24 }} />
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontStyle: "italic", lineHeight: 1.45, color: INK, opacity: 0.92, marginBottom: 20, textShadow: "0px 1px 2px rgba(255,235,200,0.6)" }}>
+        <div style={{ width: 40, height: 1, background: INK, opacity: 0.5, marginBottom: 24 }} />
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 21, fontStyle: "italic", lineHeight: 1.45, color: INK, opacity: 1, marginBottom: 20, textShadow: HALO }}>
           "There is no might nor power except with Allah."
         </div>
-        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: INK, opacity: 0.65 }}>
+        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", color: INK, opacity: 0.88, fontWeight: 500, textShadow: HALO }}>
           Bukhari · Daily Adhkar
         </div>
       </div>
       <div style={{ position: "absolute", bottom: 40, left: 0, right: 0 }}>
-        <NuurBrandFooter color={INK} dim="rgba(63, 42, 26, 0.55)" />
+        <NuurBrandFooter color={INK} dim="rgba(42, 26, 14, 0.85)" scrim />
       </div>
     </div>
   );

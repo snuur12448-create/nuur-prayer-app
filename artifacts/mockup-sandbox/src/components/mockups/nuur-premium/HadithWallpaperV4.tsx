@@ -40,7 +40,7 @@ export function HadithWallpaperV4() {
         </div>
       </div>
       <div style={{ position: "absolute", bottom: 40, left: 0, right: 0 }}>
-        <NuurBrandFooter color="#F0DDC0" dim="rgba(194, 168, 129, 0.55)" />
+        <NuurBrandFooter color="#F0DDC0" dim="rgba(194, 168, 129, 0.85)" scrim />
       </div>
     </div>
   );

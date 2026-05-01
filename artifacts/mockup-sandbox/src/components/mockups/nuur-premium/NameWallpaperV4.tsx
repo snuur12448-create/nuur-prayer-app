@@ -1,8 +1,9 @@
 import React from "react";
-import { NuurBrandFooter } from "../dua-templates/_base";
+import { NuurBrandFooter, autoHalo } from "../dua-templates/_base";
 
-const INK = "#3F2A1A";
-const ACCENT = "#7A4A2E";
+const INK = "#2A1A0E";
+const ACCENT = "#5C3520";
+const HALO = autoHalo(INK, 2);
 
 export function NameWallpaperV4() {
   return (
@@ -35,19 +36,19 @@ export function NameWallpaperV4() {
           textAlign: "center",
         }}
       >
-        <div style={{ fontFamily: "'Amiri Quran', serif", fontSize: 72, lineHeight: 1.2, color: INK, direction: "rtl", textShadow: "0px 1px 4px rgba(255,235,200,0.7)", marginBottom: 16 }}>
+        <div style={{ fontFamily: "'Amiri Quran', serif", fontSize: 72, lineHeight: 1.2, color: INK, direction: "rtl", textShadow: HALO, marginBottom: 16 }}>
           ٱلْقُدُّوس
         </div>
-        <div style={{ width: 40, height: 1, background: ACCENT, opacity: 0.5, marginBottom: 20 }} />
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 600, letterSpacing: "0.05em", color: INK, marginBottom: 8, textShadow: "0px 1px 2px rgba(255,235,200,0.6)" }}>
+        <div style={{ width: 40, height: 1, background: ACCENT, opacity: 0.7, marginBottom: 20 }} />
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 27, fontWeight: 700, letterSpacing: "0.05em", color: INK, marginBottom: 8, textShadow: HALO }}>
           Al-Quddus
         </div>
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontStyle: "italic", color: ACCENT, opacity: 0.95 }}>
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontStyle: "italic", color: ACCENT, opacity: 1, textShadow: HALO }}>
           The Pure, The Holy
         </div>
       </div>
       <div style={{ position: "absolute", bottom: 40, left: 0, right: 0 }}>
-        <NuurBrandFooter color={INK} dim="rgba(122, 74, 46, 0.55)" />
+        <NuurBrandFooter color={INK} dim="rgba(92, 53, 32, 0.9)" scrim />
       </div>
     </div>
   );

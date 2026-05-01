@@ -1,12 +1,13 @@
 import React from "react";
-import { NuurBrandFooter } from "../dua-templates/_base";
+import { NuurBrandFooter, autoHalo } from "../dua-templates/_base";
 
 const ARABIC_FONT = "'Amiri Quran', serif";
 const SERIF_FONT = "'Cormorant Garamond', Georgia, serif";
 const SANS_FONT = "'Inter', system-ui, sans-serif";
 
-const INK = "#3A4A3F";
-const INK_DIM = "rgba(58, 74, 63, 0.6)";
+const INK = "#26342B";
+const INK_DIM = "rgba(38, 52, 43, 0.85)";
+const HALO = autoHalo(INK, 1);
 
 export function DuaShare() {
   return (
@@ -60,6 +61,7 @@ export function DuaShare() {
             color: INK,
             direction: "rtl",
             maxWidth: 320,
+            textShadow: HALO,
           }}
         >
           اللَّهُمَّ أَنْتَ السَّلَامُ، وَمِنْكَ السَّلَامُ، تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ
@@ -70,7 +72,7 @@ export function DuaShare() {
             width: 44,
             height: 1,
             background: INK,
-            opacity: 0.3,
+            opacity: 0.45,
             margin: "22px 0 18px",
           }}
         />
@@ -78,12 +80,13 @@ export function DuaShare() {
         <div
           style={{
             fontFamily: SERIF_FONT,
-            fontSize: 16,
+            fontSize: 17,
             fontStyle: "italic",
             lineHeight: 1.5,
             color: INK,
-            opacity: 0.88,
+            opacity: 1,
             maxWidth: 300,
+            textShadow: HALO,
           }}
         >
           "O Allah, You are Peace, and from You comes Peace. Blessed are You, Possessor of Majesty and Honor."
@@ -93,10 +96,13 @@ export function DuaShare() {
           style={{
             marginTop: 16,
             fontFamily: SANS_FONT,
-            fontSize: 9,
+            fontSize: 10,
             letterSpacing: "0.22em",
             textTransform: "uppercase",
-            color: INK_DIM,
+            color: INK,
+            opacity: 0.85,
+            fontWeight: 500,
+            textShadow: HALO,
           }}
         >
           Muslim · Daily Adhkar
