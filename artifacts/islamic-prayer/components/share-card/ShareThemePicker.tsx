@@ -41,12 +41,12 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const SLIDE_W                  = SCREEN_W;
 const SLIDE_PAD                = 32;
 const PREVIEW_CARD_W           = Math.min(SCREEN_W - SLIDE_PAD * 2, 340);
-// Wallpaper preview is taller (≈ 2.17×). Cap its width so the resulting
-// height (W × 2.17) fits inside the available pager band of the sheet on
-// small devices like the iPhone SE (375 × 667). Sheet chrome (handle,
-// header, toggle, meta + dots, actions, paddings) ≈ 290 dp.
+// Wallpaper preview is taller (16:9). Cap its width so the resulting
+// height fits inside the available pager band of the sheet on small
+// devices like the iPhone SE (375 × 667). Sheet chrome (handle, header,
+// toggle, meta + dots, actions, paddings) ≈ 290 dp.
 const SHEET_CHROME_H           = 290;
-const WALLPAPER_PREVIEW_ASPECT = 2535 / 1170;
+const WALLPAPER_PREVIEW_ASPECT = 16 / 9; // matches ShareCard renderer
 const MAX_WALLPAPER_PREVIEW_H  = SCREEN_H * 0.94 - SHEET_CHROME_H;
 const PREVIEW_WALLPAPER_W      = Math.max(
   160,
@@ -56,10 +56,11 @@ const PREVIEW_WALLPAPER_W      = Math.max(
     MAX_WALLPAPER_PREVIEW_H / WALLPAPER_PREVIEW_ASPECT,   // vertical cap
   ),
 );
+// Card is now 1:1 (Instagram square). Wallpaper is 9:16 (lock-screen).
 const EXPORT_CARD_W            = 1080;
-const EXPORT_CARD_H            = 1350;
+const EXPORT_CARD_H            = 1080;
 const EXPORT_WALLPAPER_W       = 1170;
-const EXPORT_WALLPAPER_H       = 2535;
+const EXPORT_WALLPAPER_H       = Math.round(1170 * (16 / 9)); // 2080
 
 const GOLD = "#C9933A";
 
@@ -244,7 +245,7 @@ export function ShareThemePicker({
           ]}
         >
           <View style={{ borderRadius: 22, overflow: "hidden" }}>
-            <ShareCard themeId={item} mode={mode} width={w} {...effectiveContent} />
+            <ShareCard themeId={item} mode={mode} width={w} kind={kind} {...effectiveContent} />
           </View>
         </View>
       </View>
@@ -436,6 +437,7 @@ export function ShareThemePicker({
               themeId={currentThemeId}
               mode={mode}
               width={isWallpaper ? EXPORT_WALLPAPER_W : EXPORT_CARD_W}
+              kind={kind}
               {...effectiveContent}
             />
           </View>

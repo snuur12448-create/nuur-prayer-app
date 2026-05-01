@@ -1,5 +1,12 @@
 import { AmiriQuran_400Regular } from "@expo-google-fonts/amiri-quran";
 import {
+  CormorantGaramond_400Regular,
+  CormorantGaramond_400Regular_Italic,
+  CormorantGaramond_500Medium,
+  CormorantGaramond_600SemiBold,
+  CormorantGaramond_700Bold,
+} from "@expo-google-fonts/cormorant-garamond";
+import {
   Inter_400Regular,
   Inter_500Medium,
   Inter_600SemiBold,
@@ -103,6 +110,11 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     AmiriQuran_400Regular,
+    CormorantGaramond_400Regular,
+    CormorantGaramond_400Regular_Italic,
+    CormorantGaramond_500Medium,
+    CormorantGaramond_600SemiBold,
+    CormorantGaramond_700Bold,
   });
 
   // Three-gate system: splash hides only when animation, fonts, AND onboarding

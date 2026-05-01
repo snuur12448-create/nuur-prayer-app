@@ -1,220 +1,217 @@
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useMemo } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
-import Svg, { Circle, G, Line, Path, Polygon } from "react-native-svg";
+import Svg, { Circle, G, Line, Text as SvgText } from "react-native-svg";
 
 import { getTheme } from "./themes";
 import type {
+  PremiumTheme,
   ShareCardContent,
   ShareCardMode,
   ShareThemeId,
+  ThemeOverlay,
 } from "./types";
 
 /* ─────────────────────────────────────────────────────────────────────────
- * ShareCard
+ * ShareCard — premium photo-card renderer.
  *
- * Unified renderer for one share card OR one wallpaper.
+ * Visual pipeline (bottom → top):
+ *   1. Solid fallback colour (matches the photo's outer edge)
+ *   2. Bundled photo plate (cover-fit, fills the entire card)
+ *   3. Optional overlay layers (linear or radial gradient scrims)
+ *   4. Optional arched ornament border (Names only)
+ *   5. Centred typographic cluster (kind-aware layout)
+ *   6. NUUR brand mark + wordmark + tagline pinned to the bottom
  *
- *   • Card mode      — 4 : 5     → 1080 × 1350 export
- *   • Wallpaper mode — 9 : 19.5  → 1170 × 2535 export
+ * Aspect ratios:
+ *   • card       — 1 : 1 (Instagram square / general purpose)
+ *   • wallpaper  — 9 : 16 (lock-screen / story)
  *
- * Two layout families are supported:
+ * Output sizes (used by `captureRef`):
+ *   • card       — 1080 × 1080
+ *   • wallpaper  — 1170 × 2080  (close to 9:16, tuned to iOS LS aspect)
  *
- *   1. **Default chrome** (gradient + SVG ornaments) — used by the legacy
- *      themes (Midnight Compass, Starry Sky, Garden Emerald, Rose, Sepia,
- *      Manuscript). The theme provides a Background SVG; this file renders
- *      the eyebrow / Arabic / divider / body / NUUR signature on top.
- *
- *   2. **Frame chrome** (painted ornate arch) — used exclusively by the
- *      dua / adhkar `frame01..frame06` themes. The theme provides a square
- *      panel image and a per-panel "safe area" inside the arch; this file
- *      renders all content (eyebrow, Arabic, English, attribution, NUUR
- *      lockup) tucked inside that arch interior, with a solid letterbox
- *      band of `bgFill` filling above/below the square panel.
- *
- * Arabic uses `AmiriQuran_400Regular` (already loaded at app boot),
- * Latin script uses the Inter family. No additional fonts are loaded.
+ * Layout per kind (after eyebrow if present):
+ *   dua / adhkar : Arabic → rule → English → source-caps
+ *   ayah / quran : Arabic → rule → English → "Surah X · Y:Z"
+ *   hadith       : English (top) → rule → Arabic → source-caps
+ *   name         : Arabic name → Latin name → meaning italic
  * ──────────────────────────────────────────────────────────────────────── */
-
-const CARD_ASPECT      = 1350 / 1080;   // 1.25
-const WALLPAPER_ASPECT = 2535 / 1170;   // ≈ 2.167
 
 export interface ShareCardProps extends ShareCardContent {
   themeId: ShareThemeId;
   mode: ShareCardMode;
   /** Render width in dp. Height is derived from mode aspect. */
   width: number;
+  /** Original kind — needed because adhkar maps to dua themes. */
+  kind?: "dua" | "adhkar" | "quran" | "ayah" | "hadith" | "name";
 }
 
-/** Tunable Arabic font size — shrinks gracefully for very long text. */
+const CARD_ASPECT      = 1;          // 1:1
+const WALLPAPER_ASPECT = 16 / 9;     // 1.777…
+
+/* ── Font fitters ───────────────────────────────────────────────────────── */
+
 function fitArabic(text: string | undefined, width: number, isWallpaper: boolean): number {
   if (!text) return 0;
   const len = text.length;
-  const base = isWallpaper ? width * 0.072 : width * 0.085;
-  if (len < 70)   return base;
-  if (len < 140)  return base * 0.86;
-  if (len < 220)  return base * 0.74;
-  if (len < 320)  return base * 0.62;
-  return base * 0.54;
-}
-
-function fitBody(text: string, width: number, isWallpaper: boolean): number {
-  const len = text.length;
-  const base = isWallpaper ? width * 0.032 : width * 0.038;
-  if (len < 140)  return base;
-  if (len < 280)  return base * 0.92;
-  if (len < 480)  return base * 0.84;
-  return base * 0.78;
-}
-
-/**
- * Frame-mode Arabic sizing — tighter than default because the arch's safe
- * area is narrower than the full card width. Sized against `safeWidth`
- * (the inner-arch width), not the full card width.
- */
-function fitArabicForFrame(text: string | undefined, safeWidth: number): number {
-  if (!text) return 0;
-  const len = text.length;
-  const base = safeWidth * 0.115;       // ≈ 33 px on a 290 dp safe width
+  // Shares: 432 design width → 28-36 px arabic. Scale linearly with width.
+  const base = isWallpaper ? width * 0.080 : width * 0.075;
   if (len < 50)   return base;
-  if (len < 100)  return base * 0.86;
+  if (len < 100)  return base * 0.85;
   if (len < 180)  return base * 0.72;
   if (len < 280)  return base * 0.60;
-  return base * 0.50;
+  if (len < 400)  return base * 0.52;
+  return base * 0.46;
 }
 
-function fitBodyForFrame(text: string, safeWidth: number): number {
+function fitEnglish(text: string, width: number, isWallpaper: boolean): number {
   const len = text.length;
-  const base = safeWidth * 0.062;       // ≈ 18 px on a 290 dp safe width
-  if (len < 100)  return base;
-  if (len < 200)  return base * 0.92;
-  if (len < 360)  return base * 0.84;
-  if (len < 540)  return base * 0.76;
+  const base = isWallpaper ? width * 0.046 : width * 0.044;
+  if (len < 80)   return base;
+  if (len < 160)  return base * 0.92;
+  if (len < 280)  return base * 0.84;
+  if (len < 440)  return base * 0.76;
   return base * 0.70;
 }
 
-/**
- * Soft horizontal divider — short hairline, centred diamond, short hairline.
- * Width scales with the card width. Matches the references closely.
- */
-function StarDivider({ color, width }: { color: string; width: number }) {
-  const ruleLen = width * 0.10;
-  const dia = width * 0.012;
-  const total = ruleLen * 2 + dia * 2 + 16;
-  const h = Math.max(dia * 2.4, 8);
-  const cy = h / 2;
-  const cx = total / 2;
+function fitName(width: number, isWallpaper: boolean): number {
+  // Names of Allah are short — go big. Wallpaper a bit larger.
+  return isWallpaper ? width * 0.165 : width * 0.150;
+}
+
+/* ── Inline NUUR mark — react-native-svg port of NuurMarkSVG ──────────── */
+
+function NuurMarkSVG({ size, color }: { size: number; color: string }) {
+  const rays = [0, 45, 90, 135, 180, 225, 270, 315];
   return (
-    <Svg width={total} height={h} viewBox={`0 0 ${total} ${h}`}>
-      <Line x1={0} y1={cy} x2={cx - dia - 6} y2={cy} stroke={color} strokeWidth={0.7} opacity={0.7} />
-      <Polygon
-        points={`${cx} ${cy - dia}, ${cx + dia} ${cy}, ${cx} ${cy + dia}, ${cx - dia} ${cy}`}
+    <Svg width={size} height={size} viewBox="0 0 100 100">
+      <Circle cx={50} cy={50} r={34} fill="none" stroke={color} strokeWidth={1.1} opacity={0.55} />
+      <Circle cx={50} cy={50} r={18} fill="none" stroke={color} strokeWidth={1.1} opacity={0.85} />
+      <G>
+        {rays.map((deg) => {
+          const rad = (deg * Math.PI) / 180;
+          const x1 = 50 + Math.cos(rad) * 38;
+          const y1 = 50 + Math.sin(rad) * 38;
+          const x2 = 50 + Math.cos(rad) * 46;
+          const y2 = 50 + Math.sin(rad) * 46;
+          return (
+            <Line
+              key={deg}
+              x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke={color}
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              opacity={0.9}
+            />
+          );
+        })}
+      </G>
+      <SvgText
+        x={50}
+        y={59}
+        textAnchor="middle"
+        fontFamily="AmiriQuran_400Regular"
+        fontSize={20}
         fill={color}
-        opacity={0.95}
-      />
-      <Line x1={cx + dia + 6} y1={cy} x2={total} y2={cy} stroke={color} strokeWidth={0.7} opacity={0.7} />
+      >
+        ن
+      </SvgText>
     </Svg>
   );
 }
 
-/**
- * Nuur signature mark — a small clock-face: outer circle, 12 short tick
- * marks, and a tiny ن-style dot in the centre.
- */
-function NuurMark({ color, size }: { color: string; size: number }) {
-  const r  = size;
-  const cx = r;
-  const cy = r;
-  const ticks = Array.from({ length: 12 }).map((_, i) => {
-    const a  = (i / 12) * Math.PI * 2 - Math.PI / 2;
-    const x1 = cx + Math.cos(a) * r * 0.78;
-    const y1 = cy + Math.sin(a) * r * 0.78;
-    const x2 = cx + Math.cos(a) * r * 0.92;
-    const y2 = cy + Math.sin(a) * r * 0.92;
+/* ── Overlay rendering ─────────────────────────────────────────────────── */
+
+function renderOverlay(overlay: ThemeOverlay, key: string) {
+  if (overlay.type === "linear") {
+    const colors = overlay.stops.map(([c]) => c) as unknown as readonly [string, string, ...string[]];
+    const locations = overlay.stops.map(([, p]) => p) as unknown as readonly [number, number, ...number[]];
     return (
-      <Line
-        key={`t_${i}`}
-        x1={x1} y1={y1} x2={x2} y2={y2}
-        stroke={color}
-        strokeWidth={i % 3 === 0 ? 1.0 : 0.7}
-        opacity={0.85}
+      <LinearGradient
+        key={key}
+        colors={colors}
+        locations={locations}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
     );
-  });
+  }
+  // Radial scrim faked with a vertical → centre fade. Two stacked gradients
+  // create a soft elliptical glow that focuses attention on the middle.
+  const cy = overlay.centerY ?? 0.5;
+  const colors = [overlay.outerColor, overlay.innerColor, overlay.outerColor] as unknown as readonly [string, string, string];
   return (
-    <Svg width={r * 2} height={r * 2} viewBox={`0 0 ${r * 2} ${r * 2}`}>
-      <Circle cx={cx} cy={cy} r={r * 0.95} fill="none" stroke={color} strokeWidth={1.0} opacity={0.9} />
-      <G>{ticks}</G>
-      <Circle cx={cx} cy={cy + r * 0.04} r={r * 0.10} fill={color} opacity={0.95} />
-    </Svg>
+    <LinearGradient
+      key={key}
+      colors={colors}
+      locations={[0, cy, 1] as unknown as readonly [number, number, number]}
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+    />
   );
 }
 
-/**
- * 8-point gold starburst mark used in the frame-style Nuur lockup. Echoes
- * the in-app `NuurLogo` (ن inside a sun of rays), miniaturised.
- */
-function FrameNuurMark({ color, size }: { color: string; size: number }) {
-  const r = size;
-  const cx = r;
-  const cy = r;
-  const rays = [0, 45, 90, 135].flatMap((a) => {
-    const rad = (a * Math.PI) / 180;
-    const dx = Math.cos(rad - Math.PI / 2);
-    const dy = Math.sin(rad - Math.PI / 2);
-    return [
-      <Line
-        key={`r_${a}_in`}
-        x1={cx + dx * r * 0.35}
-        y1={cy + dy * r * 0.35}
-        x2={cx + dx * r * 0.55}
-        y2={cy + dy * r * 0.55}
-        stroke={color}
-        strokeWidth={Math.max(0.8, r * 0.05)}
-      />,
-      <Line
-        key={`r_${a}_out`}
-        x1={cx - dx * r * 0.35}
-        y1={cy - dy * r * 0.35}
-        x2={cx - dx * r * 0.55}
-        y2={cy - dy * r * 0.55}
-        stroke={color}
-        strokeWidth={Math.max(0.8, r * 0.05)}
-      />,
-    ];
-  });
-  return (
-    <Svg width={r * 2} height={r * 2} viewBox={`0 0 ${r * 2} ${r * 2}`}>
-      <Circle cx={cx} cy={cy} r={r * 0.27} fill={color} opacity={0.18} stroke={color} strokeWidth={Math.max(0.6, r * 0.04)} />
-      <G>{rays}</G>
-    </Svg>
-  );
-}
+/* ── Main renderer ─────────────────────────────────────────────────────── */
 
 export function ShareCard({
-  themeId, mode, width,
+  themeId, mode, width, kind,
   eyebrow, arabic, transliteration, body, caption, attribution,
 }: ShareCardProps) {
   const theme = getTheme(themeId);
   const isWallpaper = mode === "wallpaper";
   const height = width * (isWallpaper ? WALLPAPER_ASPECT : CARD_ASPECT);
 
-  // NOTE: All hooks must be declared above any conditional return below,
-  // so React's hook-order is stable when the *same* ShareCard instance
-  // switches between a frame theme and a default theme (which happens in
-  // the picker's pager).
-  const arabicSize = useMemo(
-    () => fitArabic(arabic, width, isWallpaper),
-    [arabic, width, isWallpaper],
-  );
-  const bodySize = useMemo(
-    () => fitBody(body, width, isWallpaper),
-    [body, width, isWallpaper],
-  );
+  const arabicSize  = useMemo(() => fitArabic(arabic, width, isWallpaper), [arabic, width, isWallpaper]);
+  const englishSize = useMemo(() => fitEnglish(body, width, isWallpaper), [body, width, isWallpaper]);
+  const nameSize    = useMemo(() => fitName(width, isWallpaper), [width, isWallpaper]);
 
-  /* ── Frame-chrome render path ──────────────────────────────────────── */
-  if (theme.chrome === "frame" && theme.frame) {
-    return (
-      <FrameLayout
+  // Resolve effective layout kind from theme (prevents quran→ayah and adhkar→dua mismatch)
+  const layoutKind: "dua" | "ayah" | "hadith" | "name" = theme.kind;
+
+  return (
+    <View
+      style={{
+        width,
+        height,
+        backgroundColor: theme.fallbackBg,
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
+      {/* Photo plate */}
+      <Image
+        source={isWallpaper ? theme.wallpaperBg : theme.cardBg}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+      />
+
+      {/* Overlays */}
+      {(theme.overlays ?? []).map((o, i) => renderOverlay(o, `o_${i}`))}
+
+      {/* Arch ornament (Names only) */}
+      {theme.arch ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: width * 0.04,
+            left: width * 0.05,
+            right: width * 0.05,
+            bottom: isWallpaper ? width * 0.18 : width * 0.18,
+            borderWidth: 1,
+            borderColor: "rgba(212, 175, 55, 0.28)",
+            borderTopLeftRadius: width * 0.42,
+            borderTopRightRadius: width * 0.42,
+            borderBottomLeftRadius: 8,
+            borderBottomRightRadius: 8,
+          }}
+        />
+      ) : null}
+
+      {/* Content cluster */}
+      <ContentCluster
+        layoutKind={layoutKind}
         theme={theme}
         width={width}
         height={height}
@@ -225,548 +222,349 @@ export function ShareCard({
         body={body}
         caption={caption}
         attribution={attribution}
+        arabicSize={arabicSize}
+        englishSize={englishSize}
+        nameSize={nameSize}
       />
-    );
-  }
 
-  /* ── Default chrome render path ────────────────────────────────────── */
-
-  const p = theme.palette;
-
-  const sidePadding = Math.max(28, width * 0.085);
-  const contentTop    = isWallpaper ? height * 0.50 : height * 0.10;
-  const contentBottom = isWallpaper ? height * 0.87 : height * 0.85;
-
-  const eyebrowSize     = width * (isWallpaper ? 0.024 : 0.026);
-  const captionSize     = width * 0.034;
-  const transliterSize  = width * (isWallpaper ? 0.026 : 0.030);
-  const attributionSize = width * (isWallpaper ? 0.020 : 0.022);
-  const signatureSize   = width * (isWallpaper ? 0.022 : 0.024);
-  const taglineSize     = width * (isWallpaper ? 0.016 : 0.018);
-
-  const eyebrowParts = eyebrow.split(/\s*[·•]\s*/).filter(Boolean);
-
-  const renderEyebrow = () => (
-    <View style={styles.eyebrowRow}>
-      {eyebrowParts.map((part, i) => (
-        <React.Fragment key={`eb_${i}`}>
-          {i > 0 && (
-            <Text style={[styles.eyebrowDot, { color: p.accent, fontSize: eyebrowSize }]}>
-              {"  ·  "}
-            </Text>
-          )}
-          <Text
-            style={[
-              styles.eyebrowText,
-              { color: p.accent, fontSize: eyebrowSize, opacity: i === 0 ? 1 : 0.85 },
-            ]}
-          >
-            {part}
-          </Text>
-        </React.Fragment>
-      ))}
+      {/* Brand footer */}
+      <View
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: isWallpaper ? height * 0.045 : height * 0.055,
+          alignItems: "center",
+        }}
+      >
+        <BrandFooter
+          theme={theme}
+          iconSize={width * (isWallpaper ? 0.080 : 0.085)}
+        />
+      </View>
     </View>
   );
+}
 
-  const renderArabic = () =>
-    arabic ? (
-      <Text
-        numberOfLines={5}
-        adjustsFontSizeToFit={false}
-        style={{
+/* ── ContentCluster — kind-specific typographic layout ─────────────────── */
+
+interface ContentClusterProps extends ShareCardContent {
+  layoutKind: "dua" | "ayah" | "hadith" | "name";
+  theme: PremiumTheme;
+  width: number;
+  height: number;
+  isWallpaper: boolean;
+  arabicSize: number;
+  englishSize: number;
+  nameSize: number;
+}
+
+function ContentCluster(p: ContentClusterProps) {
+  const {
+    layoutKind, theme, width, height, isWallpaper,
+    eyebrow, arabic, transliteration, body, caption, attribution,
+    arabicSize, englishSize, nameSize,
+  } = p;
+
+  const sidePad = Math.max(28, width * 0.085);
+  // Wallpaper: text sits in the upper-mid third (clear of clock + footer).
+  // Card: vertically centred.
+  const top    = isWallpaper ? height * 0.32 : height * 0.10;
+  const bottom = isWallpaper ? height * 0.18 : height * 0.18;
+
+  const textShadowProps = theme.textShadow
+    ? {
+        textShadowColor: theme.textShadow.color,
+        textShadowOffset: { width: 0, height: theme.textShadow.offsetY ?? 1 },
+        textShadowRadius: theme.textShadow.radius,
+      }
+    : {};
+
+  const eyebrowSize     = width * 0.026;
+  const sourceSize      = width * (isWallpaper ? 0.020 : 0.022);
+  const meaningSize     = width * (isWallpaper ? 0.037 : 0.040);
+  const ruleWidth       = width * 0.10;
+
+  const eyebrowEl = eyebrow ? (
+    <Text
+      numberOfLines={1}
+      style={[
+        styles.eyebrow,
+        {
+          color: theme.inkDim,
+          fontSize: eyebrowSize,
+          letterSpacing: eyebrowSize * 0.32,
+        },
+        textShadowProps,
+      ]}
+    >
+      {eyebrow.toUpperCase()}
+    </Text>
+  ) : null;
+
+  const ruleEl = (
+    <View
+      style={{
+        height: 1,
+        width: ruleWidth,
+        backgroundColor: theme.ruleColor,
+        marginVertical: width * 0.030,
+      }}
+    />
+  );
+
+  const arabicEl = arabic ? (
+    <Text
+      style={[
+        {
           fontFamily: "AmiriQuran_400Regular",
-          color: themeId === "rose" ? p.text : p.accent,
+          color: theme.ink,
           fontSize: arabicSize,
-          lineHeight: arabicSize * 1.6,
+          lineHeight: arabicSize * 1.7,
           textAlign: "center",
           writingDirection: "rtl",
           width: "100%",
-          marginTop: width * (isWallpaper ? 0.035 : 0.045),
-          textShadowColor: themeId === "rose" || themeId === "starry"
-            ? "rgba(255,240,210,0.45)"
-            : "transparent",
-          textShadowRadius: themeId === "rose" || themeId === "starry" ? 18 : 0,
-        }}
-      >
-        {arabic}
-      </Text>
-    ) : null;
+        },
+        textShadowProps,
+      ]}
+      numberOfLines={6}
+    >
+      {arabic}
+    </Text>
+  ) : null;
 
-  const renderCaption = () =>
-    caption ? (
-      <Text
-        style={{
-          fontFamily: "Inter_600SemiBold",
-          color: p.text,
-          fontSize: captionSize,
-          marginTop: width * 0.025,
+  // Translation. The web mockups render the English body in serif italic
+  // — there is no separate transliteration row. Per-kind callers may still
+  // pass `transliteration`; we deliberately ignore it for dua/ayah/hadith
+  // to match the visual contract of the premium frames.
+  const englishEl = (
+    <Text
+      style={[
+        {
+          fontFamily: "CormorantGaramond_400Regular_Italic",
+          color: theme.ink,
+          fontSize: englishSize,
+          lineHeight: englishSize * 1.45,
           textAlign: "center",
-          letterSpacing: 0.3,
-        }}
-        numberOfLines={2}
-      >
-        {caption}
-      </Text>
-    ) : null;
-
-  const renderBody = () => (
-    <View style={{ alignItems: "center", width: "100%", paddingHorizontal: width * 0.02 }}>
-      {transliteration ? (
-        <Text
-          style={{
-            fontFamily: "Inter_400Regular",
-            fontStyle: "italic",
-            color: p.textMuted,
-            fontSize: transliterSize,
-            lineHeight: transliterSize * 1.45,
-            textAlign: "center",
-            marginBottom: width * 0.015,
-          }}
-          numberOfLines={3}
-        >
-          {transliteration}
-        </Text>
-      ) : null}
-
-      <Text
-        style={{
-          fontFamily: "Inter_400Regular",
-          color: p.text,
-          fontSize: bodySize,
-          lineHeight: bodySize * 1.5,
-          textAlign: "center",
-          fontStyle: arabic ? "italic" : "normal",
-        }}
-        numberOfLines={isWallpaper ? 7 : 9}
-      >
-        {body}
-      </Text>
-
-      {attribution ? (
-        <Text
-          style={{
-            fontFamily: "Inter_500Medium",
-            color: p.textMuted,
-            fontSize: attributionSize,
-            letterSpacing: 1.8,
-            textTransform: "uppercase",
-            textAlign: "center",
-            marginTop: width * 0.035,
-          }}
-          numberOfLines={2}
-        >
-          {attribution}
-        </Text>
-      ) : null}
-    </View>
+          width: "100%",
+        },
+        textShadowProps,
+      ]}
+      numberOfLines={isWallpaper ? 7 : 6}
+    >
+      {body}
+    </Text>
   );
 
-  const renderSignature = () => (
-    <View style={{ alignItems: "center", width: "100%" }}>
-      <NuurMark color={p.accent} size={signatureSize * 0.82} />
+  const sourceEl = attribution ? (
+    <Text
+      style={[
+        {
+          fontFamily: "Inter_500Medium",
+          color: theme.inkDim,
+          fontSize: sourceSize,
+          letterSpacing: sourceSize * 0.22,
+          marginTop: width * 0.030,
+          textAlign: "center",
+        },
+        textShadowProps,
+      ]}
+      numberOfLines={2}
+    >
+      {attribution.toUpperCase()}
+    </Text>
+  ) : null;
+
+  /* ── Names of Allah layout (Arabic name → Latin → meaning) ──────────── */
+  if (layoutKind === "name") {
+    const latin = transliteration ?? body;
+    const meaning = caption ?? attribution ?? "";
+    return (
+      <View
+        style={[styles.clusterAbsolute, { top, bottom, paddingHorizontal: sidePad }]}
+      >
+        <View style={{ alignItems: "center", justifyContent: "center", flex: 1 }}>
+          {arabic ? (
+            <Text
+              style={[
+                {
+                  fontFamily: "AmiriQuran_400Regular",
+                  color: theme.ink,
+                  fontSize: nameSize,
+                  lineHeight: nameSize * 1.2,
+                  textAlign: "center",
+                  writingDirection: "rtl",
+                  marginBottom: width * 0.030,
+                },
+                textShadowProps,
+              ]}
+              numberOfLines={1}
+            >
+              {arabic}
+            </Text>
+          ) : null}
+
+          {latin ? (
+            <Text
+              style={[
+                {
+                  fontFamily: "CormorantGaramond_600SemiBold",
+                  color: theme.ink,
+                  fontSize: width * (isWallpaper ? 0.060 : 0.060),
+                  letterSpacing: 0.5,
+                  marginBottom: width * 0.018,
+                  textAlign: "center",
+                },
+                textShadowProps,
+              ]}
+              numberOfLines={1}
+            >
+              {latin}
+            </Text>
+          ) : null}
+
+          {meaning ? (
+            <Text
+              style={[
+                {
+                  fontFamily: "CormorantGaramond_400Regular_Italic",
+                  color: theme.inkDim,
+                  fontSize: meaningSize,
+                  lineHeight: meaningSize * 1.4,
+                  textAlign: "center",
+                  opacity: 0.95,
+                },
+                textShadowProps,
+              ]}
+              numberOfLines={3}
+            >
+              {meaning}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+
+  /* ── Hadith layout (English on top → rule → Arabic → source) ────────── */
+  if (layoutKind === "hadith") {
+    return (
+      <View
+        style={[styles.clusterAbsolute, { top, bottom, paddingHorizontal: sidePad }]}
+      >
+        <View style={{ alignItems: "center", justifyContent: "center", flex: 1, width: "100%" }}>
+          {eyebrowEl}
+          {eyebrow ? <View style={{ height: width * 0.020 }} /> : null}
+
+          {/* Hadith: English first, larger, semi-bold serif. */}
+          <Text
+            style={[
+              {
+                fontFamily: "CormorantGaramond_500Medium",
+                color: theme.ink,
+                fontSize: englishSize * 1.15,
+                lineHeight: englishSize * 1.45,
+                textAlign: "center",
+                width: "100%",
+              },
+              textShadowProps,
+            ]}
+            numberOfLines={isWallpaper ? 7 : 6}
+          >
+            {body}
+          </Text>
+
+          {arabic ? ruleEl : null}
+          {arabic ? (
+            <Text
+              style={[
+                {
+                  fontFamily: "AmiriQuran_400Regular",
+                  color: theme.ink,
+                  fontSize: arabicSize * 0.85,
+                  lineHeight: arabicSize * 1.5,
+                  textAlign: "center",
+                  writingDirection: "rtl",
+                  width: "100%",
+                  opacity: 0.92,
+                },
+                textShadowProps,
+              ]}
+              numberOfLines={3}
+            >
+              {arabic}
+            </Text>
+          ) : null}
+
+          {sourceEl}
+        </View>
+      </View>
+    );
+  }
+
+  /* ── Default: dua / ayah (Arabic on top → rule → English → source) ── */
+  return (
+    <View
+      style={[styles.clusterAbsolute, { top, bottom, paddingHorizontal: sidePad }]}
+    >
+      <View style={{ alignItems: "center", justifyContent: "center", flex: 1, width: "100%" }}>
+        {eyebrowEl}
+        {eyebrow ? <View style={{ height: width * 0.020 }} /> : null}
+
+        {arabicEl}
+        {arabic ? ruleEl : null}
+
+        {englishEl}
+
+        {sourceEl}
+      </View>
+    </View>
+  );
+}
+
+/* ── BrandFooter ──────────────────────────────────────────────────────── */
+
+function BrandFooter({ theme, iconSize }: { theme: PremiumTheme; iconSize: number }) {
+  const wordmarkSize = iconSize * 0.36;
+  const taglineSize  = wordmarkSize * 0.92;
+  return (
+    <View style={{ alignItems: "center", gap: 4 }}>
+      <NuurMarkSVG size={iconSize} color={theme.brandColor} />
       <Text
         style={{
-          fontFamily: "Inter_700Bold",
-          color: p.accent,
-          fontSize: signatureSize,
-          letterSpacing: 7,
-          marginTop: width * 0.012,
+          fontFamily: "CormorantGaramond_600SemiBold",
+          fontSize: wordmarkSize,
+          letterSpacing: wordmarkSize * 0.5,
+          paddingLeft: wordmarkSize * 0.5,
+          color: theme.brandColor,
         }}
       >
         NUUR
       </Text>
       <Text
         style={{
-          fontFamily: "Inter_400Regular",
-          fontStyle: "italic",
-          color: p.textMuted,
+          fontFamily: "CormorantGaramond_400Regular_Italic",
           fontSize: taglineSize,
-          marginTop: width * 0.005,
           letterSpacing: 0.4,
+          color: theme.brandDim,
         }}
       >
         Light for your daily deen
       </Text>
     </View>
   );
-
-  return (
-    <View
-      style={{
-        width,
-        height,
-        position: "relative",
-        backgroundColor: p.bgMid,
-        overflow: "hidden",
-      }}
-    >
-      <theme.Background width={width} height={height} mode={mode} palette={p} />
-
-      <View
-        style={{
-          position: "absolute",
-          top: contentTop,
-          bottom: height - contentBottom,
-          left: sidePadding,
-          right: sidePadding,
-          alignItems: "center",
-          justifyContent: arabic ? "space-between" : "center",
-          overflow: "hidden",
-        }}
-      >
-        <View style={{ alignItems: "center", width: "100%" }}>
-          {renderEyebrow()}
-          {renderArabic()}
-          {renderCaption()}
-        </View>
-
-        <View style={{ alignItems: "center", width: "100%", marginTop: width * 0.02 }}>
-          <StarDivider color={p.rule} width={width} />
-          <View style={{ height: width * 0.025 }} />
-          {renderBody()}
-        </View>
-      </View>
-
-      <View
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: height * (isWallpaper ? 0.045 : 0.055),
-          alignItems: "center",
-        }}
-      >
-        {renderSignature()}
-      </View>
-    </View>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
- * FrameLayout — the painted-arch render path (dua / adhkar exclusive).
- *
- * Layout strategy:
- *
- *   • The square panel image fills the card width and is centred vertically
- *     in card mode. In wallpaper mode it sits in the lower 70 % of the
- *     screen — the upper third is reserved for the iOS lock-screen clock.
- *   • Letterbox bands above and below the square are filled with the
- *     theme's `bgFill` colour, harmonising with the panel.
- *   • Content is laid out inside the arch's "safe area" — the rectangle
- *     within the painted decoration where text won't collide with the
- *     leaves / columns / apex ornament.
- *   • The NUUR lockup (8-point mark + wordmark + tagline) lives at the
- *     bottom of the safe area, inside the arch.
- *   • All text uses `numberOfLines` clamps + ellipsis as a final safety
- *     net for unusually long content; the font-size fitter handles the
- *     common case.
- * ──────────────────────────────────────────────────────────────────────── */
-
-interface FrameLayoutProps extends ShareCardContent {
-  theme: ReturnType<typeof getTheme>;
-  width: number;
-  height: number;
-  isWallpaper: boolean;
-}
-
-function FrameLayout({
-  theme, width, height, isWallpaper,
-  eyebrow, arabic, body, caption, attribution,
-}: FrameLayoutProps) {
-  const meta = theme.frame!;
-  const tone = meta.tone;
-  const ink = tone === "ink";
-  const fg = ink ? "#2A2018" : "#F4ECD8";
-  const fgDim = ink ? "rgba(42,32,24,0.74)" : "rgba(244,236,216,0.78)";
-  const accent = meta.accent ?? (ink ? "#7A5A2E" : "#D4A24A");
-  const shadowColor = ink ? "transparent" : "rgba(0,0,0,0.55)";
-  const shadowRadius = ink ? 0 : 6;
-
-  /* ── Panel placement ───────────────────────────────────────────────────
-   *  CARD MODE (4:5):     The painted panel covers the entire 4:5 area
-   *                       (resizeMode="cover"), so there are no cream/white
-   *                       letterbox bands. The panel is square (1:1) so
-   *                       cover-scaling crops a small slice off each side
-   *                       (~10% of source); the painted decoration is
-   *                       concentrated inside the safe arch so this is
-   *                       cosmetic.
-   *
-   *  WALLPAPER MODE (9:19.5):
-   *                       The painted panel is too tall to "cover" without
-   *                       cropping nearly all of the leaves and arch, so we
-   *                       keep it as a centred 1:1 element under the iOS
-   *                       clock. The bgFill is sampled from the panel's
-   *                       outer edge so the seam between panel and band is
-   *                       invisible.
-   * ──────────────────────────────────────────────────────────────────── */
-
-  let panelLeft: number;
-  let panelTop: number;
-  let panelRenderedSize: number;
-  let visibleSrcLeft: number;
-  let visibleSrcTop: number;
-  let srcToScreen: number;
-
-  // Cover-fit the painted panel for both modes. This eliminates the
-  // visible "panel-in-frame" seam in wallpaper mode (where a square panel
-  // used to sit on top of a flat bgFill band, exposing the panel's outer
-  // edge as a thin line). With cover scaling the painted scene fills the
-  // entire card / wallpaper, blending seamlessly with bgFill — and the
-  // safe-area rectangle naturally lands around the vertical centre,
-  // which sits well clear of the iOS lock-screen clock.
-  srcToScreen       = Math.max(width / 512, height / 512);
-  panelRenderedSize = 512 * srcToScreen;
-  panelLeft         = (width - panelRenderedSize) / 2;
-  panelTop          = (height - panelRenderedSize) / 2;
-  visibleSrcLeft    = -panelLeft / srcToScreen;
-  visibleSrcTop     = -panelTop / srcToScreen;
-
-  // Safe-area rectangle in source coords, clipped to the visible region.
-  const srcSafeLeft   = Math.max(meta.safe.l, visibleSrcLeft);
-  const srcSafeTop    = Math.max(meta.safe.t, visibleSrcTop);
-  const srcSafeRight  = Math.min(512 - meta.safe.r, 512 - visibleSrcLeft);
-  const srcSafeBottom = Math.min(512 - meta.safe.b, 512 - visibleSrcTop);
-
-  // Convert to screen coords.
-  const safeLeft   = panelLeft + srcSafeLeft   * srcToScreen;
-  const safeTop    = panelTop  + srcSafeTop    * srcToScreen;
-  const safeWidth  = (srcSafeRight  - srcSafeLeft) * srcToScreen;
-  const safeHeight = (srcSafeBottom - srcSafeTop)  * srcToScreen;
-
-  const arabicSize       = fitArabicForFrame(arabic, safeWidth);
-  const bodySize         = fitBodyForFrame(body, safeWidth);
-  const eyebrowSize      = Math.max(9,  safeWidth * 0.038);
-  const captionSize      = Math.max(10, safeWidth * 0.044);
-  const attributionSize  = Math.max(8,  safeWidth * 0.034);
-  const lockupName       = Math.max(10, safeWidth * 0.044);
-  const lockupTag        = Math.max(9,  safeWidth * 0.036);
-  const lockupMark       = Math.max(11, safeWidth * 0.052);
-
-  const textShadow = ink
-    ? {}
-    : {
-        textShadowColor: shadowColor,
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: shadowRadius,
-      };
-
-  return (
-    <View
-      style={{
-        width,
-        height,
-        position: "relative",
-        backgroundColor: meta.bgFill,
-        overflow: "hidden",
-      }}
-    >
-      {/* Painted arch panel */}
-      <Image
-        source={meta.image}
-        style={{
-          position: "absolute",
-          left: panelLeft,
-          top: panelTop,
-          width: panelRenderedSize,
-          height: panelRenderedSize,
-        }}
-        resizeMode="cover"
-      />
-
-      {/* Content cluster, pinned inside the arch's safe rectangle */}
-      <View
-        style={{
-          position: "absolute",
-          left: safeLeft,
-          top: safeTop,
-          width: safeWidth,
-          height: safeHeight,
-          alignItems: "center",
-          overflow: "hidden",
-        }}
-      >
-        {/* Top eyebrow — sits below the apex ornament */}
-        <Text
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          style={[
-            {
-              fontFamily: "Inter_700Bold",
-              color: accent,
-              fontSize: eyebrowSize,
-              letterSpacing: eyebrowSize * 0.32,
-              paddingLeft: eyebrowSize * 0.32,
-              textTransform: "uppercase",
-              textAlign: "center",
-              maxWidth: "100%",
-            },
-            textShadow,
-          ]}
-        >
-          {eyebrow}
-        </Text>
-
-        <View style={{ flex: 1 }} />
-
-        {/* Arabic */}
-        {arabic ? (
-          <Text
-            numberOfLines={6}
-            ellipsizeMode="tail"
-            style={[
-              {
-                fontFamily: "AmiriQuran_400Regular",
-                color: fg,
-                fontSize: arabicSize,
-                lineHeight: arabicSize * 1.85,
-                textAlign: "center",
-                writingDirection: "rtl",
-                width: "100%",
-              },
-              textShadow,
-            ]}
-          >
-            {arabic}
-          </Text>
-        ) : null}
-
-        {/* Caption (e.g. the meaning of an Asma'ul Husna) — used very
-            rarely on dua/adhkar but rendered for completeness. */}
-        {caption ? (
-          <Text
-            numberOfLines={2}
-            ellipsizeMode="tail"
-            style={[
-              {
-                marginTop: safeHeight * 0.025,
-                fontFamily: "Inter_600SemiBold",
-                color: fg,
-                fontSize: captionSize,
-                letterSpacing: 0.3,
-                textAlign: "center",
-              },
-              textShadow,
-            ]}
-          >
-            {caption}
-          </Text>
-        ) : null}
-
-        {/* English / translation body
-            (Per design: dua/adhkar frames render Arabic + translation
-            only — transliteration is intentionally omitted.) */}
-        {body ? (
-          <Text
-            numberOfLines={6}
-            ellipsizeMode="tail"
-            style={[
-              {
-                marginTop: safeHeight * 0.04,
-                fontFamily: "Inter_400Regular",
-                fontStyle: arabic ? "italic" : "normal",
-                color: fgDim,
-                fontSize: bodySize,
-                lineHeight: bodySize * 1.5,
-                textAlign: "center",
-                width: "100%",
-              },
-              textShadow,
-            ]}
-          >
-            {body}
-          </Text>
-        ) : null}
-
-        {/* Reference / attribution */}
-        {attribution ? (
-          <Text
-            numberOfLines={2}
-            ellipsizeMode="tail"
-            style={[
-              {
-                marginTop: safeHeight * 0.04,
-                fontFamily: "Inter_500Medium",
-                color: fgDim,
-                fontSize: attributionSize,
-                letterSpacing: attributionSize * 0.32,
-                paddingLeft: attributionSize * 0.32,
-                textTransform: "uppercase",
-                textAlign: "center",
-              },
-              textShadow,
-            ]}
-          >
-            {attribution}
-          </Text>
-        ) : null}
-
-        <View style={{ flex: 1 }} />
-
-        {/* Hairline divider above the brand lockup */}
-        <View
-          style={{
-            width: safeWidth * 0.18,
-            height: 1,
-            backgroundColor: accent,
-            opacity: 0.55,
-            marginBottom: safeHeight * 0.022,
-          }}
-        />
-
-        {/* NUUR lockup — mark + wordmark + tagline */}
-        <FrameNuurMark color={accent} size={lockupMark / 2} />
-        <Text
-          style={[
-            {
-              marginTop: 4,
-              fontFamily: "Inter_700Bold",
-              color: accent,
-              fontSize: lockupName,
-              letterSpacing: lockupName * 0.55,
-              paddingLeft: lockupName * 0.55,
-            },
-            textShadow,
-          ]}
-        >
-          NUUR
-        </Text>
-        <Text
-          style={[
-            {
-              marginTop: 2,
-              fontFamily: "Inter_400Regular",
-              fontStyle: "italic",
-              color: fgDim,
-              fontSize: lockupTag,
-              letterSpacing: 0.4,
-            },
-            textShadow,
-          ]}
-        >
-          Light for your daily deen
-        </Text>
-      </View>
-    </View>
-  );
 }
 
 const styles = StyleSheet.create({
-  eyebrowRow: {
-    flexDirection: "row",
+  clusterAbsolute: {
+    position: "absolute",
+    left: 0,
+    right: 0,
     alignItems: "center",
-    flexWrap: "wrap",
-    justifyContent: "center",
   },
-  eyebrowText: {
+  eyebrow: {
     fontFamily: "Inter_700Bold",
-    letterSpacing: 3.0,
     textTransform: "uppercase",
     textAlign: "center",
   },
-  eyebrowDot: {
-    fontFamily: "Inter_400Regular",
-    opacity: 0.7,
-  },
 });
-
-export default ShareCard;
