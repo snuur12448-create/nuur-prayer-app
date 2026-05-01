@@ -42,6 +42,54 @@ uri = "file://artifacts/islamic-prayer/assets/backgrounds/starry-sky.png"
 type = "image"
 title = "starry sky"
 
+[[generated]]
+id = "TNlFWZA1qcbeGaYZbOFec"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/dua-share.png"
+type = "image"
+title = "Sage cream botanical aesthetic"
+
+[[generated]]
+id = "Pd6y602NKy8hGRa6NR12V"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/ayah-share.png"
+type = "image"
+title = "Deep navy night sky"
+
+[[generated]]
+id = "r6_Xzavr0WzVP-Xq06s0b"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/hadith-share.png"
+type = "image"
+title = "Warm sepia terracotta lantern"
+
+[[generated]]
+id = "CoxF-JiL5o-kCnQUOhEWL"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/name-share.png"
+type = "image"
+title = "Deep purple jewel tone arch"
+
+[[generated]]
+id = "gb2EmTQKhmr8ubA10AZCD"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/dua-wallpaper.png"
+type = "image"
+title = "Dawn mountain palm landscape"
+
+[[generated]]
+id = "8yrXe4p2a0tjBcHKnMnh6"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/ayah-wallpaper.png"
+type = "image"
+title = "Night mosque moon reflection"
+
+[[generated]]
+id = "xa5rt4ce2NgOYRhl7GgKm"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/hadith-wallpaper.png"
+type = "image"
+title = "Warm interior arched window"
+
+[[generated]]
+id = "oiXDD6P3mDtK0oBo-PEeP"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/name-wallpaper.png"
+type = "image"
+title = "Twilight pink mosque sky"
+
 [[outputs]]
 id = "7TUHSGXs-Ags9m_n5lXzg"
 uri = "file://nuur-islamic-prayer.zip"
