@@ -187,11 +187,13 @@ export function DuaImageCard({
   const englishSize = theme.englishSize ?? 16;
   const arabicLh = theme.arabicLineHeight ?? 1.6;
 
-  // NOTE: All `top/left/width/height` values below are pixels in the design
-  // reference of 432×768 (9:16). The hosting iframe MUST be sized to that
-  // ratio for layout to read correctly.
+  // All `top/left/width/height` values below are pixels in a fixed
+  // 432×768 design canvas. The outer ScaleToFit wrapper letterboxes that
+  // canvas to whatever iframe size the host gives us, so absolute coords
+  // stay correct at any iframe dimensions (including non-9:16 ones).
   return (
     <FullBleed background="#000" ratio="9/16">
+     <ScaleToFit designW={432} designH={768}>
       <img
         src={imageUrl(theme.image)}
         alt=""
@@ -337,7 +339,52 @@ export function DuaImageCard({
       >
         <NuurBrandFooter color={theme.emblemColor} dim={theme.emblemDim} />
       </div>
+     </ScaleToFit>
     </FullBleed>
+  );
+}
+
+/**
+ * Letterboxes a fixed-size design canvas to fit any parent dimensions.
+ * Uses CSS container query units (`cqw`/`cqh`) so scaling reacts to the
+ * nearest size container — here, the FullBleed root which fills the iframe.
+ *
+ * This means children can use absolute pixel coordinates in a known
+ * `designW × designH` reference, and the layout stays correct whether the
+ * iframe is 432×768, 200×400, or 1280×720.
+ */
+function ScaleToFit({
+  designW,
+  designH,
+  children,
+}: {
+  designW: number;
+  designH: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        containerType: "size",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          width: designW,
+          height: designH,
+          transform: `translate(-50%, -50%) scale(min(calc(100cqw / ${designW}px), calc(100cqh / ${designH}px)))`,
+          transformOrigin: "center center",
+        }}
+      >
+        {children}
+      </div>
+    </div>
   );
 }
 
