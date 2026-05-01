@@ -102,6 +102,24 @@ uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/ayah-share-v2.
 type = "image"
 title = "ayah share night scene v2"
 
+[[generated]]
+id = "VD6KlegqnzavFCf4JbHxj"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/dua-share-v2-bg.png"
+type = "image"
+title = "dawn light mosque alcove"
+
+[[generated]]
+id = "Fn3QcwW4et9PorDNdagLd"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/dua-share-v3-bg.png"
+type = "image"
+title = "candlelight stone mihrab"
+
+[[generated]]
+id = "sl-3pEpfX35qlqcbzsjDs"
+uri = "file://artifacts/mockup-sandbox/public/images/nuur-premium/dua-share-v4-bg.png"
+type = "image"
+title = "serene courtyard reflection pool"
+
 [[outputs]]
 id = "7TUHSGXs-Ags9m_n5lXzg"
 uri = "file://nuur-islamic-prayer.zip"
