@@ -1,6 +1,7 @@
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useMemo } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, G, Line, Text as SvgText } from "react-native-svg";
 
 import { getTheme } from "./themes";
@@ -132,8 +133,7 @@ function renderOverlay(overlay: ThemeOverlay, key: string) {
         key={key}
         colors={colors}
         locations={locations}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}
       />
     );
   }
@@ -146,8 +146,7 @@ function renderOverlay(overlay: ThemeOverlay, key: string) {
       key={key}
       colors={colors}
       locations={[0, cy, 1] as unknown as readonly [number, number, number]}
-      style={StyleSheet.absoluteFill}
-      pointerEvents="none"
+      style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}
     />
   );
 }
@@ -166,6 +165,9 @@ export function ShareCard({
   const englishSize = useMemo(() => fitEnglish(body, width, isWallpaper), [body, width, isWallpaper]);
   const nameSize    = useMemo(() => fitName(width, isWallpaper), [width, isWallpaper]);
 
+  const maxArabicLines  = isWallpaper ? 4 : 3;
+  const maxEnglishLines = isWallpaper ? 3 : 3;
+
   // Resolve effective layout kind from theme (prevents quran→ayah and adhkar→dua mismatch)
   const layoutKind: "dua" | "ayah" | "hadith" | "name" = theme.kind;
 
@@ -182,8 +184,9 @@ export function ShareCard({
       {/* Photo plate */}
       <Image
         source={isWallpaper ? theme.wallpaperBg : theme.cardBg}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
+        style={{ position: "absolute", top: 0, left: 0, width, height }}
+        contentFit="cover"
+        cachePolicy="memory-disk"
       />
 
       {/* Overlays */}
@@ -192,8 +195,8 @@ export function ShareCard({
       {/* Arch ornament (Names only) */}
       {theme.arch ? (
         <View
-          pointerEvents="none"
           style={{
+            pointerEvents: "none",
             position: "absolute",
             top: width * 0.04,
             left: width * 0.05,
@@ -225,6 +228,8 @@ export function ShareCard({
         arabicSize={arabicSize}
         englishSize={englishSize}
         nameSize={nameSize}
+        maxArabicLines={maxArabicLines}
+        maxEnglishLines={maxEnglishLines}
       />
 
       {/* Brand footer */}
@@ -257,6 +262,8 @@ interface ContentClusterProps extends ShareCardContent {
   arabicSize: number;
   englishSize: number;
   nameSize: number;
+  maxArabicLines: number;
+  maxEnglishLines: number;
 }
 
 function ContentCluster(p: ContentClusterProps) {
@@ -264,6 +271,7 @@ function ContentCluster(p: ContentClusterProps) {
     layoutKind, theme, width, height, isWallpaper,
     eyebrow, arabic, transliteration, body, caption, attribution,
     arabicSize, englishSize, nameSize,
+    maxArabicLines, maxEnglishLines,
   } = p;
 
   const sidePad = Math.max(28, width * 0.085);
@@ -327,7 +335,7 @@ function ContentCluster(p: ContentClusterProps) {
         },
         textShadowProps,
       ]}
-      numberOfLines={6}
+      numberOfLines={maxArabicLines}
     >
       {arabic}
     </Text>
@@ -350,7 +358,7 @@ function ContentCluster(p: ContentClusterProps) {
         },
         textShadowProps,
       ]}
-      numberOfLines={isWallpaper ? 7 : 6}
+      numberOfLines={maxEnglishLines}
     >
       {body}
     </Text>
@@ -469,7 +477,7 @@ function ContentCluster(p: ContentClusterProps) {
               },
               textShadowProps,
             ]}
-            numberOfLines={isWallpaper ? 7 : 6}
+            numberOfLines={maxEnglishLines}
           >
             {body}
           </Text>
@@ -490,7 +498,7 @@ function ContentCluster(p: ContentClusterProps) {
                 },
                 textShadowProps,
               ]}
-              numberOfLines={3}
+              numberOfLines={Math.max(1, maxArabicLines - 1)}
             >
               {arabic}
             </Text>
@@ -561,6 +569,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: "center",
+    overflow: "hidden",
   },
   eyebrow: {
     fontFamily: "Inter_700Bold",
