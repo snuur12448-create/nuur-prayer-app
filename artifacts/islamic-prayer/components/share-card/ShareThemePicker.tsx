@@ -333,7 +333,7 @@ export function ShareThemePicker({
                       { color: showArabic ? "#0D2018" : "rgba(201,147,58,0.85)" },
                     ]}
                   >
-                    {showArabic ? "ON" : "OFF"}
+                    {showArabic ? "ARABIC ON" : "ARABIC OFF"}
                   </Text>
                 </TouchableOpacity>
               )}

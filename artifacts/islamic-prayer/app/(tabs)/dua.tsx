@@ -653,13 +653,10 @@ export default function DuaScreen() {
           const catId = (shareDua as any).categoryId ?? selectedCategoryId;
           const cat = ALL_DUA_CATEGORIES.find((c) => c.id === catId);
           const catName = shareDua.categoryName ?? cat?.name ?? "Dua";
-          // Build a clean eyebrow label. Most duas show "<CATEGORY> · <TITLE>",
-          // but adhkar entries are titled the same as their category
-          // (e.g. category "Morning Adhkar" + title "Morning Adhkar"),
-          // which produced the truncated "MORNING ADHKAR · MORN…". Collapse
-          // to the category alone only on a true normalized-equality match,
-          // never on partial overlap — otherwise legitimate titles like
-          // "Dua for Travel" under a generic "Dua" category would be lost.
+          // Eyebrow shows the title alone (e.g. "DUA FOR BREAKING FAST") —
+          // the actual meaning of the entry, not its bucket. Fall back to the
+          // category name only when the title is missing or duplicates the
+          // category (e.g. adhkar entries titled the same as their category).
           const norm = (s: string) =>
             s
               .toUpperCase()
@@ -667,11 +664,10 @@ export default function DuaScreen() {
               .trim();
           const catUpper = catName.toUpperCase().trim();
           const titleUpper = (shareDua.title ?? "").toUpperCase().trim();
-          const isExactDup =
-            !titleUpper || norm(titleUpper) === norm(catUpper);
-          const label = isExactDup
-            ? catUpper
-            : `${catUpper}  ·  ${titleUpper}`;
+          const label =
+            !titleUpper || norm(titleUpper) === norm(catUpper)
+              ? catUpper
+              : titleUpper;
           return (
             <ContentShareSheet
               visible={true}
