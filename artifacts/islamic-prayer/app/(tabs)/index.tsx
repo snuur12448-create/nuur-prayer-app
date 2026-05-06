@@ -391,6 +391,8 @@ export default function PrayerScreen() {
           prayed={prayed}
           prayedCount={prayedCount}
           nowPrayedAtMs={nowPrayedAtMs}
+          recordingForYesterday={beforeTodayFajr}
+          yesterdayLabel={trackerDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
           ayah={dailyAyah}
           isVerseOfNight={isNight}
           ayahCopied={ayahCopied}

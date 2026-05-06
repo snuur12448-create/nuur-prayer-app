@@ -120,11 +120,10 @@ function calcWeekTotal(data: TrackerData): number {
   }
   return total;
 }
-function get28Day(data: TrackerData): { key: string; count: number; isToday: boolean }[] {
-  const today = new Date();
-  const todayK = dateKey(today);
+function get28Day(data: TrackerData, todayK: string): { key: string; count: number; isToday: boolean }[] {
+  const anchor = keyToDate(todayK);
   return Array.from({ length: 28 }, (_, i) => {
-    const d = new Date(today);
+    const d = new Date(anchor);
     d.setDate(d.getDate() - (27 - i));
     const k = dateKey(d);
     return { key: k, count: countCompleted(data[k] || {}), isToday: k === todayK };
@@ -487,10 +486,34 @@ export default function TrackerScreen() {
     themeColors: colors,
     location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets,
     prayerPreReminderMinutes, setPrayerPreReminderMinutes,
+    // The app-wide prayer times are always computed for the *current* date,
+    // so they're the right source for deciding whether we're before today's
+    // Fajr — the screen-local `prayerTimes` below tracks the *selected* day.
+    prayerTimes: appPrayerTimes,
   } = useAppContext();
   const { trackerData, loaded, togglePrayer: ctxTogglePrayer, setPrayed, isPrayed } = usePrayerTracker();
 
-  const [selectedKey, setSelectedKey] = useState(todayKey());
+  // Islamic-day "today" — between midnight and Fajr, the day still belongs to
+  // yesterday's Isha window, so a tap on Isha at 00:30 must attribute to
+  // yesterday. Always computed against current-day Fajr (never the selected
+  // day's Fajr, which would drift as the user browses past dates).
+  const islamicTodayKey = useCallback((times: PrayerTimesResult | null): string => {
+    const n = new Date();
+    if (times && n.getTime() < times.fajr.time.getTime()) {
+      const y = new Date(n);
+      y.setDate(y.getDate() - 1);
+      return dateKey(y);
+    }
+    return dateKey(n);
+  }, []);
+  const [selectedKey, setSelectedKey] = useState(() => todayKey());
+  // Tracks the most recent Islamic "today" we've seen, so we can detect
+  // day flips at Fajr.
+  const lastIslamicTodayRef = useRef<string | null>(null);
+  // Set to true the moment the user back/forward-navigates or picks a day
+  // from the strip/heatmap. Once true, the auto-snap effect will not move
+  // the selection out from under them. Tapping the "Today" button clears it.
+  const userNavigatedRef = useRef(false);
   const [milestonesLoaded, setMilestonesLoaded] = useState(false);
   const [firedMilestones, setFiredMilestones] = useState<number[]>([]);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimesResult | null>(null);
@@ -504,14 +527,18 @@ export default function TrackerScreen() {
   const prevCompletedRef = useRef<number>(-1);
   const perfectFiredKeyRef = useRef<string | null>(null);
 
-  const today = todayKey();
+  const today = islamicTodayKey(appPrayerTimes);
   const isToday = selectedKey === today;
+  // True when the wall-clock day is *ahead* of the Islamic-tracker day —
+  // i.e. it's after midnight but before today's Fajr, so taps are being
+  // recorded against yesterday's date. Drives the "Recording for …" hint.
+  const recordingForYesterday = today !== dateKey(now);
   const weekStrip = useMemo(() => getWeekStrip(selectedKey), [selectedKey]);
   const selectedDate = keyToDate(selectedKey);
   const islamicDate = getIslamicDateForDate(selectedDate);
   const streak = calcStreak(trackerData);
   const weekTotal = calcWeekTotal(trackerData);
-  const heat = useMemo(() => get28Day(trackerData), [trackerData]);
+  const heat = useMemo(() => get28Day(trackerData, today), [trackerData, today]);
   const milestone = nextMilestone(streak);
   const perfectThisWeek = useMemo(() => perfectDaysIn(trackerData, 7), [trackerData]);
 
@@ -520,6 +547,21 @@ export default function TrackerScreen() {
     const iv = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(iv);
   }, []);
+
+  // Snap selection to the Islamic "today" whenever the rolled-back day key
+  // changes (initial prayerTimes load, day flip at Fajr, etc.) — but only
+  // when the user has not manually navigated away. The manual-nav guard
+  // makes this safe even before midnight when both keys happen to coincide.
+  useEffect(() => {
+    if (lastIslamicTodayRef.current === today) return;
+    const wasFirstResolution = lastIslamicTodayRef.current === null;
+    lastIslamicTodayRef.current = today;
+    if (userNavigatedRef.current) return;
+    // First-time resolution (prayerTimes load) only snaps if we were still
+    // on the wall-clock today placeholder — never override a deep link.
+    if (wasFirstResolution && selectedKey !== todayKey()) return;
+    setSelectedKey(today);
+  }, [today, selectedKey]);
 
   // Theme-derived shorthands. We treat themeColors.gold as "the brand accent
   // gold" and derive lighter/darker shades + alpha helpers.
@@ -641,7 +683,16 @@ export default function TrackerScreen() {
   const navigateDay = (delta: number) => {
     const d = keyToDate(selectedKey);
     d.setDate(d.getDate() + delta);
+    userNavigatedRef.current = true;
     setSelectedKey(dateKey(d));
+  };
+  const selectDay = (key: string) => {
+    userNavigatedRef.current = key !== today;
+    setSelectedKey(key);
+  };
+  const goToToday = () => {
+    userNavigatedRef.current = false;
+    setSelectedKey(today);
   };
 
   const dayRecord = trackerData[selectedKey] || {};
@@ -810,11 +861,26 @@ export default function TrackerScreen() {
             <Text style={[styles.dateHijri, { color: gold }]}>
               {islamicDate.day} {islamicDate.month} · {islamicDate.year} AH
             </Text>
+            {isToday && recordingForYesterday ? (
+              <Text
+                style={{
+                  marginTop: 4,
+                  fontSize: 10,
+                  letterSpacing: 1.2,
+                  fontFamily: "Inter_700Bold",
+                  color: gold,
+                  opacity: 0.85,
+                }}
+                accessibilityLabel={`Before Fajr — taps record for ${selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`}
+              >
+                ◐ BEFORE FAJR · RECORDING FOR YESTERDAY
+              </Text>
+            ) : null}
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             {!isToday ? (
               <TouchableOpacity
-                onPress={() => setSelectedKey(today)}
+                onPress={goToToday}
                 style={[styles.todayBtn, { borderColor: gold }]}
                 activeOpacity={0.7}
               >
@@ -1026,7 +1092,7 @@ export default function TrackerScreen() {
               return (
                 <TouchableOpacity
                   key={key}
-                  onPress={() => setSelectedKey(key)}
+                  onPress={() => selectDay(key)}
                   activeOpacity={0.7}
                   style={[
                     styles.weekDay,
@@ -1100,7 +1166,7 @@ export default function TrackerScreen() {
                   return (
                     <TouchableOpacity
                       key={col}
-                      onPress={() => setSelectedKey(cell.key)}
+                      onPress={() => selectDay(cell.key)}
                       activeOpacity={0.7}
                       style={styles.tasbihBead}
                     >

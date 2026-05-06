@@ -21,6 +21,10 @@ export interface NowNextCardProps {
   onToggleBud: (k: TrackerPrayerKey) => void;
   onViewTracker: () => void;
   prayedAgoIsGold: boolean;
+  /** True between midnight and Fajr — taps record against yesterday's date. */
+  recordingForYesterday?: boolean;
+  /** Short label of the date being recorded for, e.g. "Sat, Mar 14". */
+  yesterdayLabel?: string;
 }
 
 function NowNextCardInner(props: NowNextCardProps) {
@@ -28,6 +32,7 @@ function NowNextCardInner(props: NowNextCardProps) {
     colors, nowEn, nowAr, nowSub, isCurrentTracked, isPrayedNow,
     onToggleNow, nextLabel, nextAt, nextAr, cd, prayed, prayedCount,
     onToggleBud, onViewTracker, prayedAgoIsGold,
+    recordingForYesterday, yesterdayLabel,
   } = props;
 
   return (
@@ -152,6 +157,15 @@ function NowNextCardInner(props: NowNextCardProps) {
             <Text style={[styles.rosebudCount, { color: colors.textSecondary }]} numberOfLines={1}>
               {prayedCount} of 5 today
             </Text>
+            {recordingForYesterday && yesterdayLabel ? (
+              <Text
+                style={[styles.recordingHint, { color: colors.gold }]}
+                numberOfLines={1}
+                accessibilityLabel={`Before Fajr — taps record for ${yesterdayLabel}`}
+              >
+                ◐ Recording for {yesterdayLabel}
+              </Text>
+            ) : null}
           </View>
           <TouchableOpacity onPress={onViewTracker} hitSlop={8} activeOpacity={0.7}>
             <Text style={[styles.viewTracker, { color: colors.gold }]}>↗ View tracker</Text>
@@ -217,5 +231,13 @@ const styles = StyleSheet.create({
   },
   budDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: "#FFEEC2" },
   rosebudCount: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginLeft: 4 },
+  recordingHint: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.4,
+    marginLeft: 4,
+    marginTop: 2,
+    opacity: 0.9,
+  },
   viewTracker: { fontSize: 10, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5 },
 });

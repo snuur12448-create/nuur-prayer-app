@@ -47,6 +47,11 @@ export interface HomeV2Props {
   /** Unix ms when the *current* tracked prayer was last marked. Drives the
    * "prayed Xm ago" sub-label on the NOW card. */
   nowPrayedAtMs?: number | null;
+  /** True between midnight and Fajr — taps on the tracker record against
+   * yesterday's date. Drives the "Recording for …" hint on the NOW card. */
+  recordingForYesterday?: boolean;
+  /** Short label of the date being recorded for, e.g. "Sat, Mar 14". */
+  yesterdayLabel?: string;
 
   ayah: {
     arabic: string;
@@ -91,7 +96,8 @@ export function HomeV2(props: HomeV2Props) {
   const {
     colors, topPad, prayerTimes, currentPrayer, nextPrayer, progressEndPrayer,
     timeRemaining, nowMs, isNight, locationLabel, hijriLabel, prayed,
-    prayedCount, nowPrayedAtMs, ayah, isVerseOfNight, ayahCopied, bell, banners,
+    prayedCount, nowPrayedAtMs, recordingForYesterday, yesterdayLabel,
+    ayah, isVerseOfNight, ayahCopied, bell, banners,
     notifEnabled, onLocationPress, onCalendarPress, onBellPress, onTogglePrayed,
     onPrayerSettingsPress, onViewTracker, onCopyAyah, onShareAyah, onReadAyah,
     onTasbeeh, onTracker, onHadith, onTahajjud,
@@ -291,6 +297,8 @@ export function HomeV2(props: HomeV2Props) {
         prayedCount={prayedCount}
         onToggleBud={handleToggleBud}
         onViewTracker={onViewTracker}
+        recordingForYesterday={recordingForYesterday}
+        yesterdayLabel={yesterdayLabel}
       />
 
       {/* EARLIER TODAY (night-mode chip strip) */}
