@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Modal,
   Platform,
@@ -33,6 +33,39 @@ import {
 } from "@/utils/qadaData";
 
 type Mode = "loading" | "setup" | "wizard" | "ledger";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hold-to-accelerate stepper hook
+// First touch fires ±1 immediately. If still held after ~350 ms, ticks every
+// ~90 ms with step=5; after ~1.2 s of total hold, step=10. Lifting the finger
+// (onPressOut) cancels everything. Cleans up on unmount.
+// ─────────────────────────────────────────────────────────────────────────────
+function useHoldStepper() {
+  const ref = useRef<{ to: any; iv: any; elapsed: number }>({ to: null, iv: null, elapsed: 0 });
+
+  const stop = useCallback(() => {
+    const h = ref.current;
+    if (h.to) { clearTimeout(h.to); h.to = null; }
+    if (h.iv) { clearInterval(h.iv); h.iv = null; }
+    h.elapsed = 0;
+  }, []);
+
+  const start = useCallback((apply: (step: number) => void) => {
+    stop();
+    apply(1); // immediate ±1
+    const h = ref.current;
+    h.to = setTimeout(() => {
+      h.iv = setInterval(() => {
+        h.elapsed += 90;
+        apply(h.elapsed >= 1200 ? 10 : 5);
+      }, 90);
+    }, 350);
+  }, [stop]);
+
+  useEffect(() => stop, [stop]);
+
+  return { start, stop };
+}
 
 const PRAYER_ICON: Record<QadaPrayerKey, keyof typeof Feather.glyphMap> = {
   fajr: "sunrise",
@@ -93,12 +126,18 @@ export default function QadaScreen() {
     setMarkupOpen(false);
     const today = isoDate(new Date());
     updateState((prev) => {
+      // Defensive re-clamp against the latest committed state — prevents any
+      // stepper-race or set-total edge case from over-logging beyond what
+      // actually remains for this prayer.
+      const remainingNow = Math.max(0, prev.initial[key] - prev.madeUp[key]);
+      const safe = Math.max(0, Math.min(remainingNow, count));
+      if (safe === 0) return prev;
       const newLog = [...prev.recentLog];
-      for (let i = 0; i < count; i++) newLog.push(today);
+      for (let i = 0; i < safe; i++) newLog.push(today);
       while (newLog.length > 60) newLog.shift();
       return {
         ...prev,
-        madeUp: { ...prev.madeUp, [key]: prev.madeUp[key] + count },
+        madeUp: { ...prev.madeUp, [key]: prev.madeUp[key] + safe },
         recentLog: newLog,
       };
     });
@@ -194,16 +233,21 @@ function SetupView({
 }: {
   colors: any;
   draft: Record<QadaPrayerKey, number>;
-  setDraft: (d: Record<QadaPrayerKey, number>) => void;
+  setDraft: React.Dispatch<React.SetStateAction<Record<QadaPrayerKey, number>>>;
   onSave: () => void;
   onOptOut: () => void;
   onWizard: () => void;
   isFirstTime: boolean;
   insetsBottom: number;
 }) {
-  const adjust = (key: QadaPrayerKey, delta: number) => {
-    setDraft({ ...draft, [key]: Math.max(0, draft[key] + delta) });
-  };
+  const adjust = useCallback((key: QadaPrayerKey, delta: number) => {
+    setDraft((prev) => ({ ...prev, [key]: Math.max(0, Math.min(99999, prev[key] + delta)) }));
+  }, [setDraft]);
+
+  // One shared hold-stepper per row direction is enough — only one button
+  // can be held at a time on a single touchscreen.
+  const holdMinus = useHoldStepper();
+  const holdPlus  = useHoldStepper();
 
   return (
     <ScrollView
@@ -249,22 +293,26 @@ function SetupView({
               <View style={styles.stepperGroup}>
                 <Pressable
                   style={[styles.stepperBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
-                  onPress={() => adjust(p, -1)}
+                  onPressIn={() => holdMinus.start((step) => adjust(p, -step))}
+                  onPressOut={holdMinus.stop}
                   hitSlop={8}
+                  accessibilityLabel={`Decrease ${QADA_LABELS[p].en} count. Hold to subtract faster.`}
                 >
                   <Feather name="minus" size={14} color={colors.textSecondary} />
                 </Pressable>
                 <NumericField
                   value={draft[p]}
-                  onChange={(n) => setDraft({ ...draft, [p]: n })}
+                  onChange={(n) => setDraft((prev) => ({ ...prev, [p]: n }))}
                   color={colors.tint}
                   borderColor={colors.border}
                   bgColor={colors.background}
                 />
                 <Pressable
                   style={[styles.stepperBtn, { backgroundColor: colors.tint + "22", borderColor: colors.tint + "55" }]}
-                  onPress={() => adjust(p, 1)}
+                  onPressIn={() => holdPlus.start((step) => adjust(p, step))}
+                  onPressOut={holdPlus.stop}
                   hitSlop={8}
+                  accessibilityLabel={`Increase ${QADA_LABELS[p].en} count. Hold to add faster.`}
                 >
                   <Feather name="plus" size={14} color={colors.tint} />
                 </Pressable>
@@ -637,11 +685,19 @@ function MarkUpSheet({
   }, [state]);
   const [selected, setSelected] = useState<QadaPrayerKey>(firstAvailable);
   const [count, setCount] = useState(1);
+  const [setTotalOpen, setSetTotalOpen] = useState(false);
 
   const remaining = remainingForPrayer(state, selected);
   const safeCount = Math.max(1, Math.min(remaining || 1, count));
   const after = Math.max(0, remaining - safeCount);
   const totalAfter = Math.max(0, totalRemaining(state) - safeCount);
+
+  const adjustCount = useCallback((delta: number) => {
+    setCount((c) => Math.max(1, Math.min(remaining || 1, c + delta)));
+  }, [remaining]);
+
+  const holdMinus = useHoldStepper();
+  const holdPlus  = useHoldStepper();
 
   return (
     <Pressable style={styles.sheetBackdrop} onPress={onCancel}>
@@ -688,8 +744,10 @@ function MarkUpSheet({
             <View style={styles.stepperGroup}>
               <Pressable
                 style={[styles.stepperBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                onPress={() => setCount((c) => Math.max(1, c - 1))}
+                onPressIn={() => holdMinus.start((step) => adjustCount(-step))}
+                onPressOut={holdMinus.stop}
                 hitSlop={8}
+                accessibilityLabel="Decrease count. Hold to subtract faster."
               >
                 <Feather name="minus" size={14} color={colors.textSecondary} />
               </Pressable>
@@ -703,14 +761,28 @@ function MarkUpSheet({
               />
               <Pressable
                 style={[styles.stepperBtn, { backgroundColor: colors.tint + "22", borderColor: colors.tint + "55" }]}
-                onPress={() => setCount((c) => Math.min(remaining || 1, c + 1))}
+                onPressIn={() => holdPlus.start((step) => adjustCount(step))}
+                onPressOut={holdPlus.stop}
                 hitSlop={8}
                 disabled={safeCount >= (remaining || 1)}
+                accessibilityLabel="Increase count. Hold to add faster."
               >
                 <Feather name="plus" size={14} color={colors.tint} />
               </Pressable>
             </View>
           </View>
+
+          {/* Set-total CTA — opens a focused sheet for direct entry / quick chips. */}
+          <Pressable
+            onPress={() => setSetTotalOpen(true)}
+            style={[styles.setTotalLink, { borderTopColor: colors.border }]}
+            hitSlop={6}
+            disabled={(remaining || 0) <= 1}
+            accessibilityLabel="Set an exact number"
+          >
+            <Feather name="edit-3" size={12} color={colors.tint} />
+            <Text style={[styles.setTotalLinkText, { color: colors.tint }]}>Set exact number</Text>
+          </Pressable>
         </View>
 
         {/* Preview */}
@@ -735,6 +807,131 @@ function MarkUpSheet({
             activeOpacity={0.85}
           >
             <Text style={[styles.primaryBtnText, { color: colors.background }]}>Confirm</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onCancel} style={styles.secondaryBtn}>
+            <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Pressable>
+
+      {/* Stacked "Set total" sheet — opened from the stepper card. */}
+      <Modal
+        visible={setTotalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSetTotalOpen(false)}
+      >
+        <SetTotalSheet
+          colors={colors}
+          prayerLabel={QADA_LABELS[selected].en}
+          remaining={remaining}
+          initialValue={safeCount}
+          onCancel={() => setSetTotalOpen(false)}
+          onApply={(n) => {
+            setCount(Math.max(1, Math.min(remaining || 1, n)));
+            setSetTotalOpen(false);
+          }}
+          insetsBottom={insetsBottom}
+        />
+      </Modal>
+    </Pressable>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SetTotalSheet — focused numeric entry with quick chips
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SetTotalSheet({
+  colors, prayerLabel, remaining, initialValue, onCancel, onApply, insetsBottom,
+}: {
+  colors: any;
+  prayerLabel: string;
+  remaining: number;
+  initialValue: number;
+  onCancel: () => void;
+  onApply: (n: number) => void;
+  insetsBottom: number;
+}) {
+  const [text, setText] = useState(String(initialValue));
+  const cleaned = text.replace(/[^0-9]/g, "");
+  const parsed = cleaned === "" ? 0 : parseInt(cleaned, 10);
+  const clamped = Math.max(1, Math.min(remaining || 1, parsed || 1));
+  const isInvalid = parsed < 1 || parsed > (remaining || 1);
+
+  // Re-sync local text whenever the sheet is reopened with a new starting
+  // value or the remaining cap changes (e.g. user picked a different prayer).
+  useEffect(() => {
+    setText(String(initialValue));
+  }, [initialValue, remaining]);
+
+  const tryApply = () => {
+    if (isInvalid) return;
+    onApply(clamped);
+  };
+
+  // Chip presets: skip any preset >= remaining (the "All N" chip covers that).
+  const presets = [10, 50, 100, 250].filter((n) => n < (remaining || 0));
+
+  return (
+    <Pressable style={styles.sheetBackdrop} onPress={onCancel}>
+      <Pressable
+        style={[styles.sheet, { backgroundColor: colors.surface, paddingBottom: insetsBottom + 18 }]}
+        onPress={(e) => e.stopPropagation()}
+      >
+        <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+        <Text style={[styles.sheetLabel, { color: colors.tint }]}>SET EXACT NUMBER</Text>
+        <Text style={[styles.sheetTitle, { color: colors.text }]}>
+          How many {prayerLabel} make-ups?
+        </Text>
+        <Text style={[styles.setTotalHelp, { color: colors.textSecondary }]}>
+          Up to {remaining.toLocaleString()} remaining for this prayer.
+        </Text>
+
+        {/* Big numeric input */}
+        <View style={[styles.setTotalInputWrap, { borderColor: isInvalid ? "#c0392b" : colors.tint + "55", backgroundColor: colors.background }]}>
+          <TextInput
+            value={text}
+            onChangeText={(t) => setText(t.replace(/[^0-9]/g, ""))}
+            keyboardType="number-pad"
+            returnKeyType="done"
+            maxLength={6}
+            autoFocus
+            selectTextOnFocus
+            onSubmitEditing={tryApply}
+            style={[styles.setTotalInput, { color: colors.tint }]}
+          />
+        </View>
+
+        {/* Quick chips */}
+        <View style={[styles.chipsRow, { marginTop: 14, justifyContent: "center" }]}>
+          {presets.map((n) => (
+            <Pressable
+              key={n}
+              onPress={() => setText(String(n))}
+              style={[styles.chip, { backgroundColor: colors.background, borderColor: colors.tint + "55" }]}
+            >
+              <Text style={[styles.chipText, { color: colors.tint }]}>{n}</Text>
+            </Pressable>
+          ))}
+          <Pressable
+            onPress={() => setText(String(remaining || 1))}
+            style={[styles.chip, { backgroundColor: colors.tint + "18", borderColor: colors.tint }]}
+          >
+            <Text style={[styles.chipText, { color: colors.tint }]}>All {remaining.toLocaleString()}</Text>
+          </Pressable>
+        </View>
+
+        <View style={[styles.actions, { paddingHorizontal: 0, marginTop: 18 }]}>
+          <TouchableOpacity
+            style={[styles.primaryBtn, { backgroundColor: colors.tint, opacity: isInvalid ? 0.4 : 1 }]}
+            onPress={tryApply}
+            activeOpacity={0.85}
+            disabled={isInvalid}
+          >
+            <Text style={[styles.primaryBtnText, { color: colors.background }]}>
+              Apply {clamped.toLocaleString()}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onCancel} style={styles.secondaryBtn}>
             <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Cancel</Text>
@@ -936,6 +1133,34 @@ const styles = StyleSheet.create({
   sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 14 },
   sheetLabel: { fontSize: 10, letterSpacing: 1.4, fontFamily: "Inter_600SemiBold", textAlign: "center" },
   sheetTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold", textAlign: "center", marginTop: 4, marginBottom: 16 },
+
+  setTotalLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  setTotalLinkText: { fontSize: 12, fontFamily: "Inter_500Medium", letterSpacing: 0.2 },
+  setTotalHelp: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: -10, marginBottom: 14 },
+  setTotalInputWrap: {
+    marginHorizontal: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  setTotalInput: {
+    fontSize: 44,
+    fontFamily: "Inter_700Bold",
+    fontVariant: ["tabular-nums"],
+    textAlign: "center",
+    minWidth: 120,
+    paddingHorizontal: 12,
+    paddingVertical: 0,
+  },
 
   chipsGrid: { flexDirection: "row", gap: 6 },
   prayerChip: {
