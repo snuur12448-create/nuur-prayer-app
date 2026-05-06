@@ -1,6 +1,6 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import * as Clipboard from "expo-clipboard";
 import {
   FlatList,
@@ -392,6 +392,9 @@ export default function DuaScreen() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [shareDua, setShareDua] = useState<(DuaItem & { categoryName?: string }) | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // useTransition lets the heavy corpus filter run as a non-urgent update so
+  // the TextInput stays responsive while results catch up.
+  const [, startSearchTransition] = useTransition();
   const { savedIds: savedDuaIds, toggle: toggleDua } = useSavedItems("nuur_saved_duas");
   const { doneIds, toggle: toggleDone } = useDailyAdhkar();
 
@@ -399,7 +402,9 @@ export default function DuaScreen() {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 250);
+    debounceRef.current = setTimeout(() => {
+      startSearchTransition(() => setDebouncedQuery(searchQuery));
+    }, 120);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [searchQuery]);
 
@@ -531,7 +536,7 @@ export default function DuaScreen() {
             clearButtonMode="while-editing"
           />
           {searchQuery.length > 0 && (
-            <Pressable onPress={() => { setSearchQuery(""); setDebouncedQuery(""); }} hitSlop={8}>
+            <Pressable onPress={() => { setSearchQuery(""); startSearchTransition(() => setDebouncedQuery("")); }} hitSlop={8}>
               <Feather name="x" size={14} color={colors.textSecondary} />
             </Pressable>
           )}
