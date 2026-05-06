@@ -18,7 +18,7 @@ import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { HADITHS, HADITH_TOPICS, Hadith } from "@/utils/hadithData";
 import { useSavedItems } from "@/utils/useSavedItems";
-import ContentShareSheet from "@/components/ContentShareSheet";
+import HadithShareSheet from "@/components/HadithShareSheet";
 import { CornerFloret, NuurMark } from "@/components/share/ShareDecor";
 
 const SUNNAH_API_KEY = process.env.EXPO_PUBLIC_SUNNAH_API_KEY ?? "";
@@ -426,15 +426,12 @@ export default function HadithsScreen() {
       />
 
       {shareHadith && (
-        <ContentShareSheet
+        <HadithShareSheet
           visible={true}
           onClose={() => setShareHadith(null)}
-          theme="hadith"
-          sheetTitle="Share Hadith"
-          shareTitle={shareHadith.source}
-          label={`HADITH  ·  ${shareHadith.topic.toUpperCase()}`}
-          arabicText={shareHadith.arabic || undefined}
-          bodyText={shareHadith.translation}
+          topic={shareHadith.topic}
+          arabic={shareHadith.arabic || undefined}
+          translation={shareHadith.translation}
           source={shareHadith.source}
         />
       )}
