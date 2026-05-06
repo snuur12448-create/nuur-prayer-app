@@ -71,6 +71,7 @@ export default function ZakatScreen() {
     let cancelled = false;
     loadZakatPreferences().then((prefs) => {
       if (cancelled) return;
+      latestInputsRef.current = prefs.inputs;
       setInputs(prefs.inputs);
       setCurrency(prefs.currency);
       setNisabType(prefs.nisabType);
@@ -81,18 +82,47 @@ export default function ZakatScreen() {
     };
   }, []);
 
-  // Debounced persistence of the input bag.
+  // Debounced persistence of the input bag. The latest inputs and "pending
+  // write" flag are kept in refs and updated *synchronously* alongside the
+  // setState in handleInputChange — NOT in a passive effect — so that even
+  // if the user types a character and immediately taps Back (unmounting
+  // before any effect runs), the unmount cleanup still sees the newest
+  // value and the pending flag is true. Without that synchrony, the final
+  // keystroke is silently lost.
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestInputsRef = useRef(inputs);
+  const pendingWriteRef = useRef(false);
+
+  // Schedule the debounced save in response to inputs changing. We DON'T
+  // touch latestInputsRef / pendingWriteRef here (they're updated in
+  // handleInputChange synchronously) so this effect only manages the timer.
   useEffect(() => {
     if (!hydrated) return;
     if (persistTimer.current) clearTimeout(persistTimer.current);
     persistTimer.current = setTimeout(() => {
-      saveZakatInputs(inputs);
+      persistTimer.current = null;
+      if (!pendingWriteRef.current) return; // already flushed by unmount
+      pendingWriteRef.current = false;
+      saveZakatInputs(latestInputsRef.current);
     }, 600);
-    return () => {
-      if (persistTimer.current) clearTimeout(persistTimer.current);
-    };
   }, [inputs, hydrated]);
+
+  // Flush on unmount. Empty dep array → cleanup runs only when the screen
+  // tears down. Cancels any pending timer and writes synchronously so no
+  // keystroke is lost. The timer callback's pendingWriteRef guard above
+  // prevents a duplicate write if the timer fires after this cleanup.
+  useEffect(() => {
+    return () => {
+      if (persistTimer.current) {
+        clearTimeout(persistTimer.current);
+        persistTimer.current = null;
+      }
+      if (pendingWriteRef.current) {
+        pendingWriteRef.current = false;
+        saveZakatInputs(latestInputsRef.current);
+      }
+    };
+  }, []);
 
   // Currency / nisab toggles persist immediately — they're discrete picks.
   useEffect(() => {
@@ -108,7 +138,18 @@ export default function ZakatScreen() {
   );
 
   const handleInputChange = (key: ZakatInputKey, value: string) => {
-    setInputs((prev) => ({ ...prev, [key]: value }));
+    // Update the persistence refs SYNCHRONOUSLY (not in a passive effect)
+    // so that an immediate unmount after this keystroke still sees the new
+    // value and the pending flag — closing the type→back race window.
+    setInputs((prev) => {
+      const next = { ...prev, [key]: value };
+      latestInputsRef.current = next;
+      return next;
+    });
+    // `hydrated` is the React state — handleInputChange is recreated each
+    // render so it always closes over the latest value. No passive-effect
+    // gap, unlike a ref synced in useEffect.
+    if (hydrated) pendingWriteRef.current = true;
   };
 
   // ── Share payload ──────────────────────────────────────────────────────
