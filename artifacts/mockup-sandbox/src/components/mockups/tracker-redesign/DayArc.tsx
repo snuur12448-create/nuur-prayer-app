@@ -265,23 +265,23 @@ export default function DayArc() {
             })}
           </div>
 
-          {/* Now badge floating at top of arc */}
+          {/* Now display — centered inside the dome */}
           <div
-            className="absolute"
-            style={{
-              left: (390 - ARC_W) / 2 + nowPos.x - 28,
-              top: 32,
-              width: 56,
-            }}
+            className="absolute left-0 right-0 flex flex-col items-center pointer-events-none"
+            style={{ top: 150 }}
           >
-            <div className="flex flex-col items-center">
-              <span className="text-[8px] uppercase tracking-[0.22em]" style={{ color: GOLD }}>
-                Now
-              </span>
-              <span className="text-[11px] font-semibold tabular-nums" style={{ color: TEXT }}>
-                17:30
-              </span>
-            </div>
+            <span className="text-[9px] uppercase tracking-[0.28em]" style={{ color: GOLD }}>
+              Now
+            </span>
+            <span
+              className="text-[40px] font-semibold tabular-nums leading-none mt-1"
+              style={{ color: TEXT, textShadow: '0 2px 18px rgba(0,0,0,0.55)' }}
+            >
+              17:30
+            </span>
+            <span className="text-[10px] mt-2 tracking-wide" style={{ color: '#E9D9B7' }}>
+              Maghrib in 2h 01m
+            </span>
           </div>
         </div>
 
