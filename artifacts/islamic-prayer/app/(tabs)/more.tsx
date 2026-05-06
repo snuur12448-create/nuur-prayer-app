@@ -181,6 +181,22 @@ export default function MoreScreen() {
           accentColor: "#F77F2E",
         },
         {
+          label: "Sunnah Prayers",
+          arabic: "السنن الرواتب",
+          description: "Rawātib, Ḍuḥā, Tahajjud, Witr & more",
+          route: "/sunnah-prayers",
+          icon: <Feather name="moon" size={22} color="#F5D27A" />,
+          accentColor: "#F5D27A",
+        },
+        {
+          label: "Make-up Prayers",
+          arabic: "قضاء الصلوات",
+          description: "A quiet ledger for qaḍā · private to you",
+          route: "/qada",
+          icon: <Feather name="bookmark" size={22} color="#9FB4C0" />,
+          accentColor: "#9FB4C0",
+        },
+        {
           label: "Tasbeeh & Dhikr",
           arabic: "التسبيح",
           description: "Counter with preset phrases and post-prayer guide",

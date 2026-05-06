@@ -1122,41 +1122,20 @@ export default function TrackerScreen() {
           </View>
         </View>
 
-        {/* ── Sunnah Prayers entry ── */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => router.push("/sunnah-prayers")}
-          style={[styles.linkCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-        >
-          <View style={[styles.linkIcon, { backgroundColor: goldSoft, borderColor: goldBorder }]}>
-            <Feather name="moon" size={16} color={gold} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.linkTitle, { color: colors.text }]}>Sunnah prayers</Text>
-            <Text style={[styles.linkSub, { color: colors.textSecondary }]}>
-              Rawātib, Ḍuḥā, Tahajjud, Witr & more
+        {/* ── Earned Sunnah nudge: only when today is 5/5. Subtle, single line,
+              not a fat card — Sunnah lives in More now. ── */}
+        {isToday && completedCount === 5 ? (
+          <TouchableOpacity
+            onPress={() => router.push("/sunnah-prayers")}
+            activeOpacity={0.7}
+            style={styles.sunnahNudge}
+            hitSlop={6}
+          >
+            <Text style={[styles.sunnahNudgeText, { color: withAlpha(gold, "CC") }]}>
+              Want to add a Sunnah today?  →
             </Text>
-          </View>
-          <Feather name="chevron-right" size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
-
-        {/* ── Qaḍā / Make-Up Prayers entry ── */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => router.push("/qada")}
-          style={[styles.linkCard, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 10 }]}
-        >
-          <View style={[styles.linkIcon, { backgroundColor: goldSoft, borderColor: goldBorder }]}>
-            <Feather name="bookmark" size={16} color={gold} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.linkTitle, { color: colors.text }]}>Make-up prayers</Text>
-            <Text style={[styles.linkSub, { color: colors.textSecondary }]}>
-              A quiet ledger for qaḍā · private to you
-            </Text>
-          </View>
-          <Feather name="chevron-right" size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
+          </TouchableOpacity>
+        ) : null}
 
         {/* ── Ornament ── */}
         <View style={styles.ornament}>
@@ -1321,19 +1300,17 @@ const styles = StyleSheet.create({
   },
   tasbihBead: { alignItems: "center", padding: 2 },
 
-  // Link cards
-  linkCard: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    marginHorizontal: 20, marginTop: 14, padding: 14,
-    borderRadius: 16, borderWidth: 1,
+  // Sunnah nudge (only shown when today is 5/5)
+  sunnahNudge: {
+    alignSelf: "center",
+    marginTop: 18,
+    paddingHorizontal: 14, paddingVertical: 6,
   },
-  linkIcon: {
-    width: 36, height: 36, borderRadius: 12,
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1,
+  sunnahNudgeText: {
+    fontSize: 11.5, fontFamily: "Inter_500Medium",
+    fontStyle: "italic",
+    letterSpacing: 0.2,
   },
-  linkTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  linkSub: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
 
   // Ornament
   ornament: {
