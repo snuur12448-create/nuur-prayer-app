@@ -1,5 +1,6 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -13,7 +14,6 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  Vibration,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -471,6 +471,13 @@ function CountStepCard({
   const beadOffset = useRef(new Animated.Value(-STEP_BEAD_SPACING / 2)).current;
   const done = count >= step.target;
 
+  // Authoritative tap counter — incremented synchronously per tap so rapid
+  // taps don't miss the 33-bead boundary haptic due to render-batched state.
+  // No effect-sync from `count` (would race with in-flight increments); the
+  // parent remounts CountStepCard per step via `key={step.id}`, so the ref
+  // is fresh for every new step.
+  const countRef = useRef(count);
+
   // Slide the bead column so the active bead stays vertically centered.
   useEffect(() => {
     Animated.spring(beadOffset, {
@@ -482,14 +489,24 @@ function CountStepCard({
   }, [count, beadOffset]);
 
   const handleTap = useCallback(() => {
-    if (count >= step.target) return;
+    if (countRef.current >= step.target) return;
     onCount();
-    if (Platform.OS !== "web") Vibration.vibrate(18);
+    countRef.current += 1;
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      if (countRef.current % 33 === 0 && countRef.current < step.target) {
+        // Small delay so iOS doesn't coalesce the bead impact with the
+        // boundary selection — the user feels two distinct signals.
+        setTimeout(() => {
+          Haptics.selectionAsync().catch(() => {});
+        }, 90);
+      }
+    }
     Animated.sequence([
       Animated.timing(scaleAnim, { toValue: 0.9, duration: 70, useNativeDriver: true }),
       Animated.timing(scaleAnim, { toValue: 1, duration: 130, useNativeDriver: true }),
     ]).start();
-  }, [count, step.target, onCount, scaleAnim]);
+  }, [step.target, onCount, scaleAnim]);
 
   return (
     <View style={gs.countStepContainer}>
@@ -800,6 +817,7 @@ export default function TasbeehScreen() {
     if (selectedDhikr.id === id) {
       setSelectedDhikr(DHIKR_PRESETS[0]);
       setCount(0);
+      countRef.current = 0;
       setRounds(0);
     }
   };
@@ -853,8 +871,28 @@ export default function TasbeehScreen() {
     }).start();
   }, [count, beadOffset]);
 
+  // Authoritative tap counter — incremented synchronously per tap so rapid
+  // taps don't miss the 33-bead boundary haptic due to render-batched state.
+  // No effect-sync from `count` (would race with in-flight increments); every
+  // external `setCount(0)` path (selectDhikr / handleReset / handleFullReset
+  // / completion rollover) writes the ref synchronously alongside the state.
+  const countRef = useRef(count);
+
   const handleCount = useCallback(() => {
-    if (Platform.OS !== "web") Vibration.vibrate(30);
+    const nextTap = countRef.current + 1;
+    const willComplete = nextTap >= selectedDhikr.target;
+    countRef.current = willComplete ? 0 : nextTap;
+
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      if (!willComplete && nextTap % 33 === 0) {
+        // Small delay so iOS doesn't coalesce the bead impact with the
+        // boundary selection — the user feels two distinct signals.
+        setTimeout(() => {
+          Haptics.selectionAsync().catch(() => {});
+        }, 90);
+      }
+    }
 
     Animated.sequence([
       Animated.timing(scaleAnim, { toValue: 0.92, duration: 80, useNativeDriver: false }),
@@ -882,12 +920,13 @@ export default function TasbeehScreen() {
     });
   }, [selectedDhikr.target, scaleAnim, completionAnim, rippleAnim]);
 
-  const handleReset = () => setCount(0);
-  const handleFullReset = () => { setCount(0); setTotalCount(0); setRounds(0); };
+  const handleReset = () => { setCount(0); countRef.current = 0; };
+  const handleFullReset = () => { setCount(0); setTotalCount(0); setRounds(0); countRef.current = 0; };
 
   const selectDhikr = (dhikr: DhikrPreset) => {
     setSelectedDhikr(dhikr);
     setCount(0);
+    countRef.current = 0;
     setRounds(0);
     setShowSelector(false);
   };
@@ -1374,6 +1413,7 @@ export default function TasbeehScreen() {
 
               {guideStep.type === "count" ? (
                 <CountStepCard
+                  key={guideStep.id}
                   step={guideStep as CountStep}
                   count={guideCounts[guideStep.id] ?? 0}
                   colors={colors}
