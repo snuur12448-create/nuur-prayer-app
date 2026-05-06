@@ -5,29 +5,52 @@ let nativeSound: Audio.Sound | null = null;
 let webAudio: HTMLAudioElement | null = null;
 let finishCallback: (() => void) | null = null;
 
+// Single monotonic generation token covering BOTH preview and full-adhan
+// playback paths. Every entry point bumps it; in-flight `createAsync` /
+// `audio.play()` resolutions check it before attaching the resolved sound
+// to the module ref. Without this, a Stop or a competing call that lands
+// during the load would leave a "ghost" sound playing untracked.
+let playbackGen = 0;
+
 export async function playAdhanAudio(
   url: string,
   onFinish?: () => void
 ): Promise<void> {
+  // stopAdhanAudio bumps playbackGen, so we capture OUR gen *after* it.
+  // Any subsequent stop or competing play/preview will bump past us and
+  // our in-flight load will detect the mismatch and unload itself.
   await stopAdhanAudio();
+  const myGen = playbackGen;
   finishCallback = onFinish ?? null;
 
   if (Platform.OS === "web") {
     try {
       const audio = new window.Audio(url);
-      webAudio = audio;
       audio.onended = () => {
-        webAudio = null;
+        if (webAudio === audio) webAudio = null;
+        if (myGen !== playbackGen) return;
         finishCallback?.();
         finishCallback = null;
       };
       audio.onerror = () => {
-        webAudio = null;
+        if (webAudio === audio) webAudio = null;
+        if (myGen !== playbackGen) return;
         finishCallback?.();
         finishCallback = null;
       };
-      await audio.play();
+      try { await audio.play(); } catch {
+        if (myGen !== playbackGen) return;
+        finishCallback?.();
+        finishCallback = null;
+        return;
+      }
+      if (myGen !== playbackGen) {
+        try { audio.pause(); audio.src = ""; } catch {}
+        return;
+      }
+      webAudio = audio;
     } catch {
+      if (myGen !== playbackGen) return;
       finishCallback?.();
       finishCallback = null;
     }
@@ -44,18 +67,27 @@ export async function playAdhanAudio(
         { uri: url },
         { shouldPlay: true, volume: 1.0 }
       );
+      // A Stop or competing call landed while createAsync was running —
+      // throw away this sound instead of attaching it to the module ref.
+      if (myGen !== playbackGen) {
+        try { await sound.stopAsync(); } catch {}
+        try { await sound.unloadAsync(); } catch {}
+        return;
+      }
       nativeSound = sound;
 
       sound.setOnPlaybackStatusUpdate((status) => {
         if (!status.isLoaded) return;
         if (status.didJustFinish) {
-          nativeSound = null;
+          if (nativeSound === sound) nativeSound = null;
+          if (myGen !== playbackGen) return;
           finishCallback?.();
           finishCallback = null;
         }
       });
     } catch (e) {
       console.warn("[Adhan] Audio error:", e);
+      if (myGen !== playbackGen) return;
       finishCallback?.();
       finishCallback = null;
     }
@@ -63,6 +95,12 @@ export async function playAdhanAudio(
 }
 
 export async function stopAdhanAudio(): Promise<void> {
+  // Bump the generation FIRST so any preview/playback whose createAsync is
+  // currently in flight will see a stale token when it resolves and unload
+  // itself instead of becoming an untracked ghost. Without this bump, the
+  // sequence (1) previewAdhan → (2) stopAdhanAudio → (3) createAsync
+  // resolves → reassigns nativeSound left a sound playing forever.
+  playbackGen++;
   finishCallback = null;
 
   if (Platform.OS === "web") {
@@ -125,14 +163,6 @@ export function prefetchAdhanAudio(urls: string[]): void {
   }
 }
 
-// Generation token: every previewAdhan() call increments this. If a newer
-// call (or a stopAdhanAudio()) happens while we're awaiting createAsync /
-// audio.play(), the older call's resolved sound is stale — we must unload
-// it instead of attaching it to the module-level ref. Without this guard,
-// rapid taps on different reciters in onboarding can leave a "ghost" sound
-// playing in the background that was never tracked or stopped.
-let previewGen = 0;
-
 export interface PreviewCallbacks {
   // Resolves the moment audio is loaded enough to begin playback (so the UI
   // can flip from "loading…" → "playing"). Not called if the load fails or
@@ -151,11 +181,11 @@ export async function previewAdhan(
   // low-volume buildup). 0 / undefined plays from the very start.
   startAtMs: number = 0,
 ): Promise<void> {
-  const myGen = ++previewGen;
+  // stopAdhanAudio bumps playbackGen — capture OUR gen after it so we own
+  // the latest token. Any later stop or competing play/preview will bump
+  // past us and our in-flight load will detect the mismatch and unload.
   await stopAdhanAudio();
-  // stopAdhanAudio bumps no token of its own, but if another previewAdhan
-  // call slipped in during the await above, our generation is now stale.
-  if (myGen !== previewGen) return;
+  const myGen = playbackGen;
 
   if (Platform.OS === "web") {
     try {
@@ -168,15 +198,15 @@ export async function previewAdhan(
         });
       }
       audio.oncanplay = () => {
-        if (myGen === previewGen) cb?.onPlaybackStarted?.();
+        if (myGen === playbackGen) cb?.onPlaybackStarted?.();
       };
       audio.onended = () => {
         if (webAudio === audio) webAudio = null;
-        if (myGen === previewGen) cb?.onFinishOrError?.(false);
+        if (myGen === playbackGen) cb?.onFinishOrError?.(false);
       };
       audio.onerror = () => {
         if (webAudio === audio) webAudio = null;
-        if (myGen === previewGen) cb?.onFinishOrError?.(true);
+        if (myGen === playbackGen) cb?.onFinishOrError?.(true);
       };
       try { await audio.play(); } catch {
         cb?.onFinishOrError?.(true);
@@ -184,7 +214,7 @@ export async function previewAdhan(
       }
       // Re-check after the async play() — a newer preview may have started
       // and we'd otherwise leave this audio playing untracked.
-      if (myGen !== previewGen) {
+      if (myGen !== playbackGen) {
         try { audio.pause(); audio.src = ""; } catch {}
         return;
       }
@@ -226,7 +256,7 @@ export async function previewAdhan(
       );
       // Same race check as web: if a newer preview started while createAsync
       // was running, throw away this sound instead of attaching it.
-      if (myGen !== previewGen) {
+      if (myGen !== playbackGen) {
         try { await sound.stopAsync(); } catch {}
         try { await sound.unloadAsync(); } catch {}
         return;
@@ -240,7 +270,7 @@ export async function previewAdhan(
           if ("error" in status && status.error) {
             console.warn("[Adhan Preview] Playback error:", status.error);
             if (nativeSound === sound) nativeSound = null;
-            if (myGen === previewGen) cb?.onFinishOrError?.(true);
+            if (myGen === playbackGen) cb?.onFinishOrError?.(true);
           }
           return;
         }
@@ -250,11 +280,11 @@ export async function previewAdhan(
         // up until audio truly begins — honest UI.
         if (!startedNotified && status.isPlaying) {
           startedNotified = true;
-          if (myGen === previewGen) cb?.onPlaybackStarted?.();
+          if (myGen === playbackGen) cb?.onPlaybackStarted?.();
         }
         if (status.didJustFinish && nativeSound === sound) {
           nativeSound = null;
-          if (myGen === previewGen) cb?.onFinishOrError?.(false);
+          if (myGen === playbackGen) cb?.onFinishOrError?.(false);
         }
       });
     } catch (e) {
