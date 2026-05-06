@@ -157,9 +157,29 @@ export function ShareCard({
   themeId, mode, width, kind,
   eyebrow, arabic, transliteration, body, caption, attribution,
 }: ShareCardProps) {
-  const theme = getTheme(themeId);
+  const baseTheme = getTheme(themeId);
   const isWallpaper = mode === "wallpaper";
   const height = width * (isWallpaper ? WALLPAPER_ASPECT : CARD_ASPECT);
+
+  // Resolve per-mode palette: some themes (e.g. name-v4) ship a dark card
+  // plate AND a bright wallpaper plate, so the cluster ink needs to flip
+  // between modes while the brand colour stays constant.
+  const theme = useMemo<PremiumTheme>(() => {
+    if (isWallpaper) return baseTheme;
+    if (
+      !baseTheme.cardInk &&
+      !baseTheme.cardInkDim &&
+      !baseTheme.cardRuleColor &&
+      !baseTheme.cardTextShadow
+    ) return baseTheme;
+    return {
+      ...baseTheme,
+      ink: baseTheme.cardInk ?? baseTheme.ink,
+      inkDim: baseTheme.cardInkDim ?? baseTheme.inkDim,
+      ruleColor: baseTheme.cardRuleColor ?? baseTheme.ruleColor,
+      textShadow: baseTheme.cardTextShadow ?? baseTheme.textShadow,
+    };
+  }, [baseTheme, isWallpaper]);
 
   const arabicSize  = useMemo(() => fitArabic(arabic, width, isWallpaper), [arabic, width, isWallpaper]);
   const englishSize = useMemo(() => fitEnglish(body, width, isWallpaper), [body, width, isWallpaper]);
@@ -187,6 +207,8 @@ export function ShareCard({
         style={{ position: "absolute", top: 0, left: 0, width, height }}
         contentFit="cover"
         cachePolicy="memory-disk"
+        transition={150}
+        priority="high"
       />
 
       {/* Overlays */}
@@ -231,6 +253,27 @@ export function ShareCard({
         maxArabicLines={maxArabicLines}
         maxEnglishLines={maxEnglishLines}
       />
+
+      {/* Brand contrast scrim — soft veil behind the footer so the NUUR
+          mark + tagline reads against busy backgrounds (e.g. mosque
+          silhouettes at the bottom of Names wallpapers). Wallpaper-only:
+          1:1 cards usually have enough bottom contrast already. */}
+      {theme.brandScrim && isWallpaper ? (
+        <LinearGradient
+          colors={
+            ["rgba(0,0,0,0)", "rgba(0,0,0,0.55)"] as unknown as readonly [string, string]
+          }
+          locations={[0, 1] as unknown as readonly [number, number]}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: height * 0.18,
+            pointerEvents: "none",
+          }}
+        />
+      ) : null}
 
       {/* Brand footer */}
       <View

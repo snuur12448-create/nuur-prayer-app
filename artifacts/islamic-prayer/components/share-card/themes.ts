@@ -276,6 +276,7 @@ const NAME_THEMES: PremiumTheme[] = [
     ],
     arch: true,
     textShadow: STRONG_DARK_SHADOW,
+    brandScrim: true,
   },
   {
     id: "name-v2", kind: "name", variant: 2,
@@ -294,6 +295,7 @@ const NAME_THEMES: PremiumTheme[] = [
     ],
     arch: true,
     textShadow: STRONG_DARK_SHADOW,
+    brandScrim: true,
   },
   {
     id: "name-v3", kind: "name", variant: 3,
@@ -311,20 +313,30 @@ const NAME_THEMES: PremiumTheme[] = [
     ],
     arch: true,
     textShadow: STRONG_DARK_SHADOW,
+    brandScrim: true,
   },
   {
     id: "name-v4", kind: "name", variant: 4,
-    label: "Cream Sanctuary", blurb: "Sun-touched arches",
+    label: "Emerald Sanctuary", blurb: "Sun-touched arches at dawn",
     cardBg: ASSET["name-card-v4"], wallpaperBg: ASSET["name-wp-v4"],
     fallbackBg: "#E8DCC4",
+    // Wallpaper-friendly defaults: dark cluster ink reads on the cream dawn
+    // sky; gold brand colour reads on the dark mosque silhouette below.
     ink: "#2A1A0E", inkDim: "rgba(42, 26, 14, 0.7)",
-    brandColor: "#2A1A0E", brandDim: "rgba(42, 26, 14, 0.85)",
+    brandColor: "#D4AF37", brandDim: "rgba(212, 175, 55, 0.55)",
     ruleColor: "rgba(42, 26, 14, 0.45)",
     overlays: [
-      { type: "radial", innerColor: "rgba(248, 232, 200, 0.40)", outerColor: "rgba(232, 220, 196, 0)" },
+      { type: "radial", innerColor: "rgba(248, 232, 200, 0.30)", outerColor: "rgba(232, 220, 196, 0)" },
     ],
     arch: true,
     textShadow: SOFT_LIGHT_SHADOW,
+    // Card plate is actually a dark green-lit interior — flip cluster ink
+    // to light gold for that mode while keeping the wallpaper palette intact.
+    cardInk: "#F3E3B6",
+    cardInkDim: "rgba(212, 175, 55, 0.7)",
+    cardRuleColor: "rgba(212, 175, 55, 0.4)",
+    cardTextShadow: STRONG_DARK_SHADOW,
+    brandScrim: true,
   },
 ];
 

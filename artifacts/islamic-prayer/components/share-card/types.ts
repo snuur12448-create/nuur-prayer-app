@@ -71,6 +71,16 @@ export interface PremiumTheme {
   textShadow?: { color: string; radius: number; offsetY?: number };
   /** Render a soft contrast scrim behind the brand footer. */
   brandScrim?: boolean;
+  /**
+   * Optional per-mode overrides — used when the card and wallpaper plates
+   * have very different luminance (e.g. dark interior card + bright sky
+   * wallpaper). When omitted, the renderer falls back to `ink` etc. for
+   * both modes.
+   */
+  cardInk?: string;
+  cardInkDim?: string;
+  cardRuleColor?: string;
+  cardTextShadow?: { color: string; radius: number; offsetY?: number };
 }
 
 /**
