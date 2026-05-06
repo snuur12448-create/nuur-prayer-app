@@ -2,6 +2,7 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -22,7 +23,6 @@ import {
   DEDUCTION_FIELDS,
   DEFAULT_PREFERENCES,
   EMPTY_INPUTS,
-  NISAB_THRESHOLDS,
   ZAKAT_RATE,
   computeZakat,
   formatCurrency,
@@ -35,6 +35,7 @@ import {
   type ZakatInputs,
   type ZakatInputKey,
 } from "@/utils/zakatData";
+import { formatUpdatedAgo, useLiveNisab } from "@/utils/nisabPrices";
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Zakat Calculator screen.
@@ -132,9 +133,12 @@ export default function ZakatScreen() {
     if (hydrated) saveZakatNisabType(nisabType);
   }, [nisabType, hydrated]);
 
+  // Live spot-priced Nisab (24 h cache, falls back to constants offline).
+  const { snapshot: nisabSnapshot, loading: nisabLoading, refresh: refreshNisab } = useLiveNisab();
+
   const computation = useMemo(
-    () => computeZakat(inputs, currency, nisabType),
-    [inputs, currency, nisabType],
+    () => computeZakat(inputs, currency, nisabType, nisabSnapshot.thresholds),
+    [inputs, currency, nisabType, nisabSnapshot],
   );
 
   const handleInputChange = (key: ZakatInputKey, value: string) => {
@@ -269,9 +273,19 @@ export default function ZakatScreen() {
                 <Text style={[styles.nisabTitle, { color: colors.text }]}>Nisab Threshold</Text>
               </View>
               <Text style={[styles.nisabValue, { color: colors.gold }]}>
-                {formatCurrency(NISAB_THRESHOLDS[currency][nisabType], currency)}
+                {formatCurrency(nisabSnapshot.thresholds[currency][nisabType], currency)}
               </Text>
             </View>
+
+            {/* Live-price status row */}
+            <NisabLiveStatus
+              source={nisabSnapshot.source}
+              fetchedAt={nisabSnapshot.fetchedAt}
+              loading={nisabLoading}
+              onRefresh={refreshNisab}
+              gold={colors.gold}
+              dim={colors.textSecondary}
+            />
 
             <View style={styles.nisabPillRow}>
               {(["gold", "silver"] as NisabType[]).map((t) => {
@@ -491,6 +505,54 @@ export default function ZakatScreen() {
 
 /* ── Sub-components ───────────────────────────────────────────────────── */
 
+function NisabLiveStatus({
+  source, fetchedAt, loading, onRefresh, gold, dim,
+}: {
+  source: "live" | "cache" | "stale-cache" | "fallback";
+  fetchedAt: number;
+  loading: boolean;
+  onRefresh: () => void;
+  gold: string;
+  dim: string;
+}) {
+  // Re-render every minute so "Xm ago" stays current without per-second churn.
+  const [, force] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => force((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const ago = formatUpdatedAgo(fetchedAt);
+  const isLive = source === "live" || source === "cache";
+  const dotColor = source === "fallback" ? dim : source === "stale-cache" ? "#C9933A" : gold;
+  const label =
+    source === "fallback" ? "Offline · using saved values"
+    : source === "stale-cache" ? `Stale${ago ? ` · ${ago}` : ""}`
+    : source === "cache" ? `Live${ago ? ` · ${ago}` : ""}`
+    : `Live${ago ? ` · ${ago}` : ""}`;
+
+  return (
+    <View style={styles.nisabLiveRow}>
+      <View style={[styles.nisabLiveDot, { backgroundColor: dotColor }]} />
+      <Text style={[styles.nisabLiveText, { color: isLive ? gold : dim }]} numberOfLines={1}>
+        {label}
+      </Text>
+      <Pressable
+        onPress={onRefresh}
+        hitSlop={10}
+        disabled={loading}
+        accessibilityRole="button"
+        accessibilityLabel="Refresh live Nisab prices"
+        style={({ pressed }) => [styles.nisabLiveBtn, { opacity: pressed || loading ? 0.5 : 1 }]}
+      >
+        {loading
+          ? <ActivityIndicator size="small" color={gold} />
+          : <Feather name="refresh-cw" size={12} color={gold} />}
+      </Pressable>
+    </View>
+  );
+}
+
 function SectionLabel({
   title, arabic, color, ruleColor,
 }: { title: string; arabic: string; color: string; ruleColor: string }) {
@@ -654,6 +716,19 @@ const styles = StyleSheet.create({
   nisabTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   nisabTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   nisabValue: { fontSize: 16, fontFamily: "Inter_700Bold", letterSpacing: -0.2 },
+  nisabLiveRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: -4,
+    marginBottom: 12,
+  },
+  nisabLiveDot: { width: 6, height: 6, borderRadius: 3 },
+  nisabLiveText: { flex: 1, fontSize: 11, fontFamily: "Inter_500Medium", letterSpacing: 0.2 },
+  nisabLiveBtn: {
+    width: 24, height: 24, borderRadius: 12,
+    alignItems: "center", justifyContent: "center",
+  },
   nisabPillRow: { flexDirection: "row", gap: 8, marginBottom: 10 },
   nisabPill: {
     flex: 1,

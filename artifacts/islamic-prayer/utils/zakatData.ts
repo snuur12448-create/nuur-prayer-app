@@ -92,6 +92,9 @@ export function computeZakat(
   inputs: ZakatInputs,
   currency: CurrencyCode,
   nisabType: NisabType,
+  // Live snapshot from `useLiveNisab` is preferred; falls back to the
+  // static constants when offline / mid-fetch.
+  thresholds: Record<CurrencyCode, Record<NisabType, number>> = NISAB_THRESHOLDS,
 ): ZakatComputation {
   const totalAssets = ASSET_FIELDS.reduce(
     (sum, f) => sum + parseAmount(inputs[f.key]),
@@ -102,7 +105,7 @@ export function computeZakat(
     0,
   );
   const zakatableWealth = Math.max(0, totalAssets - totalDebts);
-  const nisabThreshold = NISAB_THRESHOLDS[currency][nisabType];
+  const nisabThreshold = thresholds[currency][nisabType];
   const isAboveNisab = zakatableWealth >= nisabThreshold;
   const zakatDue = isAboveNisab ? zakatableWealth * ZAKAT_RATE : 0;
   return {
