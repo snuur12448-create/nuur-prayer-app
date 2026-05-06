@@ -91,6 +91,20 @@ export function ShareThemePicker({
   const [mode, setMode]     = useState<ShareCardMode>("card");
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
+  // The off-screen export ShareCard is heavy: it renders the painted-panel
+  // PNG at full export resolution (1080×1080 card / 1170×2080 wallpaper),
+  // which costs ~600 ms of decode+layout on mid-tier Android. We don't need
+  // it for first paint — only when the user actually taps Save or Share. So
+  // we defer mounting it until the first capture is requested. Once mounted,
+  // we leave it mounted for the lifetime of the sheet so subsequent captures
+  // are instant.
+  const [exportMounted, setExportMounted] = useState(false);
+
+  // Reset the export mount when the sheet closes, so re-opening the sheet is
+  // just as snappy as the first time.
+  useEffect(() => {
+    if (!visible) setExportMounted(false);
+  }, [visible]);
 
   /** Strip Arabic from the content payload when the user has Arabic OFF. */
   const effectiveContent = useMemo<ShareCardContent>(
@@ -180,6 +194,17 @@ export function ShareThemePicker({
       return null;
     }
     try {
+      // Lazily mount the off-screen export ShareCard on the first capture.
+      // We then need to wait for it to render + decode its painted-panel PNG
+      // before captureRef will produce a non-blank image. Two animation frames
+      // covers React commit + native layout; the Image.onLoad-style fallback
+      // below handles slow decodes.
+      if (!exportMounted) {
+        setExportMounted(true);
+        await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+        // Small extra grace for the bundled PNG decode on first paint.
+        await new Promise<void>((r) => setTimeout(r, 80));
+      }
       const w = isWallpaper ? EXPORT_WALLPAPER_W : EXPORT_CARD_W;
       const h = isWallpaper ? EXPORT_WALLPAPER_H : EXPORT_CARD_H;
       return await captureRef(exportRef, { format: "png", quality: 1, width: w, height: h });
@@ -430,18 +455,22 @@ export function ShareThemePicker({
           </View>
         </View>
 
-        {/* Off-screen export target — full export resolution */}
-        <View style={styles.offscreen} pointerEvents="none">
-          <View ref={exportRef} collapsable={false}>
-            <ShareCard
-              themeId={currentThemeId}
-              mode={mode}
-              width={isWallpaper ? EXPORT_WALLPAPER_W : EXPORT_CARD_W}
-              kind={kind}
-              {...effectiveContent}
-            />
+        {/* Off-screen export target — full export resolution. Mounted lazily
+            on first capture (see captureCard) so opening the sheet doesn't
+            pay for a 1080×1080 PNG decode the user may never need. */}
+        {exportMounted && (
+          <View style={styles.offscreen} pointerEvents="none">
+            <View ref={exportRef} collapsable={false}>
+              <ShareCard
+                themeId={currentThemeId}
+                mode={mode}
+                width={isWallpaper ? EXPORT_WALLPAPER_W : EXPORT_CARD_W}
+                kind={kind}
+                {...effectiveContent}
+              />
+            </View>
           </View>
-        </View>
+        )}
       </View>
     </Modal>
   );
