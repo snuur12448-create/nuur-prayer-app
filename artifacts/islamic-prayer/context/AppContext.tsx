@@ -279,9 +279,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const hadithHourRef = useRef(hadithReminderHour);
   const hadithMinuteRef = useRef(hadithReminderMinute);
   const islamicEventsRef = useRef(islamicEventsEnabled);
-  const adhanEnabledRef = useRef(adhanEnabled);
-  const adhanStyleIdRef = useRef(adhanStyleId);
-  const adhanModeRef = useRef(adhanMode);
+  // The adhan watcher (15s interval) reads enabled/style/mode together. Keeping
+  // them in three independent refs let a tick observe a half-applied combo when
+  // the user toggled a setting at the same instant the timer fired (e.g. new
+  // styleId + old mode). Collapsing them into a single object ref lets us
+  // update all three atomically with one assignment.
+  const adhanConfigRef = useRef({
+    enabled: adhanEnabled,
+    styleId: adhanStyleId,
+    mode: adhanMode,
+  });
   const prayerTimesRef = useRef(prayerTimes);
   const prayerNotifConfigRef = useRef(prayerNotifConfig);
   const lastPlayedRef = useRef<string>(""); // "prayerKey_YYYY-MM-DD"
@@ -301,9 +308,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { hadithMinuteRef.current = hadithReminderMinute; }, [hadithReminderMinute]);
   useEffect(() => { islamicEventsRef.current = islamicEventsEnabled; }, [islamicEventsEnabled]);
   useEffect(() => { prayerOffsetsRef.current = prayerOffsets; }, [prayerOffsets]);
-  useEffect(() => { adhanEnabledRef.current = adhanEnabled; }, [adhanEnabled]);
-  useEffect(() => { adhanStyleIdRef.current = adhanStyleId; }, [adhanStyleId]);
-  useEffect(() => { adhanModeRef.current = adhanMode; }, [adhanMode]);
+  // One effect, one assignment — the watcher always sees a consistent triple.
+  useEffect(() => {
+    adhanConfigRef.current = { enabled: adhanEnabled, styleId: adhanStyleId, mode: adhanMode };
+  }, [adhanEnabled, adhanStyleId, adhanMode]);
   useEffect(() => { prayerTimesRef.current = prayerTimes; }, [prayerTimes]);
   useEffect(() => { prayerNotifConfigRef.current = prayerNotifConfig; }, [prayerNotifConfig]);
 
@@ -336,7 +344,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── Adhan prayer-time watcher ──
   useEffect(() => {
     const check = () => {
-      if (!adhanEnabledRef.current) return;
+      const cfg = adhanConfigRef.current;
+      if (!cfg.enabled) return;
       const times = prayerTimesRef.current;
       if (!times) return;
 
@@ -359,8 +368,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (lastPlayedRef.current === token) break; // already played today
           lastPlayedRef.current = token;
 
-          const style = getAdhanStyle(adhanStyleIdRef.current);
-          const mode = adhanModeRef.current;
+          const style = getAdhanStyle(cfg.styleId);
+          const mode = cfg.mode;
           const isFajr = key === "fajr";
           const audioUrl = resolveAdhanUrl(style, mode, isFajr);
 
@@ -714,7 +723,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Toggling here also bulk-updates the 5 obligatory prayers' notification
   // type, and setAllPrayersNotifType (below) mirrors back into adhanEnabled.
   const toggleAdhan = useCallback(async () => {
-    const next = !adhanEnabledRef.current;
+    const next = !adhanConfigRef.current.enabled;
     setAdhanEnabled(next);
     try { await AsyncStorage.setItem(STORAGE_KEYS.ADHAN_ENABLED, next ? "true" : "false"); } catch {}
     if (!next) {
@@ -924,7 +933,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // with the quick-sheet sound mode. ON only when user explicitly chose
     // "adhan"; choosing silent/notification turns the in-app audio off too.
     const adhanNext = type === "adhan";
-    if (adhanEnabledRef.current !== adhanNext) {
+    if (adhanConfigRef.current.enabled !== adhanNext) {
       setAdhanEnabled(adhanNext);
       try { await AsyncStorage.setItem(STORAGE_KEYS.ADHAN_ENABLED, adhanNext ? "true" : "false"); } catch {}
       if (!adhanNext) {
