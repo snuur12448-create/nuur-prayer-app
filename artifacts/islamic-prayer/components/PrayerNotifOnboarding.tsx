@@ -1,12 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Dimensions,
   Easing,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -29,14 +33,12 @@ export const NOTIF_RITUAL_KEY = "nuur_notif_ritual_done";
 // Mirrors STORAGE_KEYS.PRAYER_NOTIF_CONFIG in AppContext.tsx — keep in sync.
 const PRAYER_NOTIF_CONFIG_STORAGE_KEY = "prayer_notif_config";
 
-const BG = "#0F0E14";
+const BG = "#050508";
 const GOLD = "#C9933A";
-const GOLD_GLOW = "rgba(201,147,58,0.06)";
+const GOLD_DEEP = "#B37B24";
 const TEXT = "rgba(255,255,255,0.92)";
-const TEXT_DIM = "rgba(255,255,255,0.45)";
-const TEXT_FAINT = "rgba(255,255,255,0.30)";
-const SURFACE = "rgba(26,24,34,0.55)";
-const SURFACE_ACTIVE = "rgba(201,147,58,0.06)";
+const TEXT_DIM = "rgba(255,255,255,0.50)";
+const TEXT_FAINT = "rgba(255,255,255,0.40)";
 const BORDER_DIM = "rgba(255,255,255,0.05)";
 const BORDER_GOLD = "rgba(201,147,58,0.40)";
 
@@ -47,30 +49,31 @@ const DAILY_PRAYERS: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
 
 type AlertChoice = PrayerNotifType;
 
-interface OptionDef {
+interface AlertTileDef {
   id: AlertChoice;
   icon: React.ComponentProps<typeof Feather>["name"];
-  title: string;
-  desc: string;
+  label: string;
 }
 
-const ALERT_OPTIONS: OptionDef[] = [
-  { id: "silent", icon: "bell-off", title: "Silent", desc: "Listen with your heart" },
-  { id: "notification", icon: "bell", title: "Gentle Notification", desc: "A soft chime" },
-  { id: "adhan", icon: "volume-2", title: "Full Adhan", desc: "The full call to prayer" },
+const ALERT_TILES: AlertTileDef[] = [
+  { id: "silent", icon: "bell-off", label: "Silent" },
+  { id: "notification", icon: "bell", label: "Gentle\nChime" },
+  { id: "adhan", icon: "volume-2", label: "Full\nAdhan" },
 ];
 
 interface Props {
   onComplete: () => void;
 }
 
+const SCREEN_HEIGHT = Dimensions.get("window").height;
+
 export function PrayerNotifOnboarding({ onComplete }: Props) {
   const insets = useSafeAreaInsets();
   const { setPrayerNotifSettings, prayerNotifConfig } = useAppContext();
 
-  const [step, setStep] = useState(0); // 0: alert, 1: reciter, 2: confirm
   const [alert, setAlert] = useState<AlertChoice>("adhan");
   const [reciterId, setReciterId] = useState<string>(DEFAULT_ADHAN_STYLE_ID);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [applying, setApplying] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -80,7 +83,7 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
   const previewTokenRef = useRef(0);
 
   // Stop any in-flight preview when the onboarding unmounts or the user
-  // leaves the reciter step — otherwise the audio keeps blasting after the
+  // leaves the reciter UI — otherwise the audio keeps blasting after the
   // user moves on. Also clears the auto-stop timer.
   const stopPreview = React.useCallback(() => {
     if (previewTimerRef.current) {
@@ -98,10 +101,14 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
     return () => { stopPreview(); };
   }, [stopPreview]);
 
+  // Stop audio whenever the sheet closes or the alert type leaves "adhan".
   useEffect(() => {
-    // Leaving the reciter step? Cut the audio.
-    if (step !== 1) stopPreview();
-  }, [step, stopPreview]);
+    if (!sheetOpen) stopPreview();
+  }, [sheetOpen, stopPreview]);
+
+  useEffect(() => {
+    if (alert !== "adhan") stopPreview();
+  }, [alert, stopPreview]);
 
   const togglePreview = React.useCallback(
     async (style: { id: string; audioUrl: string }) => {
@@ -136,7 +143,8 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
   );
 
   const fade = useRef(new Animated.Value(0)).current;
-  const stepFade = useRef(new Animated.Value(1)).current;
+  const sheetY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(fade, {
@@ -147,30 +155,41 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
     }).start();
   }, [fade]);
 
-  const animateStep = (next: number) => {
-    Animated.timing(stepFade, {
-      toValue: 0,
-      duration: 160,
-      useNativeDriver: true,
-    }).start(() => {
-      setStep(next);
-      Animated.timing(stepFade, {
-        toValue: 1,
-        duration: 220,
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(sheetY, {
+        toValue: sheetOpen ? 0 : SCREEN_HEIGHT,
+        duration: sheetOpen ? 420 : 320,
+        easing: Easing.bezier(0.32, 0.72, 0, 1),
         useNativeDriver: true,
-      }).start();
-    });
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: sheetOpen ? 1 : 0,
+        duration: sheetOpen ? 280 : 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [sheetOpen, sheetY, backdropOpacity]);
+
+  const openSheet = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setSheetOpen(true);
   };
 
-  const goNext = () => {
+  const closeSheet = () => {
     Haptics.selectionAsync().catch(() => {});
-    if (step < 2) animateStep(step + 1);
-    else handleApply();
+    setSheetOpen(false);
   };
 
-  const goBack = () => {
+  const handleSelectAlert = (type: AlertChoice) => {
     Haptics.selectionAsync().catch(() => {});
-    if (step > 0) animateStep(step - 1);
+    setAlert(type);
+    if (type === "adhan") {
+      // Tapping "Full Adhan" opens the sheet so the user can pick a reciter.
+      setSheetOpen(true);
+    } else if (sheetOpen) {
+      setSheetOpen(false);
+    }
   };
 
   const handleSkip = async () => {
@@ -223,320 +242,312 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
       } catch {}
     }
 
+    if (!persisted) {
+      // Storage failed: keep the overlay fully visible & interactive so the
+      // user can retry. Just clear the in-flight guard.
+      setApplying(false);
+      return;
+    }
+
     Animated.timing(fade, {
       toValue: 0,
       duration: 320,
       useNativeDriver: true,
     }).start(() => {
       setApplying(false);
-      if (persisted) onComplete();
-      // If persistence failed, leave the overlay up — user can tap Apply again.
+      onComplete();
     });
   };
 
-  const reciter = ADHAN_STYLES.find((s) => s.id === reciterId) ?? ADHAN_STYLES[0];
+  const selectedReciter = ADHAN_STYLES.find((s) => s.id === reciterId) ?? ADHAN_STYLES[0];
+
+  const previewSubtitle =
+    alert === "silent"
+      ? "Your silent reminder for Maghrib prayer."
+      : alert === "notification"
+      ? "Gentle chime for Maghrib prayer."
+      : `Full Adhan by ${selectedReciter.name}`;
 
   return (
     <Animated.View
       style={[StyleSheet.absoluteFillObject, { backgroundColor: BG, opacity: fade, zIndex: 998 }]}
     >
-      {/* Candlelight glow */}
-      <View pointerEvents="none" style={styles.glow} />
+      {/* Background nocturnal scene */}
+      <View pointerEvents="none" style={styles.bgWrap}>
+        <LinearGradient
+          colors={["#141b36", "#090b14", "#050508"]}
+          style={styles.bgGradient}
+        />
+        {/* Soft golden moon glow */}
+        <View style={styles.moonGlow} />
+        {/* Stars */}
+        <View style={[styles.star, { top: "12%", left: "20%", width: 2, height: 2, opacity: 0.6 }]} />
+        <View style={[styles.star, { top: "20%", right: "25%", width: 3, height: 3, opacity: 0.4 }]} />
+        <View style={[styles.star, { top: "30%", left: "30%", width: 2, height: 2, opacity: 0.5 }]} />
+        <View style={[styles.star, { top: "8%", right: "15%", width: 1.5, height: 1.5, opacity: 0.8 }]} />
+        <View style={[styles.star, { top: "25%", left: "70%", width: 2, height: 2, opacity: 0.45 }]} />
+        <View style={[styles.star, { top: "16%", left: "55%", width: 1.5, height: 1.5, opacity: 0.55 }]} />
+      </View>
 
-      {/* Header breadcrumb */}
-      <View style={[styles.header, { paddingTop: insets.top + 28 }]}>
+      <View style={[styles.content, { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 18 }]}>
+        {/* Header breadcrumb */}
         <View style={styles.breadcrumb}>
-          <View style={styles.bcLineL} />
+          <View style={styles.bcLine} />
           <View style={styles.bcCenter}>
             <Text style={styles.bcLabel}>NUUR</Text>
             <Text style={styles.bcDot}>·</Text>
             <Text style={styles.bcArabic}>نور</Text>
           </View>
-          <View style={styles.bcLineR} />
+          <View style={styles.bcLine} />
         </View>
 
-        {/* Pagination dots */}
-        <View style={styles.dots}>
-          {[0, 1, 2].map((i) => {
-            const active = i === step;
+        {/* Title block */}
+        <View style={styles.titleBlock}>
+          <Text style={styles.title}>Let your prayers{"\n"}find you</Text>
+          <Text style={styles.subtitle}>
+            How would you like to be gently reminded{"\n"}when it is time to pray?
+          </Text>
+        </View>
+
+        {/* Notification preview card */}
+        <View style={styles.previewCardWrap}>
+          <BlurView intensity={20} tint="dark" style={styles.previewCard}>
+            <View style={styles.previewOverlay} />
+            <View style={styles.previewHeaderRow}>
+              <View style={styles.previewBrand}>
+                <View style={styles.previewBadge}>
+                  <Text style={styles.previewBadgeText}>N</Text>
+                </View>
+                <Text style={styles.previewBrandLabel}>NUUR</Text>
+              </View>
+              <Text style={styles.previewTimestamp}>now</Text>
+            </View>
+            <View style={styles.previewBody}>
+              <Text style={styles.previewTitle}>Time for Maghrib</Text>
+              <Text style={styles.previewSubtitle} numberOfLines={2}>
+                {previewSubtitle}
+              </Text>
+            </View>
+          </BlurView>
+        </View>
+
+        {/* Three alert tiles */}
+        <View style={styles.tilesRow}>
+          {ALERT_TILES.map((tile) => {
+            const active = alert === tile.id;
             return (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  active && styles.dotActive,
+              <Pressable
+                key={tile.id}
+                onPress={() => handleSelectAlert(tile.id)}
+                style={({ pressed }) => [
+                  styles.tile,
+                  active && styles.tileActive,
+                  pressed && { opacity: 0.9 },
                 ]}
-              />
+              >
+                <View style={[styles.tileIconWrap, active && styles.tileIconWrapActive]}>
+                  <Feather
+                    name={tile.icon}
+                    size={16}
+                    color={active ? GOLD : TEXT_FAINT}
+                  />
+                </View>
+                <Text style={[styles.tileLabel, active && { color: GOLD }]}>
+                  {tile.label}
+                </Text>
+              </Pressable>
             );
           })}
         </View>
+
+        {/* Selected reciter hint */}
+        {alert === "adhan" && !sheetOpen && (
+          <Pressable
+            onPress={openSheet}
+            style={({ pressed }) => [styles.hintRow, pressed && { opacity: 0.85 }]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hintLabel}>SELECTED RECITER</Text>
+              <Text style={styles.hintName} numberOfLines={1}>
+                {selectedReciter.name}
+              </Text>
+            </View>
+            <Text style={styles.hintChange}>Change</Text>
+          </Pressable>
+        )}
+
+        {/* Spacer */}
+        <View style={{ flex: 1 }} />
+
+        {/* CTA stack */}
+        <View style={styles.ctaStack}>
+          <TouchableOpacity
+            onPress={handleApply}
+            disabled={applying}
+            activeOpacity={0.9}
+            style={[styles.ctaBtn, applying && { opacity: 0.7 }]}
+          >
+            <LinearGradient
+              colors={[GOLD, GOLD_DEEP]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.ctaGradient}
+            >
+              <Text style={styles.ctaText}>
+                {applying ? "Applying…" : "Allow Notifications"}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSkip} hitSlop={12} style={styles.skipBtn}>
+            <Text style={styles.skipText}>Not right now</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Body */}
-      <Animated.View style={[styles.body, { opacity: stepFade }]}>
-        {step === 0 && (
-          <StepFrame
-            title="How shall we call you?"
-            subtitle="Choose how you'd like to be reminded for the five daily prayers."
+      {/* Reciter bottom sheet */}
+      <Animated.View
+        pointerEvents={sheetOpen ? "auto" : "none"}
+        style={[StyleSheet.absoluteFillObject, styles.sheetLayer]}
+      >
+        <Animated.View
+          style={[StyleSheet.absoluteFillObject, { opacity: backdropOpacity }]}
+        >
+          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={closeSheet} />
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.sheet,
+            { paddingBottom: insets.bottom + 24, transform: [{ translateY: sheetY }] },
+          ]}
+        >
+          <View style={styles.dragHandle} />
+          <View style={styles.sheetHeader}>
+            <TouchableOpacity onPress={closeSheet} hitSlop={10} style={styles.sheetBack}>
+              <Feather name="chevron-left" size={20} color={TEXT} />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sheetTitle}>Choose a reciter</Text>
+              <Text style={styles.sheetSubtitle}>The voice that will call you to prayer.</Text>
+            </View>
+          </View>
+
+          <ScrollView
+            style={styles.sheetList}
+            contentContainerStyle={{ paddingBottom: 12, gap: 8 }}
+            showsVerticalScrollIndicator={false}
           >
-            <View style={styles.optionList}>
-              {ALERT_OPTIONS.map((opt) => (
-                <OptionCard
-                  key={opt.id}
-                  icon={opt.icon}
-                  title={opt.title}
-                  desc={opt.desc}
-                  selected={alert === opt.id}
+            {ADHAN_STYLES.map((s) => {
+              const sel = reciterId === s.id;
+              const isPlaying = previewingId === s.id;
+              return (
+                <Pressable
+                  key={s.id}
                   onPress={() => {
                     Haptics.selectionAsync().catch(() => {});
-                    setAlert(opt.id);
+                    setReciterId(s.id);
                   }}
-                />
-              ))}
-            </View>
-          </StepFrame>
-        )}
-
-        {step === 1 && (
-          <StepFrame
-            title={alert === "adhan" ? "Choose your reciter" : "Pick a reciter"}
-            subtitle={
-              alert === "adhan"
-                ? "The voice that will call you to prayer."
-                : "Saved for when you switch to the full adhan."
-            }
-          >
-            <View style={styles.reciterList}>
-              {ADHAN_STYLES.map((s) => {
-                const sel = reciterId === s.id;
-                const isPreviewing = previewingId === s.id;
-                return (
-                  <Pressable
-                    key={s.id}
-                    onPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
-                      setReciterId(s.id);
-                    }}
-                    style={({ pressed }) => [
-                      styles.reciterRow,
-                      sel && styles.reciterRowActive,
-                      pressed && { opacity: 0.85 },
-                    ]}
+                  style={({ pressed }) => [
+                    styles.reciterRow,
+                    sel && styles.reciterRowActive,
+                    pressed && { opacity: 0.9 },
+                  ]}
+                >
+                  <TouchableOpacity
+                    onPress={() => togglePreview(s)}
+                    hitSlop={8}
+                    style={[styles.previewBtn, isPlaying && styles.previewBtnActive]}
                   >
-                    <View style={styles.reciterTextWrap}>
-                      <Text style={[styles.reciterName, sel && { color: GOLD }]}>{s.name}</Text>
-                      <Text style={styles.reciterLoc} numberOfLines={1}>
-                        {s.location}
-                      </Text>
-                    </View>
+                    <Feather
+                      name={isPlaying ? "square" : "play"}
+                      size={14}
+                      color={isPlaying ? GOLD : TEXT}
+                    />
+                  </TouchableOpacity>
 
-                    {/* Preview button — auditions ~3 seconds. Stops on
-                        re-tap, on leaving the step, or on unmount. */}
-                    <TouchableOpacity
-                      onPress={() => togglePreview(s)}
-                      hitSlop={10}
-                      style={[
-                        styles.previewBtn,
-                        isPreviewing && styles.previewBtnActive,
-                      ]}
+                  <View style={styles.reciterTextWrap}>
+                    <Text
+                      style={[styles.reciterName, sel && { color: GOLD }]}
+                      numberOfLines={1}
                     >
-                      <Feather
-                        name={isPreviewing ? "square" : "play"}
-                        size={12}
-                        color={isPreviewing ? GOLD : TEXT}
-                      />
-                    </TouchableOpacity>
+                      {s.name}
+                    </Text>
+                    <Text style={styles.reciterLoc} numberOfLines={1}>
+                      {s.location}
+                    </Text>
+                  </View>
 
-                    {sel ? (
-                      <View style={styles.checkDot}>
-                        <Feather name="check" size={12} color="#1A1822" />
-                      </View>
-                    ) : (
-                      <View style={styles.checkDotEmpty} />
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </StepFrame>
-        )}
+                  {sel && (
+                    <View style={styles.checkDot}>
+                      <Feather name="check" size={12} color="#050508" />
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
 
-        {step === 2 && (
-          <StepFrame title="Ready" subtitle="Your prayers will be honoured this way.">
-            <View style={styles.summary}>
-              <SummaryRow
-                label="Five daily prayers"
-                value={
-                  alert === "silent"
-                    ? "Silent"
-                    : alert === "notification"
-                    ? "Gentle notification"
-                    : "Full adhan"
-                }
-              />
-              {alert === "adhan" && (
-                <SummaryRow label="Reciter" value={reciter.name} subValue={reciter.location} />
-              )}
-              <SummaryRow label="Days" value="Every day" />
-              <SummaryRow label="Sunrise" value="Off (set later)" muted />
-            </View>
-            <Text style={styles.summaryHint}>
-              You can fine-tune any prayer individually from the home screen.
-            </Text>
-          </StepFrame>
-        )}
+          <TouchableOpacity
+            onPress={closeSheet}
+            activeOpacity={0.85}
+            style={styles.confirmBtn}
+          >
+            <Text style={styles.confirmText}>Confirm</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </Animated.View>
-
-      {/* Bottom bar */}
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 18 }]}>
-        {step > 0 ? (
-          <TouchableOpacity onPress={goBack} hitSlop={12} style={styles.backBtn}>
-            <Feather name="arrow-left" size={16} color={TEXT_DIM} />
-            <Text style={styles.backText}>Back</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={handleSkip} hitSlop={12} style={styles.backBtn}>
-            <Text style={styles.skipText}>Skip</Text>
-          </TouchableOpacity>
-        )}
-
-        <Text style={styles.stepLabel}>STEP {step + 1} OF 3</Text>
-
-        <TouchableOpacity
-          onPress={goNext}
-          disabled={applying}
-          activeOpacity={0.85}
-          style={[styles.continueBtn, applying && { opacity: 0.7 }]}
-        >
-          <Text style={styles.continueText}>
-            {step === 2 ? (applying ? "Applying…" : "Apply") : "Continue"}
-          </Text>
-          {!applying && step < 2 && <Feather name="arrow-right" size={14} color="#0F0E14" />}
-        </TouchableOpacity>
-      </View>
     </Animated.View>
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function StepFrame({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <View style={styles.frame}>
-      <View style={styles.frameHeader}>
-        <Text style={styles.ornament}>✦</Text>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
-      </View>
-      <View style={styles.frameBody}>{children}</View>
-    </View>
-  );
-}
-
-function OptionCard({
-  icon,
-  title,
-  desc,
-  selected,
-  onPress,
-}: {
-  icon: React.ComponentProps<typeof Feather>["name"];
-  title: string;
-  desc: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.optionCard,
-        selected && styles.optionCardActive,
-        pressed && { opacity: 0.92 },
-      ]}
-    >
-      <View style={[styles.optionIconWrap, selected && styles.optionIconWrapActive]}>
-        <Feather name={icon} size={18} color={selected ? GOLD : TEXT_DIM} />
-      </View>
-      <View style={styles.optionTextWrap}>
-        <Text style={[styles.optionTitle, selected && { color: GOLD }]}>{title}</Text>
-        <Text style={[styles.optionDesc, selected && { color: "rgba(201,147,58,0.7)" }]}>
-          {desc}
-        </Text>
-      </View>
-      {selected && (
-        <View style={styles.optionMoon}>
-          <Feather name="check" size={14} color={GOLD} />
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
-function SummaryRow({
-  label,
-  value,
-  subValue,
-  muted,
-}: {
-  label: string;
-  value: string;
-  subValue?: string;
-  muted?: boolean;
-}) {
-  return (
-    <View style={styles.summaryRow}>
-      <Text style={styles.summaryLabel}>{label}</Text>
-      <View style={{ alignItems: "flex-end", flexShrink: 1 }}>
-        <Text style={[styles.summaryValue, muted && { color: TEXT_FAINT }]} numberOfLines={1}>
-          {value}
-        </Text>
-        {subValue && <Text style={styles.summarySub}>{subValue}</Text>}
-      </View>
-    </View>
-  );
-}
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  glow: {
+  // ── Background ──
+  bgWrap: {
     position: "absolute",
-    top: "18%",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "55%",
+    overflow: "hidden",
+  },
+  bgGradient: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.85,
+  },
+  moonGlow: {
+    position: "absolute",
+    top: "8%",
     alignSelf: "center",
-    width: 420,
-    height: 420,
-    borderRadius: 210,
-    backgroundColor: GOLD_GLOW,
-    opacity: 0.9,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: GOLD,
+    opacity: 0.18,
+  },
+  star: {
+    position: "absolute",
+    backgroundColor: "#fff",
+    borderRadius: 2,
   },
 
-  header: {
-    alignItems: "center",
-    paddingBottom: 8,
+  // ── Content ──
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
   },
+
+  // ── Header breadcrumb ──
   breadcrumb: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 14,
     opacity: 0.85,
+    marginBottom: 28,
   },
-  bcLineL: {
-    width: 40,
-    height: 1,
-    backgroundColor: BORDER_GOLD,
-    opacity: 0.6,
-  },
-  bcLineR: {
-    width: 40,
+  bcLine: {
+    width: 32,
     height: 1,
     backgroundColor: BORDER_GOLD,
     opacity: 0.6,
@@ -551,50 +562,20 @@ const styles = StyleSheet.create({
   bcDot: { color: "rgba(201,147,58,0.6)", fontSize: 12 },
   bcArabic: { color: GOLD, fontFamily: ARABIC_SERIF, fontSize: 14 },
 
-  dots: { flexDirection: "row", gap: 10, marginTop: 32 },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.15)",
-  },
-  dotActive: {
-    backgroundColor: GOLD,
-    shadowColor: GOLD,
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-  },
-
-  body: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 96,
-  },
-
-  frame: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  frameHeader: {
+  // ── Title block ──
+  titleBlock: {
     alignItems: "center",
-    marginBottom: 36,
-  },
-  ornament: {
-    color: "rgba(201,147,58,0.45)",
-    fontFamily: ARABIC_SERIF,
-    fontSize: 26,
-    marginBottom: 18,
+    marginBottom: 24,
   },
   title: {
     fontFamily: SERIF,
-    fontSize: 30,
+    fontSize: 32,
     color: TEXT,
     fontWeight: "500",
     letterSpacing: -0.4,
     textAlign: "center",
-    marginBottom: 12,
-    paddingHorizontal: 20,
+    lineHeight: 38,
+    marginBottom: 14,
   },
   subtitle: {
     color: TEXT_DIM,
@@ -602,78 +583,276 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     fontFamily: "Inter_400Regular",
-    paddingHorizontal: 32,
   },
-  frameBody: { width: "100%" },
 
-  // Option card (alert type)
-  optionList: { gap: 14 },
-  optionCard: {
+  // ── Preview card ──
+  previewCardWrap: {
+    marginBottom: 24,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+  previewCard: {
+    borderRadius: 18,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    padding: 16,
+    gap: 10,
+  },
+  previewOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  previewHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 18,
-    padding: 18,
-    borderRadius: 18,
-    backgroundColor: SURFACE,
+    justifyContent: "space-between",
+  },
+  previewBrand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  previewBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    backgroundColor: "rgba(201,147,58,0.20)",
     borderWidth: 1,
-    borderColor: BORDER_DIM,
-  },
-  optionCardActive: {
-    backgroundColor: SURFACE_ACTIVE,
-    borderColor: BORDER_GOLD,
-  },
-  optionIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: "rgba(201,147,58,0.30)",
     alignItems: "center",
     justifyContent: "center",
   },
-  optionIconWrapActive: { backgroundColor: "rgba(201,147,58,0.18)" },
-  optionTextWrap: { flex: 1 },
-  optionTitle: {
-    color: TEXT,
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.2,
-    marginBottom: 3,
-  },
-  optionDesc: {
-    color: TEXT_DIM,
-    fontSize: 13,
-    fontStyle: "italic",
+  previewBadgeText: {
+    color: GOLD,
+    fontSize: 10,
+    fontWeight: "700",
     fontFamily: SERIF,
   },
-  optionMoon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(201,147,58,0.16)",
+  previewBrandLabel: {
+    color: "rgba(255,255,255,0.60)",
+    fontSize: 10,
+    letterSpacing: 1.2,
+    fontFamily: "Inter_600SemiBold",
+  },
+  previewTimestamp: {
+    color: "rgba(255,255,255,0.40)",
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+  },
+  previewBody: { gap: 4 },
+  previewTitle: {
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  previewSubtitle: {
+    color: "rgba(255,255,255,0.60)",
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: "Inter_400Regular",
   },
 
-  // Reciter list
-  reciterList: { gap: 10 },
+  // ── Alert tiles ──
+  tilesRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  tile: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.02)",
+    borderWidth: 1,
+    borderColor: BORDER_DIM,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tileActive: {
+    backgroundColor: "#1A1612",
+    borderColor: BORDER_GOLD,
+    shadowColor: GOLD,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  tileIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  tileIconWrapActive: {
+    backgroundColor: "rgba(201,147,58,0.20)",
+  },
+  tileLabel: {
+    color: "rgba(255,255,255,0.70)",
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 15,
+    fontFamily: "Inter_500Medium",
+  },
+
+  // ── Hint row ──
+  hintRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    marginTop: 18,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderWidth: 1,
+    borderColor: BORDER_DIM,
+    borderRadius: 14,
+  },
+  hintLabel: {
+    color: GOLD,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 4,
+  },
+  hintName: {
+    color: "rgba(255,255,255,0.90)",
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  hintChange: {
+    color: "rgba(255,255,255,0.35)",
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+  },
+
+  // ── CTA ──
+  ctaStack: {
+    alignItems: "center",
+    gap: 14,
+    marginTop: 24,
+  },
+  ctaBtn: {
+    width: "100%",
+    height: 56,
+    borderRadius: 14,
+    overflow: "hidden",
+    shadowColor: GOLD,
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  ctaGradient: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ctaText: {
+    color: "#050508",
+    fontSize: 15,
+    letterSpacing: 0.3,
+    fontFamily: "Inter_700Bold",
+  },
+  skipBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  skipText: {
+    color: "rgba(255,255,255,0.30)",
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+
+  // ── Sheet ──
+  sheetLayer: {
+    zIndex: 1000,
+  },
+  sheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#0a0a0f",
+    borderTopWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 10,
+    paddingHorizontal: 24,
+    maxHeight: "85%",
+  },
+  dragHandle: {
+    width: 48,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    alignSelf: "center",
+    marginBottom: 24,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 18,
+  },
+  sheetBack: {
+    padding: 6,
+    marginLeft: -6,
+    marginRight: 8,
+    marginTop: 4,
+    opacity: 0.6,
+  },
+  sheetTitle: {
+    fontFamily: SERIF,
+    fontSize: 24,
+    color: TEXT,
+    fontWeight: "500",
+    letterSpacing: -0.3,
+  },
+  sheetSubtitle: {
+    color: TEXT_FAINT,
+    fontSize: 12,
+    marginTop: 4,
+    fontFamily: "Inter_400Regular",
+  },
+  sheetList: {
+    maxHeight: SCREEN_HEIGHT * 0.5,
+  },
+
+  // ── Reciter row ──
   reciterRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderRadius: 14,
-    backgroundColor: SURFACE,
+    backgroundColor: "rgba(255,255,255,0.02)",
     borderWidth: 1,
     borderColor: BORDER_DIM,
   },
   reciterRowActive: {
-    backgroundColor: SURFACE_ACTIVE,
+    backgroundColor: "#1A1612",
+    borderColor: "rgba(201,147,58,0.30)",
+  },
+  previewBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  previewBtnActive: {
+    backgroundColor: "rgba(201,147,58,0.20)",
     borderColor: BORDER_GOLD,
   },
-  reciterTextWrap: { flex: 1, paddingRight: 10 },
+  reciterTextWrap: { flex: 1, paddingRight: 8 },
   reciterName: {
-    color: TEXT,
-    fontSize: 15,
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 14,
     fontFamily: "Inter_600SemiBold",
     marginBottom: 2,
   },
@@ -689,124 +868,20 @@ const styles = StyleSheet.create({
     backgroundColor: GOLD,
     alignItems: "center",
     justifyContent: "center",
-  },
-  checkDotEmpty: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    marginLeft: 8,
   },
 
-  // Reciter audition button
-  previewBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-    backgroundColor: "rgba(255,255,255,0.04)",
+  confirmBtn: {
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.10)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
+    marginTop: 14,
   },
-  previewBtnActive: {
-    backgroundColor: "rgba(201,147,58,0.18)",
-    borderColor: BORDER_GOLD,
-  },
-
-  // Summary
-  summary: {
-    backgroundColor: SURFACE,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: BORDER_DIM,
-    paddingVertical: 6,
-    paddingHorizontal: 18,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: BORDER_DIM,
-  },
-  summaryLabel: {
-    color: TEXT_DIM,
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-  },
-  summaryValue: {
-    color: TEXT,
+  confirmText: {
+    color: "rgba(255,255,255,0.90)",
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
-  },
-  summarySub: {
-    color: TEXT_FAINT,
-    fontSize: 11,
-    marginTop: 2,
-    fontFamily: "Inter_400Regular",
-  },
-  summaryHint: {
-    color: TEXT_FAINT,
-    fontSize: 12,
-    fontFamily: SERIF,
-    fontStyle: "italic",
-    textAlign: "center",
-    marginTop: 18,
-    paddingHorizontal: 16,
-    lineHeight: 18,
-  },
-
-  // Bottom bar
-  bottomBar: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingTop: 14,
-    paddingHorizontal: 22,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.04)",
-    backgroundColor: BG,
-  },
-  backBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    width: 80,
-  },
-  backText: { color: TEXT_DIM, fontSize: 13, fontFamily: "Inter_500Medium" },
-  skipText: { color: TEXT_DIM, fontSize: 13, fontFamily: "Inter_500Medium" },
-  stepLabel: {
-    color: TEXT_FAINT,
-    fontSize: 10,
-    letterSpacing: 1.6,
-    fontFamily: "Inter_500Medium",
-  },
-  continueBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    backgroundColor: GOLD,
-    borderRadius: 999,
-    paddingVertical: 11,
-    paddingHorizontal: 20,
-    minWidth: 110,
-    justifyContent: "center",
-    shadowColor: GOLD,
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  continueText: {
-    color: "#0F0E14",
-    fontSize: 13.5,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.2,
   },
 });
