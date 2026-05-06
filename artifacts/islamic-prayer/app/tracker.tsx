@@ -45,11 +45,11 @@ const PERFECT_DAY_KEY = "nuur_perfect_day_celebrated";
 const MILESTONE_DAYS = [3, 7, 14, 30, 60, 100] as const;
 const MILESTONE_MESSAGES: Record<number, string> = {
   3:   "MashaAllah! 🌟 3 day prayer streak — keep going!",
-  7:   "Subhanallah! 🔥 One full week of prayers — you're building a beautiful habit",
-  14:  "AlhamduliLlah! ✨ Two weeks strong — consistency is worship",
+  7:   "SubhanAllah! 🔥 One full week of prayers — you're building a beautiful habit",
+  14:  "Alhamdulillah! ✨ Two weeks strong — consistency is worship",
   30:  "MashaAllah! 🏆 30 day streak — a full month of dedication",
-  60:  "Subhanallah! 💫 60 days — you are truly committed",
-  100: "AlhamduliLlah! 👑 100 day streak — this is remarkable dedication",
+  60:  "SubhanAllah! 💫 60 days — you are truly committed",
+  100: "Alhamdulillah! 👑 100 day streak — this is remarkable dedication",
 };
 const MILESTONE_HEADLINES: Record<number, string> = {
   3: "Three days of light",
