@@ -515,6 +515,11 @@ export default function TrackerScreen() {
   // the selection out from under them. Tapping the "Today" button clears it.
   const userNavigatedRef = useRef(false);
   const [milestonesLoaded, setMilestonesLoaded] = useState(false);
+  // Tracks whether we've finished reading PERFECT_DAY_KEY from storage. The
+  // perfect-day effect must wait for this — otherwise a fast user (toggle
+  // Isha off+on right after launch on a day already celebrated) can fire
+  // the overlay again while AsyncStorage.getItem is still in flight.
+  const [perfectHydrated, setPerfectHydrated] = useState(false);
   const [firedMilestones, setFiredMilestones] = useState<number[]>([]);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimesResult | null>(null);
   const [now, setNow] = useState(new Date());
@@ -526,6 +531,10 @@ export default function TrackerScreen() {
 
   const prevCompletedRef = useRef<number>(-1);
   const perfectFiredKeyRef = useRef<string | null>(null);
+  // Captures a 4→5 transition that happened while PERFECT_DAY_KEY hydration
+  // was still in flight, so we can fire the celebration once hydration
+  // resolves (case: user reaches 5/5 in the first ~50 ms after launch).
+  const pendingPerfectCrossRef = useRef<string | null>(null);
 
   const today = islamicTodayKey(appPrayerTimes);
   const isToday = selectedKey === today;
@@ -588,7 +597,8 @@ export default function TrackerScreen() {
     // and neither does a fresh app launch on a day already complete.
     AsyncStorage.getItem(PERFECT_DAY_KEY).then((k) => {
       if (k) perfectFiredKeyRef.current = k;
-    });
+      setPerfectHydrated(true);
+    }).catch(() => setPerfectHydrated(true));
   }, []);
 
   // ─── Streak milestone notifications + in-app celebration overlay ───
@@ -639,9 +649,22 @@ export default function TrackerScreen() {
     const todayRecord = trackerData[today] || {};
     const c = countCompleted(todayRecord);
     const prev = prevCompletedRef.current;
+    // Always update prev so transitions made during the PERFECT_DAY_KEY
+    // hydration window aren't lost. The "did we celebrate today" check
+    // below is what's actually gated on perfectHydrated.
     prevCompletedRef.current = c;
     if (prev === -1) return; // first render — don't fire on initial load
-    if (prev < 5 && c === 5 && perfectFiredKeyRef.current !== today) {
+    // Detect the 4→5 transition. If hydration hasn't resolved yet we can't
+    // safely fire (might replay an already-celebrated day), so we *remember*
+    // the cross and let the post-hydration re-run consume it.
+    const crossedNow = prev < 5 && c === 5;
+    if (!perfectHydrated) {
+      if (crossedNow) pendingPerfectCrossRef.current = today;
+      return;
+    }
+    const deferredCross = pendingPerfectCrossRef.current === today;
+    if (deferredCross) pendingPerfectCrossRef.current = null;
+    if ((crossedNow || deferredCross) && perfectFiredKeyRef.current !== today) {
       perfectFiredKeyRef.current = today;
       AsyncStorage.setItem(PERFECT_DAY_KEY, today).catch(() => {});
       if (Platform.OS !== "web") {
@@ -656,7 +679,7 @@ export default function TrackerScreen() {
         },
       );
     }
-  }, [trackerData, loaded, today, streak]);
+  }, [trackerData, loaded, today, streak, perfectHydrated]);
 
   // ─── Prayer times for selected date ───
   useEffect(() => {
