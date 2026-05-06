@@ -488,7 +488,7 @@ export default function TrackerScreen() {
     location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets,
     prayerPreReminderMinutes, setPrayerPreReminderMinutes,
   } = useAppContext();
-  const { trackerData, loaded, togglePrayer: ctxTogglePrayer, isPrayed } = usePrayerTracker();
+  const { trackerData, loaded, togglePrayer: ctxTogglePrayer, setPrayed, isPrayed } = usePrayerTracker();
 
   const [selectedKey, setSelectedKey] = useState(todayKey());
   const [milestonesLoaded, setMilestonesLoaded] = useState(false);
@@ -717,6 +717,17 @@ export default function TrackerScreen() {
     togglePrayer(p);
   };
 
+  // Backfill helper for past days the user forgot to log. Intentionally NOT
+  // exposed on today — today should be marked one prayer at a time, in the
+  // moment, since that's the whole point of the tracker. On past days we trust
+  // the user to honestly recall whether they prayed.
+  const backfillSelectedDay = useCallback(() => {
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }
+    PRAYERS.forEach((p) => setPrayed(p, true, selectedKey));
+  }, [setPrayed, selectedKey]);
+
   const togglePreReminder = useCallback(() => {
     const next = prayerPreReminderMinutes === 0 ? 15 : 0;
     if (Platform.OS !== "web") {
@@ -927,10 +938,26 @@ export default function TrackerScreen() {
                 })}
               </View>
 
-              {/* In-niche progress: how many of 5 lit */}
-              <Text style={[styles.litCount, { color: withAlpha(colors.textSecondary, "AA") }]}>
-                {completedCount} OF 5 LIT
-              </Text>
+              {/* In-niche progress / backfill action.
+                  Today: passive lit-count.
+                  Past day with gaps: tappable "I prayed all five" backfill. */}
+              {!isToday && completedCount < 5 ? (
+                <TouchableOpacity
+                  onPress={backfillSelectedDay}
+                  activeOpacity={0.85}
+                  style={[styles.backfillBtn, { borderColor: gold, backgroundColor: withAlpha(gold, "18") }]}
+                  hitSlop={6}
+                >
+                  <Feather name="check-circle" size={13} color={goldLight} />
+                  <Text style={[styles.backfillText, { color: goldLight }]}>
+                    I PRAYED ALL FIVE
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={[styles.litCount, { color: withAlpha(colors.textSecondary, "AA") }]}>
+                  {completedCount} OF 5 LIT
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -1232,6 +1259,15 @@ const styles = StyleSheet.create({
   litCount: {
     fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 2.5,
     marginTop: 8,
+  },
+  backfillBtn: {
+    flexDirection: "row", alignItems: "center", gap: 7,
+    marginTop: 10,
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 999, borderWidth: 1,
+  },
+  backfillText: {
+    fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 1.6,
   },
 
   // Quiet nudge
