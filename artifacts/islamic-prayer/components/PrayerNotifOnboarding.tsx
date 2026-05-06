@@ -111,7 +111,7 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
   }, [alert, stopPreview]);
 
   const togglePreview = React.useCallback(
-    async (style: { id: string; audioUrl: string }) => {
+    async (style: { id: string; audioUrl: string; previewSkipMs?: number }) => {
       if (previewingId === style.id) {
         stopPreview();
         return;
@@ -127,17 +127,39 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       setPreviewingId(style.id);
       try {
-        await previewAdhan(style.audioUrl);
+        // Pass previewSkipMs so reciters with dead-air intros (e.g. Madinah's
+        // 6 s buildup) cut straight to the takbir. Wire onFinishOrError so the
+        // UI clears the moment the audio actually ends or fails — no need to
+        // poll, no spinner stuck on after a network drop.
+        await previewAdhan(
+          style.audioUrl,
+          {
+            onFinishOrError: () => {
+              if (previewTokenRef.current !== token) return;
+              if (previewTimerRef.current) {
+                clearTimeout(previewTimerRef.current);
+                previewTimerRef.current = null;
+              }
+              setPreviewingId(null);
+            },
+          },
+          style.previewSkipMs ?? 0,
+        );
       } catch {}
       // A newer tap (or a stopPreview) happened while we were awaiting —
       // bail so we don't schedule a timer for stale audio.
       if (previewTokenRef.current !== token) return;
+      // Safety cap: stop the preview after ~18 s so the user hears the
+      // opening takbirs ("Allahu Akbar, Allahu Akbar / Allahu Akbar, Allahu
+      // Akbar" — ~12 s on most reciters) plus a moment of the next phrase,
+      // then auto-cuts. The natural finish path above clears earlier if the
+      // file is shorter than the cap.
       previewTimerRef.current = setTimeout(() => {
         if (previewTokenRef.current !== token) return;
         stopAdhanAudio().catch(() => {});
         setPreviewingId(null);
         previewTimerRef.current = null;
-      }, 3000);
+      }, 18000);
     },
     [previewingId, stopPreview],
   );
