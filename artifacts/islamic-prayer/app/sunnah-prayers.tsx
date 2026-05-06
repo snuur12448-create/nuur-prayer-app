@@ -780,25 +780,371 @@ function PrayerCard({
 }
 
 /* ============================================================
+   Compact Path — single vertical timeline of today's sunnahs
+   ============================================================ */
+type PathStatus = "done" | "missed" | "current" | "future";
+
+type PathNode = {
+  id: string;
+  prayer: SunnahPrayer;
+  time: Date;
+  timeLabel: string;
+  status: PathStatus;
+};
+
+function fmtHm(d: Date): string {
+  const h = d.getHours();
+  const m = d.getMinutes();
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+type PathAnchor =
+  | "fajr" | "duha"
+  | "dhuhr-before" | "dhuhr-after"
+  | "asr"
+  | "maghrib-after" | "isha-after"
+  | "witr" | "tahajjud";
+
+const PATH_ORDER: { id: string; anchor: PathAnchor }[] = [
+  { id: "rawatib-fajr",         anchor: "fajr" },
+  { id: "duha",                 anchor: "duha" },
+  { id: "rawatib-dhuhr-before", anchor: "dhuhr-before" },
+  { id: "rawatib-dhuhr-after",  anchor: "dhuhr-after" },
+  { id: "rawatib-asr-before",   anchor: "asr" },
+  { id: "rawatib-maghrib",      anchor: "maghrib-after" },
+  { id: "rawatib-isha",         anchor: "isha-after" },
+  { id: "witr",                 anchor: "witr" },
+  { id: "tahajjud",             anchor: "tahajjud" },
+];
+
+function buildPathNodes(prayerTimes: any | null, doneIds: Set<string>): PathNode[] {
+  const now = new Date();
+  const fajr    = prayerTimes?.fajr?.time    as Date | undefined;
+  const sunrise = prayerTimes?.sunrise?.time as Date | undefined;
+  const dhuhr   = prayerTimes?.dhuhr?.time   as Date | undefined;
+  const asr     = prayerTimes?.asr?.time     as Date | undefined;
+  const maghrib = prayerTimes?.maghrib?.time as Date | undefined;
+  const isha    = prayerTimes?.isha?.time    as Date | undefined;
+
+  // Tahajjud is in the last third of the night (Maghrib → next Fajr).
+  // We approximate next Fajr as today's Fajr + 24h.
+  const tahajjudStart =
+    maghrib && fajr
+      ? new Date(maghrib.getTime() + ((fajr.getTime() + 24 * 60 * 60_000) - maghrib.getTime()) * (2 / 3))
+      : null;
+
+  const anchorTime = (anchor: PathAnchor): Date | null => {
+    switch (anchor) {
+      case "fajr":          return fajr ? new Date(fajr.getTime() - 10 * 60_000) : null;
+      // Duha window: from ~15min after sunrise until just before Dhuhr; midpoint as anchor.
+      case "duha":          return sunrise && dhuhr
+                              ? new Date((sunrise.getTime() + dhuhr.getTime()) / 2)
+                              : null;
+      case "dhuhr-before":  return dhuhr ? new Date(dhuhr.getTime() - 10 * 60_000) : null;
+      case "dhuhr-after":   return dhuhr ? new Date(dhuhr.getTime() + 10 * 60_000) : null;
+      case "asr":           return asr ? new Date(asr.getTime() - 10 * 60_000) : null;
+      case "maghrib-after": return maghrib ? new Date(maghrib.getTime() + 5 * 60_000) : null;
+      case "isha-after":    return isha ? new Date(isha.getTime() + 5 * 60_000) : null;
+      case "witr":          return isha ? new Date(isha.getTime() + 60 * 60_000) : null;
+      case "tahajjud":      return tahajjudStart;
+    }
+  };
+
+  const valid = PATH_ORDER
+    .map(({ id, anchor }) => ({ id, time: anchorTime(anchor), prayer: findPrayerById(id) }))
+    .filter((r): r is { id: string; time: Date; prayer: SunnahPrayer } => !!r.prayer && !!r.time)
+    .sort((a, b) => a.time.getTime() - b.time.getTime());
+
+  const past = valid.map((n) => n.time.getTime() <= now.getTime());
+  let currentIdx = -1;
+  for (let i = 0; i < valid.length; i++) {
+    if (!past[i] && !doneIds.has(valid[i].id)) { currentIdx = i; break; }
+  }
+
+  return valid.map((n, i) => {
+    let status: PathStatus;
+    if (doneIds.has(n.id)) status = "done";
+    else if (past[i]) status = "missed";
+    else if (i === currentIdx) status = "current";
+    else status = "future";
+    return { id: n.id, prayer: n.prayer, time: n.time, timeLabel: fmtHm(n.time), status };
+  });
+}
+
+function PathHeader({
+  colors, hijri, history, streak,
+}: { colors: any; hijri: string; history: { date: string; count: number }[]; streak: number }) {
+  const gold = colors.gold;
+  return (
+    <View style={styles.pathHeader}>
+      <View style={styles.pathDateRow}>
+        <View style={[styles.pathHeaderLine, { backgroundColor: gold + "33", flex: 1 }]} />
+        <Text style={[styles.pathDate, { color: gold + "BB" }]}>{hijri.toUpperCase()}</Text>
+        <View style={[styles.pathHeaderLine, { backgroundColor: gold + "33", flex: 1 }]} />
+      </View>
+      <View style={styles.pathHeaderMetaRow}>
+        <Text style={[styles.pathHeaderMetaLabel, { color: colors.textSecondary }]}>LAST 7</Text>
+        <View style={{ flex: 1, marginHorizontal: 10 }}>
+          <HistoryStrip colors={colors} history={history} />
+        </View>
+        {streak > 0 ? (
+          <View style={styles.pathHeaderStreak}>
+            <Feather name="award" size={10} color={gold} />
+            <Text style={[styles.pathHeaderStreakText, { color: gold }]}>
+              {streak}D
+            </Text>
+          </View>
+        ) : (
+          <Text style={[styles.pathHeaderMetaLabel, { color: colors.textSecondary, opacity: 0.5 }]}>—</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function PathNodeRow({
+  node, colors, isExpanded, onToggleExpand, onMark,
+}: {
+  node: PathNode;
+  colors: any;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onMark: () => void;
+}) {
+  const gold = colors.gold;
+  const bg = colors.background;
+  const text = colors.text;
+  const dim = colors.textSecondary;
+  const isFuture = node.status === "future";
+  const isCurrent = node.status === "current";
+  const isDone = node.status === "done";
+  const isMissed = node.status === "missed";
+  const opacity = isFuture ? 0.5 : isMissed ? 0.7 : 1;
+
+  const badge = statusBadge(node.prayer.status, gold);
+
+  return (
+    <View style={styles.nodeRow}>
+      <View style={styles.nodeRail}>
+        <Pressable
+          onPress={() => !isFuture && onMark()}
+          hitSlop={6}
+          disabled={isFuture}
+          style={[
+            styles.nodeDot,
+            {
+              borderColor: isDone || isCurrent ? gold : gold + "55",
+              backgroundColor: isDone ? gold : bg,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={`Mark ${node.prayer.nameEn} as prayed`}
+          accessibilityState={{ checked: isDone, disabled: isFuture }}
+        >
+          {isDone ? (
+            <Feather name="check" size={11} color={bg} />
+          ) : isCurrent ? (
+            <View style={[styles.nodeDotInner, { backgroundColor: gold }]} />
+          ) : null}
+        </Pressable>
+        <Text
+          style={[
+            styles.nodeTime,
+            { color: isCurrent ? gold : dim, opacity, fontVariant: ["tabular-nums"] },
+          ]}
+        >
+          {node.timeLabel}
+        </Text>
+      </View>
+
+      <Pressable
+        onPress={onToggleExpand}
+        style={[styles.nodeContent, { opacity }]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: isExpanded }}
+      >
+        <View style={styles.nodeTitleRow}>
+          <Text style={[styles.nodeNameEn, { color: isCurrent ? gold : text }]} numberOfLines={1}>
+            {node.prayer.nameEn}
+          </Text>
+          <Text style={[styles.nodeNameAr, { color: gold + "BB" }]} numberOfLines={1}>
+            {node.prayer.nameAr}
+          </Text>
+        </View>
+        <View style={styles.nodeMetaRow}>
+          <Text style={[styles.nodeRakaat, { color: dim }]}>
+            {node.prayer.rakaat} rakʿah
+          </Text>
+          <View style={[styles.nodeDotSep, { backgroundColor: dim + "55" }]} />
+          <View
+            style={[
+              styles.nodeBadge,
+              {
+                borderColor: badge.color + (badge.filled ? "" : "55"),
+                backgroundColor: badge.filled ? badge.color + "1A" : "transparent",
+              },
+            ]}
+          >
+            <Text style={[styles.nodeBadgeText, { color: badge.color }]} numberOfLines={1}>
+              {badge.label}
+            </Text>
+          </View>
+        </View>
+
+        {isExpanded && (
+          <View style={styles.nodeExpanded}>
+            <View style={styles.nodeRewardRow}>
+              <Feather name="award" size={11} color={gold} />
+              <Text style={[styles.nodeReward, { color: text }]}>{node.prayer.reward}</Text>
+            </View>
+            <View style={[styles.nodeHadithBox, { borderLeftColor: gold + "66" }]}>
+              <Text style={[styles.nodeHadithQuote, { color: text }]}>
+                &ldquo;{node.prayer.hadith.text}&rdquo;
+              </Text>
+              <View style={styles.nodeHadithRefRow}>
+                <View style={[styles.refDot, { backgroundColor: gold }]} />
+                <Text style={[styles.nodeHadithSrc, { color: gold }]} numberOfLines={1}>
+                  {node.prayer.hadith.source.toUpperCase()}
+                </Text>
+                <View style={[styles.refSep, { backgroundColor: gold + "44" }]} />
+                <Text style={[styles.nodeHadithGrade, { color: gold + "CC" }]}>
+                  {node.prayer.hadith.grade.toUpperCase()}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {!isFuture && (
+          <Pressable
+            onPress={(e: any) => { e?.stopPropagation?.(); onMark(); }}
+            hitSlop={6}
+            style={styles.nodeMarkBtn}
+          >
+            <Feather
+              name={isDone ? "check-circle" : "circle"}
+              size={11}
+              color={isDone ? dim : gold}
+            />
+            <Text style={[styles.nodeMarkText, { color: isDone ? dim : gold }]}>
+              {isDone ? "UNMARK" : "MARK PRAYED"}
+            </Text>
+          </Pressable>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+function CompactPathView({
+  colors, hijri, history, streak, doneIds, prayerTimes, toggleDone,
+  onBrowseAll, openId, setOpenId,
+}: {
+  colors: any;
+  hijri: string;
+  history: { date: string; count: number }[];
+  streak: number;
+  doneIds: Set<string>;
+  prayerTimes: any;
+  toggleDone: (id: string) => void;
+  onBrowseAll: () => void;
+  openId: string | null;
+  setOpenId: (id: string | null) => void;
+}) {
+  const nodes = useMemo(() => buildPathNodes(prayerTimes, doneIds), [prayerTimes, doneIds]);
+
+  return (
+    <View>
+      <PathHeader colors={colors} hijri={hijri} history={history} streak={streak} />
+
+      {nodes.length === 0 ? (
+        <View style={styles.pathEmpty}>
+          <Feather name="clock" size={32} color={colors.gold + "55"} />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            Setting your prayer times… today's sunnah path will appear once they're available.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.pathBody}>
+          <View
+            style={[
+              styles.pathThread,
+              { backgroundColor: colors.gold + "33" },
+            ]}
+          />
+          {nodes.map((n) => (
+            <PathNodeRow
+              key={n.id}
+              node={n}
+              colors={colors}
+              isExpanded={openId === n.id}
+              onToggleExpand={() => {
+                LayoutAnimation.configureNext({
+                  duration: 200,
+                  update: { type: "easeInEaseOut" },
+                });
+                setOpenId(openId === n.id ? null : n.id);
+              }}
+              onMark={() => toggleDone(n.id)}
+            />
+          ))}
+        </View>
+      )}
+
+      <View style={styles.browseAllWrap}>
+        <Pressable
+          onPress={onBrowseAll}
+          style={[
+            styles.browseAllPill,
+            { borderColor: colors.gold + "55", backgroundColor: colors.gold + "0A" },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Browse all sunnah prayers"
+        >
+          <Feather name="book-open" size={13} color={colors.gold} />
+          <Text style={[styles.browseAllText, { color: colors.text }]}>
+            Browse all sunnahs
+          </Text>
+          <Text style={[styles.browseAllAr, { color: colors.gold }]}>
+            · الفهرس الكامل
+          </Text>
+          <Feather name="chevron-right" size={14} color={colors.gold + "AA"} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/* ============================================================
    Screen
    ============================================================ */
 export default function SunnahPrayersScreen() {
   const { themeColors: colors, prayerTimes } = useAppContext();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ filter?: string; open?: string }>();
+  const params = useLocalSearchParams<{ filter?: string; open?: string; view?: string }>();
   const initialFilter: FilterId = useMemo(() => {
     const allowed: FilterId[] = ["all", "rawatib", "special", "night", "occasional", "tracked"];
     const f = params.filter as FilterId | undefined;
     return f && allowed.includes(f) ? f : "all";
   }, [params.filter]);
+  // Compact Path is the default. Switch to catalog when ?view=catalog OR any
+  // deep-link filter/open param is present (preserves existing entry points).
+  const [view, setView] = useState<"path" | "catalog">(
+    params.view === "catalog" || params.filter || params.open ? "catalog" : "path"
+  );
   const [openId, setOpenId] = useState<string | null>(params.open ?? null);
   const [filter, setFilter] = useState<FilterId>(initialFilter);
 
   // React to deep-link changes (e.g. user re-taps Tahajjud quick action while on screen)
   useEffect(() => {
-    if (params.filter) setFilter(initialFilter);
-    if (params.open) setOpenId(params.open);
-  }, [params.filter, params.open, initialFilter]);
+    if (params.filter || params.open) {
+      setView("catalog");
+      if (params.filter) setFilter(initialFilter);
+      if (params.open) setOpenId(params.open);
+    } else if (params.view === "catalog") {
+      setView("catalog");
+    }
+  }, [params.filter, params.open, params.view, initialFilter]);
   const { doneIds, toggle: toggleDone, streak, history } = useDailySunnah();
 
   const togglePrayer = (id: string) => {
@@ -873,9 +1219,52 @@ export default function SunnahPrayersScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 60, paddingTop: 4 }}
         showsVerticalScrollIndicator={false}
       >
-        <FilterChips colors={colors} active={filter} onChange={setFilter} doneCount={doneIds.size} />
+        {view === "path" && (
+          <CompactPathView
+            colors={colors}
+            hijri={hijri}
+            history={history}
+            streak={streak}
+            doneIds={doneIds}
+            prayerTimes={prayerTimes}
+            toggleDone={toggleDone}
+            onBrowseAll={() => {
+              LayoutAnimation.configureNext({ duration: 220, update: { type: "easeInEaseOut" } });
+              setOpenId(null);
+              setFilter("all");
+              setView("catalog");
+            }}
+            openId={openId}
+            setOpenId={setOpenId}
+          />
+        )}
 
-        {filter === "all" && (
+        {view === "catalog" && (
+          <View style={styles.catalogBackRow}>
+            <Pressable
+              onPress={() => {
+                LayoutAnimation.configureNext({ duration: 220, update: { type: "easeInEaseOut" } });
+                setOpenId(null);
+                setView("path");
+              }}
+              hitSlop={10}
+              style={styles.catalogBackBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Back to today's path"
+            >
+              <Feather name="chevron-left" size={14} color={colors.gold} />
+              <Text style={[styles.catalogBackText, { color: colors.gold }]}>
+                BACK TO TODAY
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {view === "catalog" && (
+          <FilterChips colors={colors} active={filter} onChange={setFilter} doneCount={doneIds.size} />
+        )}
+
+        {view === "catalog" && filter === "all" && (
           <TodayHero
             colors={colors}
             hijri={hijri}
@@ -898,7 +1287,7 @@ export default function SunnahPrayersScreen() {
           />
         )}
 
-        {visibleCategories.length === 0 && filter === "tracked" && (
+        {view === "catalog" && visibleCategories.length === 0 && filter === "tracked" && (
           <View style={styles.emptyBox}>
             <Feather name="check-circle" size={40} color={colors.gold + "55"} />
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -908,13 +1297,13 @@ export default function SunnahPrayersScreen() {
         )}
 
         {/* Glossary — appears once, just above the first section */}
-        {visibleCategories.length > 0 && (
+        {view === "catalog" && visibleCategories.length > 0 && (
           <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
             <GlossaryBlock colors={colors} />
           </View>
         )}
 
-        {visibleCategories.map((cat) => (
+        {view === "catalog" && visibleCategories.map((cat) => (
           <View key={cat.key} style={{ marginTop: 4 }}>
             <SectionDivider colors={colors} label={cat.titleEn.toUpperCase()} sublabel={cat.titleAr} />
             <Text style={[styles.catBlurb, { color: colors.textSecondary }]}>{cat.blurb}</Text>
@@ -933,17 +1322,17 @@ export default function SunnahPrayersScreen() {
         ))}
 
         {/* End ornament */}
-        {visibleCategories.length > 0 && (
-          <View style={styles.endOrnament}>
-            <View style={[styles.endLine, { backgroundColor: colors.gold + "44" }]} />
-            <Text style={[styles.endGlyph, { color: colors.gold }]}>﷽</Text>
-            <View style={[styles.endLine, { backgroundColor: colors.gold + "44" }]} />
-          </View>
-        )}
+        <View style={styles.endOrnament}>
+          <View style={[styles.endLine, { backgroundColor: colors.gold + "44" }]} />
+          <Text style={[styles.endGlyph, { color: colors.gold }]}>﷽</Text>
+          <View style={[styles.endLine, { backgroundColor: colors.gold + "44" }]} />
+        </View>
 
-        <Text style={[styles.footer, { color: colors.textSecondary }]}>
-          Hadith references are drawn from Bukhārī, Muslim, Tirmidhī, Abī Dāwūd and others. Where the schools differ, the most widely held views are shown.
-        </Text>
+        {view === "catalog" && (
+          <Text style={[styles.footer, { color: colors.textSecondary }]}>
+            Hadith references are drawn from Bukhārī, Muslim, Tirmidhī, Abī Dāwūd and others. Where the schools differ, the most widely held views are shown.
+          </Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -1219,4 +1608,245 @@ const styles = StyleSheet.create({
   howToSurahRakah: { fontSize: 8.5, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
   howToSurahName: { fontSize: 11.5, fontFamily: "Inter_700Bold" },
   howToSurahAr: { fontSize: 13, fontFamily: "AmiriQuran_400Regular" },
+
+  /* ───── Compact Path ───── */
+  pathHeader: {
+    paddingHorizontal: 22,
+    paddingTop: 14,
+    paddingBottom: 8,
+    gap: 10,
+  },
+  pathDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  pathDate: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 2.5,
+  },
+  pathHeaderLine: { height: 1 },
+  pathHeaderMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  pathHeaderMetaLabel: {
+    fontSize: 8.5,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.4,
+  },
+  pathHeaderStreak: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  pathHeaderStreakText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.2,
+  },
+
+  pathBody: {
+    paddingLeft: 22,
+    paddingRight: 18,
+    paddingTop: 14,
+    paddingBottom: 4,
+    position: "relative",
+  },
+  pathThread: {
+    position: "absolute",
+    left: 22 + 11,
+    top: 30,
+    bottom: 24,
+    width: 1,
+  },
+
+  pathEmpty: {
+    alignItems: "center",
+    paddingTop: 30,
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+
+  nodeRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 14,
+    marginBottom: 18,
+  },
+  nodeRail: {
+    width: 44,
+    alignItems: "center",
+  },
+  nodeDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  nodeDotInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  nodeTime: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.5,
+    marginTop: 4,
+  },
+
+  nodeContent: {
+    flex: 1,
+    paddingTop: 1,
+  },
+  nodeTitleRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  nodeNameEn: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: -0.2,
+  },
+  nodeNameAr: {
+    fontSize: 13,
+    fontFamily: "AmiriQuran_400Regular",
+  },
+  nodeMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    marginTop: 5,
+    flexWrap: "wrap",
+  },
+  nodeRakaat: {
+    fontSize: 11.5,
+    fontFamily: "Inter_400Regular",
+  },
+  nodeDotSep: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+  },
+  nodeBadge: {
+    borderWidth: 1,
+    borderRadius: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  nodeBadgeText: {
+    fontSize: 8.5,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.1,
+  },
+
+  nodeExpanded: {
+    marginTop: 10,
+    gap: 10,
+  },
+  nodeRewardRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+  },
+  nodeReward: {
+    flex: 1,
+    fontSize: 12.5,
+    fontFamily: "Inter_500Medium",
+    fontStyle: "italic",
+    lineHeight: 18,
+  },
+  nodeHadithBox: {
+    paddingLeft: 10,
+    paddingRight: 4,
+    paddingVertical: 2,
+    borderLeftWidth: 2,
+    gap: 6,
+  },
+  nodeHadithQuote: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+    fontStyle: "italic",
+  },
+  nodeHadithRefRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  nodeHadithSrc: {
+    fontSize: 8.5,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.1,
+  },
+  nodeHadithGrade: {
+    fontSize: 8.5,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.1,
+  },
+
+  nodeMarkBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 5,
+    marginTop: 8,
+    paddingVertical: 2,
+  },
+  nodeMarkText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.3,
+  },
+
+  browseAllWrap: {
+    paddingHorizontal: 22,
+    paddingTop: 16,
+    paddingBottom: 8,
+    alignItems: "center",
+  },
+  browseAllPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  browseAllText: {
+    fontSize: 12.5,
+    fontFamily: "Inter_600SemiBold",
+  },
+  browseAllAr: {
+    fontSize: 13,
+    fontFamily: "AmiriQuran_400Regular",
+  },
+
+  catalogBackRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 2,
+  },
+  catalogBackBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    paddingVertical: 4,
+  },
+  catalogBackText: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.4,
+  },
 });
