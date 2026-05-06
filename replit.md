@@ -56,7 +56,7 @@ The project is structured as a pnpm monorepo, separating deployable applications
 Long-running plans that are scoped but not yet implemented. Source: `docs/competitive-analysis.md` (cross-reference of Nuur vs. the 8 most-installed apps in the category).
 
 - **Top-5 gap-closers** — see `docs/competitive-analysis.md` for the full ranked list. Status:
-  1. iOS + Android home-screen widgets — scoped (in chat history; full plan to be saved to `docs/ios-widget-plan.md`); on hold pending 4 design decisions.
+  1. iOS + Android home-screen widgets — scoped (in chat history; full plan to be saved to `docs/ios-widget-plan.md`); on hold pending 4 design decisions. Design exploration in progress: 24 mockups in `artifacts/mockup-sandbox/src/components/mockups/live-activity-{classic,mosque,minimal}/` covering 4 lock states (Normal/T-10/T-1/T-30s) + 3 Dynamic Island modes (Compact/Expanded/Minimal) + Home Widget per direction. Architect review flagged: lock states drift in layout/typography between urgency variants (should only differ by countdown + saturation per spec), and Classic uses off-spec brown bg tints (#1f1605) instead of staying on navy with amber accent shift. User to pick a direction before Swift work begins.
   2. Tafsir layer (Ibn Kathir EN) — scoped in `docs/tafsir-plan.md`; ready to start, ~2–2.5 days, fully in-Replit.
   3. Apple Watch app — not scoped; defer until iOS widget ships (shares App Group + prebuild plumbing).
   4. Zakat calculator — ✅ shipped.
