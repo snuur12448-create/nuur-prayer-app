@@ -1,4 +1,4 @@
-import { NotchContext, tokens } from './_shared';
+import { NotchContext, NuurMark, tokens } from './_shared';
 
 export function DIExpanded() {
   return (
@@ -17,6 +17,9 @@ export function DIExpanded() {
         flexDirection: 'column',
         justifyContent: 'center',
       }}>
+        <div style={{ position: 'absolute', top: 10, right: 24 }}>
+          <NuurMark size={8} color={tokens.gold} opacity={0.55} />
+        </div>
         <div style={{
           display: 'flex',
           flexDirection: 'column',

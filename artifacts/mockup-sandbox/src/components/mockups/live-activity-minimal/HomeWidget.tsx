@@ -1,4 +1,4 @@
-import { HomeScreenContext, tokens } from './_shared';
+import { HomeScreenContext, NuurMark, tokens } from './_shared';
 
 export function HomeWidget() {
   return (
@@ -72,6 +72,10 @@ export function HomeWidget() {
           <span>London, UK</span>
           <span style={{ opacity: 0.5 }}>•</span>
           <span>18 Dhū al-Qaʿdah 1446</span>
+        </div>
+
+        <div style={{ position: 'absolute', top: 14, right: 16 }}>
+          <NuurMark size={9} color={tokens.gold} opacity={0.55} />
         </div>
       </div>
     </HomeScreenContext>

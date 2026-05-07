@@ -1,4 +1,4 @@
-import { NotchContext, tokens } from './_shared';
+import { NotchContext, NuurGlyph, tokens } from './_shared';
 
 export function DIMinimal() {
   return (
@@ -26,7 +26,7 @@ export function DIMinimal() {
           justifyContent: 'center',
           marginLeft: -10,
         }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: tokens.gold }} />
+          <NuurGlyph size={16} color={tokens.gold} />
         </div>
       </div>
     </NotchContext>

@@ -1,4 +1,4 @@
-import { LockScreenContext, tokens } from './_shared';
+import { LockScreenContext, NuurMark, tokens } from './_shared';
 
 export function LockT0() {
   return (
@@ -14,7 +14,11 @@ export function LockT0() {
         justifyContent: 'center',
         border: `1px solid ${tokens.border}`,
         boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+        position: 'relative',
       }}>
+        <div style={{ position: 'absolute', top: 12, right: 16 }}>
+          <NuurMark size={9} color={tokens.gold} opacity={0.7} />
+        </div>
         <div style={{
           display: 'flex',
           flexDirection: 'column',

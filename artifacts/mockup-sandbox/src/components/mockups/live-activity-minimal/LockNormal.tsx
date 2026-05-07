@@ -1,4 +1,4 @@
-import { LockScreenContext, tokens } from './_shared';
+import { LockScreenContext, NuurMark, tokens } from './_shared';
 
 export function LockNormal() {
   return (
@@ -14,7 +14,11 @@ export function LockNormal() {
         justifyContent: 'center',
         border: `1px solid ${tokens.border}`,
         boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+        position: 'relative',
       }}>
+        <div style={{ position: 'absolute', top: 12, right: 16 }}>
+          <NuurMark size={9} color={tokens.gold} opacity={0.55} />
+        </div>
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -45,7 +49,7 @@ export function LockNormal() {
               width: 4,
               height: 4,
               borderRadius: '50%',
-              backgroundColor: tokens.gold,
+              backgroundColor: tokens.tint,
               margin: '0 4px',
             }} />
             
@@ -54,7 +58,7 @@ export function LockNormal() {
               fontFeatureSettings: '"tnum"',
               fontSize: 28,
               fontWeight: 500,
-              color: tokens.text,
+              color: tokens.cream,
             }}>3h 22m</span>
           </div>
 
@@ -69,7 +73,7 @@ export function LockNormal() {
           }}>
             <span>London, UK</span>
             <span style={{ opacity: 0.5 }}>•</span>
-            <span>12 Shawwal 1445</span>
+            <span>18 Dhū al-Qaʿdah 1446</span>
           </div>
         </div>
       </div>

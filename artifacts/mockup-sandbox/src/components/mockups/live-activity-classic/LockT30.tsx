@@ -1,4 +1,4 @@
-import { colors, fonts, data, FontLink, Starfield, LockScreenChrome } from './_tokens';
+import { colors, fonts, data, FontLink, SunHorizon, HorizonGlow, LockScreenChrome } from './_tokens';
 
 export function LockT30() {
   return (
@@ -18,33 +18,34 @@ export function LockT30() {
           alignItems: 'center',
           padding: '24px',
           boxSizing: 'border-box',
+          border: `1px solid ${colors.amberHot}`,
+          boxShadow: `inset 0 0 0 1px ${colors.amberHot}55, 0 0 24px ${colors.amberHot}30`,
         }}
       >
-        <Starfield />
-        
-        {/* Crescent */}
-        <svg width="16" height="16" viewBox="0 0 24 24" style={{ position: 'absolute', top: 20, right: 24, fill: colors.alert, opacity: 0.8 }}>
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-        </svg>
+        <HorizonGlow color={colors.amberHot} opacity={0.40} />
+        <div style={{ position: 'absolute', top: 18, right: 22 }}>
+          <SunHorizon color={colors.amberHot} size={18} opacity={1} />
+        </div>
 
         <div style={{
           fontFamily: fonts.fraunces,
           fontSize: 56,
           fontWeight: 400,
-          color: colors.alert,
+          color: colors.amberHot,
           fontFeatureSettings: '"tnum"',
           lineHeight: 1.1,
-          marginBottom: 12
+          marginBottom: 12,
+          position: 'relative',
         }}>
           30s
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, position: 'relative' }}>
           <span style={{ fontFamily: fonts.sans, fontSize: 20, fontWeight: 500, color: colors.text }}>{data.prayerEn}</span>
-          <span style={{ fontFamily: fonts.arabic, fontSize: 22, color: colors.alert, opacity: 0.9 }}>{data.prayerAr}</span>
+          <span style={{ fontFamily: fonts.arabic, fontSize: 22, color: colors.amberHot, opacity: 0.95 }}>{data.prayerAr}</span>
         </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, opacity: 0.6 }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, opacity: 0.6, position: 'relative' }}>
           <span style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.text }}>{data.location}</span>
           <span style={{ color: colors.text }}>•</span>
           <span style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.text }}>{data.hijri}</span>

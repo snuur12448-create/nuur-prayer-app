@@ -1,4 +1,4 @@
-import { NotchContext, tokens } from './_shared';
+import { NotchContext, NuurGlyph, tokens } from './_shared';
 
 export function DICompact() {
   return (
@@ -25,7 +25,7 @@ export function DICompact() {
           justifyContent: 'center',
           padding: '0 14px',
         }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: tokens.gold }} />
+          <NuurGlyph size={16} color={tokens.gold} />
         </div>
         
         {/* Trailing */}

@@ -1,4 +1,4 @@
-import { LockScreenContext, tokens } from './_shared';
+import { LockScreenContext, NuurMark, tokens } from './_shared';
 
 export function LockT10() {
   return (
@@ -14,7 +14,11 @@ export function LockT10() {
         justifyContent: 'center',
         border: `1px solid ${tokens.border}`,
         boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+        position: 'relative',
       }}>
+        <div style={{ position: 'absolute', top: 12, right: 16 }}>
+          <NuurMark size={9} color={tokens.amber} opacity={0.6} />
+        </div>
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -69,7 +73,7 @@ export function LockT10() {
           }}>
             <span>London, UK</span>
             <span style={{ opacity: 0.5 }}>•</span>
-            <span>12 Shawwal 1445</span>
+            <span>18 Dhū al-Qaʿdah 1446</span>
           </div>
         </div>
       </div>
