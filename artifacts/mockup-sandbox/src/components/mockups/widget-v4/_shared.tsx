@@ -308,16 +308,33 @@ export function CountdownText({ state, skin, size = 38, color }: { state: State;
   );
 }
 
-/** Per-state glyph sizing/position — bigger and lower as urgency rises.
- *  `top` is computed so the glyph sits roughly centered in the (now much taller) sky band. */
-function glyphForState(state: State): { size: number; top: number; right: number; intensity: number } {
+/** Per-state glyph sizing + arc-fraction (0 = left horizon, 0.5 = apex, 1 = right horizon).
+ *  Implies time progression along the dashed arc WITHOUT animation — each snapshot
+ *  freezes the body at the right point on its journey to the next prayer. */
+function glyphForState(state: State): { size: number; intensity: number; arcT: number } {
   switch (state) {
-    case 'normal': return { size: 24, top: 18, right: 16, intensity: 1.0 };
-    case 't10':    return { size: 26, top: 22, right: 16, intensity: 1.05 };
-    case 't1':     return { size: 30, top: 26, right: 18, intensity: 1.15 };
-    case 't30':    return { size: 36, top: 30, right: 20, intensity: 1.25 };
-    case 't0':     return { size: 44, top: 38, right: 22, intensity: 1.35 };
+    // Day: sun starts past apex (mid-afternoon) and slides right-down toward horizon as Asr nears.
+    case 'normal': return { size: 24, intensity: 1.0,  arcT: 0.55 };
+    case 't30':    return { size: 30, intensity: 1.10, arcT: 0.68 };
+    case 't10':    return { size: 32, intensity: 1.15, arcT: 0.78 };
+    case 't1':     return { size: 36, intensity: 1.20, arcT: 0.86 };
+    case 't0':     return { size: 44, intensity: 1.35, arcT: 0.92 };
   }
+}
+
+/** Glyph position along the *visible* sky band curve.
+ *  The dashed arc in SkyBand is a shallow slice of a huge circle whose true apex
+ *  sits far above the visible band — so we use a clean inverted parabola that
+ *  hugs what the eye actually reads as the horizon-to-horizon path:
+ *    t = 0   → low-left  (~70% down the band)
+ *    t = 0.5 → apex      (~15% down the band, just below top edge)
+ *    t = 1   → low-right (~70% down the band)
+ *  Returns position in card pixels, ready to place the glyph centered. */
+function arcPoint(width: number, skyH: number, t: number): { x: number; y: number } {
+  const x = width * (0.08 + 0.84 * t);
+  const k = 2 * t - 1;                    // -1 at left, 0 at apex, +1 at right
+  const y = skyH * (0.15 + 0.55 * k * k); // inverted parabola
+  return { x, y };
 }
 
 /** The actual Live Activity card body. Reused across LA + DI Expanded + Home Medium. */
@@ -350,12 +367,27 @@ export function LiveActivityCard({ state, skin, width = 358, height = 160 }: { s
       <SkyBand skin={skin} state={state} />
       <GoldCornerGlow opacity={ringed ? 0.85 : 0.55} />
 
-      {/* sky-band celestial icon — scales + drops with urgency */}
-      <div style={{ position: 'absolute', top: g.top, right: g.right, zIndex: 2 }}>
-        {skin === 'day'
-          ? <SunGlyph size={g.size} intensity={g.intensity} />
-          : <MoonGlyph size={g.size} intensity={g.intensity} cutColor={getSkyHorizon(skin, state)} />}
-      </div>
+      {/* sky-band celestial icon — sits ON the dashed arc at a per-state fraction.
+       *  As urgency rises the body slides further along the arc toward the horizon
+       *  (sun setting / moon descending toward dawn) — same trick as the in-app dome,
+       *  frozen at the right snapshot per state. */}
+      {(() => {
+        const sky = getSkyHeight(state);
+        const pt = arcPoint(width, sky, g.arcT);
+        return (
+          <div style={{
+            position: 'absolute',
+            left: pt.x - g.size / 2,
+            top: pt.y - g.size / 2,
+            zIndex: 2,
+            pointerEvents: 'none',
+          }}>
+            {skin === 'day'
+              ? <SunGlyph size={g.size} intensity={g.intensity} />
+              : <MoonGlyph size={g.size} intensity={g.intensity} cutColor={getSkyHorizon(skin, state)} />}
+          </div>
+        );
+      })()}
 
       {/* content */}
       {isT0 ? (
