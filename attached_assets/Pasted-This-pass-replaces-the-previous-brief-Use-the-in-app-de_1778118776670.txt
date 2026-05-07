@@ -1,0 +1,51 @@
+This pass replaces the previous brief. Use the in-app design system as ground truth — widgets must feel like a continuation of the prayer card the user already knows.
+
+GROUND TRUTH (pull from the Nuur codebase, do not invent):
+- Card background: the dark green-tinted surface used on the NOW · IN PROGRESS prayer card
+- Primary accent: the gold token used for "Mark prayed" and active states
+- Text: cream/warm-white primary, dimmed cream secondary
+- Type: Fraunces serif for numerals and headlines, Manrope for labels, Amiri / KFGQPC for Arabic
+- Celestial glyphs: replicate the in-app sun (soft radial halo, warm core) and crescent moon (dark circle within a larger glow) — do not redraw from scratch
+
+THE CARD IS THE CONSTANT
+Across every surface, every time-state, every theme, the widget should read as the in-app prayer card scaled to widget size: same dark green background, same gold accent on the countdown, same English + Arabic prayer-name pairing, same restraint. No new ornamentation.
+
+TIME-OF-DAY RESPONSIVENESS (the only variable layer)
+The sky band at the top edge of each widget AND the leading celestial icon shift based on actual current time, mirroring the in-app arc:
+
+1. Pre-dawn (last third → before Fajr): deep navy/purple band, crescent setting, cool
+2. Dawn / Sunrise: warming horizon, rising sun, pink-to-amber gradient
+3. Midday (Dhuhr → mid Asr): bright blue band with subtle warm horizon hint, sun glyph high
+4. Golden hour (late Asr → Maghrib): orange-amber gradient, sun lowering
+5. Night (Isha → Tahajjud window): deep purple-navy, crescent risen, stars
+
+Countdown, prayer name, card chrome do NOT change between time states. Only the sky band and the celestial icon.
+
+THEME OVERRIDE
+If the user has selected Gold (default), Slate, or Burgundy, restyle the card accent + verse text colour accordingly. Sky band stays true to actual time. Theme overrides accent only.
+
+SURFACES TO PRODUCE (one direction only — drop Classic/Mosque/Minimal):
+- Lock Screen Live Activity (~390×160 pt)
+- Dynamic Island Compact (~6 chars per side)
+- Dynamic Island Expanded (~390×160 pt)
+- Dynamic Island Minimal (single tiny glyph)
+- Home Widget Small (2×2)
+- Home Widget Medium (4×2)
+- Home Widget Large (4×4)
+
+STATES TO MOCK FOR THE LIVE ACTIVITY:
+- Normal countdown (e.g. "3h 22m to Maghrib")
+- T-10m (warm amber accent intensifies)
+- T-1m ("1m", accent saturated)
+- T-30s ("30s" — no leading "0m")
+- T-0 ("Time for Maghrib" + "حان وقت المغرب")
+
+To prove the system, render each state under TWO time-of-day skins: a midday skin (user checking at 1pm awaiting Asr) and a night skin (user checking at 10pm awaiting Tahajjud or Fajr).
+
+BUG FIXES TO BUNDLE IN:
+- Dynamic Island Compact: never split a unit. Use "3h" or "23m" alone, never "h 22m"
+- Sub-1-minute states: drop the leading "0m" prefix
+- Home Widget Medium: use "SUNRISE 05:30" not "Shuruq 05:30" to match in-app convention
+- Use the in-app crescent for night, in-app sun for day — don't introduce stars-and-moons or other generic Islamic clipart
+
+The result should feel like the in-app prayer card has stepped onto the home screen — faithful to what the user already loves.
