@@ -8,7 +8,7 @@ export function LockT30() {
         style={{
           width: 390,
           height: 170,
-          backgroundColor: '#1f1605',
+          backgroundColor: colors.bg,
           borderRadius: 32,
           position: 'relative',
           overflow: 'hidden',
@@ -20,27 +20,34 @@ export function LockT30() {
           boxSizing: 'border-box',
         }}
       >
-        <Starfield opacity={0.8} />
+        <Starfield />
         
-        <svg width="16" height="16" viewBox="0 0 24 24" style={{ position: 'absolute', top: 20, right: 24, fill: colors.alert, opacity: 1 }}>
+        {/* Crescent */}
+        <svg width="16" height="16" viewBox="0 0 24 24" style={{ position: 'absolute', top: 20, right: 24, fill: colors.alert, opacity: 0.8 }}>
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
         </svg>
 
         <div style={{
           fontFamily: fonts.fraunces,
-          fontSize: 64,
-          fontWeight: 500,
+          fontSize: 56,
+          fontWeight: 400,
           color: colors.alert,
           fontFeatureSettings: '"tnum"',
-          lineHeight: 1,
-          marginBottom: 12,
+          lineHeight: 1.1,
+          marginBottom: 12
         }}>
-          0m 30s
+          30s
         </div>
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
           <span style={{ fontFamily: fonts.sans, fontSize: 20, fontWeight: 500, color: colors.text }}>{data.prayerEn}</span>
-          <span style={{ fontFamily: fonts.arabic, fontSize: 22, color: colors.alert, opacity: 1 }}>{data.prayerAr}</span>
+          <span style={{ fontFamily: fonts.arabic, fontSize: 22, color: colors.alert, opacity: 0.9 }}>{data.prayerAr}</span>
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, opacity: 0.6 }}>
+          <span style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.text }}>{data.location}</span>
+          <span style={{ color: colors.text }}>•</span>
+          <span style={{ fontFamily: fonts.sans, fontSize: 13, color: colors.text }}>{data.hijri}</span>
         </div>
       </div>
     </LockScreenChrome>

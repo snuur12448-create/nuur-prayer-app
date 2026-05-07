@@ -1,5 +1,5 @@
 import React from 'react';
-import { COLORS, FONTS, PhoneFrame, MosqueOrnament } from './_shared';
+import { COLORS, FONTS, PhoneFrame, CrescentGraphic } from './_shared';
 
 export function DICompact() {
   return (
@@ -24,13 +24,13 @@ export function DICompact() {
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          <MosqueOrnament color={COLORS.gold} size={16} opacity={0.9} />
+          <CrescentGraphic color={COLORS.gold} size={16} opacity={0.9} />
         </div>
         
         {/* Trailing Pill */}
         <div style={{
           height: 36,
-          padding: '0 12px',
+          padding: '0 14px',
           backgroundColor: '#000',
           borderRadius: 18,
           display: 'flex',
@@ -38,8 +38,6 @@ export function DICompact() {
           gap: 6
         }}>
           <span style={{ color: COLORS.gold, fontSize: 14, fontWeight: 500, fontFamily: FONTS.countdown, fontFeatureSettings: '"tnum"' }}>23m</span>
-          <span style={{ color: COLORS.gold, fontSize: 14, opacity: 0.5 }}>·</span>
-          <span style={{ color: COLORS.text, fontSize: 16, fontFamily: FONTS.arabic, lineHeight: 1, paddingBottom: 2 }}>م</span>
         </div>
       </div>
     </PhoneFrame>

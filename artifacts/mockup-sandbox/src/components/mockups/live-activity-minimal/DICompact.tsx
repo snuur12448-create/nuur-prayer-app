@@ -44,7 +44,7 @@ export function DICompact() {
             fontSize: 15,
             fontWeight: 500,
             color: tokens.gold,
-          }}>3h 22m</span>
+          }}>3h</span>
         </div>
       </div>
     </NotchContext>

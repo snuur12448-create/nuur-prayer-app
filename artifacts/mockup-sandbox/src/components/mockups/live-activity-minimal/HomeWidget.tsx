@@ -15,6 +15,7 @@ export function HomeWidget() {
         position: 'relative',
         boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
         border: `1px solid ${tokens.border}`,
+        overflow: 'hidden',
       }}>
         <div style={{
           position: 'absolute',
@@ -24,39 +25,53 @@ export function HomeWidget() {
           height: '100%',
           backgroundColor: tokens.gold,
         }} />
-        
+
         <div style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          flexWrap: 'wrap',
+          gap: 8,
+        }}>
+          <span style={{
+            fontFamily: tokens.fontEn,
+            fontSize: 20,
+            fontWeight: 500,
+            color: tokens.text,
+            letterSpacing: '-0.01em',
+          }}>Maghrib</span>
+          <span style={{
+            fontFamily: tokens.fontAr,
+            fontSize: 18,
+            color: tokens.text,
+          }}>المغرب</span>
+          <span style={{
+            color: tokens.gold,
+            fontSize: 18,
+            margin: '0 2px',
+          }}>·</span>
+          <span style={{
+            fontFamily: tokens.fontCountdown,
+            fontFeatureSettings: '"tnum"',
+            fontSize: 32,
+            fontWeight: 500,
+            color: tokens.text,
+            letterSpacing: '-0.02em',
+            lineHeight: 1,
+          }}>3h 22m</span>
+        </div>
+
+        <div style={{
+          marginTop: 14,
           fontFamily: tokens.fontEn,
-          fontSize: 18,
-          fontWeight: 500,
-          color: tokens.textDim,
-          marginBottom: 4,
-          letterSpacing: '-0.01em',
-        }}>
-          Maghrib
-        </div>
-        
-        <div style={{
-          fontFamily: tokens.fontCountdown,
-          fontFeatureSettings: '"tnum"',
-          fontSize: 42,
-          fontWeight: 500,
-          color: tokens.text,
-          lineHeight: 1.1,
-          letterSpacing: '-0.02em',
-        }}>
-          3h 22m
-        </div>
-        
-        <div style={{
-          fontFamily: tokens.fontAr,
-          fontSize: 14,
+          fontSize: 13,
           color: tokens.textMute,
-          position: 'absolute',
-          top: 24,
-          right: 24,
+          display: 'flex',
+          gap: 6,
+          alignItems: 'center',
         }}>
-          المغرب
+          <span>London, UK</span>
+          <span style={{ opacity: 0.5 }}>•</span>
+          <span>18 Dhū al-Qaʿdah 1446</span>
         </div>
       </div>
     </HomeScreenContext>

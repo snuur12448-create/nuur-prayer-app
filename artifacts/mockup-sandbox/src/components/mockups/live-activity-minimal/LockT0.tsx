@@ -1,6 +1,6 @@
 import { LockScreenContext, tokens } from './_shared';
 
-export function LockT30() {
+export function LockT0() {
   return (
     <LockScreenContext>
       <div style={{
@@ -19,43 +19,27 @@ export function LockT30() {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          width: '100%'
+          width: '100%',
+          gap: 4,
         }}>
           <div style={{
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'baseline',
             justifyContent: 'center',
-            gap: 8,
+            gap: 10,
           }}>
             <span style={{
               fontFamily: tokens.fontEn,
-              fontSize: 24,
-              fontWeight: 500,
-              color: tokens.text,
+              fontSize: 22,
+              fontWeight: 600,
+              color: tokens.gold,
               letterSpacing: '-0.01em',
-            }}>Maghrib</span>
+            }}>Time for Maghrib</span>
             <span style={{
               fontFamily: tokens.fontAr,
               fontSize: 20,
-              color: tokens.text,
-              paddingTop: 2,
-            }}>المغرب</span>
-            
-            <div style={{
-              width: 4,
-              height: 4,
-              borderRadius: '50%',
-              backgroundColor: tokens.alert,
-              margin: '0 4px',
-            }} />
-            
-            <span style={{
-              fontFamily: tokens.fontCountdown,
-              fontFeatureSettings: '"tnum"',
-              fontSize: 28,
-              fontWeight: 500,
-              color: tokens.alert,
-            }}>30s</span>
+              color: tokens.gold,
+            }}>حان وقت المغرب</span>
           </div>
 
           <div style={{
@@ -69,7 +53,7 @@ export function LockT30() {
           }}>
             <span>London, UK</span>
             <span style={{ opacity: 0.5 }}>•</span>
-            <span>12 Shawwal 1445</span>
+            <span>18 Dhū al-Qaʿdah 1446</span>
           </div>
         </div>
       </div>

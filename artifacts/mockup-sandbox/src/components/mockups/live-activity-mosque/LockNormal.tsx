@@ -1,5 +1,5 @@
 import React from 'react';
-import { COLORS, FONTS, DATA, PhoneFrame, Starfield, MosqueOrnament, CrescentGraphic } from './_shared';
+import { COLORS, FONTS, DATA, PhoneFrame, Starfield, CrescentGraphic, RubElHizb } from './_shared';
 
 export function LockNormal() {
   return (
@@ -20,11 +20,11 @@ export function LockNormal() {
         fontFamily: FONTS.sans
       }}>
         <Starfield />
+        <RubElHizb opacity={0.12} />
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <CrescentGraphic color={COLORS.gold} size={20} />
-            <MosqueOrnament color={COLORS.gold} size={10} opacity={0.8} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             <span style={{ color: COLORS.textMute, fontSize: 13, fontWeight: 500 }}>{DATA.location}</span>
@@ -37,9 +37,10 @@ export function LockNormal() {
             <div style={{ color: COLORS.gold, fontSize: 48, fontWeight: 500, fontFamily: FONTS.countdown, fontFeatureSettings: '"tnum"', lineHeight: 1 }}>
               3h 22m
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-              <span style={{ color: COLORS.text, fontSize: 22, fontWeight: 600 }}>{DATA.prayerEn}</span>
-              <span style={{ color: COLORS.text, fontSize: 24, fontFamily: FONTS.arabic }}>{DATA.prayerAr}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ color: COLORS.text, fontSize: 24, fontWeight: 600 }}>{DATA.prayerEn}</span>
+              <span style={{ width: 1, height: 20, backgroundColor: COLORS.gold, opacity: 0.5 }}></span>
+              <span style={{ color: COLORS.text, fontSize: 24, fontWeight: 600, fontFamily: FONTS.arabic, paddingTop: 4 }}>{DATA.prayerAr}</span>
             </div>
           </div>
           

@@ -1,5 +1,5 @@
 import React from 'react';
-import { COLORS, FONTS, DATA, PhoneFrame, Starfield, MosqueOrnament } from './_shared';
+import { COLORS, FONTS, DATA, PhoneFrame, Starfield, CrescentGraphic, RubElHizb } from './_shared';
 
 export function DIExpanded() {
   return (
@@ -20,9 +20,10 @@ export function DIExpanded() {
         fontFamily: FONTS.sans
       }}>
         <Starfield />
+        <RubElHizb opacity={0.12} />
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 2 }}>
-          <MosqueOrnament color={COLORS.gold} size={24} opacity={0.8} />
+          <CrescentGraphic color={COLORS.gold} size={24} opacity={0.8} />
           
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <div style={{ color: COLORS.gold, fontSize: 40, fontWeight: 500, fontFamily: FONTS.countdown, fontFeatureSettings: '"tnum"', lineHeight: 1 }}>
@@ -35,7 +36,7 @@ export function DIExpanded() {
           
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             <span style={{ color: COLORS.text, fontSize: 20, fontWeight: 600 }}>{DATA.prayerEn}</span>
-            <span style={{ color: COLORS.text, fontSize: 22, fontFamily: FONTS.arabic }}>{DATA.prayerAr}</span>
+            <span style={{ color: COLORS.text, fontSize: 22, fontWeight: 600, fontFamily: FONTS.arabic }}>{DATA.prayerAr}</span>
           </div>
         </div>
       </div>

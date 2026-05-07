@@ -106,6 +106,18 @@ export function MosqueOrnament({ color = COLORS.gold, opacity = 1, size = 16 }: 
   );
 }
 
+export function RubElHizb({ opacity = 0.12, size = 180, color = COLORS.gold }: { opacity?: number, size?: number, color?: string }) {
+  return (
+    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', opacity, pointerEvents: 'none' }}>
+      <svg width={size} height={size} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="40" y="40" width="120" height="120" stroke={color} strokeWidth="4" />
+        <rect x="40" y="40" width="120" height="120" transform="rotate(45 100 100)" stroke={color} strokeWidth="4" />
+        <circle cx="100" cy="100" r="25" stroke={color} strokeWidth="4" />
+      </svg>
+    </div>
+  );
+}
+
 export function CrescentGraphic({ color = COLORS.text, opacity = 0.8, size = 24 }: { color?: string, opacity?: number, size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={{ opacity }}>

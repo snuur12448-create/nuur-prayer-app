@@ -17,41 +17,60 @@ export function LockT10() {
       }}>
         <div style={{
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          gap: 12,
+          width: '100%'
         }}>
-          <span style={{
-            fontFamily: tokens.fontEn,
-            fontSize: 24,
-            fontWeight: 500,
-            color: tokens.text,
-            letterSpacing: '-0.01em',
-          }}>Maghrib</span>
-          
           <div style={{
-            width: 4,
-            height: 4,
-            borderRadius: '50%',
-            backgroundColor: tokens.amber,
-          }} />
-          
-          <span style={{
-            fontFamily: tokens.fontCountdown,
-            fontFeatureSettings: '"tnum"',
-            fontSize: 28,
-            fontWeight: 500,
-            color: tokens.amber,
-          }}>10m</span>
-        </div>
-        
-        <div style={{
-          marginTop: 6,
-          fontFamily: tokens.fontAr,
-          fontSize: 16,
-          color: tokens.textDim,
-          opacity: 0.8,
-        }}>
-          المغرب
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}>
+            <span style={{
+              fontFamily: tokens.fontEn,
+              fontSize: 24,
+              fontWeight: 500,
+              color: tokens.text,
+              letterSpacing: '-0.01em',
+            }}>Maghrib</span>
+            <span style={{
+              fontFamily: tokens.fontAr,
+              fontSize: 20,
+              color: tokens.text,
+              paddingTop: 2,
+            }}>المغرب</span>
+            
+            <div style={{
+              width: 4,
+              height: 4,
+              borderRadius: '50%',
+              backgroundColor: tokens.amber,
+              margin: '0 4px',
+            }} />
+            
+            <span style={{
+              fontFamily: tokens.fontCountdown,
+              fontFeatureSettings: '"tnum"',
+              fontSize: 28,
+              fontWeight: 500,
+              color: tokens.amber,
+            }}>10m</span>
+          </div>
+
+          <div style={{
+            marginTop: 6,
+            fontFamily: tokens.fontEn,
+            fontSize: 14,
+            color: tokens.textDim,
+            display: 'flex',
+            gap: 6,
+            alignItems: 'center'
+          }}>
+            <span>London, UK</span>
+            <span style={{ opacity: 0.5 }}>•</span>
+            <span>12 Shawwal 1445</span>
+          </div>
         </div>
       </div>
     </LockScreenContext>

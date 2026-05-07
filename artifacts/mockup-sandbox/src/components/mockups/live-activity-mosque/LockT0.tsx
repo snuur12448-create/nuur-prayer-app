@@ -1,7 +1,7 @@
 import React from 'react';
 import { COLORS, FONTS, DATA, PhoneFrame, Starfield, CrescentGraphic, RubElHizb } from './_shared';
 
-export function LockT30() {
+export function LockT0() {
   return (
     <PhoneFrame type="lock">
       <div style={{
@@ -13,19 +13,19 @@ export function LockT30() {
         position: 'relative',
         overflow: 'hidden',
         border: `1px solid ${COLORS.border}`,
-        boxShadow: `inset 0 0 0 1px rgba(255,210,74,0.2), 0 16px 32px rgba(0,0,0,0.5)`,
+        boxShadow: `inset 0 0 0 1px rgba(245,197,66,0.5), 0 16px 32px rgba(0,0,0,0.5)`,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         fontFamily: FONTS.sans
       }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 100% 100%, rgba(255,210,74,0.15) 0%, transparent 70%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 100% 100%, rgba(245,197,66,0.2) 0%, transparent 70%)' }} />
         <Starfield />
-        <RubElHizb opacity={0.12} color={COLORS.alert} />
+        <RubElHizb opacity={0.15} color={COLORS.gold} />
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <CrescentGraphic color={COLORS.alert} size={20} />
+            <CrescentGraphic color={COLORS.gold} size={20} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             <span style={{ color: COLORS.textMute, fontSize: 13, fontWeight: 500 }}>{DATA.location}</span>
@@ -35,13 +35,11 @@ export function LockT30() {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', position: 'relative', zIndex: 2 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ color: COLORS.alert, fontSize: 48, fontWeight: 500, fontFamily: FONTS.countdown, fontFeatureSettings: '"tnum"', lineHeight: 1 }}>
-              30s
+            <div style={{ color: COLORS.gold, fontSize: 32, fontWeight: 600, fontFamily: FONTS.sans, lineHeight: 1.2 }}>
+              Time for Maghrib
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ color: COLORS.text, fontSize: 24, fontWeight: 600 }}>{DATA.prayerEn}</span>
-              <span style={{ width: 1, height: 20, backgroundColor: COLORS.alert, opacity: 0.5 }}></span>
-              <span style={{ color: COLORS.text, fontSize: 24, fontWeight: 600, fontFamily: FONTS.arabic, paddingTop: 4 }}>{DATA.prayerAr}</span>
+            <div style={{ color: COLORS.gold, fontSize: 24, fontWeight: 600, fontFamily: FONTS.arabic, paddingTop: 4 }}>
+              حان وقت المغرب
             </div>
           </div>
           

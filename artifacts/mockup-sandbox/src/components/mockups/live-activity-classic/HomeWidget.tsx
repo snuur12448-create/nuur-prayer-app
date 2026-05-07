@@ -60,7 +60,7 @@ export function HomeWidget() {
             <span style={{ fontFamily: fonts.sans, fontSize: 13, fontWeight: 500, color: colors.text }}>03:15</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.text, opacity: 0.5 }}>Shuruq</span>
+            <span style={{ fontFamily: fonts.sans, fontSize: 11, color: colors.text, opacity: 0.5 }}>SUNRISE</span>
             <span style={{ fontFamily: fonts.sans, fontSize: 13, fontWeight: 500, color: colors.text }}>05:30</span>
           </div>
         </div>
