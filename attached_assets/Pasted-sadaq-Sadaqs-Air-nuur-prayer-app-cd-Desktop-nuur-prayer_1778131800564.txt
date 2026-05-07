@@ -1,0 +1,30 @@
+sadaq@Sadaqs-Air nuur-prayer-app % cd ~/Desktop/nuur-prayer-app
+git pull origin main
+ls artifacts/islamic-prayer/native/NuurShared/
+remote: Enumerating objects: 20, done.
+remote: Counting objects: 100% (20/20), done.
+remote: Compressing objects: 100% (10/10), done.
+remote: Total 16 (delta 5), reused 16 (delta 5), pack-reused 0 (from 0)
+Unpacking objects: 100% (16/16), 6.21 KiB | 373.00 KiB/s, done.
+From https://github.com/snuur12448-create/nuur-prayer-app
+ * branch            main       -> FETCH_HEAD
+   1d7458d..0bd3d53  main       -> origin/main
+Updating 1d7458d..0bd3d53
+Fast-forward
+ artifacts/islamic-prayer/native/NuurShared/ArcMath.swift                    | 22 +++++++++++
+ artifacts/islamic-prayer/native/NuurShared/Glyphs.swift                     | 74 +++++++++++++++++++++++++++++++++++++
+ artifacts/islamic-prayer/native/NuurShared/NuurState.swift                  | 56 ++++++++++++++++++++++++++++
+ artifacts/islamic-prayer/native/NuurShared/NuurTheme.swift                  | 35 ++++++++++++++++++
+ artifacts/islamic-prayer/native/NuurShared/README.md                        | 31 ++++++++++++++++
+ artifacts/islamic-prayer/native/NuurShared/SkyPalette.swift                 | 56 ++++++++++++++++++++++++++++
+ ...adaq-Sadaqs-Air-nuur-prayer-app-cd-Desktop-nuur-prayer_1778131630409.txt | 36 ++++++++++++++++++
+ 7 files changed, 310 insertions(+)
+ create mode 100644 artifacts/islamic-prayer/native/NuurShared/ArcMath.swift
+ create mode 100644 artifacts/islamic-prayer/native/NuurShared/Glyphs.swift
+ create mode 100644 artifacts/islamic-prayer/native/NuurShared/NuurState.swift
+ create mode 100644 artifacts/islamic-prayer/native/NuurShared/NuurTheme.swift
+ create mode 100644 artifacts/islamic-prayer/native/NuurShared/README.md
+ create mode 100644 artifacts/islamic-prayer/native/NuurShared/SkyPalette.swift
+ create mode 100644 attached_assets/Pasted-sadaq-Sadaqs-Air-nuur-prayer-app-cd-Desktop-nuur-prayer_1778131630409.txt
+ArcMath.swift		NuurState.swift		README.md
+Glyphs.swift		NuurTheme.swift		SkyPalette.swift
