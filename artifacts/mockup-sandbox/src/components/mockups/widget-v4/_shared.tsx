@@ -321,7 +321,7 @@ function glyphForState(state: State): { size: number; top: number; right: number
 }
 
 /** The actual Live Activity card body. Reused across LA + DI Expanded + Home Medium. */
-export function LiveActivityCard({ state, skin, width = 358, height = 132 }: { state: State; skin: Skin; width?: number; height?: number }) {
+export function LiveActivityCard({ state, skin, width = 358, height = 160 }: { state: State; skin: Skin; width?: number; height?: number }) {
   const d = DATA[skin];
   const accentColor = accent(state);
   // border glow ONLY on T-1 and T-30 per refinement brief
@@ -383,25 +383,49 @@ export function LiveActivityCard({ state, skin, width = 358, height = 132 }: { s
         </div>
       ) : (
         // ── Standard countdown layout ──
-        <div style={{ position: 'absolute', inset: 0, padding: '14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', zIndex: 3 }}>
-          <div style={{
-            fontSize: 9, letterSpacing: 2, fontFamily: F.sans, fontWeight: 700,
-            color: accentColor, marginBottom: 4,
-          }}>
-            {eyebrow(state, skin)}
+        // All content anchored to the BOTTOM of the card so it sits in the dark
+        // surface area below the faded sky band (eyebrow legibility fix).
+        // Right column stacks LOCATION · HIJRI DATE · PRAYER TIME.
+        <div style={{
+          position: 'absolute', inset: 0,
+          padding: '14px 16px',
+          display: 'flex', flexDirection: 'row',
+          alignItems: 'flex-end', justifyContent: 'space-between',
+          gap: 12, zIndex: 3,
+        }}>
+          {/* Left column: eyebrow + countdown + prayer name */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
+            <div style={{
+              fontSize: 9, letterSpacing: 2, fontFamily: F.sans, fontWeight: 700,
+              color: accentColor, marginBottom: 4,
+            }}>
+              {eyebrow(state, skin)}
+            </div>
+            <CountdownText state={state} skin={skin} size={38} color={ringed ? accentColor : T.text} />
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2 }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: T.text, fontFamily: F.sans, letterSpacing: '-0.01em' }}>{d.prayerEn}</span>
+              <span style={{ fontSize: 15, color: accentColor, fontFamily: F.arabic }}>{d.prayerAr}</span>
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <CountdownText state={state} skin={skin} size={38} color={ringed ? accentColor : T.text} />
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: T.text, fontFamily: F.sans, letterSpacing: '-0.01em' }}>{d.prayerEn}</span>
-                <span style={{ fontSize: 15, color: accentColor, fontFamily: F.arabic }}>{d.prayerAr}</span>
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, paddingBottom: 4 }}>
-              <span style={{ fontSize: 9, letterSpacing: 1.5, color: T.textSecondary, fontFamily: F.sans, fontWeight: 700 }}>AT</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: T.text, fontFamily: F.sans }}>{d.nextAt}</span>
-            </div>
+
+          {/* Right column: location · hijri · prayer time, stacked & right-aligned */}
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
+            gap: 5, paddingBottom: 2, flexShrink: 0,
+          }}>
+            <span style={{
+              fontSize: 9, letterSpacing: 1.4, color: T.textSecondary,
+              fontFamily: F.sans, fontWeight: 700, textTransform: 'uppercase',
+            }}>{d.location}</span>
+            <span style={{
+              fontSize: 9, letterSpacing: 0.8, color: T.textMute,
+              fontFamily: F.sans, fontWeight: 600,
+            }}>{d.hijri}</span>
+            <span style={{
+              fontSize: 17, fontWeight: 600, color: T.text,
+              fontFamily: F.serif, letterSpacing: '-0.01em', marginTop: 2,
+              fontVariantNumeric: 'tabular-nums',
+            }}>{d.nextAt}</span>
           </div>
         </div>
       )}
