@@ -164,7 +164,7 @@ export function getSkyHorizon(skin: Skin, state: State): string {
   return paletteForState(skin, state)[0]; // top-of-sky color, used by glyph cut
 }
 
-export function SkyBand({ skin, state, height, radius = 22 }: { skin: Skin; state: State; height?: number; radius?: number }) {
+export function SkyBand({ skin, state = 'normal', height, radius = 22 }: { skin: Skin; state?: State; height?: number; radius?: number }) {
   const h = height ?? skyHeightForState(state);
   const p = paletteForState(skin, state);
   // Long fade: 4 in-app stops in the top 70%, then a soft 30% fade to transparent
