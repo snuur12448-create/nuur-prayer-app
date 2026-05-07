@@ -95,28 +95,96 @@ export function MoonGlyph({ size = 22, opacity = 1, cutColor = T.surface, intens
   );
 }
 
-/** Sky band — saturates with urgency. Day deepens toward sunset; night deepens toward dawn. */
-const DAY_SKY: Record<State, string> = {
-  normal: 'linear-gradient(180deg, #5BA8D6 0%, #8BBFD8 50%, #C49060 92%, transparent 100%)',
-  t10:    'linear-gradient(180deg, #5994C2 0%, #B0916C 55%, #D89858 92%, transparent 100%)',
-  t1:     'linear-gradient(180deg, #5A7AA6 0%, #C68250 55%, #E89C4A 92%, transparent 100%)',
-  t30:    'linear-gradient(180deg, #6A4F7A 0%, #C46850 45%, #E8A040 92%, transparent 100%)',
-  t0:     'linear-gradient(180deg, #5C3B6A 0%, #C25A48 40%, #E89040 75%, #F0B860 100%)',
-};
+/** Exact in-app SKY palettes (from artifacts/islamic-prayer/components/home/constants.ts).
+ *  Each palette is 4 hex stops applied at locations [0, 0.4, 0.8, 1] in the in-app dome. */
+const SKY_PALETTE = {
+  fajr:    ['#06081C', '#0E0F2A', '#2D1A3A', '#4A2A3E'],
+  sunrise: ['#1A2B4A', '#3D4F70', '#A87B5A', '#E4A579'],
+  dhuhr:   ['#1B3A5E', '#3A6B9E', '#7BB0DC', '#B5DBED'],
+  asr:     ['#2A2545', '#5A3E5A', '#A06840', '#D89055'],
+  maghrib: ['#1A1530', '#3A1F2E', '#7A3826', '#C26835'],
+  isha:    ['#02030E', '#060820', '#0A0E2A', '#101638'],
+} as const;
 
-const NIGHT_SKY: Record<State, string> = {
-  normal: 'linear-gradient(180deg, #1B1F4D 0%, #2A2670 55%, #4A2A6A 92%, transparent 100%)',
-  t10:    'linear-gradient(180deg, #1F1F50 0%, #45295E 55%, #6A3A5A 92%, transparent 100%)',
-  t1:     'linear-gradient(180deg, #281E58 0%, #5C2C5C 50%, #8A4055 92%, transparent 100%)',
-  t30:    'linear-gradient(180deg, #2A2055 0%, #6A3458 40%, #B25A50 92%, transparent 100%)',
-  t0:     'linear-gradient(180deg, #2C2255 0%, #7B3A55 35%, #C26048 70%, #DC8A52 100%)',
-};
+function hexToRgb(h: string): [number, number, number] {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h.trim());
+  if (!m) return [0, 0, 0];
+  return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+}
+function mixHex(a: string, b: string, t: number): string {
+  const [r1, g1, b1] = hexToRgb(a);
+  const [r2, g2, b2] = hexToRgb(b);
+  const c = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  return `#${c(r1 + (r2 - r1) * t)}${c(g1 + (g2 - g1) * t)}${c(b1 + (b2 - b1) * t)}`;
+}
+function mixPalette(a: readonly string[], b: readonly string[], t: number): string[] {
+  return a.map((c, i) => mixHex(c, b[i], t));
+}
+function rgba(hex: string, a: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+/** Map (skin, state) → blended in-app palette + horizon hint.
+ *  Day: current=Dhuhr, next=Asr. Cascade dhuhr → asr (urgency = sun lowering).
+ *  Night: current=Isha, next=Fajr. Cascade isha → fajr (urgency = pre-dawn warming). */
+function paletteForState(skin: Skin, state: State): string[] {
+  if (skin === 'day') {
+    switch (state) {
+      case 'normal': return [...SKY_PALETTE.dhuhr];
+      case 't30':    return mixPalette(SKY_PALETTE.dhuhr, SKY_PALETTE.asr, 0.35);
+      case 't10':    return mixPalette(SKY_PALETTE.dhuhr, SKY_PALETTE.asr, 0.7);
+      case 't1':     return [...SKY_PALETTE.asr];
+      case 't0':     return mixPalette(SKY_PALETTE.asr, SKY_PALETTE.maghrib, 0.35);
+    }
+  }
+  switch (state) {
+    case 'normal': return [...SKY_PALETTE.isha];
+    case 't30':    return mixPalette(SKY_PALETTE.isha, SKY_PALETTE.fajr, 0.4);
+    case 't10':    return mixPalette(SKY_PALETTE.isha, SKY_PALETTE.fajr, 0.75);
+    case 't1':     return [...SKY_PALETTE.fajr];
+    case 't0':     return mixPalette(SKY_PALETTE.fajr, SKY_PALETTE.sunrise, 0.35);
+  }
+}
+
+/** Per-state sky-band height. Tall enough to feel like the in-app dome but
+ *  fades to transparent in its lower third so it bleeds into the card body — matches user reference IMG_8208-8215. */
+function skyHeightForState(state: State): number {
+  switch (state) {
+    case 'normal': return 62;
+    case 't10':    return 68;
+    case 't1':     return 74;
+    case 't30':    return 80;
+    case 't0':     return 102;
+  }
+}
+
+export function getSkyHeight(state: State): number { return skyHeightForState(state); }
+export function getSkyHorizon(skin: Skin, state: State): string {
+  return paletteForState(skin, state)[0]; // top-of-sky color, used by glyph cut
+}
 
 export function SkyBand({ skin, state, height, radius = 22 }: { skin: Skin; state: State; height?: number; radius?: number }) {
-  // intense states get a taller band so the celestial glyph can sit lower in it
-  const h = height ?? (state === 't0' ? 56 : state === 't30' ? 48 : 30);
-  const grad = (skin === 'day' ? DAY_SKY : NIGHT_SKY)[state];
-  const showStars = skin === 'night' && (state === 'normal' || state === 't10');
+  const h = height ?? skyHeightForState(state);
+  const p = paletteForState(skin, state);
+  // Long fade: 4 in-app stops in the top 70%, then a soft 30% fade to transparent
+  // so the sky bleeds into the card surface — NO hard horizon line.
+  const grad = `linear-gradient(180deg,
+    ${p[0]} 0%,
+    ${p[1]} 28%,
+    ${p[2]} 50%,
+    ${p[3]} 68%,
+    ${rgba(p[3], 0.55)} 82%,
+    ${rgba(p[3], 0.2)} 92%,
+    ${rgba(p[3], 0)} 100%)`;
+  const showStars = skin === 'night' && (state === 'normal' || state === 't10' || state === 't30');
+  // Dashed arc reference (echo in-app CelestialDome strokeDasharray="2 5")
+  const arcColor = skin === 'day' ? 'rgba(255,228,181,0.22)' : 'rgba(201,212,240,0.20)';
+  // Arc geometry: span the full width, sag ~ 0.55 of band height
+  const arcW = 358;
+  const arcSag = h * 0.55;
+  const arcCy = h * 0.92; // arc center sits below band so we see only the upper crown
+  const arcR = arcSag / 2 + (arcW * arcW) / (8 * arcSag);
   return (
     <div
       style={{
@@ -125,17 +193,34 @@ export function SkyBand({ skin, state, height, radius = 22 }: { skin: Skin; stat
         background: grad,
         borderTopLeftRadius: radius,
         borderTopRightRadius: radius,
-        opacity: state === 't0' ? 0.95 : 0.88,
         pointerEvents: 'none',
       }}
     >
+      {/* Subtle dashed arc — same dash pattern as in-app CelestialDome */}
+      <svg
+        width="100%"
+        height={h}
+        viewBox={`0 0 ${arcW} ${h}`}
+        preserveAspectRatio="none"
+        style={{ position: 'absolute', inset: 0, opacity: 0.85 }}
+      >
+        <path
+          d={`M ${arcW * 0.04} ${arcCy} A ${arcR} ${arcR} 0 0 1 ${arcW * 0.96} ${arcCy}`}
+          fill="none"
+          stroke={arcColor}
+          strokeWidth={1}
+          strokeDasharray="2 5"
+        />
+      </svg>
       {showStars && (
-        <svg width="100%" height={h} viewBox="0 0 300 30" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0 }}>
-          <circle cx="40" cy="8" r="0.8" fill="#fff" opacity="0.55" />
-          <circle cx="80" cy="14" r="0.6" fill="#fff" opacity="0.4" />
-          <circle cx="160" cy="6" r="0.7" fill="#fff" opacity="0.5" />
-          <circle cx="220" cy="11" r="0.5" fill="#fff" opacity="0.35" />
-          <circle cx="270" cy="9" r="0.6" fill="#fff" opacity="0.45" />
+        <svg width="100%" height={h} viewBox={`0 0 300 ${h}`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0 }}>
+          <circle cx="40"  cy={h * 0.18} r="0.8" fill="#DCE8FF" opacity="0.6" />
+          <circle cx="80"  cy={h * 0.32} r="0.6" fill="#DCE8FF" opacity="0.4" />
+          <circle cx="120" cy={h * 0.12} r="0.5" fill="#DCE8FF" opacity="0.5" />
+          <circle cx="160" cy={h * 0.22} r="0.7" fill="#DCE8FF" opacity="0.55" />
+          <circle cx="200" cy={h * 0.36} r="0.5" fill="#DCE8FF" opacity="0.4" />
+          <circle cx="220" cy={h * 0.16} r="0.6" fill="#DCE8FF" opacity="0.5" />
+          <circle cx="270" cy={h * 0.28} r="0.7" fill="#DCE8FF" opacity="0.55" />
         </svg>
       )}
     </div>
@@ -223,14 +308,15 @@ export function CountdownText({ state, skin, size = 38, color }: { state: State;
   );
 }
 
-/** Per-state glyph sizing/position — bigger and lower as urgency rises. */
+/** Per-state glyph sizing/position — bigger and lower as urgency rises.
+ *  `top` is computed so the glyph sits roughly centered in the (now much taller) sky band. */
 function glyphForState(state: State): { size: number; top: number; right: number; intensity: number } {
   switch (state) {
-    case 'normal': return { size: 22, top: 4,  right: 14, intensity: 1.0 };
-    case 't10':    return { size: 24, top: 4,  right: 14, intensity: 1.05 };
-    case 't1':     return { size: 26, top: 5,  right: 14, intensity: 1.15 };
-    case 't30':    return { size: 32, top: 8,  right: 16, intensity: 1.25 };
-    case 't0':     return { size: 38, top: 9,  right: 18, intensity: 1.35 };
+    case 'normal': return { size: 24, top: 18, right: 16, intensity: 1.0 };
+    case 't10':    return { size: 26, top: 22, right: 16, intensity: 1.05 };
+    case 't1':     return { size: 30, top: 26, right: 18, intensity: 1.15 };
+    case 't30':    return { size: 36, top: 30, right: 20, intensity: 1.25 };
+    case 't0':     return { size: 44, top: 38, right: 22, intensity: 1.35 };
   }
 }
 
@@ -242,7 +328,7 @@ export function LiveActivityCard({ state, skin, width = 358, height = 132 }: { s
   const ringed = state === 't1' || state === 't30';
   const isT0 = state === 't0';
   // T-0 needs more vertical room for the ceremonial layout
-  const h = isT0 ? Math.max(height, 156) : height;
+  const h = isT0 ? Math.max(height, 178) : height;
   const g = glyphForState(state);
 
   return (
@@ -268,14 +354,14 @@ export function LiveActivityCard({ state, skin, width = 358, height = 132 }: { s
       <div style={{ position: 'absolute', top: g.top, right: g.right, zIndex: 2 }}>
         {skin === 'day'
           ? <SunGlyph size={g.size} intensity={g.intensity} />
-          : <MoonGlyph size={g.size} intensity={g.intensity} cutColor={isT0 ? '#7B3A55' : '#1B1F4D'} />}
+          : <MoonGlyph size={g.size} intensity={g.intensity} cutColor={getSkyHorizon(skin, state)} />}
       </div>
 
       {/* content */}
       {isT0 ? (
         // ── Ceremonial T-0 layout: centered, no countdown, no AT-time, no location ──
         <div style={{
-          position: 'absolute', inset: 0, paddingTop: 60, paddingBottom: 18,
+          position: 'absolute', inset: 0, paddingTop: 96, paddingBottom: 14,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           textAlign: 'center', zIndex: 3,
         }}>
