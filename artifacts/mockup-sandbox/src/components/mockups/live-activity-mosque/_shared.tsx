@@ -106,13 +106,51 @@ export function MosqueOrnament({ color = COLORS.gold, opacity = 1, size = 16 }: 
   );
 }
 
-export function RubElHizb({ opacity = 0.12, size = 180, color = COLORS.gold }: { opacity?: number, size?: number, color?: string }) {
+export function NuurHalo({ opacity = 0.14, size = 200, color = COLORS.gold }: { opacity?: number, size?: number, color?: string }) {
+  const cx = 100;
+  const cy = 100;
+  const rays = Array.from({ length: 16 }, (_, i) => {
+    const angle = (i * 360) / 16;
+    const long = i % 2 === 0;
+    const inner = 42;
+    const outer = long ? 92 : 72;
+    const rad = (angle * Math.PI) / 180;
+    const x1 = cx + inner * Math.cos(rad);
+    const y1 = cy + inner * Math.sin(rad);
+    const x2 = cx + outer * Math.cos(rad);
+    const y2 = cy + outer * Math.sin(rad);
+    return (
+      <line
+        key={i}
+        x1={x1}
+        y1={y1}
+        x2={x2}
+        y2={y2}
+        stroke={color}
+        strokeWidth={long ? 1.6 : 1}
+        strokeLinecap="round"
+        opacity={long ? 1 : 0.55}
+      />
+    );
+  });
+
   return (
     <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', opacity, pointerEvents: 'none' }}>
       <svg width={size} height={size} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="40" y="40" width="120" height="120" stroke={color} strokeWidth="4" />
-        <rect x="40" y="40" width="120" height="120" transform="rotate(45 100 100)" stroke={color} strokeWidth="4" />
-        <circle cx="100" cy="100" r="25" stroke={color} strokeWidth="4" />
+        <defs>
+          <radialGradient id="nuurGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={color} stopOpacity="0.55" />
+            <stop offset="55%" stopColor={color} stopOpacity="0.12" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx={cx} cy={cy} r="90" fill="url(#nuurGlow)" />
+        {rays}
+        <circle cx={cx} cy={cy} r="38" stroke={color} strokeWidth="1.2" opacity="0.7" />
+        <path
+          d="M118 78c-3-2-7-3-11-3-13 0-23 10-23 23s10 23 23 23c4 0 8-1 11-3-9-2-16-10-16-20s7-18 16-20z"
+          fill={color}
+        />
       </svg>
     </div>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { COLORS, FONTS, DATA, PhoneFrame, Starfield, RubElHizb } from './_shared';
+import { COLORS, FONTS, DATA, PhoneFrame, Starfield, NuurHalo } from './_shared';
 
 export function HomeWidget() {
   return (
@@ -22,7 +22,7 @@ export function HomeWidget() {
       }}>
         <Starfield />
         
-        <RubElHizb opacity={0.12} />
+        <NuurHalo opacity={0.14} />
 
         <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ color: COLORS.gold, fontSize: 42, fontWeight: 500, fontFamily: FONTS.countdown, fontFeatureSettings: '"tnum"', lineHeight: 1 }}>

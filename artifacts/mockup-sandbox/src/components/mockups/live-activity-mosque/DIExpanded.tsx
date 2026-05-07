@@ -1,5 +1,5 @@
 import React from 'react';
-import { COLORS, FONTS, DATA, PhoneFrame, Starfield, CrescentGraphic, RubElHizb } from './_shared';
+import { COLORS, FONTS, DATA, PhoneFrame, Starfield, CrescentGraphic, NuurHalo } from './_shared';
 
 export function DIExpanded() {
   return (
@@ -20,7 +20,7 @@ export function DIExpanded() {
         fontFamily: FONTS.sans
       }}>
         <Starfield />
-        <RubElHizb opacity={0.12} />
+        <NuurHalo opacity={0.14} />
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 2 }}>
           <CrescentGraphic color={COLORS.gold} size={24} opacity={0.8} />

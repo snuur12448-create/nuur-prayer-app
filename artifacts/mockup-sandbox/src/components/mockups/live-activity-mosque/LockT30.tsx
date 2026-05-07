@@ -1,5 +1,5 @@
 import React from 'react';
-import { COLORS, FONTS, DATA, PhoneFrame, Starfield, CrescentGraphic, RubElHizb } from './_shared';
+import { COLORS, FONTS, DATA, PhoneFrame, Starfield, CrescentGraphic, NuurHalo } from './_shared';
 
 export function LockT30() {
   return (
@@ -21,7 +21,7 @@ export function LockT30() {
       }}>
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 100% 100%, rgba(255,210,74,0.15) 0%, transparent 70%)' }} />
         <Starfield />
-        <RubElHizb opacity={0.12} color={COLORS.alert} />
+        <NuurHalo opacity={0.20} color={COLORS.alert} />
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
