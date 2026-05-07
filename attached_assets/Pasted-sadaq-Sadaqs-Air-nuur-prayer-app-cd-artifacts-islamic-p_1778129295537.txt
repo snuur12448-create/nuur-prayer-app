@@ -1,0 +1,83 @@
+sadaq@Sadaqs-Air nuur-prayer-app % cd artifacts/islamic-prayer
+sadaq@Sadaqs-Air islamic-prayer % pnpm install
+Scope: all 9 workspace projects
+../..                                    |    +1139 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[WARN] Tarball download average speed 34 KiB/s (size 42 KiB) is below 50 KiB/s: https://registry.npmjs.org/@expo/config/-/config-12.0.13.tgz (GET)vips-darwin-arm64@1.2.4: 1.34 MB/7.64 MB
+[WARN] Tarball download average speed 43 KiB/s (size 49 KiB) is below 50 KiB/s: https://registry.npmjs.org/json5/-/json5-2.2.3.tgz (GET)/sharp-libvips-darwin-arm64@1.2.4: 1.34 MB/7.64 MB
+[WARN] Tarball download average speed 8 KiB/s (size 10 KiB) is below 50 KiB/s: https://registry.npmjs.org/@babel/code-frame/-/code-frame-7.29.0.tgz (GET)rwin-arm64@1.2.4: 1.34 MB/7.64 MB
+[WARN] Tarball download average speed 28 KiB/s (size 29 KiB) is below 50 KiB/s: https://registry.npmjs.org/xcode/-/xcode-3.0.1.tgz (GET)/sharp-libvips-darwin-arm64@1.2.4: 1.57 MB/7.64 MB
+[WARN] Tarball download average speed 32 KiB/s (size 53 KiB) is below 50 KiB/s: https://registry.npmjs.org/hermes-estree/-/hermes-estree-0.32.0.tgz (GET)rwin-arm64@1.2.4: 2.21 MB/7.64 MB
+[WARN] 4 other warnings
+Downloading @img/sharp-libvips-darwin-arm64@1.2.4: 7.64 MB/7.64 MB, done
+Downloading @expo/ngrok-bin-darwin-arm64@2.3.41: 13.56 MB/13.56 MB, done
+Downloading react-native@0.81.5: 24.76 MB/24.76 MB, done
+../..                                    | Progress: resolved 1139, reused 0, downloaded 1113, added 1139, done
+
+dependencies:
++ @expo-google-fonts/amiri-quran 0.4.1
++ @expo-google-fonts/cormorant-garamond 0.4.1
++ @expo/cli 54.0.23
++ @nkzw/create-context-hook 1.1.0
++ @shopify/flash-list 2.0.2
++ adhan 4.4.3
++ expo 54.0.33
++ expo-av 16.0.8
++ expo-build-properties 55.0.13
++ expo-clipboard 8.0.8
++ expo-media-library 18.2.1
++ expo-notifications 0.32.16
++ expo-sharing 14.0.8
++ expo-store-review 9.0.9
++ react 19.1.0
++ react-native 0.81.5
++ react-native-maps 1.20.1
++ react-native-purchases 9.7.2
++ react-native-track-player 4.1.2
++ react-native-view-shot 4.0.3
+
+devDependencies:
++ @babel/core 7.29.0
++ @expo-google-fonts/inter 0.4.2
++ @expo/ngrok 4.1.3
++ @expo/vector-icons 15.1.1
++ @react-native-async-storage/async-storage 2.2.0
++ @stardazed/streams-text-encoding 1.0.2
++ @tanstack/react-query 5.90.21
++ @types/react 19.1.17
++ @types/react-dom 19.1.11
++ @ungap/structured-clone 1.3.0
++ babel-plugin-react-compiler 19.0.0-beta-ebf51a3-20250411
++ expo-blur 15.0.8
++ expo-constants 18.0.13
++ expo-font 14.0.11
++ expo-glass-effect 0.1.9
++ expo-haptics 15.0.8
++ expo-image 3.0.11
++ expo-image-picker 17.0.10
++ expo-linear-gradient 15.0.8
++ expo-linking 8.0.11
++ expo-location 19.0.8
++ expo-router 6.0.23
++ expo-splash-screen 31.0.13
++ expo-status-bar 3.0.9
++ expo-symbols 1.0.8
++ expo-system-ui 6.0.9
++ expo-web-browser 15.0.10
++ react-dom 19.1.0
++ react-native-gesture-handler 2.28.0
++ react-native-keyboard-controller 1.20.7
++ react-native-reanimated 4.1.6
++ react-native-safe-area-context 5.6.2
++ react-native-screens 4.16.0
++ react-native-svg 15.12.1
++ react-native-web 0.21.2
++ react-native-worklets 0.5.1
++ typescript 5.9.3
++ zod 3.25.76
++ zod-validation-error 3.5.4
+
+../.. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use …
+│ Use pnpm instead
+└─ Failed in 23ms at /Users/sadaq/Desktop/nuur-prayer-app
+[ELIFECYCLE] Command failed with exit code 1.
+sadaq@Sadaqs-Air islamic-prayer % 
