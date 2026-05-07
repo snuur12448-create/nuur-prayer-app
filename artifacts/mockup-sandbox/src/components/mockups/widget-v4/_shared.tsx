@@ -311,7 +311,7 @@ export function CountdownText({ state, skin, size = 38, color }: { state: State;
 /** Per-state glyph sizing + arc-fraction (0 = left horizon, 0.5 = apex, 1 = right horizon).
  *  Implies time progression along the dashed arc WITHOUT animation — each snapshot
  *  freezes the body at the right point on its journey to the next prayer. */
-function glyphForState(state: State): { size: number; intensity: number; arcT: number } {
+export function glyphForState(state: State): { size: number; intensity: number; arcT: number } {
   switch (state) {
     // Day: sun starts past apex (mid-afternoon) and slides right-down toward horizon as Asr nears.
     case 'normal': return { size: 24, intensity: 1.0,  arcT: 0.55 };
@@ -330,7 +330,7 @@ function glyphForState(state: State): { size: number; intensity: number; arcT: n
  *    t = 0.5 → apex      (~15% down the band, just below top edge)
  *    t = 1   → low-right (~70% down the band)
  *  Returns position in card pixels, ready to place the glyph centered. */
-function arcPoint(width: number, skyH: number, t: number): { x: number; y: number } {
+export function arcPoint(width: number, skyH: number, t: number): { x: number; y: number } {
   const x = width * (0.08 + 0.84 * t);
   const k = 2 * t - 1;                    // -1 at left, 0 at apex, +1 at right
   const y = skyH * (0.15 + 0.55 * k * k); // inverted parabola

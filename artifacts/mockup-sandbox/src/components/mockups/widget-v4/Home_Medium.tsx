@@ -1,11 +1,13 @@
-import { HomeChrome, T, F, DATA, SkyBand, SunGlyph, GoldCornerGlow } from './_shared';
+import { HomeChrome, T, F, DATA, SkyBand, SunGlyph, GoldCornerGlow, arcPoint } from './_shared';
 
 export function Home_Medium() {
   const d = DATA.day;
+  const W = 338, SKY_H = 46, GLYPH = 22, ARC_T = 0.55;
+  const pt = arcPoint(W, SKY_H, ARC_T);
   return (
     <HomeChrome skin="day" height={400}>
       <div style={{
-        width: 338, height: 158,
+        width: W, height: 158,
         backgroundColor: T.surface,
         borderRadius: 22,
         border: `0.5px solid ${T.border}`,
@@ -15,10 +17,10 @@ export function Home_Medium() {
         boxShadow: '0 8px 14px rgba(0,0,0,0.3)',
         display: 'flex',
       }}>
-        <SkyBand skin="day" height={30} />
+        <SkyBand skin="day" state="normal" height={SKY_H} />
         <GoldCornerGlow />
-        <div style={{ position: 'absolute', top: 6, right: 14, zIndex: 2 }}>
-          <SunGlyph size={22} />
+        <div style={{ position: 'absolute', left: pt.x - GLYPH / 2, top: pt.y - GLYPH / 2, zIndex: 2, pointerEvents: 'none' }}>
+          <SunGlyph size={GLYPH} />
         </div>
 
         {/* Left: countdown */}

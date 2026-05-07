@@ -1,7 +1,9 @@
-import { HomeChrome, T, F, DATA, SkyBand, SunGlyph, MoonGlyph, GoldCornerGlow } from './_shared';
+import { HomeChrome, T, F, DATA, SkyBand, SunGlyph, MoonGlyph, GoldCornerGlow, arcPoint } from './_shared';
 
 export function Home_Large() {
   const d = DATA.day;
+  const W = 338, SKY_H = 60, GLYPH = 26, ARC_T = 0.55;
+  const pt = arcPoint(W, SKY_H, ARC_T);
   const allPrayers = [
     { en: 'Fajr', ar: 'الفجر', time: '03:15', glyph: 'moon' as const, dim: true },
     { en: 'Sunrise', ar: 'الشروق', time: '05:30', glyph: 'sun' as const, dim: true },
@@ -13,7 +15,7 @@ export function Home_Large() {
   return (
     <HomeChrome skin="day" height={560}>
       <div style={{
-        width: 338, height: 338,
+        width: W, height: 338,
         backgroundColor: T.surface,
         borderRadius: 22,
         border: `0.5px solid ${T.border}`,
@@ -22,10 +24,10 @@ export function Home_Large() {
         fontFamily: F.sans,
         boxShadow: '0 10px 18px rgba(0,0,0,0.35)',
       }}>
-        <SkyBand skin="day" height={36} />
+        <SkyBand skin="day" state="normal" height={SKY_H} />
         <GoldCornerGlow size={180} />
-        <div style={{ position: 'absolute', top: 8, right: 16, zIndex: 2 }}>
-          <SunGlyph size={26} />
+        <div style={{ position: 'absolute', left: pt.x - GLYPH / 2, top: pt.y - GLYPH / 2, zIndex: 2, pointerEvents: 'none' }}>
+          <SunGlyph size={GLYPH} />
         </div>
 
         {/* Hero: TO ASR / countdown */}

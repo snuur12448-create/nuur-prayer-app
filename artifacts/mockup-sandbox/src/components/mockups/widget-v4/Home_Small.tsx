@@ -1,11 +1,13 @@
-import { HomeChrome, T, F, DATA, SkyBand, SunGlyph, GoldCornerGlow } from './_shared';
+import { HomeChrome, T, F, DATA, SkyBand, SunGlyph, GoldCornerGlow, arcPoint, getSkyHorizon } from './_shared';
 
 export function Home_Small() {
   const d = DATA.day;
+  const W = 158, SKY_H = 44, GLYPH = 20, ARC_T = 0.55;
+  const pt = arcPoint(W, SKY_H, ARC_T);
   return (
     <HomeChrome skin="day" height={400}>
       <div style={{
-        width: 158, height: 158,
+        width: W, height: 158,
         backgroundColor: T.surface,
         borderRadius: 22,
         border: `0.5px solid ${T.border}`,
@@ -14,10 +16,10 @@ export function Home_Small() {
         fontFamily: F.sans,
         boxShadow: '0 8px 14px rgba(0,0,0,0.3)',
       }}>
-        <SkyBand skin="day" height={28} />
+        <SkyBand skin="day" state="normal" height={SKY_H} />
         <GoldCornerGlow size={120} />
-        <div style={{ position: 'absolute', top: 5, right: 8, zIndex: 2 }}>
-          <SunGlyph size={20} />
+        <div style={{ position: 'absolute', left: pt.x - GLYPH / 2, top: pt.y - GLYPH / 2, zIndex: 2, pointerEvents: 'none' }}>
+          <SunGlyph size={GLYPH} />
         </div>
 
         <div style={{ position: 'absolute', inset: 0, padding: '14px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', zIndex: 3 }}>
