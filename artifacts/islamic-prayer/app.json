@@ -16,7 +16,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.nuur.islamicprayer",
       "entitlements": {
-        "com.apple.developer.usernotifications.time-sensitive": true
+        "com.apple.developer.usernotifications.time-sensitive": true,
+        "com.apple.security.application-groups": [
+          "group.com.nuur.shared"
+        ]
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Nuur uses your location to calculate accurate prayer times, determine your Qibla direction, and find nearby mosques.",
@@ -26,7 +29,9 @@
         "UIBackgroundModes": [
           "audio"
         ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true,
+        "NSSupportsLiveActivitiesFrequentUpdates": true
       }
     },
     "android": {
@@ -87,6 +92,14 @@
           "photosPermission": "Nuur saves Quranic verse cards you share to your Camera Roll.",
           "savePhotosPermission": "Nuur saves Quranic verse cards you share to your Camera Roll.",
           "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.2"
+          }
         }
       ]
     ],
