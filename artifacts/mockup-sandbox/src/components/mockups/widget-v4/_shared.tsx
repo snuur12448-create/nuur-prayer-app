@@ -57,65 +57,80 @@ export const DATA: Record<Skin, {
 
 /** Sun glyph — replicates in-app CelestialDome: outer gold halo + warm-cream core. */
 export function SunGlyph({ size = 22, opacity = 1, intensity = 1 }: { size?: number; opacity?: number; intensity?: number }) {
-  const id = `sg-${size}-${Math.round(intensity * 100)}`;
+  const id = `sg-${size}-${Math.round(intensity * 100)}-${Math.random().toString(36).slice(2, 6)}`;
   const cx = 12, cy = 12;
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: 'block', opacity }}>
       <defs>
         <radialGradient id={id} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#FFE9A8" stopOpacity={0.95 * intensity} />
-          <stop offset="55%" stopColor={T.gold} stopOpacity={0.45 * intensity} />
+          <stop offset="0%" stopColor="#FFE9A8" stopOpacity={Math.min(0.95 * intensity, 1)} />
+          <stop offset="55%" stopColor={T.gold} stopOpacity={Math.min(0.5 * intensity, 0.9)} />
           <stop offset="100%" stopColor={T.gold} stopOpacity={0} />
         </radialGradient>
       </defs>
-      <circle cx={cx} cy={cy} r={11} fill={`url(#${id})`} />
-      <circle cx={cx} cy={cy} r={5.5} fill="#FFF1C4" opacity={0.88} />
-      <circle cx={cx} cy={cy} r={3.2} fill="#FFE9A8" />
+      <circle cx={cx} cy={cy} r={11.5} fill={`url(#${id})`} />
+      <circle cx={cx} cy={cy} r={5.8} fill="#FFF1C4" opacity={0.92} />
+      <circle cx={cx} cy={cy} r={3.4} fill="#FFE9A8" />
     </svg>
   );
 }
 
 /** Moon glyph — replicates in-app CelestialDomeNight: cool halo + cream core + offset crescent cut. */
-export function MoonGlyph({ size = 22, opacity = 1, cutColor = T.surface }: { size?: number; opacity?: number; cutColor?: string }) {
-  const id = `mg-${size}-${cutColor.replace('#', '')}`;
+export function MoonGlyph({ size = 22, opacity = 1, cutColor = T.surface, intensity = 1 }: { size?: number; opacity?: number; cutColor?: string; intensity?: number }) {
+  const id = `mg-${size}-${cutColor.replace('#', '')}-${Math.random().toString(36).slice(2, 6)}`;
   const cx = 12, cy = 12;
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: 'block', opacity }}>
       <defs>
         <radialGradient id={id} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#E8EEFF" stopOpacity="0.85" />
-          <stop offset="60%" stopColor="#9FB6E0" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#9FB6E0" stopOpacity="0" />
+          <stop offset="0%" stopColor="#F0E9D8" stopOpacity={Math.min(0.92 * intensity, 1)} />
+          <stop offset="55%" stopColor="#D8C7A0" stopOpacity={Math.min(0.32 * intensity, 0.8)} />
+          <stop offset="100%" stopColor="#D8C7A0" stopOpacity={0} />
         </radialGradient>
       </defs>
-      <circle cx={cx} cy={cy} r={11} fill={`url(#${id})`} />
-      <circle cx={cx} cy={cy} r={5.5} fill="#E8EEFF" />
-      <circle cx={cx - 1.8} cy={cy - 0.5} r={4.4} fill={cutColor} />
+      <circle cx={cx} cy={cy} r={11.5} fill={`url(#${id})`} />
+      <circle cx={cx} cy={cy} r={5.8} fill="#F0E9D8" />
+      <circle cx={cx - 2} cy={cy - 0.4} r={4.7} fill={cutColor} />
     </svg>
   );
 }
 
-/** Sky band — gradient strip at top of card. 'day' = bright blue with warm horizon hint; 'night' = deep purple-navy with starlight. */
-export function SkyBand({ skin, height = 30, radius = 22 }: { skin: Skin; height?: number; radius?: number }) {
-  const dayGrad = 'linear-gradient(180deg, #5BA8D6 0%, #8BBFD8 40%, #E8B07A 88%, transparent 100%)';
-  const nightGrad = 'linear-gradient(180deg, #1B1F4D 0%, #2A2670 50%, #4A2A6A 90%, transparent 100%)';
+/** Sky band — saturates with urgency. Day deepens toward sunset; night deepens toward dawn. */
+const DAY_SKY: Record<State, string> = {
+  normal: 'linear-gradient(180deg, #5BA8D6 0%, #8BBFD8 50%, #C49060 92%, transparent 100%)',
+  t10:    'linear-gradient(180deg, #5994C2 0%, #B0916C 55%, #D89858 92%, transparent 100%)',
+  t1:     'linear-gradient(180deg, #5A7AA6 0%, #C68250 55%, #E89C4A 92%, transparent 100%)',
+  t30:    'linear-gradient(180deg, #6A4F7A 0%, #C46850 45%, #E8A040 92%, transparent 100%)',
+  t0:     'linear-gradient(180deg, #5C3B6A 0%, #C25A48 40%, #E89040 75%, #F0B860 100%)',
+};
+
+const NIGHT_SKY: Record<State, string> = {
+  normal: 'linear-gradient(180deg, #1B1F4D 0%, #2A2670 55%, #4A2A6A 92%, transparent 100%)',
+  t10:    'linear-gradient(180deg, #1F1F50 0%, #45295E 55%, #6A3A5A 92%, transparent 100%)',
+  t1:     'linear-gradient(180deg, #281E58 0%, #5C2C5C 50%, #8A4055 92%, transparent 100%)',
+  t30:    'linear-gradient(180deg, #2A2055 0%, #6A3458 40%, #B25A50 92%, transparent 100%)',
+  t0:     'linear-gradient(180deg, #2C2255 0%, #7B3A55 35%, #C26048 70%, #DC8A52 100%)',
+};
+
+export function SkyBand({ skin, state, height, radius = 22 }: { skin: Skin; state: State; height?: number; radius?: number }) {
+  // intense states get a taller band so the celestial glyph can sit lower in it
+  const h = height ?? (state === 't0' ? 56 : state === 't30' ? 48 : 30);
+  const grad = (skin === 'day' ? DAY_SKY : NIGHT_SKY)[state];
+  const showStars = skin === 'night' && (state === 'normal' || state === 't10');
   return (
     <div
       style={{
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height,
-        background: skin === 'day' ? dayGrad : nightGrad,
+        top: 0, left: 0, right: 0, height: h,
+        background: grad,
         borderTopLeftRadius: radius,
         borderTopRightRadius: radius,
-        opacity: 0.85,
+        opacity: state === 't0' ? 0.95 : 0.88,
         pointerEvents: 'none',
       }}
     >
-      {skin === 'night' && (
-        <svg width="100%" height={height} viewBox="0 0 300 30" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0 }}>
+      {showStars && (
+        <svg width="100%" height={h} viewBox="0 0 300 30" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0 }}>
           <circle cx="40" cy="8" r="0.8" fill="#fff" opacity="0.55" />
           <circle cx="80" cy="14" r="0.6" fill="#fff" opacity="0.4" />
           <circle cx="160" cy="6" r="0.7" fill="#fff" opacity="0.5" />
@@ -208,66 +223,90 @@ export function CountdownText({ state, skin, size = 38, color }: { state: State;
   );
 }
 
+/** Per-state glyph sizing/position — bigger and lower as urgency rises. */
+function glyphForState(state: State): { size: number; top: number; right: number; intensity: number } {
+  switch (state) {
+    case 'normal': return { size: 22, top: 4,  right: 14, intensity: 1.0 };
+    case 't10':    return { size: 24, top: 4,  right: 14, intensity: 1.05 };
+    case 't1':     return { size: 26, top: 5,  right: 14, intensity: 1.15 };
+    case 't30':    return { size: 32, top: 8,  right: 16, intensity: 1.25 };
+    case 't0':     return { size: 38, top: 9,  right: 18, intensity: 1.35 };
+  }
+}
+
 /** The actual Live Activity card body. Reused across LA + DI Expanded + Home Medium. */
 export function LiveActivityCard({ state, skin, width = 358, height = 132 }: { state: State; skin: Skin; width?: number; height?: number }) {
   const d = DATA[skin];
   const accentColor = accent(state);
-  const intense = state === 't1' || state === 't30' || state === 't0';
+  // border glow ONLY on T-1 and T-30 per refinement brief
+  const ringed = state === 't1' || state === 't30';
+  const isT0 = state === 't0';
+  // T-0 needs more vertical room for the ceremonial layout
+  const h = isT0 ? Math.max(height, 156) : height;
+  const g = glyphForState(state);
+
   return (
     <div
       style={{
         width,
-        height,
+        height: h,
         backgroundColor: T.surface,
         borderRadius: 22,
         border: `0.5px solid ${T.border}`,
         position: 'relative',
         overflow: 'hidden',
         fontFamily: F.sans,
-        boxShadow: intense
+        boxShadow: ringed
           ? `0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px ${accentColor}55, 0 0 24px ${accentColor}33`
           : `0 8px 14px rgba(0,0,0,0.3)`,
       }}
     >
-      <SkyBand skin={skin} />
-      <GoldCornerGlow opacity={intense ? 0.85 : 0.55} />
+      <SkyBand skin={skin} state={state} />
+      <GoldCornerGlow opacity={ringed ? 0.85 : 0.55} />
 
-      {/* sky-band celestial icon */}
-      <div style={{ position: 'absolute', top: 6, right: 14, zIndex: 2 }}>
-        {skin === 'day' ? <SunGlyph size={22} intensity={state === 't0' ? 1.3 : 1} /> : <MoonGlyph size={22} cutColor={'#1B1F4D'} />}
+      {/* sky-band celestial icon — scales + drops with urgency */}
+      <div style={{ position: 'absolute', top: g.top, right: g.right, zIndex: 2 }}>
+        {skin === 'day'
+          ? <SunGlyph size={g.size} intensity={g.intensity} />
+          : <MoonGlyph size={g.size} intensity={g.intensity} cutColor={isT0 ? '#7B3A55' : '#1B1F4D'} />}
       </div>
 
       {/* content */}
-      <div style={{ position: 'absolute', inset: 0, padding: '14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', zIndex: 3 }}>
-        {/* eyebrow */}
+      {isT0 ? (
+        // ── Ceremonial T-0 layout: centered, no countdown, no AT-time, no location ──
         <div style={{
-          fontSize: 9,
-          letterSpacing: 2,
-          fontFamily: F.sans,
-          fontWeight: 700,
-          color: accentColor,
-          marginBottom: 4,
+          position: 'absolute', inset: 0, paddingTop: 60, paddingBottom: 18,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          textAlign: 'center', zIndex: 3,
         }}>
-          {eyebrow(state, skin)}
+          <div style={{
+            fontSize: 9, letterSpacing: 2, fontFamily: F.sans, fontWeight: 700,
+            color: accentColor, marginBottom: 10, opacity: 0.95,
+          }}>
+            {eyebrow(state, skin)}
+          </div>
+          <div style={{
+            fontFamily: F.serif, fontSize: 26, fontWeight: 500, fontStyle: 'italic',
+            color: T.text, letterSpacing: '-0.005em', lineHeight: 1.1, marginBottom: 4,
+          }}>
+            Time for {d.prayerEn}
+          </div>
+          <div style={{ fontFamily: F.arabic, fontSize: 22, color: accentColor, lineHeight: 1.15 }}>
+            حان وقت {d.prayerAr}
+          </div>
         </div>
-
-        {/* primary line: countdown OR T-0 bilingual */}
-        {state === 't0' ? (
-          <>
-            <div style={{ fontFamily: F.serif, fontSize: 24, fontWeight: 600, color: T.text, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
-              Time for Maghrib
-            </div>
-            <div style={{ fontFamily: F.arabic, fontSize: 18, color: accentColor, marginTop: 2, lineHeight: 1.1 }}>
-              حان وقت المغرب
-            </div>
-            <div style={{ fontSize: 11, color: T.textSecondary, fontFamily: F.sans, marginTop: 4 }}>
-              {d.location} · 18:42
-            </div>
-          </>
-        ) : (
+      ) : (
+        // ── Standard countdown layout ──
+        <div style={{ position: 'absolute', inset: 0, padding: '14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', zIndex: 3 }}>
+          <div style={{
+            fontSize: 9, letterSpacing: 2, fontFamily: F.sans, fontWeight: 700,
+            color: accentColor, marginBottom: 4,
+          }}>
+            {eyebrow(state, skin)}
+          </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <CountdownText state={state} skin={skin} size={38} color={intense ? accentColor : T.text} />
+              <CountdownText state={state} skin={skin} size={38} color={ringed ? accentColor : T.text} />
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2 }}>
                 <span style={{ fontSize: 16, fontWeight: 700, color: T.text, fontFamily: F.sans, letterSpacing: '-0.01em' }}>{d.prayerEn}</span>
                 <span style={{ fontSize: 15, color: accentColor, fontFamily: F.arabic }}>{d.prayerAr}</span>
@@ -278,8 +317,8 @@ export function LiveActivityCard({ state, skin, width = 358, height = 132 }: { s
               <span style={{ fontSize: 14, fontWeight: 600, color: T.text, fontFamily: F.sans }}>{d.nextAt}</span>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -290,7 +329,7 @@ export function LockChrome({ skin, children }: { skin: Skin; children: React.Rea
     ? 'radial-gradient(ellipse at 50% 100%, rgba(91,168,214,0.18) 0%, transparent 70%)'
     : 'radial-gradient(ellipse at 50% 100%, rgba(74,42,106,0.28) 0%, transparent 70%)';
   return (
-    <div style={{ width: 460, height: 420, backgroundColor: '#000', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div style={{ width: 460, height: 460, backgroundColor: '#000', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <FontLink />
       <div style={{ position: 'absolute', inset: 0, background: wallpaper, pointerEvents: 'none' }} />
       <div style={{ marginTop: 36, display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#fff', zIndex: 5 }}>

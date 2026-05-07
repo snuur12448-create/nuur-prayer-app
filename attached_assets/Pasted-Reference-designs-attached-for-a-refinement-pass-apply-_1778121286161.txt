@@ -1,0 +1,49 @@
+Reference designs attached for a refinement pass — apply these principles to the existing widgets, don't restart. The current build is structurally correct; only three things need upgrading, plus one bug.
+
+BUG TO FIX FIRST:
+The T-0 copy is hardcoded as "Time for Maghrib / حان وقت المغرب" across all states. Make it dynamic based on which prayer is arriving:
+- Fajr → Time for Fajr / حان وقت الفجر
+- Dhuhr → Time for Dhuhr / حان وقت الظهر
+- Asr → Time for Asr / حان وقت العصر
+- Maghrib → Time for Maghrib / حان وقت المغرب
+- Isha → Time for Isha / حان وقت العشاء
+
+REFINEMENT 1 — CELESTIAL GLYPHS IN THE SKY BAND
+The sky band is currently just a gradient. Add the actual brand mark, matching the in-app style:
+- Daytime: a soft sun — cream-gold radial halo (~35-50% opacity bloom), brighter cream core ~10-12px, positioned on the right side of the sky band
+- Nighttime: a crescent — cream-coloured disc with a darker disc offset to create the crescent shape, set inside a soft cream halo, same placement as the sun
+- Dynamic Island Compact: replace the generic gold dot in the leading pill with a tiny version of the same glyph (sun for day, crescent for night) at ~14-16px
+
+This is the most important fix. The brand mark IS the light, and right now it's missing from the surface users glance at most.
+
+REFINEMENT 2 — SKY SATURATES WITH URGENCY
+Currently Normal / T-10 / T-30 share the same sky. They should deepen as the prayer approaches:
+- Normal: calm sky for the time of day
+- T-10: sky begins warming — daytime gets an amber tint at the horizon, night gets a hint of pre-dawn pink
+- T-1: sky saturates further toward gold/sunset
+- T-30s: full golden-hour saturation, sun glyph appears larger and lower in the band
+- T-0: the most beautiful sky of the cycle (full sunset for day prayers, full dawn for Fajr)
+
+Urgency is signalled by the sky deepening, NOT by red borders or alarm chrome. Keep the subtle gold border glow on T-1 and T-30 only — pull it off the other states where it currently appears.
+
+REFINEMENT 3 — T-0 IS A DIFFERENT MODE
+Currently T-0 looks like a normal countdown card with the words swapped. Restructure as a quiet, ceremonial state:
+- Remove the "TO [PRAYER]" label
+- Remove the large countdown numerals
+- Remove the "AT [TIME]" stamp
+- Centre the layout vertically and horizontally
+- Italic Fraunces "Time for [Prayer]" at ~28px
+- Arabic "حان وقت [الصلاة]" stacked below at ~22px in soft gold
+- Optional small badge above with a glowing gold dot: "● NOW · TIME TO PRAY"
+- More breathing room than the other states — let the moment land
+
+This is the only state where the design fully releases tension. The restraint is the point.
+
+WHAT TO KEEP (don't change):
+- Dark green card background and gold accent system
+- Fraunces serif numerals + Manrope labels + Amiri Arabic
+- English + Arabic prayer-name pairing
+- The thin gold mini-bar/separator under the sky band — it's a beautiful unifying detail
+- The Home Widget Large prayer list with English + Arabic + times, current highlighted in gold
+- Dynamic Island Expanded layout with the camera notch cutout
+- "TO [PRAYER]" labels (keep your version, don't change to "Until")
