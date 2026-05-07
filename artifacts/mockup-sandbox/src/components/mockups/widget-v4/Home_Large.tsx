@@ -1,9 +1,12 @@
-import { HomeChrome, T, F, DATA, SkyBand, SunGlyph, MoonGlyph, GoldCornerGlow, arcPoint } from './_shared';
+import { HomeChrome, T, F, DATA, SkyBand, SunGlyph, MoonGlyph, GoldCornerGlow, arcPoint, glyphForState, accent, eyebrow, type State, type Skin } from './_shared';
 
-export function Home_Large() {
-  const d = DATA.day;
-  const W = 338, SKY_H = 60, GLYPH = 26, ARC_T = 0.55;
-  const pt = arcPoint(W, SKY_H, ARC_T);
+export function Home_Large({ state = 'normal', skin = 'day' }: { state?: State; skin?: Skin } = {}) {
+  const d = DATA[skin];
+  const g = glyphForState(state);
+  const W = 338, SKY_H = 60, GLYPH = 26;
+  const pt = arcPoint(W, SKY_H, g.arcT);
+  const eyebrowColor = accent(state);
+  const eyebrowText = eyebrow(state, skin);
   const allPrayers = [
     { en: 'Fajr', ar: 'الفجر', time: '03:15', glyph: 'moon' as const, dim: true },
     { en: 'Sunrise', ar: 'الشروق', time: '05:30', glyph: 'sun' as const, dim: true },
@@ -13,7 +16,7 @@ export function Home_Large() {
     { en: 'Isha', ar: 'العشاء', time: '20:15', glyph: 'moon' as const, dim: false },
   ];
   return (
-    <HomeChrome skin="day" height={560}>
+    <HomeChrome skin={skin} height={560}>
       <div style={{
         width: W, height: 338,
         backgroundColor: T.surface,
@@ -24,16 +27,16 @@ export function Home_Large() {
         fontFamily: F.sans,
         boxShadow: '0 10px 18px rgba(0,0,0,0.35)',
       }}>
-        <SkyBand skin="day" state="normal" height={SKY_H} />
+        <SkyBand skin={skin} state={state} height={SKY_H} />
         <GoldCornerGlow size={180} />
         <div style={{ position: 'absolute', left: pt.x - GLYPH / 2, top: pt.y - GLYPH / 2, zIndex: 2, pointerEvents: 'none' }}>
-          <SunGlyph size={GLYPH} />
+          {skin === 'day' ? <SunGlyph size={GLYPH} intensity={g.intensity} /> : <MoonGlyph size={GLYPH} intensity={g.intensity} />}
         </div>
 
         {/* Hero: TO ASR / countdown */}
         <div style={{ position: 'relative', zIndex: 3, padding: '14px 18px 12px' }}>
-          <div style={{ fontSize: 9, letterSpacing: 2, fontWeight: 700, color: T.gold, marginBottom: 4 }}>
-            {d.countdownLabel}
+          <div style={{ fontSize: 9, letterSpacing: 2, fontWeight: 700, color: eyebrowColor, marginBottom: 4 }}>
+            {eyebrowText}
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline' }}>
             <span style={{ fontFamily: F.serif, fontSize: 40, lineHeight: 1, color: T.text, letterSpacing: '-0.02em' }}>{d.countdownH}</span>
