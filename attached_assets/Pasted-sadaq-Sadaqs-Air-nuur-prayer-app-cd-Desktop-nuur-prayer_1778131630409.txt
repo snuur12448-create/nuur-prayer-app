@@ -1,0 +1,36 @@
+sadaq@Sadaqs-Air nuur-prayer-app % cd ~/Desktop/nuur-prayer-app
+git pull origin main
+remote: Enumerating objects: 41, done.
+remote: Counting objects: 100% (41/41), done.
+remote: Compressing objects: 100% (12/12), done.
+remote: Total 41 (delta 29), reused 41 (delta 29), pack-reused 0 (from 0)
+Unpacking objects: 100% (41/41), 19.33 MiB | 3.59 MiB/s, done.
+From https://github.com/snuur12448-create/nuur-prayer-app
+ * branch            main       -> FETCH_HEAD
+   35fa80d..1d7458d  main       -> origin/main
+Updating 35fa80d..1d7458d
+Fast-forward
+ attached_assets/IMG_8218_1778130451114.jpeg                                 | Bin 0 -> 2253621 bytes
+ ...Installing-node-dependency-fmt-Pouring-fmt-12-1-0-arm6_1778129182462.txt | 101 ++++++++++++++++++++++++++++++++++++
+ ...adaq-Sadaqs-Air-nuur-prayer-app-cd-artifacts-islamic-p_1778129295537.txt |  83 +++++++++++++++++++++++++++++
+ attached_assets/image_1778130551485.jpg                                     | Bin 0 -> 2271994 bytes
+ attached_assets/image_1778130593937.jpg                                     | Bin 0 -> 2254353 bytes
+ attached_assets/image_1778130687364.jpg                                     | Bin 0 -> 2596343 bytes
+ attached_assets/image_1778130840650.jpg                                     | Bin 0 -> 2366219 bytes
+ attached_assets/image_1778130881322.jpg                                     | Bin 0 -> 1962863 bytes
+ attached_assets/image_1778130895541.jpg                                     | Bin 0 -> 2196532 bytes
+ attached_assets/image_1778131313270.jpg                                     | Bin 0 -> 2188428 bytes
+ attached_assets/image_1778131373490.jpg                                     | Bin 0 -> 2310753 bytes
+ 11 files changed, 184 insertions(+)
+ create mode 100644 attached_assets/IMG_8218_1778130451114.jpeg
+ create mode 100644 attached_assets/Pasted--Installing-node-dependency-fmt-Pouring-fmt-12-1-0-arm6_1778129182462.txt
+ create mode 100644 attached_assets/Pasted-sadaq-Sadaqs-Air-nuur-prayer-app-cd-artifacts-islamic-p_1778129295537.txt
+ create mode 100644 attached_assets/image_1778130551485.jpg
+ create mode 100644 attached_assets/image_1778130593937.jpg
+ create mode 100644 attached_assets/image_1778130687364.jpg
+ create mode 100644 attached_assets/image_1778130840650.jpg
+ create mode 100644 attached_assets/image_1778130881322.jpg
+ create mode 100644 attached_assets/image_1778130895541.jpg
+ create mode 100644 attached_assets/image_1778131313270.jpg
+ create mode 100644 attached_assets/image_1778131373490.jpg
+sadaq@Sadaqs-Air nuur-prayer-app % 
