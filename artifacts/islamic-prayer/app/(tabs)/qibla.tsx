@@ -8,12 +8,14 @@ import {
   Easing,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Circle, Defs, LinearGradient, Line, Path, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Line, Path, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
 import { useFocusEffect } from "expo-router";
 import { useAppContext } from "@/context/AppContext";
 import { calculateQiblaDirection, getDistanceToKaaba } from "@/utils/qibla";
@@ -38,156 +40,78 @@ function lockHaptic() {
 
 // ── Ka'bah silhouette ─────────────────────────────────────────────────────────
 function KaabahSilhouette({ size, color }: { size: number; color: string }) {
+  // Refined: dark cube + gold hizam band + small door on right.
+  // No crescent, plinth, minaret, maqam, finial. Square overall footprint.
   const w = size;
   const h = size;
 
-  // Main cube body — classic Ka'bah proportions
-  const bodyW = w * 0.54;
-  const bodyH = h * 0.52;
+  const bodyW = w * 0.62;
+  const bodyH = h * 0.7;
   const bodyX = (w - bodyW) / 2;
-  const bodyY = h * 0.28;
+  const bodyY = (h - bodyH) / 2;
 
-  // Kiswa band (gold stripe ~1/3 from top)
-  const bandH = bodyH * 0.13;
-  const bandY = bodyY + bodyH * 0.28;
+  // Hizam (gold band) — about 1/3 from top
+  const bandH = bodyH * 0.11;
+  const bandY = bodyY + bodyH * 0.30;
 
-  // Door
-  const doorW = bodyW * 0.22;
-  const doorH = bodyH * 0.34;
-  const doorX = bodyX + bodyW / 2 - doorW / 2;
-  const doorY = bodyY + bodyH * 0.36;
+  // Door — small, on right side per user request
+  const doorW = bodyW * 0.13;
+  const doorH = bodyH * 0.30;
+  const doorX = bodyX + bodyW * 0.74;
+  const doorY = bodyY + bodyH - doorH - bodyH * 0.05;
   const doorArcR = doorW * 0.5;
 
-  // Steps
-  const stepsY = bodyY + bodyH;
-  const step1W = bodyW * 1.08;
-  const step2W = bodyW * 1.18;
-  const step1H = h * 0.035;
-  const step2H = h * 0.028;
-
-  // Maqam Ibrahim (small structure to the right)
-  const maqamW = w * 0.07;
-  const maqamH = h * 0.14;
-  const maqamX = bodyX + bodyW + w * 0.05;
-  const maqamY = stepsY - maqamH;
-
-  // Corner columns
-  const colW = bodyW * 0.05;
-
-  // Crescent + star top
-  const crescentCY = bodyY - h * 0.08;
-  const crescentCX = w / 2;
+  const KAABA_DARK = "#0a0a0a";
+  const KAABA_EDGE = "#1a1a1a";
 
   return (
     <Svg width={w} height={h}>
-      {/* Shadow/base */}
-      <Rect
-        x={(w - step2W) / 2}
-        y={stepsY + step1H + step2H}
-        width={step2W}
-        height={h * 0.02}
-        rx={4}
-        fill={color}
-        opacity={0.12}
-      />
-
-      {/* Step 2 (bottom) */}
-      <Rect
-        x={(w - step2W) / 2}
-        y={stepsY + step1H}
-        width={step2W}
-        height={step2H}
-        rx={2}
-        fill={color}
-        opacity={0.45}
-      />
-
-      {/* Step 1 */}
-      <Rect
-        x={(w - step1W) / 2}
-        y={stepsY}
-        width={step1W}
-        height={step1H}
-        rx={2}
-        fill={color}
-        opacity={0.5}
-      />
-
-      {/* Main Ka'bah body */}
+      {/* Cube body — flat black silhouette */}
       <Rect
         x={bodyX}
         y={bodyY}
         width={bodyW}
         height={bodyH}
-        rx={2}
-        fill={color}
-        opacity={0.68}
+        rx={1.5}
+        fill={KAABA_DARK}
+      />
+      {/* Subtle edge highlight on top to give it dimension */}
+      <Rect
+        x={bodyX}
+        y={bodyY}
+        width={bodyW}
+        height={bodyH * 0.04}
+        fill={KAABA_EDGE}
       />
 
-      {/* Corner columns */}
-      <Rect x={bodyX - colW * 0.4} y={bodyY} width={colW} height={bodyH} rx={1} fill={color} opacity={0.3} />
-      <Rect x={bodyX + bodyW - colW * 0.6} y={bodyY} width={colW} height={bodyH} rx={1} fill={color} opacity={0.3} />
-
-      {/* Kiswa gold band */}
+      {/* Hizam (gold band) */}
       <Rect
         x={bodyX}
         y={bandY}
         width={bodyW}
         height={bandH}
         fill={color}
-        opacity={0.35}
+        opacity={0.92}
       />
-      {/* Calligraphy dots in band */}
-      {Array.from({ length: 5 }, (_, i) => (
+      {/* Subtle calligraphy texture on the hizam */}
+      {Array.from({ length: 9 }, (_, i) => (
         <Rect
           key={i}
-          x={bodyX + bodyW * 0.1 + i * bodyW * 0.17}
-          y={bandY + bandH * 0.3}
-          width={bodyW * 0.07}
-          height={bandH * 0.45}
-          rx={1}
-          fill={color}
-          opacity={0.25}
+          x={bodyX + bodyW * 0.06 + i * bodyW * 0.10}
+          y={bandY + bandH * 0.28}
+          width={bodyW * 0.045}
+          height={bandH * 0.44}
+          rx={0.5}
+          fill={KAABA_DARK}
+          opacity={0.55}
         />
       ))}
 
-      {/* Door arch */}
+      {/* Door — gold rectangle with arched top, on the right */}
       <Path
         d={`M ${doorX} ${doorY + doorH} L ${doorX} ${doorY + doorArcR} A ${doorArcR} ${doorArcR} 0 0 1 ${doorX + doorW} ${doorY + doorArcR} L ${doorX + doorW} ${doorY + doorH} Z`}
         fill={color}
-        opacity={0.2}
-      />
-      <Path
-        d={`M ${doorX} ${doorY + doorH} L ${doorX} ${doorY + doorArcR} A ${doorArcR} ${doorArcR} 0 0 1 ${doorX + doorW} ${doorY + doorArcR} L ${doorX + doorW} ${doorY + doorH}`}
-        fill="none"
-        stroke={color}
-        strokeWidth={1}
-        opacity={0.5}
-      />
-
-      {/* Maqam Ibrahim */}
-      <Rect x={maqamX} y={maqamY} width={maqamW} height={maqamH} rx={1} fill={color} opacity={0.3} />
-      <Path
-        d={`M ${maqamX - 1} ${maqamY} Q ${maqamX + maqamW / 2} ${maqamY - maqamH * 0.3} ${maqamX + maqamW + 1} ${maqamY} Z`}
-        fill={color}
-        opacity={0.3}
-      />
-
-      {/* Finial pole */}
-      <Rect
-        x={w / 2 - 1}
-        y={bodyY - h * 0.15}
-        width={2}
-        height={h * 0.15}
-        fill={color}
-        opacity={0.55}
-      />
-
-      {/* Crescent */}
-      <Path
-        d={`M ${crescentCX - 7} ${crescentCY - 5} A 8 8 0 1 1 ${crescentCX + 7} ${crescentCY - 5} A 5 5 0 1 0 ${crescentCX - 7} ${crescentCY - 5} Z`}
-        fill={color}
-        opacity={0.65}
+        opacity={0.85}
       />
     </Svg>
   );
@@ -249,11 +173,13 @@ function CompassFace({
   faceColor = "#162A1A",
   ringColor = "#C9933A",
   textColor = "#E8D5A3",
+  qiblaAngle = null,
 }: {
   tintColor?: string;
   faceColor?: string;
   ringColor?: string;
   textColor?: string;
+  qiblaAngle?: number | null;
 }) {
   // Brass tones — used regardless of theme tint so the dial reads as metal.
   const BRASS_HI = "#ebd7a3";
@@ -262,12 +188,15 @@ function CompassFace({
   const BRASS_DIM = "#8e733b";
 
   const ticks = Array.from({ length: 72 }, (_, i) => i * 5);
-  // Arabic cardinals — N is red (heritage cue), others brass
+  // English cardinals — N is the user's primary mental anchor (cream/gold);
+  // E/S/W are softer cream so N reads as the reference direction.
+  const CARDINAL_PRIMARY = BRASS_HI;
+  const CARDINAL_MUTED = "rgba(244, 234, 212, 0.7)";
   const cardinalAngles = [
-    { label: "شمال", angle: 0, color: "#FF5C5C", size: 13 },
-    { label: "شرق", angle: 90, color: BRASS_HI, size: 12 },
-    { label: "جنوب", angle: 180, color: BRASS_HI, size: 12 },
-    { label: "غرب", angle: 270, color: BRASS_HI, size: 12 },
+    { label: "N", angle: 0, color: CARDINAL_PRIMARY, size: 16 },
+    { label: "E", angle: 90, color: CARDINAL_MUTED, size: 16 },
+    { label: "S", angle: 180, color: CARDINAL_MUTED, size: 16 },
+    { label: "W", angle: 270, color: CARDINAL_MUTED, size: 16 },
   ];
   const degreeLabels = [30, 60, 120, 150, 210, 240, 300, 330];
 
@@ -285,17 +214,17 @@ function CompassFace({
           <Stop offset="100%" stopColor={BRASS_MID} stopOpacity="0" />
         </RadialGradient>
         {/* Brass bezel — top-lit metal: light at top, deep amber at bottom */}
-        <LinearGradient id="brassBezel" x1="0" y1="0" x2="0" y2="1">
+        <SvgLinearGradient id="brassBezel" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0%" stopColor={BRASS_HI} stopOpacity="1" />
           <Stop offset="35%" stopColor={BRASS_MID} stopOpacity="1" />
           <Stop offset="70%" stopColor={BRASS_DIM} stopOpacity="1" />
           <Stop offset="100%" stopColor={BRASS_LO} stopOpacity="1" />
-        </LinearGradient>
+        </SvgLinearGradient>
         {/* Inner brass shoulder — reverse-lit so the bezel reads as 3D */}
-        <LinearGradient id="brassShoulder" x1="0" y1="0" x2="0" y2="1">
+        <SvgLinearGradient id="brassShoulder" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0%" stopColor={BRASS_LO} stopOpacity="1" />
           <Stop offset="100%" stopColor={BRASS_HI} stopOpacity="0.85" />
-        </LinearGradient>
+        </SvgLinearGradient>
       </Defs>
 
       {/* ── Outer brass bezel ─────────────────────────────── */}
@@ -357,8 +286,15 @@ function CompassFace({
         );
       })}
 
-      {/* ── Engraved degree numerals ────────────────────── */}
+      {/* ── Engraved degree numerals ──────────────────────
+          Skip any numeral within ±15° of the qibla angle so it
+          doesn't collide with the rim marker + QIBLA label. */}
       {degreeLabels.map((deg) => {
+        if (qiblaAngle !== null) {
+          const diff = Math.abs(((deg - qiblaAngle + 540) % 360) - 180);
+          const sep = 180 - diff; // angular distance, 0..180
+          if (sep < 15) return null;
+        }
         const rad = (deg - 90) * (Math.PI / 180);
         const r = OUTER_R - 24;
         const DegText = SvgText as any;
@@ -366,7 +302,8 @@ function CompassFace({
           <DegText
             key={deg}
             x={CX + r * Math.cos(rad)} y={CX + r * Math.sin(rad)}
-            textAnchor="middle" dominantBaseline="central"
+            dy={2.8}
+            textAnchor="middle"
             fill={BRASS_DIM} fontSize="8" opacity={0.85}
           >
             {deg}
@@ -374,18 +311,25 @@ function CompassFace({
         );
       })}
 
-      {/* ── Arabic cardinal letters (Amiri Quran) ───────── */}
+      {/* ── English cardinal letters (Inter SemiBold) ────────────
+          Positioned well inside the major tick ring (ticks end at
+          OUTER_R-18; letters sit at OUTER_R-40 with ~6px clearance).
+          Vertical centering uses explicit dy because react-native-svg
+          does not honor dominantBaseline on iOS reliably. */}
       {cardinalAngles.map(({ label, angle, color, size }) => {
         const rad = (angle - 90) * (Math.PI / 180);
-        const r = OUTER_R - 26;
+        const r = OUTER_R - 40;
         const CardinalText = SvgText as any;
         return (
           <CardinalText
             key={label}
-            x={CX + r * Math.cos(rad)} y={CX + r * Math.sin(rad)}
-            textAnchor="middle" dominantBaseline="central"
-            fill={color} fontSize={size.toString()}
-            fontFamily="AmiriQuran_400Regular"
+            x={CX + r * Math.cos(rad)}
+            y={CX + r * Math.sin(rad)}
+            dy={size * 0.35}
+            textAnchor="middle"
+            fill={color}
+            fontSize={size.toString()}
+            fontFamily="Inter_600SemiBold"
           >
             {label}
           </CardinalText>
@@ -397,6 +341,54 @@ function CompassFace({
       <Line x1={CX} y1={CX + INNER_R - 4} x2={CX} y2={CX + FACE_R - 2} stroke={BRASS_MID} strokeWidth={0.6} opacity={0.18} />
       <Line x1={CX - INNER_R + 4} y1={CX} x2={CX - FACE_R + 2} y2={CX} stroke={BRASS_MID} strokeWidth={0.6} opacity={0.18} />
       <Line x1={CX + INNER_R - 4} y1={CX} x2={CX + FACE_R - 2} y2={CX} stroke={BRASS_MID} strokeWidth={0.6} opacity={0.18} />
+
+      {/* ── Qibla target marker on the rim ──────────────── */}
+      {qiblaAngle !== null && (() => {
+        const rad = (qiblaAngle - 90) * (Math.PI / 180);
+        const r = OUTER_R - 8;
+        const dx = CX + r * Math.cos(rad);
+        const dy = CX + r * Math.sin(rad);
+
+        // QIBLA label sits INSIDE the dial face, well clear of the
+        // degree numeral ring (which is at OUTER_R-24). We place it at
+        // OUTER_R-46 so there's ~22px between dot and label, plus 8px
+        // breathing room from the (now-hidden) nearest degree numeral.
+        const labelR = OUTER_R - 46;
+        const lx = CX + labelR * Math.cos(rad);
+        const ly = CX + labelR * Math.sin(rad);
+        // Tangent-rotate so text reads upright relative to the marker;
+        // flip 180° on the bottom half so it never appears upside-down.
+        const angleDeg = qiblaAngle;
+        const flip = angleDeg > 90 && angleDeg < 270;
+        const rot = flip ? angleDeg + 90 : angleDeg - 90;
+        const QiblaLabel = SvgText as any;
+        const FONT = 9;
+
+        return (
+          <>
+            {/* Outer halo glow — soft, low-opacity ring */}
+            <Circle cx={dx} cy={dy} r={13} fill={BRASS_HI} opacity={0.18} />
+            <Circle cx={dx} cy={dy} r={9} fill={BRASS_HI} opacity={0.4} />
+            {/* Solid dot — 20% larger (3.6 → 4.3) */}
+            <Circle cx={dx} cy={dy} r={4.3} fill={BRASS_HI} />
+            <Circle cx={dx} cy={dy} r={4.3} fill="none" stroke={BRASS_LO} strokeWidth={0.8} opacity={0.9} />
+
+            {/* QIBLA label — inside dial, clear of degree numerals */}
+            <QiblaLabel
+              x={lx}
+              y={ly}
+              dy={FONT * 0.35}
+              textAnchor="middle"
+              fill={BRASS_HI}
+              fontSize={FONT.toString()}
+              fontFamily="Inter_600SemiBold"
+              transform={`rotate(${rot} ${lx} ${ly})`}
+            >
+              QIBLA
+            </QiblaLabel>
+          </>
+        );
+      })()}
     </Svg>
   );
 }
@@ -419,34 +411,35 @@ function QiblaNeedle({ size, aligned }: { size: number; aligned: boolean }) {
   const tailDarker = aligned ? "rgba(6,40,22,0.95)" : "#1a140a";
   const accent = aligned ? GREEN_LOCK : BRASS_MID;
 
-  // Needle geometry — kept well inside the SVG bounds
-  const tipY = cx - size * 0.32;   // top tip:  150 - 96 = 54px from top ✓
-  const baseY = cx + size * 0.22;  // bottom:   150 + 66 = 216px ✓
-  const halfW = 11;
-  const tailHalfW = 7;
+  // Needle geometry — Fraunces-style refined gold pointer.
+  // Slimmer head, longer reach to rim, refined diamond tail.
+  const tipY = cx - size * 0.36;
+  const baseY = cx + size * 0.26;
+  const halfW = 8;
+  const tailHalfW = 5;
 
   return (
     <Svg width={size} height={size}>
       <Defs>
         {/* Bright (left) side of needle — top-lit brass / emerald */}
-        <LinearGradient id="needleLight" x1="0" y1="0" x2="0" y2="1">
+        <SvgLinearGradient id="needleLight" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0%" stopColor={lightSide} stopOpacity="1" />
           <Stop offset="100%" stopColor={midSide} stopOpacity="1" />
-        </LinearGradient>
+        </SvgLinearGradient>
         {/* Shadowed (right) side of needle */}
-        <LinearGradient id="needleDark" x1="0" y1="0" x2="0" y2="1">
+        <SvgLinearGradient id="needleDark" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0%" stopColor={midSide} stopOpacity="1" />
           <Stop offset="100%" stopColor={darkSide} stopOpacity="1" />
-        </LinearGradient>
+        </SvgLinearGradient>
         {/* Tail — dark steel/iron */}
-        <LinearGradient id="tailLeft" x1="0" y1="0" x2="0" y2="1">
+        <SvgLinearGradient id="tailLeft" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0%" stopColor={tailDark} stopOpacity="1" />
           <Stop offset="100%" stopColor={tailDarker} stopOpacity="1" />
-        </LinearGradient>
-        <LinearGradient id="tailRight" x1="0" y1="0" x2="0" y2="1">
+        </SvgLinearGradient>
+        <SvgLinearGradient id="tailRight" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0%" stopColor={tailDarker} stopOpacity="1" />
           <Stop offset="100%" stopColor="#06040a" stopOpacity="1" />
-        </LinearGradient>
+        </SvgLinearGradient>
         {/* Brass pivot — polished orb */}
         <RadialGradient id="pivotGrad" cx="35%" cy="30%" r="70%">
           <Stop offset="0%" stopColor={lightSide} stopOpacity="1" />
@@ -467,16 +460,10 @@ function QiblaNeedle({ size, aligned }: { size: number; aligned: boolean }) {
         fill="url(#needleDark)"
       />
       {/* Crisp center ridge highlight */}
-      <Line x1={cx} y1={tipY + 2} x2={cx} y2={cx + 2} stroke={lightSide} strokeWidth={0.6} opacity={0.7} />
+      <Line x1={cx} y1={tipY + 2} x2={cx} y2={cx + 2} stroke={lightSide} strokeWidth={0.7} opacity={0.85} />
 
-      {/* Garnet inlay near the tip (skip when locked — green tip stands on its own) */}
-      {!aligned && (
-        <>
-          <Circle cx={cx} cy={tipY + 14} r={2.4} fill="#8b0000" />
-          <Circle cx={cx} cy={tipY + 14} r={2.4} fill="none" stroke={BRASS_HI} strokeWidth={0.6} opacity={0.8} />
-          <Circle cx={cx - 0.6} cy={tipY + 13.4} r={0.6} fill="#ffb0b0" opacity={0.8} />
-        </>
-      )}
+      {/* Tiny brass cap at the very tip — refined finish */}
+      <Circle cx={cx} cy={tipY + 4} r={1.6} fill={lightSide} opacity={0.95} />
 
       {/* ── Tail (bottom) half — dark forged steel ──────── */}
       <Path
@@ -757,126 +744,53 @@ export default function QiblaScreen() {
     return { azimuth, altitude, delta };
   }, [location, qiblaAngle, nowTick]);
 
+  // Off-qibla angle (signed for arrow nudge, abs for display)
+  const offQiblaSigned = qiblaAngle !== null
+    ? ((compassHeading - qiblaAngle + 180 + 360) % 360) - 180
+    : 0;
+  const offQiblaAbs = Math.round(Math.abs(offQiblaSigned));
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: topPad + 14, borderBottomColor: colors.border }]}>
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>Qibla Direction</Text>
-            <View style={styles.headerSubRow}>
-              {qiblaAngle !== null && (
-                <Text style={[styles.headerAngle, { color: colors.gold }]}>{Math.round(qiblaAngle)}° from North</Text>
-              )}
-              {accuracyInfo && (
-                <View
-                  style={[
-                    styles.accuracyChip,
-                    {
-                      backgroundColor:
-                        accuracyInfo.tone === "good" ? "rgba(46,204,113,0.14)"
-                        : accuracyInfo.tone === "warn" ? "rgba(212,160,23,0.16)"
-                        : "rgba(255,92,92,0.16)",
-                      borderColor:
-                        accuracyInfo.tone === "good" ? "rgba(46,204,113,0.45)"
-                        : accuracyInfo.tone === "warn" ? "rgba(212,160,23,0.5)"
-                        : "rgba(255,92,92,0.5)",
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.accuracyDot,
-                      {
-                        backgroundColor:
-                          accuracyInfo.tone === "good" ? "#2ECC71"
-                          : accuracyInfo.tone === "warn" ? "#D4A017"
-                          : "#FF5C5C",
-                      },
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.accuracyChipText,
-                      {
-                        color:
-                          accuracyInfo.tone === "good" ? "#2ECC71"
-                          : accuracyInfo.tone === "warn" ? "#D4A017"
-                          : "#FF5C5C",
-                      },
-                    ]}
-                  >
-                    {accuracyInfo.label}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            {isLoadingLocation ? (
-              <ActivityIndicator size="small" color={colors.tint} />
-            ) : (
-              <Pressable style={[styles.locationBtn, { borderColor: `${colors.tint}55`, backgroundColor: `${colors.tint}15` }]} onPress={requestLocation}>
-                <Feather name="crosshair" size={14} color={colors.tint} />
-                <Text style={[styles.locationBtnText, { color: colors.tint }]}>
-                  {usingDefaultLocation ? "Detect" : location?.city ?? "Locate"}
-                </Text>
-              </Pressable>
-            )}
-            {/* Compass / Map view toggle — segmented control */}
-            <View style={[styles.viewToggle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Pressable
-                onPress={() => setViewMode("compass")}
-                style={[
-                  styles.viewToggleSeg,
-                  viewMode === "compass" && { backgroundColor: colors.gold + "22" },
-                ]}
-                accessibilityLabel="Compass view"
-              >
-                <Feather
-                  name="compass"
-                  size={13}
-                  color={viewMode === "compass" ? colors.gold : colors.textSecondary}
-                />
-              </Pressable>
-              <Pressable
-                onPress={() => setViewMode("map")}
-                style={[
-                  styles.viewToggleSeg,
-                  viewMode === "map" && { backgroundColor: colors.gold + "22" },
-                ]}
-                accessibilityLabel="Map view"
-              >
-                <Feather
-                  name="map"
-                  size={13}
-                  color={viewMode === "map" ? colors.gold : colors.textSecondary}
-                />
-              </Pressable>
-            </View>
-          </View>
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      {/* ── Minimal top bar ──────────────────────────────────────────────── */}
+      <View style={[styles.topBar, { paddingTop: topPad + 12 }]}>
+        {isLoadingLocation ? (
+          <ActivityIndicator size="small" color={colors.tint} />
+        ) : (
+          <Pressable
+            style={[styles.cityPill, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            onPress={requestLocation}
+          >
+            <Feather name="map-pin" size={11} color={colors.gold} />
+            <Text style={[styles.cityPillText, { color: colors.text }]} numberOfLines={1}>
+              {usingDefaultLocation ? "Detect" : location?.city ?? "Locate"}
+            </Text>
+          </Pressable>
+        )}
+
+        <View style={[styles.viewToggle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Pressable
+            onPress={() => setViewMode("compass")}
+            style={[styles.viewToggleSeg, viewMode === "compass" && { backgroundColor: colors.gold + "22" }]}
+            accessibilityLabel="Compass view"
+          >
+            <Feather name="compass" size={13} color={viewMode === "compass" ? colors.gold : colors.textSecondary} />
+          </Pressable>
+          <Pressable
+            onPress={() => setViewMode("map")}
+            style={[styles.viewToggleSeg, viewMode === "map" && { backgroundColor: colors.gold + "22" }]}
+            accessibilityLabel="Map view"
+          >
+            <Feather name="map" size={13} color={viewMode === "map" ? colors.gold : colors.textSecondary} />
+          </Pressable>
         </View>
       </View>
 
-      {/* Main compass area */}
-      <View style={styles.compassArea}>
-        {/* Ka'bah watermark background — compass view only */}
-        {viewMode === "compass" && (
-          <View style={styles.kaabahBg} pointerEvents="none">
-            <KaabahSilhouette size={220} color={colors.tint} />
-          </View>
-        )}
-
-        {/* Distance info — only in compass view (map shows its own pill) */}
-        {viewMode === "compass" && distance !== null && (
-          <Text style={[styles.distanceText, { color: colors.textSecondary }]}>
-            {distance.toLocaleString()} km to Kaaba
-          </Text>
-        )}
-
-        {/* Map view */}
-        {viewMode === "map" && (
-          location && qiblaAngle !== null && distance !== null ? (
+      {/* MAP MODE */}
+      {viewMode === "map" && (
+        <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16, paddingBottom: insets.bottom + 100 }}>
+          {location && qiblaAngle !== null && distance !== null ? (
             <QiblaMapView
               userLat={location.latitude}
               userLng={location.longitude}
@@ -895,195 +809,233 @@ export default function QiblaScreen() {
                 {isLoadingLocation ? "Locating you…" : "Waiting for location"}
               </Text>
             </View>
-          )
-        )}
+          )}
+        </View>
+      )}
 
-        {/* Compass */}
-        {viewMode === "compass" && (
-        <View style={styles.compassOuter}>
-          {/* Rotating compass face */}
-          <Animated.View
-            style={[styles.absoluteFill, { transform: [{ rotate: compassRotate }] }]}
-          >
-            <CompassFace
-              tintColor={colors.gold}
-              faceColor={colors.surface}
-              ringColor={colors.gold}
-              textColor={colors.text}
+      {/* ── COMPASS MODE ─────────────────────────────────────────────────── */}
+      {viewMode === "compass" && (
+        <View style={[styles.compassPage, { paddingBottom: insets.bottom + 80 }]}>
+          {/* Top spacer pushes compass down to vertical center */}
+          <View style={{ flex: 1 }} />
+
+          {/* Compass with Kaaba in center */}
+          <View style={styles.compassStage}>
+            {/* Halo glow */}
+            <View
+              style={[
+                styles.compassHalo,
+                {
+                  backgroundColor: aligned ? `${colors.tint}1F` : `${colors.gold}14`,
+                  shadowColor: aligned ? colors.tint : colors.gold,
+                },
+              ]}
+              pointerEvents="none"
             />
-          </Animated.View>
 
-          {/* Islamic pattern on compass face (static decoration) */}
-          <View style={[styles.absoluteFill, styles.patternWrap]} pointerEvents="none">
-            <IslamicGeometricPattern size={FACE_R * 2} color={colors.tint} />
+            <View style={styles.compassOuter}>
+              {/* Rotating compass face */}
+              <Animated.View style={[styles.absoluteFill, { transform: [{ rotate: compassRotate }] }]}>
+                <CompassFace
+                  tintColor={colors.gold}
+                  faceColor={colors.surface}
+                  ringColor={colors.gold}
+                  textColor={colors.text}
+                  qiblaAngle={qiblaAngle}
+                />
+              </Animated.View>
+
+              {/* Kaaba in center (replaces flower pattern) */}
+              <View style={[styles.absoluteFill, styles.kaabaCenter]} pointerEvents="none">
+                <KaabahSilhouette size={Math.round(FACE_R * 0.66)} color={colors.gold} />
+              </View>
+
+              {/* Qibla needle */}
+              {qiblaAngle !== null && (
+                <Animated.View style={[styles.absoluteFill, { transform: [{ rotate: needleRotate }] }]}>
+                  <QiblaNeedle size={COMPASS_SIZE} aligned={aligned} />
+                </Animated.View>
+              )}
+
+              {showCompassStatus && !needsPermission && (
+                <View style={styles.noCompassOverlay}>
+                  <ActivityIndicator color={colors.tint} />
+                  <Text style={[styles.noCompassText, { color: "rgba(255,255,255,0.7)" }]}>Detecting compass…</Text>
+                </View>
+              )}
+
+              {needsPermission && (
+                <View style={styles.noCompassOverlay}>
+                  <Feather name="rotate-cw" size={28} color={colors.tint} />
+                  <Text style={[styles.noCompassText, { color: "rgba(255,255,255,0.7)" }]}>Compass permission needed</Text>
+                  <Pressable
+                    style={[styles.permBtn, { borderColor: colors.tint, backgroundColor: `${colors.tint}22` }]}
+                    onPress={startCompass}
+                  >
+                    <Text style={[styles.permBtnText, { color: colors.tint }]}>Enable Compass</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
           </View>
 
-          {/* Qibla needle (rotates to point toward Mecca) */}
-          {qiblaAngle !== null && (
-            <Animated.View
-              style={[styles.absoluteFill, { transform: [{ rotate: needleRotate }] }]}
-            >
-              <QiblaNeedle size={COMPASS_SIZE} aligned={aligned} />
-            </Animated.View>
-          )}
-
-          {/* No compass message */}
-          {showCompassStatus && !needsPermission && (
-            <View style={styles.noCompassOverlay}>
-              <ActivityIndicator color={colors.tint} />
-              <Text style={[styles.noCompassText, { color: "rgba(255,255,255,0.7)" }]}>Detecting compass…</Text>
-            </View>
-          )}
-
-          {/* Permission needed */}
-          {needsPermission && (
-            <View style={styles.noCompassOverlay}>
-              <Feather name="rotate-cw" size={28} color={colors.tint} />
-              <Text style={[styles.noCompassText, { color: "rgba(255,255,255,0.7)" }]}>Compass permission needed</Text>
-              <Pressable style={[styles.permBtn, { borderColor: colors.tint, backgroundColor: `${colors.tint}22` }]} onPress={startCompass}>
-                <Text style={[styles.permBtnText, { color: colors.tint }]}>Enable Compass</Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
-        )}
-
-        {/* Status text — only meaningful when actively rotating the device */}
-        {viewMode === "compass" && (
-        <View style={styles.statusArea}>
-          {alignedText ? (
-            <View style={[styles.alignedCard, { borderColor: `${colors.tint}80`, backgroundColor: `${colors.tint}22` }]}>
-              <Text style={[styles.alignedEmoji, { color: colors.tint }]}>✓</Text>
-              <Text style={[styles.alignedText, { color: colors.tint }]}>You're facing Mecca</Text>
-            </View>
-          ) : qiblaAngle !== null ? (
-            <Text style={[styles.statusText, { color: colors.textSecondary }]}>
-              {hasCompass
-                ? "Rotate until the arrow points up"
-                : `Qibla is ${Math.round(qiblaAngle)}° from North`}
-            </Text>
-          ) : (
-            <Text style={[styles.statusText, { color: colors.textSecondary }]}>Locating…</Text>
-          )}
-        </View>
-
-        )}
-
-        {/* Heading display */}
-        {viewMode === "compass" && hasCompass && (
-          <View style={styles.headingRow}>
-            <View style={[styles.headingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.headingValue, { color: colors.text }]}>{Math.round(compassHeading)}°</Text>
-              <Text style={[styles.headingLabel, { color: colors.textSecondary }]}>Device Heading</Text>
-            </View>
-            {qiblaAngle !== null && (
-              <View style={[styles.headingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[styles.headingValue, { color: aligned ? colors.tint : colors.gold }]}>
-                  {Math.round(Math.abs(((compassHeading - qiblaAngle + 180 + 360) % 360) - 180))}°
+          {/* HERO ALIGNMENT READING — the centerpiece */}
+          <View style={styles.heroRead}>
+            {alignedText ? (
+              <>
+                <Text style={[styles.alignedHeroNumber, { color: colors.tint }]}>✓</Text>
+                <Text style={[styles.alignedHeroLabel, { color: colors.tint }]}>
+                  YOU'RE FACING MAKKAH
                 </Text>
-                <Text style={[styles.headingLabel, { color: colors.textSecondary }]}>Off Qibla</Text>
-              </View>
+              </>
+            ) : qiblaAngle !== null && hasCompass ? (
+              <Text style={[styles.heroInline, { color: colors.text }]}>
+                <Text style={styles.heroInlineWord}>Turn </Text>
+                <Text style={[styles.heroInlineNumber, { color: colors.gold }]}>
+                  {offQiblaAbs}°
+                </Text>
+                <Text style={styles.heroInlineWord}>
+                  {" "}{offQiblaSigned > 0 ? "left" : "right"}
+                </Text>
+              </Text>
+            ) : qiblaAngle !== null ? (
+              <Text style={[styles.heroInline, { color: colors.text }]}>
+                <Text style={styles.heroInlineWord}>Heading </Text>
+                <Text style={[styles.heroInlineNumber, { color: colors.gold }]}>
+                  {Math.round(qiblaAngle)}°
+                </Text>
+              </Text>
+            ) : (
+              <Text style={[styles.heroLabel, { color: colors.textSecondary, fontSize: 12 }]}>LOCATING…</Text>
+            )}
+          </View>
+
+          {/* Bottom spacer */}
+          <View style={{ flex: 1 }} />
+
+          {/* Slim info row */}
+          <View style={styles.infoRow}>
+            {qiblaAngle !== null && (
+              <Text style={[styles.infoItem, { color: colors.textSecondary }]}>
+                <Text style={{ color: colors.text, fontFamily: "Inter_700Bold" }}>
+                  {Math.round(qiblaAngle)}°
+                </Text>{" "}FROM N
+              </Text>
+            )}
+            {accuracyInfo && (
+              <>
+                <View style={[styles.infoSep, { backgroundColor: colors.border }]} />
+                <View style={styles.infoChunk}>
+                  <View
+                    style={[
+                      styles.accuracyDot,
+                      {
+                        backgroundColor:
+                          accuracyInfo.tone === "good" ? "#2ECC71"
+                          : accuracyInfo.tone === "warn" ? "#D4A017"
+                          : "#FF5C5C",
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.infoItem,
+                      {
+                        color:
+                          accuracyInfo.tone === "good" ? "#2ECC71"
+                          : accuracyInfo.tone === "warn" ? "#D4A017"
+                          : "#FF5C5C",
+                      },
+                    ]}
+                  >
+                    {accuracyInfo.label.toUpperCase()}
+                  </Text>
+                </View>
+              </>
             )}
             {distance !== null && (
-              <View style={[styles.headingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[styles.headingValue, { color: colors.text }]}>{distance.toLocaleString()}</Text>
-                <Text style={[styles.headingLabel, { color: colors.textSecondary }]}>km to Kaaba</Text>
-              </View>
+              <>
+                <View style={[styles.infoSep, { backgroundColor: colors.border }]} />
+                <Text style={[styles.infoItem, { color: colors.textSecondary }]}>
+                  <Text style={{ color: colors.text, fontFamily: "Inter_700Bold" }}>
+                    {distance.toLocaleString()}
+                  </Text>{" "}KM
+                </Text>
+              </>
             )}
           </View>
-        )}
 
-        {/* ── Sun-shadow method card ─────────────────────────────────────── */}
-        {/* Works without a compass — useful in steel buildings, planes, etc. */}
-        {sunInfo && (
-          <View style={[styles.sunCard, { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: insets.bottom + 90 }]}>
-            <View style={styles.sunHeader}>
-              <View style={[styles.sunIconWrap, { backgroundColor: colors.gold + "22" }]}>
+          {/* Sun-shadow strip — minimal, on-brand */}
+          {sunInfo && (
+            <View style={[styles.sunStrip, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={[styles.sunIconWrap, { backgroundColor: colors.gold + "1A" }]}>
                 <MaterialCommunityIcons
                   name={sunInfo.altitude > 0 ? "white-balance-sunny" : "weather-night"}
-                  size={16}
+                  size={14}
                   color={colors.gold}
                 />
               </View>
-              <Text style={[styles.sunTitle, { color: colors.text }]}>Sun-shadow method</Text>
-            </View>
-            {sunInfo.altitude <= 0 ? (
-              <Text style={[styles.sunBody, { color: colors.textSecondary }]}>
-                The sun is below the horizon right now. This method becomes available at sunrise.
-              </Text>
-            ) : Math.abs(sunInfo.delta) < 1 ? (
-              <Text style={[styles.sunBody, { color: colors.tint }]}>
-                The sun is directly aligned with Qibla right now. Face the sun — you're facing Mecca.
-              </Text>
-            ) : (
-              <Text style={[styles.sunBody, { color: colors.textSecondary }]}>
-                Face the sun, then turn{" "}
-                <Text style={{ color: colors.text, fontFamily: "Inter_700Bold" }}>
-                  {Math.round(Math.abs(sunInfo.delta))}° to your {sunInfo.delta > 0 ? "right" : "left"}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sunStripEyebrow, { color: colors.gold }]}>
+                  SUN GUIDANCE
                 </Text>
-                {" "}— you'll be facing Qibla.
-              </Text>
-            )}
-            {sunInfo.altitude > 0 && (
-              <View style={styles.sunMetaRow}>
-                <Text style={[styles.sunMeta, { color: colors.textSecondary }]}>
-                  Sun bearing {Math.round(sunInfo.azimuth)}°
-                </Text>
-                <View style={[styles.sunMetaDot, { backgroundColor: colors.border }]} />
-                <Text style={[styles.sunMeta, { color: colors.textSecondary }]}>
-                  Altitude {Math.round(sunInfo.altitude)}°
+                <Text style={[styles.sunStripBody, { color: colors.text }]}>
+                  {sunInfo.altitude <= 0
+                    ? "Available after sunrise"
+                    : Math.abs(sunInfo.delta) < 1
+                    ? "Face the sun — you face Makkah"
+                    : `Face the sun, turn ${Math.round(Math.abs(sunInfo.delta))}° ${sunInfo.delta > 0 ? "right" : "left"}`}
                 </Text>
               </View>
-            )}
-          </View>
-        )}
-      </View>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
 
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
-  },
-  headerRow: {
+
+  // ── Top bar ─────────────────────────────────────────────────────────────
+  topBar: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "flex-end",
+    paddingHorizontal: 18,
+    paddingBottom: 8,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: -0.3,
-    color: "#fff",
-  },
-  headerAngle: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: "#D4A017",
-    marginTop: 2,
-  },
-  headerRight: {
-    alignItems: "flex-end",
+  cityPill: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
   },
-  // Compass / Map segmented control — sits under the Locate button.
+  cityPillText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.2,
+    maxWidth: 140,
+  },
   viewToggle: {
     flexDirection: "row",
-    borderRadius: 9,
+    borderRadius: 999,
     borderWidth: 1,
     overflow: "hidden",
   },
   viewToggleSeg: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     alignItems: "center",
     justifyContent: "center",
   },
+
+  // ── Map ─────────────────────────────────────────────────────────────────
   mapLoading: {
     width: "100%",
     aspectRatio: 1,
@@ -1095,43 +1047,30 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   mapLoadingText: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  locationBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(46,204,113,0.3)",
-    backgroundColor: "rgba(46,204,113,0.08)",
-  },
-  locationBtnText: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-    color: "#2ECC71",
-    maxWidth: 100,
-  },
-  compassArea: {
+
+  // ── Compass page (vertically centered, generous spacing) ────────────────
+  compassPage: {
     flex: 1,
     alignItems: "center",
+    paddingHorizontal: 18,
+  },
+
+  compassStage: {
+    alignItems: "center",
     justifyContent: "center",
-    gap: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
     position: "relative",
+    width: COMPASS_SIZE,
+    height: COMPASS_SIZE,
   },
-  kaabahBg: {
+  compassHalo: {
     position: "absolute",
-    bottom: 0,
-    alignSelf: "center",
-    opacity: 0.07,
-    zIndex: 0,
-  },
-  distanceText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.4)",
+    width: COMPASS_SIZE + 80,
+    height: COMPASS_SIZE + 80,
+    borderRadius: (COMPASS_SIZE + 80) / 2,
+    top: -40,
+    shadowOpacity: 0.7,
+    shadowRadius: 40,
+    shadowOffset: { width: 0, height: 0 },
   },
   compassOuter: {
     width: COMPASS_SIZE,
@@ -1145,7 +1084,7 @@ const styles = StyleSheet.create({
     width: COMPASS_SIZE,
     height: COMPASS_SIZE,
   },
-  patternWrap: {
+  kaabaCenter: {
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1154,135 +1093,118 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: "rgba(0,0,0,0.75)",
+    backgroundColor: "rgba(0,0,0,0.78)",
     width: COMPASS_SIZE,
     height: COMPASS_SIZE,
     borderRadius: COMPASS_SIZE / 2,
   },
   noCompassText: {
-    color: "rgba(255,255,255,0.7)",
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
     paddingHorizontal: 20,
   },
   permBtn: {
-    backgroundColor: "rgba(46,204,113,0.2)",
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#2ECC71",
     paddingHorizontal: 16,
     paddingVertical: 8,
     marginTop: 4,
   },
-  permBtnText: {
-    color: "#2ECC71",
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-  statusArea: {
+  permBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+
+  // ── Hero alignment reading ──────────────────────────────────────────────
+  heroRead: {
     alignItems: "center",
-    minHeight: 50,
-    justifyContent: "center",
+    marginTop: 36,
+    minHeight: 84,
   },
-  alignedCard: {
+  heroInline: {
+    textAlign: "center",
+    lineHeight: 64,
+  },
+  heroInlineWord: {
+    fontSize: 28,
+    fontFamily: "CormorantGaramond_400Regular_Italic",
+    letterSpacing: 0.2,
+  },
+  heroInlineNumber: {
+    fontSize: 56,
+    fontFamily: "CormorantGaramond_500Medium",
+    letterSpacing: -1.5,
+  },
+  heroLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 2.5,
+    marginTop: 4,
+  },
+  alignedHeroNumber: {
+    fontSize: 56,
+    fontFamily: "Inter_700Bold",
+    lineHeight: 60,
+  },
+  alignedHeroLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 2.5,
+    marginTop: 6,
+  },
+
+  // ── Slim info row ───────────────────────────────────────────────────────
+  infoRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "rgba(46,204,113,0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(46,204,113,0.5)",
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  alignedEmoji: {
-    fontSize: 22,
-    color: "#2ECC71",
-    fontFamily: "Inter_700Bold",
-  },
-  alignedText: {
-    fontSize: 17,
-    fontFamily: "Inter_700Bold",
-    color: "#2ECC71",
-  },
-  statusText: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.5)",
-    textAlign: "center",
-  },
-  headingRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 14,
-    marginBottom: 28,
-  },
-  headingCard: {
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    minWidth: 80,
-  },
-  headingValue: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    color: "#fff",
-  },
-  headingLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.4)",
-    marginTop: 2,
-    textAlign: "center",
-  },
-  // Header sub-row — holds the angle text and the accuracy chip side-by-side.
-  headerSubRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 2,
+    marginBottom: 14,
     flexWrap: "wrap",
+    justifyContent: "center",
   },
-  accuracyChip: {
+  infoChunk: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 7,
-    borderWidth: 1,
+    gap: 6,
   },
-  accuracyDot: { width: 5, height: 5, borderRadius: 2.5 },
-  accuracyChipText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
-  // Sun-shadow card — the page's most useful "fallback" tool. Lives directly
-  // under the data tiles and is full-width with comfortable padding so the
-  // page no longer feels like a dead end below the compass.
-  sunCard: {
+  infoItem: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 1.4,
+  },
+  infoSep: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+  },
+  accuracyDot: { width: 6, height: 6, borderRadius: 3 },
+
+  // ── Sun-shadow strip ────────────────────────────────────────────────────
+  sunStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     width: "100%",
     maxWidth: 420,
-    marginTop: 4,
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 14,
     borderWidth: 1,
-    gap: 8,
   },
-  sunHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
   sunIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },
-  sunTitle: { fontSize: 13, fontFamily: "Inter_700Bold", letterSpacing: 0.2 },
-  sunBody: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 19 },
-  sunMetaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  sunMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  sunMetaDot: { width: 3, height: 3, borderRadius: 1.5 },
+  sunStripEyebrow: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.6,
+    marginBottom: 2,
+  },
+  sunStripBody: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    lineHeight: 17,
+  },
 });

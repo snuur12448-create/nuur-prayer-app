@@ -30,7 +30,7 @@ import type {
  *
  * Output sizes (used by `captureRef`):
  *   • card       — 1080 × 1080
- *   • wallpaper  — 1170 × 2080  (close to 9:16, tuned to iOS LS aspect)
+ *   • wallpaper  — 1170 × 2535  (true 9:19.5 modern iPhone aspect)
  *
  * Layout per kind (after eyebrow if present):
  *   dua / adhkar : Arabic → rule → English → source-caps
@@ -49,15 +49,23 @@ export interface ShareCardProps extends ShareCardContent {
 }
 
 const CARD_ASPECT      = 1;          // 1:1
-const WALLPAPER_ASPECT = 16 / 9;     // 1.777…
+const WALLPAPER_ASPECT = 19.5 / 9;   // 2.1667 — true modern iPhone aspect
 
 /* ── Font fitters ───────────────────────────────────────────────────────── */
 
-function fitArabic(text: string | undefined, width: number, isWallpaper: boolean): number {
+function fitArabic(
+  text: string | undefined,
+  width: number,
+  isWallpaper: boolean,
+  arabicOnly: boolean = false,
+): number {
   if (!text) return 0;
   const len = text.length;
   // Shares: 432 design width → 28-36 px arabic. Scale linearly with width.
-  const base = isWallpaper ? width * 0.080 : width * 0.075;
+  // When the English copy is hidden the Arabic gets the full cluster band,
+  // so we boost the base size ~30% to fill the now-open space.
+  const boost = arabicOnly ? 1.30 : 1.0;
+  const base = (isWallpaper ? width * 0.080 : width * 0.075) * boost;
   if (len < 50)   return base;
   if (len < 100)  return base * 0.85;
   if (len < 180)  return base * 0.72;
@@ -66,19 +74,34 @@ function fitArabic(text: string | undefined, width: number, isWallpaper: boolean
   return base * 0.46;
 }
 
-function fitEnglish(text: string, width: number, isWallpaper: boolean): number {
+function fitEnglish(
+  text: string,
+  width: number,
+  isWallpaper: boolean,
+  englishOnly: boolean = false,
+): number {
   const len = text.length;
-  const base = isWallpaper ? width * 0.046 : width * 0.044;
+  // English-only mode (Arabic toggled off): boost the base size so the
+  // English fills the now-open cluster band, mirroring what we already do
+  // for arabicOnly. Long-ayah steps go further down so e.g. Ayat al-Kursi
+  // (~620 chars) doesn't need to truncate; iOS adjustsFontSizeToFit
+  // handles the final squeeze on the rare overflow.
+  const boost = englishOnly ? 1.20 : 1.0;
+  const base = (isWallpaper ? width * 0.046 : width * 0.044) * boost;
   if (len < 80)   return base;
   if (len < 160)  return base * 0.92;
   if (len < 280)  return base * 0.84;
   if (len < 440)  return base * 0.76;
-  return base * 0.70;
+  if (len < 600)  return base * 0.66;
+  if (len < 800)  return base * 0.58;
+  return base * 0.50;
 }
 
-function fitName(width: number, isWallpaper: boolean): number {
+function fitName(width: number, isWallpaper: boolean, arabicOnly: boolean = false): number {
   // Names of Allah are short — go big. Wallpaper a bit larger.
-  return isWallpaper ? width * 0.165 : width * 0.150;
+  // Arabic-only mode (English hidden) → boost so the single glyph fills space.
+  const boost = arabicOnly ? 1.40 : 1.0;
+  return (isWallpaper ? width * 0.165 : width * 0.150) * boost;
 }
 
 /* ── Inline NUUR mark — react-native-svg port of NuurMarkSVG ──────────── */
@@ -181,12 +204,25 @@ export function ShareCard({
     };
   }, [baseTheme, isWallpaper]);
 
-  const arabicSize  = useMemo(() => fitArabic(arabic, width, isWallpaper), [arabic, width, isWallpaper]);
-  const englishSize = useMemo(() => fitEnglish(body, width, isWallpaper), [body, width, isWallpaper]);
-  const nameSize    = useMemo(() => fitName(width, isWallpaper), [width, isWallpaper]);
+  // "Arabic-only" mode: user toggled English off in the share sheet, so
+  // body/transliteration/caption/attribution are all stripped before render.
+  // We use this flag to (a) boost Arabic sizing to fill the open space, and
+  // (b) push the wallpaper cluster a little higher so the larger Arabic
+  // doesn't crowd the bottom brand mark.
+  const arabicOnly = !!arabic && !body && !transliteration && !caption && !attribution;
+  // "English-only" mode: user toggled Arabic off. Symmetric treatment —
+  // boost English sizing + allow many more lines so long ayahs flow without
+  // truncating to "…".
+  const englishOnly = !arabic && !!(body || transliteration || caption);
 
-  const maxArabicLines  = isWallpaper ? 4 : 3;
-  const maxEnglishLines = isWallpaper ? 3 : 3;
+  const arabicSize  = useMemo(() => fitArabic(arabic, width, isWallpaper, arabicOnly), [arabic, width, isWallpaper, arabicOnly]);
+  const englishSize = useMemo(() => fitEnglish(body, width, isWallpaper, englishOnly), [body, width, isWallpaper, englishOnly]);
+  const nameSize    = useMemo(() => fitName(width, isWallpaper, arabicOnly), [width, isWallpaper, arabicOnly]);
+
+  const maxArabicLines  = isWallpaper ? (arabicOnly ? 6 : 4) : (arabicOnly ? 5 : 3);
+  // English-only: lift the cap dramatically so long ayahs (Ayat al-Kursi
+  // sits ~620 chars / ~12 lines at the small size) flow to completion.
+  const maxEnglishLines = englishOnly ? (isWallpaper ? 16 : 14) : 3;
 
   // Resolve effective layout kind from theme (prevents quran→ayah and adhkar→dua mismatch)
   const layoutKind: "dua" | "ayah" | "hadith" | "name" = theme.kind;
@@ -252,6 +288,8 @@ export function ShareCard({
         nameSize={nameSize}
         maxArabicLines={maxArabicLines}
         maxEnglishLines={maxEnglishLines}
+        arabicOnly={arabicOnly}
+        englishOnly={englishOnly}
       />
 
       {/* Brand contrast scrim — soft veil behind the footer so the NUUR
@@ -261,7 +299,9 @@ export function ShareCard({
       {theme.brandScrim && isWallpaper ? (
         <LinearGradient
           colors={
-            ["rgba(0,0,0,0)", "rgba(0,0,0,0.55)"] as unknown as readonly [string, string]
+            (theme.brandScrim === "light"
+              ? ["rgba(248,242,232,0)", "rgba(248,242,232,0.78)"]
+              : ["rgba(0,0,0,0)", "rgba(0,0,0,0.55)"]) as unknown as readonly [string, string]
           }
           locations={[0, 1] as unknown as readonly [number, number]}
           style={{
@@ -307,6 +347,8 @@ interface ContentClusterProps extends ShareCardContent {
   nameSize: number;
   maxArabicLines: number;
   maxEnglishLines: number;
+  arabicOnly: boolean;
+  englishOnly: boolean;
 }
 
 function ContentCluster(p: ContentClusterProps) {
@@ -314,14 +356,23 @@ function ContentCluster(p: ContentClusterProps) {
     layoutKind, theme, width, height, isWallpaper,
     eyebrow, arabic, transliteration, body, caption, attribution,
     arabicSize, englishSize, nameSize,
-    maxArabicLines, maxEnglishLines,
+    maxArabicLines, maxEnglishLines, arabicOnly, englishOnly,
   } = p;
 
   const sidePad = Math.max(28, width * 0.085);
   // Wallpaper: text sits in the upper-mid third (clear of clock + footer).
-  // Card: vertically centred.
-  const top    = isWallpaper ? height * 0.32 : height * 0.10;
-  const bottom = isWallpaper ? height * 0.18 : height * 0.18;
+  // Card: vertically centred. When Arabic stands alone we open up the cluster
+  // band — the calligraphy needs more vertical breathing room.
+  // Open up the cluster band whenever one side stands alone so the surviving
+  // language can use the full height — Arabic calligraphy needs vertical
+  // breathing room; long English ayahs need every line of body height.
+  const soloMode = arabicOnly || (!arabic && !!body);
+  const top    = isWallpaper
+    ? (soloMode ? height * 0.24 : height * 0.32)
+    : (soloMode ? height * 0.06 : height * 0.10);
+  const bottom = isWallpaper
+    ? (soloMode ? height * 0.15 : height * 0.18)
+    : (soloMode ? height * 0.15 : height * 0.18);
 
   const textShadowProps = theme.textShadow
     ? {
@@ -395,13 +446,19 @@ function ContentCluster(p: ContentClusterProps) {
           fontFamily: "CormorantGaramond_400Regular_Italic",
           color: theme.ink,
           fontSize: englishSize,
-          lineHeight: englishSize * 1.45,
+          // Tighter leading for long English-only blocks so 600+ char
+          // ayahs (Ayat al-Kursi) actually fit the cluster band.
+          lineHeight: englishSize * (englishOnly && body.length > 280 ? 1.32 : 1.45),
           textAlign: "center",
           width: "100%",
         },
         textShadowProps,
       ]}
       numberOfLines={maxEnglishLines}
+      // English-only: let iOS auto-shrink as a safety net so the very
+      // longest verses (Baqarah 282, etc.) never truncate to "…".
+      adjustsFontSizeToFit={englishOnly}
+      minimumFontScale={englishOnly ? 0.55 : 1}
     >
       {body}
     </Text>
@@ -442,9 +499,14 @@ function ContentCluster(p: ContentClusterProps) {
                   fontFamily: "AmiriQuran_400Regular",
                   color: theme.ink,
                   fontSize: nameSize,
-                  lineHeight: nameSize * 1.2,
+                  // AmiriQuran needs ~1.6 to keep the upper diacritics
+                  // (fatha/damma/sukun) from getting clipped on iOS.
+                  lineHeight: nameSize * 1.6,
                   textAlign: "center",
                   writingDirection: "rtl",
+                  // Visual top padding so the cluster centres on the
+                  // glyph body, not the diacritic strip above it.
+                  paddingTop: nameSize * 0.18,
                   marginBottom: width * 0.030,
                 },
                 textShadowProps,
@@ -513,8 +575,8 @@ function ContentCluster(p: ContentClusterProps) {
               {
                 fontFamily: "CormorantGaramond_500Medium",
                 color: theme.ink,
-                fontSize: englishSize * 1.15,
-                lineHeight: englishSize * 1.45,
+                fontSize: englishSize * 1.22,
+                lineHeight: englishSize * 1.58,
                 textAlign: "center",
                 width: "100%",
               },
@@ -532,12 +594,13 @@ function ContentCluster(p: ContentClusterProps) {
                 {
                   fontFamily: "AmiriQuran_400Regular",
                   color: theme.ink,
-                  fontSize: arabicSize * 0.85,
-                  lineHeight: arabicSize * 1.5,
+                  fontSize: arabicSize * 0.88,
+                  lineHeight: arabicSize * 1.7,
+                  paddingTop: arabicSize * 0.18,
                   textAlign: "center",
                   writingDirection: "rtl",
                   width: "100%",
-                  opacity: 0.92,
+                  opacity: 0.94,
                 },
                 textShadowProps,
               ]}
@@ -563,9 +626,11 @@ function ContentCluster(p: ContentClusterProps) {
         {eyebrow ? <View style={{ height: width * 0.020 }} /> : null}
 
         {arabicEl}
-        {arabic ? ruleEl : null}
+        {/* Rule sits between Arabic and English. With Arabic-only mode the
+            rule has no second clause to separate from, so we hide it. */}
+        {arabic && !arabicOnly ? ruleEl : null}
 
-        {englishEl}
+        {arabicOnly ? null : englishEl}
 
         {sourceEl}
       </View>

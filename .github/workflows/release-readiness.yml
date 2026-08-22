@@ -1,0 +1,55 @@
+name: Release readiness
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir artifacts/islamic-prayer run typecheck
+      - run: pnpm --dir artifacts/islamic-prayer run qa:polar
+      - run: pnpm --dir artifacts/islamic-prayer exec expo export --platform ios --output-dir /tmp/nuur-ios-export
+
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install locked CocoaPods dependencies
+        working-directory: artifacts/islamic-prayer/ios
+        run: pod install --deployment
+      - name: Build app and widget extension
+        working-directory: artifacts/islamic-prayer
+        run: >-
+          xcodebuild
+          -workspace ios/Nuur.xcworkspace
+          -scheme Nuur
+          -configuration Release
+          -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath /tmp/nuur-derived-data
+          CODE_SIGNING_ALLOWED=NO
+          build

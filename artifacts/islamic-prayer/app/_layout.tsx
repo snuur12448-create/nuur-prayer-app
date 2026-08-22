@@ -29,11 +29,14 @@ import { NuurSplash } from "@/components/NuurSplash";
 import { Onboarding, ONBOARDING_KEY } from "@/components/Onboarding";
 import { PrayerNotifOnboarding, NOTIF_RITUAL_KEY } from "@/components/PrayerNotifOnboarding";
 import { ToastProvider } from "@/components/Toast";
+import { WidgetBridge } from "@/components/WidgetBridge";
 import { AppProvider, useAppContext } from "@/context/AppContext";
+import { EntitlementsProvider } from "@/context/EntitlementsContext";
 import { PrayerTrackerProvider } from "@/context/PrayerTrackerContext";
 import { QuranPlayerProvider } from "@/context/QuranPlayerContext";
 import { configurePurchases } from "@/utils/iap";
 import { recordFirstLaunch, maybeRequestReview } from "@/utils/reviewPrompt";
+import { registerWidgetBackgroundTask } from "@/utils/widgetBackgroundTask";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -130,6 +133,8 @@ export default function RootLayout() {
     recordFirstLaunch();
     // Dormant by default — no-op until RevenueCat keys are provided.
     configurePurchases();
+    // Wake up periodically to refresh widget snapshot even when the app is closed.
+    registerWidgetBackgroundTask();
     AsyncStorage.getItem(ONBOARDING_KEY).then((v) => {
       setOnboardingDone(v === "true");
     }).catch(() => {
@@ -154,18 +159,25 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
+              <EntitlementsProvider>
               <AppProvider>
                 <PrayerTrackerProvider>
                 <QuranPlayerProvider>
                 <ToastProvider>
-                  {/* Main app — only rendered once fonts are ready to prevent FOUT.
+                  {/* Main app — only rendered once fonts are ready to prevent FOUT,
+                      AND once we know onboarding is complete. Skipping home while
+                      onboarding is pending prevents the home from flashing through
+                      behind the onboarding sheet as the splash dismisses.
                       Contexts (AppProvider, QuranPlayerProvider) warm up above this,
                       so data loading is NOT blocked — only screen rendering is. */}
-                  {fontsReady && <RootLayoutNav />}
+                  {fontsReady && onboardingDone === true && <RootLayoutNav />}
                   <ReviewGate />
                   <AdhanGate />
-                  {/* Onboarding overlay — shown once after first-launch splash */}
-                  {splashDone && onboardingDone === false && (
+                  <WidgetBridge />
+                  {/* Onboarding overlay — mounted as soon as we know it's needed
+                      (still hidden underneath the splash). This way it's already
+                      on screen when the splash fades out — no home-screen flash. */}
+                  {fontsReady && onboardingDone === false && (
                     <Onboarding onComplete={() => setOnboardingDone(true)} />
                   )}
                   {/* Prayer-notif Ritual — first-time setup after main onboarding */}
@@ -182,6 +194,7 @@ export default function RootLayout() {
                 </QuranPlayerProvider>
                 </PrayerTrackerProvider>
               </AppProvider>
+              </EntitlementsProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

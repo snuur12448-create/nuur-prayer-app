@@ -21,12 +21,21 @@ import Svg, { Circle as SvgCircle, Defs, RadialGradient as SvgRadialGradient, St
 import { useAppContext } from "@/context/AppContext";
 import { useMiniPlayerHeight } from "@/context/QuranPlayerContext";
 import { ALLAH_NAMES, AllahName } from "@/utils/namesData";
+import {
+  ENRICHED_NAMES,
+  THEME_LABELS,
+  THEME_ORDER,
+  getEnrichment,
+  type NameTheme,
+  type EnrichedName,
+} from "@/utils/namesEnrichment";
 import ContentShareSheet from "@/components/ContentShareSheet";
 
 const { width, height: SCREEN_H } = Dimensions.get("window");
 const NUM_COLS = width >= 600 ? 3 : 2;
-// Sheet takes 82% of screen — explicit height so flex:1 on ScrollView works reliably.
-const SHEET_H = Math.round(SCREEN_H * 0.82);
+// Sheet takes 86% of screen — explicit height so flex:1 on ScrollView works reliably.
+// (Bumped from 82% to give the new reflection / du'a / occurrences sections room to breathe.)
+const SHEET_H = Math.round(SCREEN_H * 0.86);
 
 // Soft gradient surface tints — cycle through deep jewel tones so 99 cards
 // don't feel monotonous. Kept very dark so gold/text always pop.
@@ -38,6 +47,29 @@ const CARD_GRADIENTS: [string, string][] = [
   ["#2a221a", "#1c1610"], // bronze
   ["#1f2a26", "#13201c"], // jade
 ];
+
+// Light-mode counterparts — warm parchment / pastel jewel tones. Picked to
+// echo each dark gradient's hue so the rhythm across 99 cards stays the same,
+// just on a sunlit page instead of a midnight niche.
+const CARD_GRADIENTS_LIGHT: [string, string][] = [
+  ["#EAF6EC", "#D6ECDB"], // emerald → soft mint
+  ["#ECECF5", "#DCDCEC"], // indigo → lavender mist
+  ["#F6E9E4", "#EBD3CB"], // garnet → blush
+  ["#E7EFF7", "#D2E0EE"], // sapphire → sky
+  ["#F4EBD8", "#E7D6B1"], // bronze → honey cream
+  ["#E8F1ED", "#D5E5DC"], // jade → soft sage
+];
+
+// Theme chip accent colour per category — kept muted so the gold + text stay
+// the focus. Each tint pairs with a darker translucent fill.
+const THEME_ACCENT: Record<NameTheme, string> = {
+  mercy: "#7CC4A8",      // soft jade — calming, mercy
+  power: "#C8A86B",      // royal gold — majesty
+  knowledge: "#86A9D6",  // dusk blue — wisdom
+  creation: "#C9876B",   // terracotta — craftsmanship
+  justice: "#B89BC9",    // amethyst — judgement
+  providence: "#D7B27A", // warm honey — sustenance
+};
 
 // Gold halo that sits behind the Arabic name — gives a subtle "noor" glow.
 function NameHalo({ color, size = 110 }: { color: string; size?: number }) {
@@ -55,7 +87,7 @@ function NameHalo({ color, size = 110 }: { color: string; size?: number }) {
   );
 }
 
-function NameCard({ item, colors, onPress }: { item: AllahName; colors: any; onPress: (item: AllahName) => void }) {
+function NameCard({ item, colors, isLight, onPress }: { item: AllahName; colors: any; isLight: boolean; onPress: (item: AllahName) => void }) {
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -66,7 +98,10 @@ function NameCard({ item, colors, onPress }: { item: AllahName; colors: any; onP
   };
 
   const gradIdx = (item.number - 1) % CARD_GRADIENTS.length;
+  const gradient = (isLight ? CARD_GRADIENTS_LIGHT : CARD_GRADIENTS)[gradIdx];
   const gold = colors.gold ?? colors.tint;
+  // Slightly stronger borders on light cards so they don't dissolve into bg.
+  const borderAlpha = isLight ? "66" : "33";
 
   return (
     <Animated.View style={[styles.cardWrapper, { transform: [{ scale }] }]}>
@@ -78,10 +113,10 @@ function NameCard({ item, colors, onPress }: { item: AllahName; colors: any; onP
         style={styles.cardTouch}
       >
         <LinearGradient
-          colors={CARD_GRADIENTS[gradIdx]}
+          colors={gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.card, { borderColor: gold + "33" }]}
+          style={[styles.card, { borderColor: gold + borderAlpha }]}
         >
           {/* Number medallion — small gold-rimmed circle, top-left */}
           <View style={[styles.cardNumBadge, { borderColor: gold + "55", backgroundColor: gold + "12" }]}>
@@ -110,11 +145,27 @@ function NameCard({ item, colors, onPress }: { item: AllahName; colors: any; onP
   );
 }
 
-function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item: AllahName; colors: any; onClose: () => void; onShare: () => void; miniPlayerH?: number }) {
+interface DetailSheetProps {
+  item: EnrichedName;
+  colors: any;
+  onClose: () => void;
+  onShare: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  hasPrev: boolean;
+  hasNext: boolean;
+  miniPlayerH?: number;
+}
+
+function DetailSheet({
+  item, colors, onClose, onShare, onPrev, onNext, hasPrev, hasNext, miniPlayerH = 0,
+}: DetailSheetProps) {
   const slideY = useRef(new Animated.Value(SHEET_H)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const dragY = useRef(new Animated.Value(0)).current;
 
+  // Bump the slide-in animation only on FIRST mount; when we swap items via
+  // prev/next we just reset content (key change forces re-mount, which is fine).
   React.useEffect(() => {
     Animated.parallel([
       Animated.spring(slideY, { toValue: 0, useNativeDriver: false, speed: 20, bounciness: 4 }),
@@ -129,7 +180,8 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
     ]).start(() => onClose());
   };
 
-  const panResponder = useRef(
+  // Drag handle at the very top — vertical drag to dismiss.
+  const dragPan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
@@ -148,6 +200,9 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
 
   const translateY = Animated.add(slideY, dragY);
 
+  const gold = (colors as any).gold ?? colors.tint;
+  const themeAccent = THEME_ACCENT[item.theme] ?? gold;
+
   return (
     <Animated.View
       style={[styles.sheetOverlay, { opacity }]}
@@ -161,16 +216,42 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
         ]}
       >
         {/* Drag handle — touch area is larger than the visual pill */}
-        <View {...panResponder.panHandlers} style={styles.sheetHandleArea}>
+        <View {...dragPan.panHandlers} style={styles.sheetHandleArea}>
           <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
         </View>
 
-        {/* Top action bar — always visible, outside scroll */}
+        {/* Top action bar — number badge + theme chip on left, prev/next/share/close on right */}
         <View style={styles.sheetTopBar}>
-          <View style={[styles.sheetNumBadge, { backgroundColor: colors.tint + "22" }]}>
-            <Text style={[styles.sheetNum, { color: colors.tint }]}>#{item.number}</Text>
+          <View style={styles.sheetTopLeft}>
+            <View style={[styles.sheetNumBadge, { backgroundColor: colors.tint + "22" }]}>
+              <Text style={[styles.sheetNum, { color: colors.tint }]}>#{item.number}</Text>
+            </View>
+            <View style={[styles.themeChipSheet, { backgroundColor: themeAccent + "1A", borderColor: themeAccent + "55" }]}>
+              <View style={[styles.themeDot, { backgroundColor: themeAccent }]} />
+              <Text style={[styles.themeChipText, { color: themeAccent }]} numberOfLines={1}>
+                {THEME_LABELS[item.theme]}
+              </Text>
+            </View>
           </View>
           <View style={styles.sheetTopActions}>
+            <TouchableOpacity
+              style={[styles.sheetIconBtn, { borderColor: colors.tint, opacity: hasPrev ? 1 : 0.35 }]}
+              onPress={onPrev}
+              disabled={!hasPrev}
+              activeOpacity={0.82}
+              hitSlop={6}
+            >
+              <Feather name="chevron-left" size={16} color={colors.tint} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sheetIconBtn, { borderColor: colors.tint, opacity: hasNext ? 1 : 0.35 }]}
+              onPress={onNext}
+              disabled={!hasNext}
+              activeOpacity={0.82}
+              hitSlop={6}
+            >
+              <Feather name="chevron-right" size={16} color={colors.tint} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.sheetIconBtn, { borderColor: colors.tint }]}
               onPress={onShare}
@@ -197,18 +278,18 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
         >
           {/* Arabic name with large halo glow */}
           <View style={styles.sheetArabicWrap}>
-            <NameHalo color={(colors as any).gold ?? colors.tint} size={260} />
+            <NameHalo color={gold} size={260} />
             <Text style={[styles.sheetArabic, { color: colors.text }]}>{item.arabic}</Text>
           </View>
-          <Text style={[styles.sheetTranslit, { color: (colors as any).gold ?? colors.tint }]}>{item.transliteration}</Text>
+          <Text style={[styles.sheetTranslit, { color: gold }]}>{item.transliteration}</Text>
 
           {/* Ornamental separator under transliteration */}
           <View style={styles.sheetRule}>
-            <View style={[styles.ruleDot, { backgroundColor: ((colors as any).gold ?? colors.tint) + "88" }]} />
-            <View style={[styles.ruleLine, { backgroundColor: ((colors as any).gold ?? colors.tint) + "44", width: 60 }]} />
-            <View style={[styles.ruleDiamond, { borderColor: ((colors as any).gold ?? colors.tint) + "88" }]} />
-            <View style={[styles.ruleLine, { backgroundColor: ((colors as any).gold ?? colors.tint) + "44", width: 60 }]} />
-            <View style={[styles.ruleDot, { backgroundColor: ((colors as any).gold ?? colors.tint) + "88" }]} />
+            <View style={[styles.ruleDot, { backgroundColor: gold + "88" }]} />
+            <View style={[styles.ruleLine, { backgroundColor: gold + "44", width: 60 }]} />
+            <View style={[styles.ruleDiamond, { borderColor: gold + "88" }]} />
+            <View style={[styles.ruleLine, { backgroundColor: gold + "44", width: 60 }]} />
+            <View style={[styles.ruleDot, { backgroundColor: gold + "88" }]} />
           </View>
 
           <View style={[styles.sheetPronRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
@@ -222,10 +303,55 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
             <Text style={[styles.sheetMeaning, { color: colors.text }]}>{item.meaning}</Text>
           </View>
 
-          <View style={[styles.sheetDescBox, { backgroundColor: colors.background }]}>
-            <Text style={[styles.sheetDescTitle, { color: colors.textSecondary }]}>DESCRIPTION</Text>
-            <Text style={[styles.sheetDesc, { color: colors.text }]}>{item.description}</Text>
+          {/* REFLECTION — replaces the old one-line description with a heart-aimed paragraph */}
+          <View style={[styles.sheetSection, { backgroundColor: colors.background }]}>
+            <View style={styles.sheetSectionHeader}>
+              <Feather name="feather" size={12} color={themeAccent} />
+              <Text style={[styles.sheetSectionTitle, { color: colors.textSecondary }]}>REFLECTION</Text>
+            </View>
+            <Text style={[styles.sheetSectionBody, { color: colors.text }]}>{item.reflection}</Text>
           </View>
+
+          {/* DU'A — call upon Allah by this name (Qur'an 7:180) */}
+          <View style={[styles.sheetDuaBox, { backgroundColor: themeAccent + "0E", borderColor: themeAccent + "44" }]}>
+            <View style={styles.sheetSectionHeader}>
+              <Feather name="moon" size={12} color={themeAccent} />
+              <Text style={[styles.sheetSectionTitle, { color: themeAccent }]}>CALL UPON HIM</Text>
+            </View>
+            <Text style={[styles.sheetDuaArabic, { color: colors.text }]}>{item.dua.ar}</Text>
+            <Text style={[styles.sheetDuaEnglish, { color: colors.textSecondary }]}>{item.dua.en}</Text>
+          </View>
+
+          {/* QURAN OCCURRENCES — tappable, opens the surah at the given ayah */}
+          {item.occurrences.length > 0 && (
+            <View style={[styles.sheetSection, { backgroundColor: colors.background }]}>
+              <View style={styles.sheetSectionHeader}>
+                <Feather name="book-open" size={12} color={themeAccent} />
+                <Text style={[styles.sheetSectionTitle, { color: colors.textSecondary }]}>IN THE QUR'AN</Text>
+              </View>
+              <View style={styles.occurrenceList}>
+                {item.occurrences.map((o) => (
+                  <TouchableOpacity
+                    key={`${o.surah}-${o.ayah}`}
+                    style={[styles.occurrenceChip, { borderColor: themeAccent + "55", backgroundColor: themeAccent + "10" }]}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      // Close sheet first to free up state, then route to the surah.
+                      onClose();
+                      // Slight delay so the close animation doesn't fight the push.
+                      setTimeout(() => {
+                        router.push(`/quran/${o.surah}?initialVerse=${o.ayah}`);
+                      }, 240);
+                    }}
+                  >
+                    <Text style={[styles.occurrenceSurah, { color: colors.text }]}>{o.surahName}</Text>
+                    <Text style={[styles.occurrenceRef, { color: themeAccent }]}>{o.surah}:{o.ayah}</Text>
+                    <Feather name="arrow-up-right" size={12} color={themeAccent} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
         </ScrollView>
       </Animated.View>
     </Animated.View>
@@ -234,9 +360,11 @@ function DetailSheet({ item, colors, onClose, onShare, miniPlayerH = 0 }: { item
 
 export default function NamesScreen() {
   const insets = useSafeAreaInsets();
-  const { themeColors: colors } = useAppContext();
+  const { themeColors: colors, effectiveDisplayMode } = useAppContext();
+  const isLight = effectiveDisplayMode === "light";
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<AllahName | null>(null);
+  const [activeTheme, setActiveTheme] = useState<NameTheme | "all">("all");
+  const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
   const [shareItem, setShareItem] = useState<AllahName | null>(null);
 
   const topInset = Platform.OS === "web" ? Math.max(insets.top, 67) : insets.top;
@@ -244,19 +372,37 @@ export default function NamesScreen() {
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
-    if (!q) return ALLAH_NAMES;
-    return ALLAH_NAMES.filter(
-      (n) =>
+    return ENRICHED_NAMES.filter((n) => {
+      if (activeTheme !== "all" && n.theme !== activeTheme) return false;
+      if (!q) return true;
+      return (
         n.transliteration.toLowerCase().includes(q) ||
         n.meaning.toLowerCase().includes(q) ||
         n.arabic.includes(q) ||
         String(n.number) === q
-    );
-  }, [query]);
+      );
+    });
+  }, [query, activeTheme]);
 
-  const renderItem = ({ item }: { item: AllahName }) => (
-    <NameCard item={item} colors={colors} onPress={setSelected} />
+  // Lookup the current detail item from its number — keeps the sheet in sync
+  // with the source of truth instead of caching a stale snapshot.
+  const selected = useMemo(
+    () => (selectedNumber ? ENRICHED_NAMES.find((n) => n.number === selectedNumber) ?? null : null),
+    [selectedNumber]
   );
+
+  const renderItem = ({ item }: { item: EnrichedName }) => (
+    <NameCard item={item} colors={colors} isLight={isLight} onPress={(n) => setSelectedNumber(n.number)} />
+  );
+
+  const goPrev = () => {
+    if (!selectedNumber) return;
+    setSelectedNumber((n) => (n && n > 1 ? n - 1 : n));
+  };
+  const goNext = () => {
+    if (!selectedNumber) return;
+    setSelectedNumber((n) => (n && n < ALLAH_NAMES.length ? n + 1 : n));
+  };
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -277,7 +423,7 @@ export default function NamesScreen() {
           </View>
           <Text style={[styles.headerTitle, { color: colors.text }]}>The 99 Names of Allah</Text>
           <Text style={[styles.headerSub, { color: colors.textSecondary }]}>
-            Tap any name to learn its meaning and pronunciation
+            Tap any name for its meaning, reflection, and a du'a to call upon Him
           </Text>
         </View>
 
@@ -301,9 +447,48 @@ export default function NamesScreen() {
           )}
         </View>
 
-        {query.length > 0 && (
+        {/* Theme filter chips — horizontal scroller. "All" first, then the
+            six categories. Tinted with the per-theme accent when active. */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.themeScrollContent}
+          style={styles.themeScroll}
+        >
+          {(["all", ...THEME_ORDER] as Array<NameTheme | "all">).map((t) => {
+            const active = t === activeTheme;
+            const accent = t === "all" ? (colors.gold ?? colors.tint) : THEME_ACCENT[t as NameTheme];
+            const label = t === "all" ? "All 99" : THEME_LABELS[t as NameTheme];
+            return (
+              <TouchableOpacity
+                key={t}
+                onPress={() => setActiveTheme(t)}
+                activeOpacity={0.82}
+                style={[
+                  styles.themeChip,
+                  {
+                    backgroundColor: active ? accent + "26" : colors.background,
+                    borderColor: active ? accent : colors.border,
+                  },
+                ]}
+              >
+                {t !== "all" && <View style={[styles.themeDot, { backgroundColor: accent }]} />}
+                <Text
+                  style={[
+                    styles.themeChipText,
+                    { color: active ? accent : colors.textSecondary, fontFamily: active ? "Inter_700Bold" : "Inter_500Medium" },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {(query.length > 0 || activeTheme !== "all") && (
           <Text style={[styles.resultCount, { color: colors.textSecondary }]}>
-            {filtered.length} {filtered.length === 1 ? "name" : "names"} found
+            {filtered.length} {filtered.length === 1 ? "name" : "names"}
           </Text>
         )}
       </View>
@@ -322,13 +507,13 @@ export default function NamesScreen() {
         maxToRenderPerBatch={20}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No names match your search</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No names match your filter</Text>
           </View>
         }
         ListHeaderComponent={
           <View style={[styles.countBanner, { backgroundColor: colors.surface + "88" }]}>
             <Text style={[styles.countBannerText, { color: colors.textSecondary }]}>
-              {query ? `${filtered.length} of 99 names` : "99 Beautiful Names"}
+              {activeTheme === "all" && !query ? "99 Beautiful Names" : `${filtered.length} of 99 names`}
             </Text>
           </View>
         }
@@ -337,10 +522,15 @@ export default function NamesScreen() {
       {/* Detail Sheet */}
       {selected && (
         <DetailSheet
+          key={selected.number}
           item={selected}
           colors={colors}
-          onClose={() => setSelected(null)}
+          onClose={() => setSelectedNumber(null)}
           onShare={() => setShareItem(selected)}
+          onPrev={goPrev}
+          onNext={goNext}
+          hasPrev={selected.number > 1}
+          hasNext={selected.number < ALLAH_NAMES.length}
           miniPlayerH={miniPlayerH}
         />
       )}
@@ -356,7 +546,7 @@ export default function NamesScreen() {
           secondaryTitle={shareItem.transliteration}
           arabicText={shareItem.arabic}
           arabicFontSize={36}
-          bodyText={`${shareItem.meaning}\n\n${shareItem.description}`}
+          bodyText={`${shareItem.meaning}\n\n${getEnrichment(shareItem).reflection}`}
         />
       )}
     </View>
@@ -374,13 +564,13 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   headerContent: { alignItems: "center", marginBottom: 16 },
-  headerAr: { fontSize: 32, fontFamily: "AmiriQuran_400Regular", marginBottom: 8, textAlign: "center", lineHeight: 48 },
+  headerAr: { fontSize: 32, fontFamily: "AmiriQuran_400Regular", marginBottom: 8, textAlign: "center", lineHeight: 56, paddingTop: 8 },
   headerRule: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 },
   ruleDot: { width: 4, height: 4, borderRadius: 2 },
   ruleLine: { width: 40, height: 1 },
   ruleDiamond: { width: 6, height: 6, borderWidth: 1, transform: [{ rotate: "45deg" }] },
   headerTitle: { fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 4, letterSpacing: -0.3 },
-  headerSub: { fontSize: 13, textAlign: "center" },
+  headerSub: { fontSize: 13, textAlign: "center", paddingHorizontal: 8, lineHeight: 18 },
 
   searchBox: {
     flexDirection: "row",
@@ -390,10 +580,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 11,
     gap: 10,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   searchInput: { flex: 1, fontSize: 14 },
-  resultCount: { fontSize: 12, textAlign: "center" },
+  resultCount: { fontSize: 12, textAlign: "center", marginTop: 2 },
+
+  // Theme filter chips
+  themeScroll: { marginHorizontal: -20, marginBottom: 4 },
+  themeScrollContent: { paddingHorizontal: 20, gap: 8 },
+  themeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  themeChipText: { fontSize: 12 },
+  themeDot: { width: 6, height: 6, borderRadius: 3 },
 
   countBanner: { marginHorizontal: 16, marginBottom: 8, marginTop: 12, borderRadius: 10, padding: 8, alignItems: "center" },
   countBannerText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
@@ -426,13 +631,14 @@ const styles = StyleSheet.create({
   },
   cardNum: { fontSize: 11, fontFamily: "Inter_700Bold" },
   cardArabicWrap: {
-    width: 110,
-    height: 78,
+    width: 130,
+    height: 92,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 4,
+    overflow: "visible",
   },
-  cardArabic: { fontSize: 30, fontFamily: "AmiriQuran_400Regular", textAlign: "center", lineHeight: 48 },
+  cardArabic: { fontSize: 30, fontFamily: "AmiriQuran_400Regular", textAlign: "center", lineHeight: 54, paddingTop: 6 },
   cardTranslit: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center", marginTop: 2 },
   cardOrnament: { flexDirection: "row", alignItems: "center", gap: 4, marginVertical: 2 },
   cardDot: { width: 3, height: 3, borderRadius: 1.5 },
@@ -472,11 +678,28 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingVertical: 6,
     marginBottom: 4,
+    gap: 8,
+  },
+  sheetTopLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 1,
   },
   sheetTopActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
+  },
+  themeChipSheet: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexShrink: 1,
   },
   sheetScroll: {
     alignItems: "center",
@@ -489,12 +712,13 @@ const styles = StyleSheet.create({
   sheetNum: { fontSize: 13, fontFamily: "Inter_700Bold" },
   sheetArabicWrap: {
     width: "100%",
-    height: 140,
+    height: 170,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
+    overflow: "visible",
   },
-  sheetArabic: { fontSize: 56, fontFamily: "AmiriQuran_400Regular", textAlign: "center", lineHeight: 96 },
+  sheetArabic: { fontSize: 56, fontFamily: "AmiriQuran_400Regular", textAlign: "center", lineHeight: 104, paddingTop: 14 },
   sheetTranslit: { fontSize: 22, fontFamily: "Inter_700Bold", textAlign: "center", marginTop: 4 },
   sheetRule: { flexDirection: "row", alignItems: "center", gap: 6, marginVertical: 8 },
 
@@ -520,18 +744,67 @@ const styles = StyleSheet.create({
   sheetMeaningTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.8 },
   sheetMeaning: { fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "center" },
 
-  sheetDescBox: {
+  /* Section blocks (Reflection, Quran occurrences) */
+  sheetSection: {
     borderRadius: 14,
     padding: 14,
     alignSelf: "stretch",
+    gap: 8,
   },
-  sheetDescTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 },
-  sheetDesc: { fontSize: 14, lineHeight: 21 },
+  sheetSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  sheetSectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase", letterSpacing: 0.8 },
+  sheetSectionBody: { fontSize: 14, lineHeight: 21 },
+
+  /* Du'a block — accent-tinted to make it feel like an invitation */
+  sheetDuaBox: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 16,
+    alignSelf: "stretch",
+    gap: 10,
+  },
+  sheetDuaArabic: {
+    fontSize: 22,
+    fontFamily: "AmiriQuran_400Regular",
+    textAlign: "center",
+    lineHeight: 42,
+    paddingTop: 4,
+    writingDirection: "rtl",
+  },
+  sheetDuaEnglish: {
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+
+  /* Quran occurrence chips */
+  occurrenceList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  occurrenceChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  occurrenceSurah: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  occurrenceRef: { fontSize: 12, fontFamily: "Inter_700Bold" },
 
   sheetIconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",

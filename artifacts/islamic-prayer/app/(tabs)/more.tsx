@@ -30,8 +30,7 @@ import { getIslamicDate } from "@/utils/islamicData";
 import { getNextPrayer, getTimeUntilPrayer } from "@/utils/prayerTimes";
 
 const LOGO_GOLD = "#C9933A";
-const FEEDBACK_EMAIL = "feedback@nuur.app";
-const APP_STORE_URL = "https://apps.apple.com/app/id0000000000"; // placeholder until live
+const FEEDBACK_EMAIL = "nuurapps@gmail.com";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.nuur.islamicprayer";
 
 interface MoreItem {
@@ -293,8 +292,7 @@ export default function MoreScreen() {
     (Constants.expoConfig?.version as string | undefined) ?? "1.0.0";
 
   const handleRate = () => {
-    const url = Platform.OS === "ios" ? APP_STORE_URL : PLAY_STORE_URL;
-    Linking.openURL(url).catch(() => {});
+    Linking.openURL(PLAY_STORE_URL).catch(() => {});
   };
   const handleShare = async () => {
     try {
@@ -573,14 +571,16 @@ export default function MoreScreen() {
             { backgroundColor: colors.surface, borderColor: colors.border },
           ]}
         >
-          <FooterRow
-            icon={<Feather name="star" size={16} color={colors.textSecondary} />}
-            label="Rate Nuur"
-            sub={Platform.OS === "ios" ? "App Store" : Platform.OS === "android" ? "Play Store" : undefined}
-            onPress={handleRate}
-            colors={colors}
-            isLast={false}
-          />
+          {Platform.OS === "android" ? (
+            <FooterRow
+              icon={<Feather name="star" size={16} color={colors.textSecondary} />}
+              label="Rate Nuur"
+              sub="Play Store"
+              onPress={handleRate}
+              colors={colors}
+              isLast={false}
+            />
+          ) : null}
           <FooterRow
             icon={<Feather name="share-2" size={16} color={colors.textSecondary} />}
             label="Share Nuur with a friend"

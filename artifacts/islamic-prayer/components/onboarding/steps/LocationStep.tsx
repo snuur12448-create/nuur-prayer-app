@@ -30,7 +30,9 @@ export function LocationStep({
         <Text style={s.subtitle}>Your complete Islamic companion</Text>
         <View style={s.divider} />
         <Text style={s.body}>
-          Accurate prayer times are calculated using your location. It stays on your device and is never sent to any server.
+          Prayer times and Qibla are calculated on your device. Location-based
+          features such as city lookup, nearby mosques, and weather may send your
+          coordinates to the service that provides that feature.
         </Text>
       </View>
 

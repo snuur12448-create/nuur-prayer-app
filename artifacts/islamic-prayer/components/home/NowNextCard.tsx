@@ -154,18 +154,22 @@ function NowNextCardInner(props: NowNextCardProps) {
                 </Pressable>
               );
             })}
-            <Text style={[styles.rosebudCount, { color: colors.textSecondary }]} numberOfLines={1}>
-              {prayedCount} of 5 today
+            <Text
+              style={[
+                styles.rosebudCount,
+                { color: recordingForYesterday ? colors.gold : colors.textSecondary },
+              ]}
+              numberOfLines={1}
+              accessibilityLabel={
+                recordingForYesterday && yesterdayLabel
+                  ? `${prayedCount} of 5 — recording for ${yesterdayLabel}`
+                  : `${prayedCount} of 5 today`
+              }
+            >
+              {recordingForYesterday && yesterdayLabel
+                ? `${prayedCount} of 5 · ${yesterdayLabel}`
+                : `${prayedCount} of 5 today`}
             </Text>
-            {recordingForYesterday && yesterdayLabel ? (
-              <Text
-                style={[styles.recordingHint, { color: colors.gold }]}
-                numberOfLines={1}
-                accessibilityLabel={`Before Fajr — taps record for ${yesterdayLabel}`}
-              >
-                ◐ Recording for {yesterdayLabel}
-              </Text>
-            ) : null}
           </View>
           <TouchableOpacity onPress={onViewTracker} hitSlop={8} activeOpacity={0.7}>
             <Text style={[styles.viewTracker, { color: colors.gold }]}>↗ View tracker</Text>

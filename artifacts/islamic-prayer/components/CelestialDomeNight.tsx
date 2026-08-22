@@ -267,9 +267,12 @@ export function CelestialDomeNight({
           const labelDy = labelDir === "above" ? -16 : 16;
           const timeDy = labelDir === "above" ? -6 : 26;
           const subDy = labelDir === "above" ? -27 : 36;
+          // Use side-anchored labels well into the arc so early/late prayers
+          // (Isha just after Maghrib, Fajr just before Sunrise) don't get
+          // their labels clipped by the view edge.
           const anchor: "start" | "middle" | "end" =
-            a.pct < 0.12 ? "start" : a.pct > 0.88 ? "end" : "middle";
-          const dx = anchor === "start" ? 6 : anchor === "end" ? -6 : 0;
+            a.pct < 0.22 ? "start" : a.pct > 0.78 ? "end" : "middle";
+          const dx = anchor === "start" ? 8 : anchor === "end" ? -8 : 0;
           const markerColor = isPrayer ? "#FFE4B5" : isWindow ? "#C9D4F0" : "rgba(201,212,240,0.85)";
           const r = now ? 6 : isPrayer ? 4.5 : 3;
           const opacity = past && !isPrayer ? 0.5 : isWindow ? 0.75 : 1;

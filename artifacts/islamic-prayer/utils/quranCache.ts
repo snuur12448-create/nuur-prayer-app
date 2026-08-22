@@ -42,16 +42,36 @@ export interface CachedWord {
 
 export type CachedWordsByVerse = Record<number, CachedWord[]>;
 
-const VERSES_KEY = (n: number) => `nuur_quran_verses_v2_${n}`;
-const WORDS_KEY  = (n: number) => `nuur_quran_words_v2_${n}`;
+const VERSES_KEY = (n: number) => `nuur_quran_verses_v3_${n}`;
+const WORDS_KEY  = (n: number) => `nuur_quran_words_v3_${n}`;
 
 // ── Bismillah stripper (mirrors the screen's logic) ──────────────────────────
-// Surahs 1 (Fatiha) keeps Bismillah as the first verse; surah 9 (Tawbah) has
+// Surah 1 (Fatiha) keeps Bismillah as the first verse; surah 9 (Tawbah) has
 // no Bismillah. For every other surah, the Bismillah is prepended to the first
-// verse text by the API and we strip it.
+// verse text by the API and we strip it. We split by whitespace and drop the
+// first 4 words — robust against orthographic variants (ٱ vs ا, etc.) that
+// would break a literal regex match.
 function stripBismillah(text: string, surahNum: number, verseNum: number): string {
   if (surahNum === 1 || surahNum === 9 || verseNum !== 1) return text;
-  return text.replace(/^بِسْمِ\s+ٱللَّهِ\s+ٱلرَّحْمَٰنِ\s+ٱلرَّحِيمِ\s*/u, "");
+  const words = text.trim().split(/\s+/);
+  if (words.length < 5) return text;
+  // Only strip if the first four words actually look like Bismillah. This
+  // guards against double-stripping a verse that the API already returned
+  // without a Bismillah prefix (or that we stripped once already on cache).
+  const stripDiacritics = (s: string) =>
+    s.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "");
+  // Bismillah ends in "الرحيم" — if word #4 doesn't contain that root, the
+  // verse has already had it removed; leave the text alone.
+  if (!/رحيم/.test(stripDiacritics(words[3]))) return text;
+  const rest = words.slice(4).join(" ").trim();
+  return rest.length > 0 ? rest : text;
+}
+
+// Re-clean cached verses on read so users with previously-cached data
+// (stripped by the old, too-strict regex) still see the fix without
+// having to clear app storage.
+function cleanCachedVerses(n: number, list: CachedVerse[]): CachedVerse[] {
+  return list.map((v) => ({ ...v, text: stripBismillah(v.text, n, v.number) }));
 }
 
 // ── Read helpers ────────────────────────────────────────────────────────────
@@ -62,7 +82,7 @@ export async function getCachedVerses(n: number): Promise<CachedVerse[] | null> 
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { t: number; d: CachedVerse[] };
     if (!parsed?.d || !Array.isArray(parsed.d)) return null;
-    return parsed.d;
+    return cleanCachedVerses(n, parsed.d);
   } catch {
     return null;
   }

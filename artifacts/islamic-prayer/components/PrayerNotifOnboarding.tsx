@@ -8,6 +8,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -69,7 +70,7 @@ const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 export function PrayerNotifOnboarding({ onComplete }: Props) {
   const insets = useSafeAreaInsets();
-  const { setPrayerNotifSettings, prayerNotifConfig } = useAppContext();
+  const { setPrayerNotifSettings, prayerNotifConfig, setAllPrayersNotifType } = useAppContext();
 
   const [alert, setAlert] = useState<AlertChoice>("adhan");
   const [reciterId, setReciterId] = useState<string>(DEFAULT_ADHAN_STYLE_ID);
@@ -261,6 +262,9 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
         for (const key of DAILY_PRAYERS) {
           await setPrayerNotifSettings(key, merged[key]);
         }
+        // Also mirror into the master adhanEnabled boolean so Settings → "Adhan
+        // at prayer time" reflects the choice made during onboarding.
+        await setAllPrayersNotifType(alert);
       } catch {}
     }
 
@@ -331,20 +335,19 @@ export function PrayerNotifOnboarding({ onComplete }: Props) {
           </Text>
         </View>
 
-        {/* Notification preview card */}
+        {/* Notification preview card — styled to match a real iOS banner */}
         <View style={styles.previewCardWrap}>
-          <BlurView intensity={20} tint="dark" style={styles.previewCard}>
+          <BlurView intensity={40} tint="dark" style={styles.previewCard}>
             <View style={styles.previewOverlay} />
-            <View style={styles.previewHeaderRow}>
-              <View style={styles.previewBrand}>
-                <View style={styles.previewBadge}>
-                  <Text style={styles.previewBadgeText}>N</Text>
-                </View>
+            <Image
+              source={require("@/assets/images/icon.png")}
+              style={styles.previewAppIcon}
+            />
+            <View style={styles.previewTextCol}>
+              <View style={styles.previewHeaderRow}>
                 <Text style={styles.previewBrandLabel}>NUUR</Text>
+                <Text style={styles.previewTimestamp}>now</Text>
               </View>
-              <Text style={styles.previewTimestamp}>now</Text>
-            </View>
-            <View style={styles.previewBody}>
               <Text style={styles.previewTitle}>Time for Maghrib</Text>
               <Text style={styles.previewSubtitle} numberOfLines={2}>
                 {previewSubtitle}
@@ -610,67 +613,63 @@ const styles = StyleSheet.create({
   // ── Preview card ──
   previewCardWrap: {
     marginBottom: 24,
-    borderRadius: 18,
+    borderRadius: 22,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 6 },
   },
   previewCard: {
-    borderRadius: 18,
+    borderRadius: 22,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    padding: 16,
-    gap: 10,
+    borderWidth: 0.5,
+    borderColor: "rgba(255,255,255,0.12)",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
   },
   previewOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(40,40,45,0.55)",
+  },
+  previewAppIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 9,
+    marginTop: 1,
+  },
+  previewTextCol: {
+    flex: 1,
+    gap: 2,
   },
   previewHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  previewBrand: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  previewBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    backgroundColor: "rgba(201,147,58,0.20)",
-    borderWidth: 1,
-    borderColor: "rgba(201,147,58,0.30)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  previewBadgeText: {
-    color: GOLD,
-    fontSize: 10,
-    fontWeight: "700",
-    fontFamily: SERIF,
+    marginBottom: 1,
   },
   previewBrandLabel: {
-    color: "rgba(255,255,255,0.60)",
-    fontSize: 10,
-    letterSpacing: 1.2,
+    color: "rgba(255,255,255,0.75)",
+    fontSize: 11,
+    letterSpacing: 0.6,
     fontFamily: "Inter_600SemiBold",
   },
   previewTimestamp: {
-    color: "rgba(255,255,255,0.40)",
-    fontSize: 10,
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 11,
     fontFamily: "Inter_400Regular",
   },
-  previewBody: { gap: 4 },
   previewTitle: {
-    color: "rgba(255,255,255,0.92)",
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
   },
   previewSubtitle: {
-    color: "rgba(255,255,255,0.60)",
-    fontSize: 13,
+    color: "rgba(255,255,255,0.78)",
+    fontSize: 14,
     lineHeight: 18,
     fontFamily: "Inter_400Regular",
   },

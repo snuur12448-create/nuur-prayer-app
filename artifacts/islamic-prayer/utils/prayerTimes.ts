@@ -3,6 +3,7 @@ import {
   CalculationMethod,
   HighLatitudeRule,
   Madhab,
+  PolarCircleResolution,
   PrayerTimes,
 } from 'adhan';
 
@@ -21,6 +22,8 @@ export interface PrayerTimesResult {
   maghrib: PrayerTime;
   isha: PrayerTime;
   date: Date;
+  /** Present only when a polar-day/night estimate replaced unavailable solar values. */
+  polarFallback: PolarFallbackInfo | null;
 }
 
 export type CalcMethodId =
@@ -39,7 +42,15 @@ export type CalcMethodId =
 
 export type MadhabId = 'Shafi' | 'Hanafi';
 
-export type HighLatRuleId = 'TwilightAngle' | 'MiddleOfNight' | 'SeventhOfNight' | 'None';
+export type HighLatRuleId = 'TwilightAngle' | 'MiddleOfNight' | 'SeventhOfNight';
+
+export type PolarResolutionId = 'AqrabBalad' | 'AqrabYaum' | 'Unresolved';
+
+export interface PolarFallbackInfo {
+  applied: true;
+  resolution: Exclude<PolarResolutionId, 'Unresolved'>;
+  label: string;
+}
 
 export type TimeFormat = '12h' | '24h';
 
@@ -66,16 +77,60 @@ export const CALC_METHODS: CalcMethodInfo[] = [
 ];
 
 export const HIGH_LAT_RULES: { id: HighLatRuleId; label: string; detail: string }[] = [
-  { id: 'TwilightAngle',  label: 'Twilight Angle', detail: 'Best for UK & Europe (recommended)' },
-  { id: 'MiddleOfNight',  label: 'Middle of Night', detail: 'Splits night between Maghrib & Fajr' },
-  { id: 'SeventhOfNight', label: 'Seventh of Night', detail: 'Uses 1/7th of night duration' },
-  { id: 'None',           label: 'None', detail: 'No adjustment applied' },
+  { id: 'TwilightAngle',  label: 'Twilight Angle', detail: 'Bounds Fajr and Isha using their twilight angles' },
+  { id: 'MiddleOfNight',  label: 'Middle of Night', detail: 'Bounds both prayers to half of the night' },
+  { id: 'SeventhOfNight', label: 'Seventh of Night', detail: 'Bounds both prayers to one seventh of the night' },
+];
+
+export const POLAR_RESOLUTIONS: { id: PolarResolutionId; label: string; detail: string }[] = [
+  {
+    id: 'AqrabBalad',
+    label: 'Nearest Latitude',
+    detail: 'Recommended · estimates from the nearest latitude with valid sunrise and sunset',
+  },
+  {
+    id: 'AqrabYaum',
+    label: 'Nearest Date',
+    detail: 'Estimates from the closest date with valid sunrise and sunset',
+  },
+  {
+    id: 'Unresolved',
+    label: 'No Estimate',
+    detail: 'Shows unavailable times so you can follow a trusted local timetable',
+  },
 ];
 
 export const DEFAULT_CALC_METHOD: CalcMethodId = 'MoonsightingCommittee';
 export const DEFAULT_MADHAB: MadhabId = 'Shafi';
 export const DEFAULT_HIGH_LAT_RULE: HighLatRuleId = 'TwilightAngle';
+export const DEFAULT_POLAR_RESOLUTION: PolarResolutionId = 'AqrabBalad';
 export const DEFAULT_TIME_FORMAT: TimeFormat = '12h';
+
+const HIGH_LAT_RULE_IDS = new Set<HighLatRuleId>([
+  'TwilightAngle',
+  'MiddleOfNight',
+  'SeventhOfNight',
+]);
+
+/** Migrate unsupported or stale persisted values to the app default. */
+export function normalizeHighLatRule(value: unknown): HighLatRuleId {
+  return typeof value === 'string' && HIGH_LAT_RULE_IDS.has(value as HighLatRuleId)
+    ? value as HighLatRuleId
+    : DEFAULT_HIGH_LAT_RULE;
+}
+
+const POLAR_RESOLUTION_IDS = new Set<PolarResolutionId>([
+  'AqrabBalad',
+  'AqrabYaum',
+  'Unresolved',
+]);
+
+/** Migrate unsupported or stale persisted values to the recommended fallback. */
+export function normalizePolarResolution(value: unknown): PolarResolutionId {
+  return typeof value === 'string' && POLAR_RESOLUTION_IDS.has(value as PolarResolutionId)
+    ? value as PolarResolutionId
+    : DEFAULT_POLAR_RESOLUTION;
+}
 
 /**
  * Format a UTC Date using the target location's UTC offset.
@@ -97,7 +152,12 @@ function fmtWithTz(d: Date, tz: number, format: TimeFormat = '12h'): string {
   return `${hh}:${mm} ${ampm}`;
 }
 
-function buildParams(methodId: CalcMethodId, madhabId: MadhabId, highLatRuleId: HighLatRuleId) {
+function buildParams(
+  methodId: CalcMethodId,
+  madhabId: MadhabId,
+  highLatRuleId: HighLatRuleId,
+  polarResolutionId: PolarResolutionId,
+) {
   let params;
 
   switch (methodId) {
@@ -144,6 +204,14 @@ function buildParams(methodId: CalcMethodId, madhabId: MadhabId, highLatRuleId: 
 
   params.madhab = madhabId === 'Hanafi' ? Madhab.Hanafi : Madhab.Shafi;
 
+  // adhan.js gives MoonsightingCommittee its own seasonal/one-seventh
+  // overrides, which silently bypass `highLatitudeRule`. Preserve the
+  // method's angles and minute adjustments while using the library's normal
+  // high-latitude path so the rule selected in Nuur actually takes effect.
+  if (methodId === 'MoonsightingCommittee') {
+    params.method = 'Other';
+  }
+
   switch (highLatRuleId) {
     case 'MiddleOfNight':
       params.highLatitudeRule = HighLatitudeRule.MiddleOfTheNight;
@@ -154,12 +222,28 @@ function buildParams(methodId: CalcMethodId, madhabId: MadhabId, highLatRuleId: 
     case 'TwilightAngle':
       params.highLatitudeRule = HighLatitudeRule.TwilightAngle;
       break;
-    case 'None':
     default:
       break;
   }
 
+  switch (polarResolutionId) {
+    case 'AqrabBalad':
+      params.polarCircleResolution = PolarCircleResolution.AqrabBalad;
+      break;
+    case 'AqrabYaum':
+      params.polarCircleResolution = PolarCircleResolution.AqrabYaum;
+      break;
+    case 'Unresolved':
+      params.polarCircleResolution = PolarCircleResolution.Unresolved;
+      break;
+  }
+
   return params;
+}
+
+function hasUnavailableSolarTimes(pt: PrayerTimes): boolean {
+  return [pt.fajr, pt.sunrise, pt.maghrib, pt.isha]
+    .some((time) => !time || Number.isNaN(time.getTime()));
 }
 
 export function calculatePrayerTimes(
@@ -171,10 +255,40 @@ export function calculatePrayerTimes(
   madhabId: MadhabId = DEFAULT_MADHAB,
   highLatRuleId: HighLatRuleId = DEFAULT_HIGH_LAT_RULE,
   timeFormat: TimeFormat = DEFAULT_TIME_FORMAT,
+  polarResolutionId: PolarResolutionId = DEFAULT_POLAR_RESOLUTION,
 ): PrayerTimesResult {
   const coordinates = new Coordinates(lat, lng);
-  const params = buildParams(methodId, madhabId, highLatRuleId);
+  const normalizedPolarResolution = normalizePolarResolution(polarResolutionId);
+  const params = buildParams(
+    methodId,
+    madhabId,
+    normalizeHighLatRule(highLatRuleId),
+    normalizedPolarResolution,
+  );
   const pt = new PrayerTimes(coordinates, date, params);
+
+  // adhan.js does not expose whether its polar resolver was used. Compare
+  // against the same calculation with resolution disabled so the UI can
+  // disclose an estimate only on dates that genuinely needed one.
+  let polarFallback: PolarFallbackInfo | null = null;
+  if (normalizedPolarResolution !== 'Unresolved') {
+    const unresolvedParams = buildParams(
+      methodId,
+      madhabId,
+      normalizeHighLatRule(highLatRuleId),
+      'Unresolved',
+    );
+    const unresolved = new PrayerTimes(coordinates, date, unresolvedParams);
+    if (hasUnavailableSolarTimes(unresolved) && !hasUnavailableSolarTimes(pt)) {
+      polarFallback = {
+        applied: true,
+        resolution: normalizedPolarResolution,
+        label: normalizedPolarResolution === 'AqrabBalad'
+          ? 'Estimated using the nearest viable latitude'
+          : 'Estimated using the nearest valid date',
+      };
+    }
+  }
 
   const mk = (name: string, arabic: string, d: Date): PrayerTime => ({
     name,
@@ -191,6 +305,7 @@ export function calculatePrayerTimes(
     maghrib: mk('Maghrib', 'المغرب', pt.maghrib),
     isha:    mk('Isha',    'العشاء', pt.isha),
     date,
+    polarFallback,
   };
 }
 

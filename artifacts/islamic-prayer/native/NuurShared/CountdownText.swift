@@ -22,14 +22,15 @@ public struct CountdownText: View {
         let unitSize = size * 0.58
         Group {
             switch state {
-            case .t30:
-                pair(num: "30", unit: "s", unitSize: unitSize)
-            case .t10:
-                pair(num: "10", unit: "m", unitSize: unitSize)
-            case .t1:
-                pair(num: "1",  unit: "m", unitSize: unitSize)
             case .t0:
+                // T-0: prayer time has arrived. The card swaps the countdown
+                // for "● NOW · TIME TO PRAY" (handled in LiveActivityCard), so
+                // CountdownText renders nothing.
                 EmptyView()
+            case .t30, .t10, .t1:
+                // Inside the urgency window: live minute count (drives the
+                // 30 → 29 → 28 … 1 ticker via per-minute timeline entries).
+                pair(num: countdownM, unit: "m", unitSize: unitSize)
             case .normal:
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text(countdownH)

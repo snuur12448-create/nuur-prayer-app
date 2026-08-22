@@ -27,7 +27,12 @@
         "NSPhotoLibraryUsageDescription": "Nuur saves Quranic verse cards you share to your Camera Roll.",
         "NSPhotoLibraryAddUsageDescription": "Nuur saves Quranic verse cards you share to your Camera Roll.",
         "UIBackgroundModes": [
-          "audio"
+          "audio",
+          "fetch",
+          "processing"
+        ],
+        "BGTaskSchedulerPermittedIdentifiers": [
+          "com.nuur.widget-refresh"
         ],
         "ITSAppUsesNonExemptEncryption": false,
         "NSSupportsLiveActivities": true,
@@ -63,11 +68,11 @@
         "expo-notifications",
         {
           "sounds": [
-            "./assets/sounds/adhan_makkah.caf",
-            "./assets/sounds/adhan_madinah.caf",
-            "./assets/sounds/adhan_afasy.caf",
-            "./assets/sounds/adhan_egyptian.caf",
-            "./assets/sounds/adhan_turkish.caf"
+            "./assets/sounds/adhan_makkah.wav",
+            "./assets/sounds/adhan_madinah.wav",
+            "./assets/sounds/adhan_afasy.wav",
+            "./assets/sounds/adhan_egyptian.wav",
+            "./assets/sounds/adhan_turkish.wav"
           ]
         }
       ],

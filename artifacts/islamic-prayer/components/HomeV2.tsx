@@ -108,7 +108,7 @@ export function HomeV2(props: HomeV2Props) {
   const W = Math.min(winW, 480); // Cap width on web so the dome stays mobile-shaped
   const HERO_H = 410;
   const cx = W / 2;
-  const cy = 280;
+  const cy = 298;
   const R = Math.min(138, W / 2 - 50);
 
   // ── Sky / body / anchor derivations ───────────────────────────────────────

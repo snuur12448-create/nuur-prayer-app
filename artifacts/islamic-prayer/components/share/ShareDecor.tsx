@@ -13,6 +13,7 @@
  */
 import React from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
+import { Feather } from "@expo/vector-icons";
 
 const NUUR_ICON = require("@/assets/images/icon.png");
 import Svg, {
@@ -216,21 +217,12 @@ export function OrnamentalDivider({ width }: { width: number }) {
 
 // ─── Nuur brandmark (crescent + star inside ring + wordmark) ─────────────
 
-export function NuurMark({ size = 30 }: { size?: number }) {
-  // Crescent constructed as the difference of two arcs; small 5-point star tucked in
-  const goldId = useSvgId("nm-gold");
-  return (
-    <Image
-      source={NUUR_ICON}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size * 0.22,
-      }}
-      resizeMode="cover"
-      accessibilityLabel="Nuur"
-    />
-  );
+export function NuurMark({ size = 30, color }: { size?: number; color?: string }) {
+  // Crescent moon glyph that tints with the caller-provided color (theme gold).
+  // The previous PNG had an opaque dark background and read as a black square
+  // on light surfaces. A vector icon lets us inherit any color cleanly.
+  const tint = color ?? GOLD;
+  return <Feather name="moon" size={size} color={tint} />;
 }
 
 export function NuurLockup({

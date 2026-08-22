@@ -129,8 +129,13 @@ const TafsirSheet: React.FC<TafsirSheetProps> = ({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable
+      {/* Backdrop is a sibling of the sheet (not a parent) so that vertical
+          swipes inside the ScrollView are never claimed by an outer
+          Pressable. Wrapping the sheet in a Pressable broke scrolling on iOS
+          because the parent Pressable kept winning the responder. */}
+      <View style={styles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View
           style={[
             styles.sheet,
             {
@@ -139,7 +144,6 @@ const TafsirSheet: React.FC<TafsirSheetProps> = ({
               paddingBottom: Math.max(bottomInset, 20) + 12,
             },
           ]}
-          onPress={() => {}}
         >
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
@@ -193,8 +197,8 @@ const TafsirSheet: React.FC<TafsirSheetProps> = ({
               {TAFSIR_SOURCE_ATTRIBUTION}
             </Text>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 };

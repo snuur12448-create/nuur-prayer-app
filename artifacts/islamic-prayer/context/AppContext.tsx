@@ -12,11 +12,15 @@ import {
   CalcMethodId,
   MadhabId,
   HighLatRuleId,
+  PolarResolutionId,
   TimeFormat,
   DEFAULT_CALC_METHOD,
   DEFAULT_MADHAB,
   DEFAULT_HIGH_LAT_RULE,
+  DEFAULT_POLAR_RESOLUTION,
   DEFAULT_TIME_FORMAT,
+  normalizeHighLatRule,
+  normalizePolarResolution,
 } from "@/utils/prayerTimes";
 import { suggestCalcMethod, getCalcMethodLabel } from "@/utils/calcMethodByCountry";
 import { suggestMadhab, getMadhabLabel } from "@/utils/madhabByCountry";
@@ -97,6 +101,8 @@ interface AppContextType {
   dismissMadhabNotice: () => void;
   highLatRule: HighLatRuleId;
   setHighLatRule: (rule: HighLatRuleId) => void;
+  polarResolution: PolarResolutionId;
+  setPolarResolution: (resolution: PolarResolutionId) => void;
   timeFormat: TimeFormat;
   setTimeFormat: (format: TimeFormat) => void;
   adhanEnabled: boolean;
@@ -148,6 +154,7 @@ const STORAGE_KEYS = {
   CALC_METHOD: "calc_method",
   MADHAB: "madhab",
   HIGH_LAT_RULE: "high_lat_rule",
+  POLAR_RESOLUTION: "polar_resolution",
   TIME_FORMAT: "time_format",
   ADHAN_ENABLED: "adhan_enabled",
   ADHAN_STYLE: "adhan_style",
@@ -225,6 +232,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [madhabAutoSetLabel, setMadhabAutoSetLabel] = useState<string | null>(null);
   const madhabSavedRef = useRef(false);
   const [highLatRule, setHighLatRuleState] = useState<HighLatRuleId>(DEFAULT_HIGH_LAT_RULE);
+  const [polarResolution, setPolarResolutionState] = useState<PolarResolutionId>(DEFAULT_POLAR_RESOLUTION);
   const [timeFormat, setTimeFormatState] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
 
   // Per-prayer notification config
@@ -268,6 +276,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const calcMethodRef = useRef(calcMethod);
   const madhabRef = useRef(madhab);
   const highLatRuleRef = useRef(highLatRule);
+  const polarResolutionRef = useRef(polarResolution);
   const timeFormatRef = useRef(timeFormat);
   const notificationsRef = useRef(notificationsEnabled);
   const jummahReminderRef = useRef(jummahReminderEnabled);
@@ -296,6 +305,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { calcMethodRef.current = calcMethod; }, [calcMethod]);
   useEffect(() => { madhabRef.current = madhab; }, [madhab]);
   useEffect(() => { highLatRuleRef.current = highLatRule; }, [highLatRule]);
+  useEffect(() => { polarResolutionRef.current = polarResolution; }, [polarResolution]);
   useEffect(() => { timeFormatRef.current = timeFormat; }, [timeFormat]);
   useEffect(() => { notificationsRef.current = notificationsEnabled; }, [notificationsEnabled]);
   useEffect(() => { jummahReminderRef.current = jummahReminderEnabled; }, [jummahReminderEnabled]);
@@ -315,10 +325,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { prayerTimesRef.current = prayerTimes; }, [prayerTimes]);
   useEffect(() => { prayerNotifConfigRef.current = prayerNotifConfig; }, [prayerNotifConfig]);
 
-  const effectiveDisplayMode: "dark" | "light" =
-    displayMode === "auto"
-      ? (systemColorScheme === "light" ? "light" : "dark")
-      : displayMode;
+  // Nuur is dark-only for the v1 release — the gold / mihrab brand language
+  // is built for night. The `displayMode` state is still persisted so when we
+  // re-expose Light / Auto in Settings later, the user's old preference is
+  // remembered. To re-enable, revert to the commented branch below.
+  // const effectiveDisplayMode: "dark" | "light" =
+  //   displayMode === "auto"
+  //     ? (systemColorScheme === "light" ? "light" : "dark")
+  //     : displayMode;
+  const effectiveDisplayMode: "dark" | "light" = "dark";
 
   const themeColors =
     effectiveDisplayMode === "dark"
@@ -331,7 +346,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const raw = calculatePrayerTimes(
           location.latitude, location.longitude, location.timezone,
-          new Date(), calcMethod, madhab, highLatRule, timeFormat,
+          new Date(), calcMethod, madhab, highLatRule, timeFormat, polarResolution,
         );
         const adjusted = applyPrayerOffsets(raw, prayerOffsets, location.timezone, timeFormat);
         setPrayerTimes(adjusted);
@@ -339,7 +354,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         console.warn("Prayer time calculation failed:", e);
       }
     }
-  }, [location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets]);
+  }, [location, calcMethod, madhab, highLatRule, timeFormat, polarResolution, prayerOffsets]);
+
+  // ── Push prayer-time snapshot to iOS widget ──
+  // Now handled by <WidgetBridge /> mounted inside both AppProvider and
+  // PrayerTrackerProvider so it can include streak/week% stats.
 
   // ── Adhan prayer-time watcher ──
   useEffect(() => {
@@ -421,9 +440,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       // Don't play adhan if the notification was delivered more than 10 minutes
       // ago — playing the call to prayer long after the time has passed is jarring.
-      // `response.notification.date` is seconds since epoch on iOS.
-      const deliveredMs = response.notification.date * 1000;
-      if (Date.now() - deliveredMs > 10 * 60 * 1000) return;
+      // Expo serializes this timestamp in seconds on iOS and milliseconds on
+      // Android. Normalize by magnitude so the stale guard works on both.
+      const deliveredAt = response.notification.date;
+      const deliveredMs = deliveredAt < 10_000_000_000 ? deliveredAt * 1000 : deliveredAt;
+      const deliveryAgeMs = Date.now() - deliveredMs;
+      if (deliveryAgeMs < -60_000 || deliveryAgeMs > 10 * 60 * 1000) return;
 
       const style = getAdhanStyle(styleId);
       const isFajr = key === "fajr";
@@ -466,7 +488,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadPreferences = async () => {
     try {
-      const [theme, mode, notifs, method, madhabVal, latRule, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw, islamicEventsRaw, locationRaw, prayerOffsetsRaw, snoozeRaw, preReminderRaw] =
+      const [theme, mode, notifs, method, madhabVal, latRule, polarResolutionRaw, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw, islamicEventsRaw, locationRaw, prayerOffsetsRaw, snoozeRaw, preReminderRaw] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.THEME),
           AsyncStorage.getItem(STORAGE_KEYS.DISPLAY_MODE),
@@ -474,6 +496,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(STORAGE_KEYS.CALC_METHOD),
           AsyncStorage.getItem(STORAGE_KEYS.MADHAB),
           AsyncStorage.getItem(STORAGE_KEYS.HIGH_LAT_RULE),
+          AsyncStorage.getItem(STORAGE_KEYS.POLAR_RESOLUTION),
           AsyncStorage.getItem(STORAGE_KEYS.TIME_FORMAT),
           AsyncStorage.getItem(STORAGE_KEYS.ADHAN_ENABLED),
           AsyncStorage.getItem(STORAGE_KEYS.ADHAN_STYLE),
@@ -501,7 +524,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setMadhabState(madhabVal);
         madhabSavedRef.current = true;
       }
-      if (latRule) setHighLatRuleState(latRule as HighLatRuleId);
+      if (latRule) setHighLatRuleState(normalizeHighLatRule(latRule));
+      setPolarResolutionState(normalizePolarResolution(polarResolutionRaw));
       if (fmt === "12h" || fmt === "24h") setTimeFormatState(fmt);
       if (adhanOn === "true") setAdhanEnabled(true);
       if (adhanStyle && ADHAN_STYLES.find((s) => s.id === adhanStyle)) {
@@ -582,7 +606,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // Use local vars from storage — refs not yet synced at startup
             (method as CalcMethodId) || DEFAULT_CALC_METHOD,
             (madhabVal === "Hanafi" || madhabVal === "Shafi" ? madhabVal : DEFAULT_MADHAB) as MadhabId,
-            (latRule as HighLatRuleId) || DEFAULT_HIGH_LAT_RULE,
+            normalizeHighLatRule(latRule),
+            normalizePolarResolution(polarResolutionRaw),
           );
         } catch {}
       }
@@ -625,6 +650,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setHighLatRuleState(rule);
     try { await AsyncStorage.setItem(STORAGE_KEYS.HIGH_LAT_RULE, rule); } catch {}
   }, []);
+
+  const setPolarResolution = useCallback(async (resolution: PolarResolutionId) => {
+    setPolarResolutionState(resolution);
+    polarResolutionRef.current = resolution;
+    try { await AsyncStorage.setItem(STORAGE_KEYS.POLAR_RESOLUTION, resolution); } catch {}
+    if (notificationsRef.current && location) {
+      await schedulePrayerNotifications(
+        location.latitude, location.longitude, location.timezone, location.city,
+        jummahReminderRef.current, jummahMinutesRef.current,
+        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
+        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
+        islamicEventsRef.current,
+        prayerNotifConfigRef.current,
+        prayerOffsetsRef.current,
+        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+        resolution,
+      );
+    }
+  }, [location]);
 
   const setTimeFormat = useCallback(async (fmt: TimeFormat) => {
     setTimeFormatState(fmt);
@@ -699,6 +743,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           prayerNotifConfigRef.current,
           prayerOffsetsRef.current,
           calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+          polarResolutionRef.current,
         );
       }
       return { blocked: false };
@@ -770,6 +815,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           capturedConfig, // the freshly-updated config, not the stale ref
           prayerOffsetsRef.current,
           calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+          polarResolutionRef.current,
         );
       }, 50);
     }
@@ -825,6 +871,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           capturedConfig,
           prayerOffsetsRef.current,
           calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+          polarResolutionRef.current,
         );
       }, 50);
     }
@@ -843,14 +890,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       cfg ?? prayerNotifConfigRef.current,
       prayerOffsetsRef.current,
       calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+      polarResolutionRef.current,
     );
   }, [location]);
 
-  // ── Foreground reschedule (rolling 7-day window) ─────────────────────────
-  // We only schedule the next ~7 days of prayer notifications at a time
-  // (iOS hard-caps pending local notifications at 64). If the user keeps the
-  // app installed but rarely opens it, the queue drains and notifications
-  // silently stop firing after a week.
+  // ── Foreground reschedule (rolling notification window) ──────────────────
+  // The scheduler queues a platform-sized rolling window (10 days on iOS,
+  // which hard-caps pending local notifications at 64, and 30 on Android).
+  // Foreground refreshes keep that window topped up.
   //
   // To keep the queue topped up: every time the app comes to the foreground,
   // if the last successful schedule run is older than the threshold below,
@@ -967,6 +1014,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         prayerNotifConfigRef.current,
         prayerOffsetsRef.current,
         calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+        polarResolutionRef.current,
       );
     }
   }, [location]);
@@ -990,6 +1038,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         prayerNotifConfigRef.current,
         prayerOffsetsRef.current,
         calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+        polarResolutionRef.current,
       );
     }
   }, [location]);
@@ -1013,6 +1062,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         prayerNotifConfigRef.current,
         prayerOffsetsRef.current,
         calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+        polarResolutionRef.current,
       );
     }
   }, [location]);
@@ -1030,6 +1080,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         prayerNotifConfigRef.current,
         prayerOffsetsRef.current,
         calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+        polarResolutionRef.current,
       );
     }
   }, [location]);
@@ -1121,6 +1172,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           prayerNotifConfigRef.current,
           prayerOffsetsRef.current,
           calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+          polarResolutionRef.current,
         );
       }
       return { permanentlyDenied: false };
@@ -1156,16 +1208,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setLocationError(null);
     setLocation(DEFAULT_LOCATION);
     setUsingDefaultLocation(true);
+    let hasStored = false;
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION);
       if (stored) {
         const cachedLocation: LocationData = JSON.parse(stored);
         setLocation(cachedLocation);
         setUsingDefaultLocation(false);
+        hasStored = true;
       }
     } catch {}
     setIsLoadingLocation(false);
-    fetchGpsLocation(false);
+    // Only auto-refresh GPS if the user has already granted permission in a
+    // previous session (signalled by a stored location). On first launch the
+    // Onboarding flow is responsible for triggering the permission prompt
+    // via requestLocation(), so we must not call it here.
+    if (hasStored) fetchGpsLocation(false);
   };
 
   const refreshPrayerTimes = useCallback(() => {
@@ -1178,6 +1236,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           madhabRef.current,
           highLatRuleRef.current,
           timeFormatRef.current,
+          polarResolutionRef.current,
         );
         const adjusted = applyPrayerOffsets(raw, prayerOffsetsRef.current, location.timezone, timeFormatRef.current);
         setPrayerTimes(adjusted);
@@ -1203,6 +1262,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         prayerNotifConfigRef.current,
         offsets,
         calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+        polarResolutionRef.current,
       );
     }
   }, [location]);
@@ -1240,6 +1300,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         dismissMadhabNotice,
         highLatRule,
         setHighLatRule,
+        polarResolution,
+        setPolarResolution,
         timeFormat,
         setTimeFormat,
         adhanEnabled,

@@ -10,9 +10,17 @@ web-build/
 expo-env.d.ts
 
 # Native
-ios/
 android/
+/ios/Pods/
+/ios/build/
+/ios/DerivedData/
+/ios/.xcode.env.local
+/ios/Nuur.xcodeproj/project.pbxproj.bak
+/ios/Nuur/*.caf
+/ios/NuurBridge.swift
+/ios/NuurShared/
 *.orig.*
+*.OLD.*
 *.jks
 *.p8
 *.p12

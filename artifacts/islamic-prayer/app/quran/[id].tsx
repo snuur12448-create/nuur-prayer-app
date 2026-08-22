@@ -742,11 +742,16 @@ export default function QuranDetailScreen() {
     const idx = verses.findIndex((v) => v.number === playingVerse);
     if (idx < 0) return;
     lastScrolledPlayingVerseRef.current = { surah: surahNumber, verse: playingVerse };
-    // Small delay lets the FlatList finish its initial render before scrolling
-    const t = setTimeout(() => {
-      flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.3 });
-    }, 350);
-    return () => clearTimeout(t);
+    // FlashList's auto-anchor (maintainVisibleContentPosition) can fight a
+    // single scrollToIndex when surrounding cells are still being measured —
+    // we end up wherever previous content rendered instead of at the target.
+    // Fix: scroll, wait for re-layout, scroll again to lock the target at top.
+    const scrollNow = (animated: boolean) =>
+      flatListRef.current?.scrollToIndex({ index: idx, animated, viewPosition: 0 });
+    const t1 = setTimeout(() => scrollNow(true), 350);
+    const t2 = setTimeout(() => scrollNow(false), 800);
+    const t3 = setTimeout(() => scrollNow(false), 1400);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [verses, playingVerse, playingSurahNum, surahNumber]);
 
   // Reset the dedupe ref when the user pauses or stops, so the next playback
@@ -765,10 +770,12 @@ export default function QuranDetailScreen() {
     if (!lastPlayingVerseNum || lastPlayingVerseNum <= 1) return;
     const idx = verses.findIndex((v) => v.number === lastPlayingVerseNum);
     if (idx < 0) return;
-    const t = setTimeout(() => {
-      flatListRef.current?.scrollToIndex({ index: idx, animated: false, viewPosition: 0.3 });
-    }, 400);
-    return () => clearTimeout(t);
+    const scrollNow = () =>
+      flatListRef.current?.scrollToIndex({ index: idx, animated: false, viewPosition: 0 });
+    const t1 = setTimeout(scrollNow, 400);
+    const t2 = setTimeout(scrollNow, 900);
+    const t3 = setTimeout(scrollNow, 1500);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [verses, playingVerse, lastPlayingSurahNum, lastPlayingVerseNum, surahNumber]);
 
   // Scroll to the target verse after search navigation, then flash-highlight it.
@@ -778,11 +785,14 @@ export default function QuranDetailScreen() {
   useEffect(() => {
     if (!verses || !targetIndex || hafidhMode) return;
     const doScroll = () => {
-      flatListRef.current?.scrollToIndex({ index: targetIndex, animated: false, viewPosition: 0.15 });
+      flatListRef.current?.scrollToIndex({ index: targetIndex, animated: false, viewPosition: 0 });
     };
-    // Wait for the first render batch to complete before jumping
-    const t = setTimeout(doScroll, 300);
-    return () => clearTimeout(t);
+    // Wait for the first render batch, then retry to defeat FlashList's
+    // auto-anchor settling on a wrong offset.
+    const t1 = setTimeout(doScroll, 300);
+    const t2 = setTimeout(doScroll, 800);
+    const t3 = setTimeout(doScroll, 1400);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [verses, targetIndex, hafidhMode]);
 
   useEffect(() => {
@@ -1369,9 +1379,14 @@ export default function QuranDetailScreen() {
           // mid-scroll), which previously required maintainVisibleContentPosition
           // on FlatList. Hafidh mode opts out via the disabled flag because its
           // rows are uniform and the auto-anchor can fight programmatic scroll.
-          maintainVisibleContentPosition={
-            hafidhMode ? { disabled: true } : undefined
-          }
+          // FlashList's default auto-anchor keeps the topmost visible cell
+          // pinned when items above resize. That sounds nice for toggling
+          // transliteration mid-scroll, but it actively fights every
+          // programmatic scrollToIndex (audio playback advance, search nav,
+          // resume) — the target verse ends up wherever the previous content
+          // was pinned instead of at the top. Disable it so scrollToIndex
+          // always wins.
+          maintainVisibleContentPosition={{ disabled: true }}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
           ListHeaderComponent={

@@ -69,8 +69,10 @@ export interface PremiumTheme {
   arch?: boolean;
   /** Optional shadow on text for legibility on busy bg. Omit for light bgs. */
   textShadow?: { color: string; radius: number; offsetY?: number };
-  /** Render a soft contrast scrim behind the brand footer. */
-  brandScrim?: boolean;
+  /** Render a soft contrast scrim behind the brand footer.
+   *  - `true` / `"dark"` → black veil (use under light text on busy bg)
+   *  - `"light"` → cream veil (use under dark text on darker bottom bg) */
+  brandScrim?: boolean | "dark" | "light";
   /**
    * Optional per-mode overrides — used when the card and wallpaper plates
    * have very different luminance (e.g. dark interior card + bright sky

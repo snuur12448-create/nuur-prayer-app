@@ -27,7 +27,7 @@ import { useAppContext } from "@/context/AppContext";
 import { ShareCard } from "./ShareCard";
 import { getThemesForKind, THEMES } from "./themes";
 import { getCurrentPrayerWindow, pickDefaultTheme } from "./autoSelect";
-import { useLastShareTheme, useShowArabicInShare } from "./storage";
+import { useLastShareTheme, useShowArabicInShare, useShowEnglishInShare } from "./storage";
 import type {
   ShareCardContent,
   ShareCardMode,
@@ -46,7 +46,7 @@ const PREVIEW_CARD_W           = Math.min(SCREEN_W - SLIDE_PAD * 2, 340);
 // devices like the iPhone SE (375 × 667). Sheet chrome (handle, header,
 // toggle, meta + dots, actions, paddings) ≈ 290 dp.
 const SHEET_CHROME_H           = 290;
-const WALLPAPER_PREVIEW_ASPECT = 16 / 9; // matches ShareCard renderer
+const WALLPAPER_PREVIEW_ASPECT = 19.5 / 9; // matches ShareCard renderer (true iPhone)
 const MAX_WALLPAPER_PREVIEW_H  = SCREEN_H * 0.94 - SHEET_CHROME_H;
 const PREVIEW_WALLPAPER_W      = Math.max(
   160,
@@ -56,11 +56,11 @@ const PREVIEW_WALLPAPER_W      = Math.max(
     MAX_WALLPAPER_PREVIEW_H / WALLPAPER_PREVIEW_ASPECT,   // vertical cap
   ),
 );
-// Card is now 1:1 (Instagram square). Wallpaper is 9:16 (lock-screen).
+// Card is now 1:1 (Instagram square). Wallpaper is 9:19.5 (modern iPhone lock-screen).
 const EXPORT_CARD_W            = 1080;
 const EXPORT_CARD_H            = 1080;
 const EXPORT_WALLPAPER_W       = 1170;
-const EXPORT_WALLPAPER_H       = Math.round(1170 * (16 / 9)); // 2080
+const EXPORT_WALLPAPER_H       = Math.round(1170 * (19.5 / 9)); // 2535 — true 9:19.5 iPhone
 
 const GOLD = "#C9933A";
 
@@ -83,7 +83,25 @@ export function ShareThemePicker({
   const toast = useToast();
   const { prayerTimes } = useAppContext();
   const [lastTheme, setLastTheme, lastReady] = useLastShareTheme(kind);
-  const [showArabic, setShowArabic] = useShowArabicInShare();
+  const [showArabic, setShowArabic]   = useShowArabicInShare();
+  const [showEnglish, setShowEnglish] = useShowEnglishInShare();
+
+  /**
+   * Toggle handlers with mutual exclusion: at least one of Arabic/English
+   * must remain visible. Turning the active one off auto-flips the other on
+   * so the card never collapses to an empty cluster.
+   */
+  const toggleArabic = useCallback(() => {
+    const next = !showArabic;
+    setShowArabic(next);
+    if (!next && !showEnglish) setShowEnglish(true);
+  }, [showArabic, showEnglish, setShowArabic, setShowEnglish]);
+
+  const toggleEnglish = useCallback(() => {
+    const next = !showEnglish;
+    setShowEnglish(next);
+    if (!next && !showArabic) setShowArabic(true);
+  }, [showArabic, showEnglish, setShowArabic, setShowEnglish]);
 
   const exportRef = useRef<View>(null);
   const flatRef   = useRef<FlatList<ShareThemeId>>(null);
@@ -106,14 +124,41 @@ export function ShareThemePicker({
     if (!visible) setExportMounted(false);
   }, [visible]);
 
-  /** Strip Arabic from the content payload when the user has Arabic OFF. */
-  const effectiveContent = useMemo<ShareCardContent>(
-    () => (showArabic ? content : { ...content, arabic: undefined }),
-    [content, showArabic],
-  );
+  /**
+   * Apply both toggles to the card payload. Stripping a side wipes every
+   * field that belongs to that language so the renderer reflows cleanly.
+   *   • Arabic OFF → drop `arabic`
+   *   • English OFF → drop `body`, `transliteration`, `caption`,
+   *                   `attribution`, `eyebrow` (all English-language)
+   */
+  const effectiveContent = useMemo<ShareCardContent>(() => {
+    let next: ShareCardContent = content;
+    if (!showArabic) next = { ...next, arabic: undefined };
+    if (!showEnglish) {
+      // Strip translation, transliteration, meaning + source — but keep the
+      // eyebrow (e.g. "AL-FURQĀN · 25:64", "MORNING ADHKĀR") so the card
+      // still announces what the Arabic actually is. `body` is a required
+      // `string` in ShareCardContent, so we set it to "" rather than
+      // `undefined` to satisfy the type contract; the renderer's truthy
+      // checks skip empty strings cleanly.
+      next = {
+        ...next,
+        body: "",
+        transliteration: undefined,
+        caption: undefined,
+        attribution: undefined,
+      };
+    }
+    return next;
+  }, [content, showArabic, showEnglish]);
 
-  /** Whether the source content has Arabic available to toggle. */
+  /** Whether the source content has Arabic / English available to toggle. */
   const hasArabic = !!content.arabic && content.arabic.trim().length > 0;
+  const hasEnglish = !!(
+    (content.body && content.body.trim().length > 0) ||
+    (content.transliteration && content.transliteration.trim().length > 0) ||
+    (content.caption && content.caption.trim().length > 0)
+  );
 
   // The set of themes available for this content kind. Dua / Adhkar are
   // restricted to the new ornate frame themes; everything else uses the
@@ -305,37 +350,26 @@ export function ShareThemePicker({
             <Text style={styles.sheetTitle}>{sheetTitle}</Text>
             <View style={styles.sheetHeaderRight}>
               {hasArabic && (
-                <TouchableOpacity
-                  onPress={() => setShowArabic(!showArabic)}
-                  activeOpacity={0.78}
-                  accessibilityRole="switch"
-                  accessibilityState={{ checked: showArabic }}
-                  accessibilityLabel={showArabic ? "Hide Arabic in share card" : "Show Arabic in share card"}
-                  style={[
-                    styles.arabicToggle,
-                    {
-                      backgroundColor: showArabic ? GOLD : "transparent",
-                      borderColor: showArabic ? GOLD : "rgba(201,147,58,0.45)",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.arabicToggleGlyph,
-                      { color: showArabic ? "#0D2018" : GOLD, fontFamily: "AmiriQuran_400Regular" },
-                    ]}
-                  >
-                    أ
-                  </Text>
-                  <Text
-                    style={[
-                      styles.arabicToggleLabel,
-                      { color: showArabic ? "#0D2018" : "rgba(201,147,58,0.85)" },
-                    ]}
-                  >
-                    {showArabic ? "ARABIC ON" : "ARABIC OFF"}
-                  </Text>
-                </TouchableOpacity>
+                <LangToggle
+                  on={showArabic}
+                  glyph="أ"
+                  glyphFont="AmiriQuran_400Regular"
+                  glyphSize={15}
+                  label="AR"
+                  onPress={toggleArabic}
+                  a11y={showArabic ? "Hide Arabic in share card" : "Show Arabic in share card"}
+                />
+              )}
+              {hasEnglish && (
+                <LangToggle
+                  on={showEnglish}
+                  glyph="A"
+                  glyphFont="CormorantGaramond_600SemiBold"
+                  glyphSize={14}
+                  label="EN"
+                  onPress={toggleEnglish}
+                  a11y={showEnglish ? "Hide English in share card" : "Show English in share card"}
+                />
               )}
               <TouchableOpacity onPress={onClose} hitSlop={12}>
                 <Feather name="x" size={20} color="#888" />
@@ -511,7 +545,7 @@ const styles = StyleSheet.create({
   sheetHeaderRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
   },
   sheetTitle: {
     fontSize: 17,
@@ -519,23 +553,19 @@ const styles = StyleSheet.create({
     color: "#fff",
     letterSpacing: -0.2,
   },
-  arabicToggle: {
+  langToggle: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 4,
   },
-  arabicToggleGlyph: {
-    fontSize: 15,
-    lineHeight: 17,
-  },
-  arabicToggleLabel: {
+  langToggleLabel: {
     fontSize: 9,
     fontFamily: "Inter_700Bold",
-    letterSpacing: 1.4,
+    letterSpacing: 1.2,
   },
   sizeToggle: {
     flexDirection: "row",
@@ -647,5 +677,55 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
 });
+
+/* ── LangToggle — compact glyph chip used for AR / EN toggles ──────────── */
+
+interface LangToggleProps {
+  on: boolean;
+  glyph: string;
+  glyphFont: string;
+  glyphSize: number;
+  label: string;
+  a11y: string;
+  onPress: () => void;
+}
+
+function LangToggle({ on, glyph, glyphFont, glyphSize, label, a11y, onPress }: LangToggleProps) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.78}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: on }}
+      accessibilityLabel={a11y}
+      style={[
+        styles.langToggle,
+        {
+          backgroundColor: on ? GOLD : "transparent",
+          borderColor: on ? GOLD : "rgba(201,147,58,0.45)",
+        },
+      ]}
+    >
+      <Text
+        style={{
+          fontFamily: glyphFont,
+          fontSize: glyphSize,
+          lineHeight: glyphSize + 2,
+          color: on ? "#0D2018" : GOLD,
+        }}
+      >
+        {glyph}
+      </Text>
+      <Text
+        style={[
+          styles.langToggleLabel,
+          { color: on ? "#0D2018" : "rgba(201,147,58,0.85)" },
+        ]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
 
 export default ShareThemePicker;

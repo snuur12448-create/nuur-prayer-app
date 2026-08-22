@@ -250,10 +250,19 @@ function Bead({
 // ─── Mihrab niche ───────────────────────────────────────────────────────────
 
 function MihrabSvg({
-  W, H, gold, bg, surfaceHi,
+  W, H, gold, bg, surfaceHi, isLight,
 }: {
-  W: number; H: number; gold: string; bg: string; surfaceHi: string;
+  W: number; H: number; gold: string; bg: string; surfaceHi: string; isLight?: boolean;
 }) {
+  // Dark mode = midnight prayer niche (cool blue → violet → black).
+  // Light mode = sunlit alcove (warm cream → soft gold → ivory) — same shape,
+  // same gold ornamentation, just lit by day instead of starlight.
+  const skyStops = isLight
+    ? ["#FFF8E7", "#F4E6BE", "#EBD7A0", bg] as const
+    : ["#1A2C46", "#2A2238", "#1A1A1A", bg] as const;
+  // Borders and inner ring need to read on cream — bump up opacity slightly.
+  const outerStrokeOpacity = isLight ? 0.7 : 0.55;
+  const innerStrokeOpacity = isLight ? 0.55 : 0.4;
   const archRadius = W / 2 - 12;
   const archTop = 12;
   const archCenterY = archTop + archRadius;
@@ -277,10 +286,10 @@ function MihrabSvg({
     <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", inset: 0 }}>
       <Defs>
         <SvgLinearGradient id="nicheSky" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0%" stopColor="#1A2C46" />
-          <Stop offset="40%" stopColor="#2A2238" />
-          <Stop offset="80%" stopColor="#1A1A1A" />
-          <Stop offset="100%" stopColor={bg} />
+          <Stop offset="0%" stopColor={skyStops[0]} />
+          <Stop offset="40%" stopColor={skyStops[1]} />
+          <Stop offset="80%" stopColor={skyStops[2]} />
+          <Stop offset="100%" stopColor={skyStops[3]} />
         </SvgLinearGradient>
         <RadialGradient id="nicheGlow" cx="0.5" cy="0.78" r="0.6">
           <Stop offset="0%" stopColor={gold} stopOpacity={0.18} />
@@ -290,8 +299,8 @@ function MihrabSvg({
 
       <Path d={outerPath} fill="url(#nicheSky)" />
       <Path d={outerPath} fill="url(#nicheGlow)" />
-      <Path d={outerPath} fill="none" stroke={gold} strokeWidth={1} opacity={0.55} />
-      <Path d={innerPath} fill="none" stroke={gold} strokeWidth={0.8} opacity={0.4} />
+      <Path d={outerPath} fill="none" stroke={gold} strokeWidth={1} opacity={outerStrokeOpacity} />
+      <Path d={innerPath} fill="none" stroke={gold} strokeWidth={0.8} opacity={innerStrokeOpacity} />
 
       <Floret cx={20} cy={H - 20} gold={gold} />
       <Floret cx={W - 20} cy={H - 20} gold={gold} />
@@ -484,7 +493,8 @@ export default function TrackerScreen() {
   const miniPlayerH = useMiniPlayerHeight();
   const {
     themeColors: colors,
-    location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets,
+    effectiveDisplayMode,
+    location, calcMethod, madhab, highLatRule, polarResolution, timeFormat, prayerOffsets,
     prayerPreReminderMinutes, setPrayerPreReminderMinutes,
     // The app-wide prayer times are always computed for the *current* date,
     // so they're the right source for deciding whether we're before today's
@@ -686,11 +696,11 @@ export default function TrackerScreen() {
     if (!location) return;
     const raw = calculatePrayerTimes(
       location.latitude, location.longitude, location.timezone,
-      selectedDate, calcMethod, madhab, highLatRule, timeFormat,
+      selectedDate, calcMethod, madhab, highLatRule, timeFormat, polarResolution,
     );
     const adjusted = applyPrayerOffsets(raw, prayerOffsets, location.timezone, timeFormat);
     setPrayerTimes(adjusted);
-  }, [selectedKey, location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets]);
+  }, [selectedKey, location, calcMethod, madhab, highLatRule, polarResolution, timeFormat, prayerOffsets]);
 
   const togglePrayer = useCallback((p: PrayerKey) => {
     if (Platform.OS !== "web") {
@@ -729,10 +739,40 @@ export default function TrackerScreen() {
     isha:    prayerTimes?.isha.timeString    ?? "--:--",
   };
 
-  // Determine the "next" prayer for today (first un-prayed prayer whose time
-  // is in the future). Only meaningful when selectedKey === today.
+  // Determine which prayer's lamp should glow as the "active" one today.
+  //
+  // Rule:
+  //  • If the user is currently inside an unprayed prayer's window (now >=
+  //    that prayer's start, now < next prayer's start), flag THAT prayer as
+  //    active — not the upcoming one. Showing Maghrib's lamp flickering at
+  //    7pm when Asr is still in its window and unprayed is wrong: it visually
+  //    nudges the user past a prayer they still need to do.
+  //  • Otherwise (no current-window candidate), fall back to the next upcoming
+  //    unprayed prayer in the future, with a countdown.
+  // Only meaningful when selectedKey === today.
   const { nextPrayerKey, nextCountdown } = useMemo(() => {
     if (!isToday) return { nextPrayerKey: null as PrayerKey | null, nextCountdown: "" };
+
+    // End-of-day sentinel so Isha's window has an upper bound (it runs from
+    // Isha time until midnight; we don't have tomorrow's Fajr in scope here).
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Pass 1: prefer an unprayed prayer whose window is happening RIGHT NOW.
+    for (let i = 0; i < PRAYERS.length; i++) {
+      const p = PRAYERS[i];
+      if (dayRecord[p]) continue;
+      const t = parseTimeToToday(prayerTimeMap[p]);
+      if (!t) continue;
+      const nextP = PRAYERS[i + 1];
+      const nextT = nextP ? parseTimeToToday(prayerTimeMap[nextP]) : null;
+      const windowEnd = nextT ?? endOfDay;
+      if (now.getTime() >= t.getTime() && now.getTime() < windowEnd.getTime()) {
+        return { nextPrayerKey: p, nextCountdown: "NOW" };
+      }
+    }
+
+    // Pass 2: next upcoming unprayed prayer with a countdown.
     for (const p of PRAYERS) {
       if (dayRecord[p]) continue;
       const t = parseTimeToToday(prayerTimeMap[p]);
@@ -924,7 +964,7 @@ export default function TrackerScreen() {
         {/* ── MIHRAB FRAME ── */}
         <View style={{ paddingHorizontal: (390 - W) / 2 - 4, marginTop: 12, alignItems: "center" }}>
           <View style={{ width: W, height: H }}>
-            <MihrabSvg W={W} H={H} gold={gold} bg={colors.background} surfaceHi={colors.surfaceElevated} />
+            <MihrabSvg W={W} H={H} gold={gold} bg={colors.background} surfaceHi={colors.surfaceElevated} isLight={effectiveDisplayMode === "light"} />
 
             {/* Apex Hijri day overlay (positioned over rosette) */}
             <Text
@@ -980,7 +1020,7 @@ export default function TrackerScreen() {
                     >
                       <Animated.View style={{ width: 30, alignItems: "center", transform: [{ scale: lampScales[p] }] }}>
                         <Lamp
-                          lit={checked || isNext}
+                          lit={checked}
                           glow={isNext}
                           gold={gold}
                           goldLight={goldLight}

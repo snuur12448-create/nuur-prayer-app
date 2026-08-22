@@ -104,14 +104,14 @@ function CelestialDomeInner(props: CelestialDomeProps) {
         {prayerTimes && dayActive && (
           <G opacity={1 - swapT}>
             <Circle cx={cx - R} cy={cy - 4} r={2.2} fill={inkSoft(0.6)} />
-            <SvgText x={cx - R} y={cy - 22} textAnchor="middle" fill={inkSoft(0.55)} fontSize={7.5} fontWeight="700">
+            <SvgText x={cx - R} y={cy + 16} textAnchor="middle" fill={inkSoft(0.55)} fontSize={9} fontWeight="700">
               SUNRISE
             </SvgText>
-            <SvgText x={cx - R} y={cy - 11} textAnchor="middle" fill={inkSoft(0.7)} fontSize={9} fontWeight="600">
+            <SvgText x={cx - R} y={cy + 29} textAnchor="middle" fill={inkSoft(0.7)} fontSize={11} fontWeight="600">
               {prayerTimes.sunrise.timeString}
             </SvgText>
             {notifEnabled?.sunrise && (
-              <Circle cx={cx - R + 10} cy={cy + 6} r={2} fill="#FFD27A" opacity={0.95} />
+              <Circle cx={cx - R + 5} cy={cy - 9} r={2} fill="#FFD27A" opacity={0.95} />
             )}
           </G>
         )}
@@ -126,13 +126,42 @@ function CelestialDomeInner(props: CelestialDomeProps) {
               const past = p.status === "past";
               const now = p.status === "now";
               const upcoming = p.status === "upcoming";
-              const apex = Math.abs(p.angle + 90) < 8;
-              const above = apex || (isDay && Math.abs(bodyDeg - p.angle) < 8);
-              const labelDy = above ? -22 : 22;
-              const timeDy = above ? -10 : 33;
-              const anchor: "start" | "middle" | "end" =
-                p.angle <= -120 ? "start" : p.angle >= -10 ? "end" : "middle";
-              const dx = anchor === "start" ? 7 : anchor === "end" ? -7 : 0;
+              // Radial outward unit vector: labels sit OUTSIDE the arc,
+              // perpendicular to the curve at each marker. This naturally
+              // mirrors across the apex (Fajr ↔ Maghrib, Asr ↔ Dhuhr-side).
+              const nx = Math.cos(r);
+              const ny = Math.sin(r);
+              // Extra clearance when the sun is sitting on this marker so the
+              // label isn't swallowed by the sun's glow (Dhuhr at noon).
+              const sunOnMe = isDay && Math.abs(bodyDeg - p.angle) < 8;
+              const LABEL_OFFSET = sunOnMe ? 50 : 30;
+              const rawLabelX = x + nx * LABEL_OFFSET;
+              const labelY = y + ny * LABEL_OFFSET;
+              // Anchor by side so labels don't get clipped at the edges.
+              const anchor: "start" | "middle" | "end" = p.angle < -110
+                ? "end"
+                : p.angle > -70
+                ? "start"
+                : "middle";
+              // Edge-safety: clamp x so the longest line never crosses the
+              // screen edge, regardless of side. Keeps every prayer label
+              // fully readable even when its marker sits near a horizon.
+              const labelX = (() => {
+                const PAD = 2;
+                const TEXT_W = 46;
+                if (anchor === "end") {
+                  return Math.max(rawLabelX, PAD + TEXT_W);
+                }
+                if (anchor === "start") {
+                  return Math.min(rawLabelX, W - PAD - TEXT_W);
+                }
+                return Math.min(
+                  Math.max(rawLabelX, PAD + TEXT_W / 2),
+                  W - PAD - TEXT_W / 2,
+                );
+              })();
+              const timeX = labelX;
+              const timeY = labelY + 15;
               const groupOpacity = past ? 0.55 : upcoming && !isDay ? 0.35 : 1;
 
               return (
@@ -161,29 +190,29 @@ function CelestialDomeInner(props: CelestialDomeProps) {
                     </SvgText>
                   )}
                   <SvgText
-                    x={x + dx}
-                    y={y + labelDy}
+                    x={labelX}
+                    y={labelY}
                     textAnchor={anchor}
                     fill={inkSoft(1)}
-                    fontSize={11}
+                    fontSize={13}
                     fontWeight="800"
                     opacity={groupOpacity}
                   >
                     {p.en.toUpperCase()}
                   </SvgText>
                   <SvgText
-                    x={x + dx}
-                    y={y + timeDy}
+                    x={timeX}
+                    y={timeY}
                     textAnchor={anchor}
                     fill={inkSoft(0.88)}
-                    fontSize={10.5}
+                    fontSize={12}
                     fontWeight="600"
                     opacity={groupOpacity}
                   >
                     {p.time}
                   </SvgText>
                   {notifEnabled?.[p.id] && (
-                    <Circle cx={x + 13} cy={above ? y + 8 : y - 8} r={2} fill="#FFD27A" opacity={0.95} />
+                    <Circle cx={x + 5} cy={y - 5} r={2} fill="#FFD27A" opacity={0.95} />
                   )}
                 </React.Fragment>
               );
@@ -290,15 +319,71 @@ function CelestialDomeInner(props: CelestialDomeProps) {
               const past = a.status === "past";
               const now = a.status === "now";
               const next = a.status === "next";
-              const apex = Math.abs(a.angle + 90) < 12;
-              const moonOnMe = Math.abs(bodyDeg - a.angle) < 8;
-              const above = apex || moonOnMe;
-              const labelDy = above ? -22 : 22;
-              const timeDy = above ? -10 : 33;
-              const subDy = above ? -34 : 44;
-              const anchor: "start" | "middle" | "end" =
-                a.angle <= -120 ? "start" : a.angle >= -10 ? "end" : "middle";
-              const dx = anchor === "start" ? 7 : anchor === "end" ? -7 : 0;
+              const moonOnMe = Math.abs(bodyDeg - a.angle) < 22;
+              // SAME approach as the day arc: labels sit OUTSIDE the curve,
+              // perpendicular to the arc at each marker (radial outward).
+              // This keeps the layout perfectly mirrored AND always accurate
+              // to whatever angle the prayer falls on — earlier/later Isha or
+              // Fajr just slides along the arc and the label tracks with it.
+              const nx = Math.cos(r);
+              const ny = Math.sin(r);
+              // Maghrib (-180°) and Sunrise (0°) sit on the horizons —
+              // a radial offset would push them off-screen, so they stay
+              // pinned BELOW their markers like the day arc gateways.
+              const horizonExempt = a.id === "maghrib" || a.id === "sunrise";
+              // Extra clearance when the moon is sitting on this marker so the
+              // label isn't swallowed by the moon's glow.
+              // Last-third / tahajjud window sits at the apex and stacks 3
+              // lines (LAST 1/3 / time / "tahajjud window"). Push it further
+              // out so the sub line has room and doesn't crowd the marker.
+              const lastThird = a.id === "lastThird";
+              const LABEL_OFFSET = lastThird ? 48 : moonOnMe ? 46 : 30;
+              const labelDx = horizonExempt ? 0 : nx * LABEL_OFFSET;
+              const labelDy = horizonExempt ? 24 : ny * LABEL_OFFSET;
+              const timeDx = labelDx;
+              const timeDy = labelDy + 15;
+              const subDx = labelDx;
+              const subDy = timeDy + 13;
+              // Anchor by side so labels don't get clipped at the edges.
+              let anchor: "start" | "middle" | "end" = horizonExempt
+                ? "middle"
+                : a.angle < -110
+                ? "end"
+                : a.angle > -70
+                ? "start"
+                : "middle";
+              // Edge-safety: clamp the label X so the longest line never
+              // crosses the screen edge, regardless of marker angle. Shifts
+              // label/time/sub together so they stay aligned. Triggers only
+              // when needed (e.g. Isha right after Maghrib, Fajr right before
+              // Sunrise) — otherwise labels keep their normal radial layout.
+              let safeLabelDx = labelDx;
+              let safeTimeDx = timeDx;
+              let safeSubDx = subDx;
+              {
+                const PAD = 2;
+                const TEXT_W = 46; // widest expected line (e.g. "10:53 PM")
+                const projectedX = x + labelDx;
+                let shift = 0;
+                if (anchor === "end") {
+                  const minX = PAD + TEXT_W;
+                  if (projectedX < minX) shift = minX - projectedX;
+                } else if (anchor === "start") {
+                  const maxX = W - PAD - TEXT_W;
+                  if (projectedX > maxX) shift = maxX - projectedX;
+                } else {
+                  // middle
+                  const minX = PAD + TEXT_W / 2;
+                  const maxX = W - PAD - TEXT_W / 2;
+                  if (projectedX < minX) shift = minX - projectedX;
+                  else if (projectedX > maxX) shift = maxX - projectedX;
+                }
+                if (shift !== 0) {
+                  safeLabelDx = labelDx + shift;
+                  safeTimeDx = timeDx + shift;
+                  safeSubDx = subDx + shift;
+                }
+              }
               const markerColor = isPrayer ? "#FFE4B5" : "rgba(201,212,240,0.7)";
               const markerR = now ? 7 : isPrayer ? 5 : 3;
               const groupOp = past ? 0.55 : !isPrayer ? 0.7 : 1;
@@ -334,11 +419,11 @@ function CelestialDomeInner(props: CelestialDomeProps) {
                     />
                   )}
                   <SvgText
-                    x={x + dx}
+                    x={x + safeLabelDx}
                     y={y + labelDy}
                     textAnchor={anchor}
                     fill={isPrayer ? "rgba(255,228,181,1)" : "rgba(220,228,248,0.95)"}
-                    fontSize={isPrayer ? 11 : 10}
+                    fontSize={isPrayer || lastThird ? 13 : 12}
                     fontWeight="800"
                   >
                     {a.label}
@@ -352,25 +437,23 @@ function CelestialDomeInner(props: CelestialDomeProps) {
                       Maghrib is in the past — the EARLIER TODAY chip below
                       already shows the exact time. Keep just the marker + tiny
                       "MAGHRIB" label as a quiet visual anchor. */}
-                  {!(a.kind === "gateway" && past) && (
-                    <SvgText
-                      x={x + dx}
-                      y={y + timeDy}
-                      textAnchor={anchor}
-                      fill={isPrayer ? "rgba(255,228,181,0.88)" : "rgba(220,228,248,0.78)"}
-                      fontSize={10.5}
-                      fontWeight="600"
-                    >
-                      {a.time}
-                    </SvgText>
-                  )}
+                  <SvgText
+                    x={x + safeTimeDx}
+                    y={y + timeDy}
+                    textAnchor={anchor}
+                    fill={isPrayer ? "rgba(255,228,181,0.88)" : "rgba(220,228,248,0.78)"}
+                    fontSize={12}
+                    fontWeight="600"
+                  >
+                    {a.time}
+                  </SvgText>
                   {a.sub && !(a.kind === "gateway" && past) && (
                     <SvgText
-                      x={x + dx}
+                      x={x + safeSubDx}
                       y={y + subDy}
                       textAnchor={anchor}
-                      fill="rgba(220,228,248,0.62)"
-                      fontSize={9}
+                      fill="rgba(220,228,248,0.72)"
+                      fontSize={lastThird ? 11 : 10}
                       fontWeight="500"
                       fontStyle="italic"
                     >
@@ -381,7 +464,7 @@ function CelestialDomeInner(props: CelestialDomeProps) {
                     const notifKey =
                       a.id === "lastThird" ? "tahajjud" : (a.id as PrayerKey);
                     if (!notifEnabled?.[notifKey]) return null;
-                    return <Circle cx={x + 13} cy={y - 8} r={2} fill="#FFD27A" opacity={0.95} />;
+                    return <Circle cx={x + 5} cy={y - 5} r={2} fill="#FFD27A" opacity={0.95} />;
                   })()}
                 </G>
               );
@@ -407,16 +490,6 @@ function CelestialDomeInner(props: CelestialDomeProps) {
             )}
             <Circle cx={dayBodyX} cy={dayBodyY} r={32 + 8 * sunsetFlash} fill="url(#sunGlow)" />
             <Circle cx={dayBodyX} cy={dayBodyY} r={11 + 4 * sunsetFlash} fill="#FFF1C4" />
-            <SvgText
-              x={dayBodyX + 18}
-              y={dayBodyY + 3.5}
-              fill="#FFF8DC"
-              fontSize={12.5}
-              fontWeight="800"
-              opacity={1 - sunsetFlash * 0.85}
-            >
-              {nowLabel}
-            </SvgText>
           </G>
         )}
         {prayerTimes && nightActive && (
@@ -438,13 +511,31 @@ function CelestialDomeInner(props: CelestialDomeProps) {
               r={11}
               fill={grad[0]}
             />
+          </G>
+        )}
+
+        {/* Fixed "NOW" badge — sits inside the arc, at the visual middle. Stays put. */}
+        {prayerTimes && (
+          <G opacity={Math.max(0.35, 1 - sunsetFlash * 0.5)}>
             <SvgText
-              x={nightBodyX + 22}
-              y={nightBodyY + 3}
-              fill="#E8EEFF"
-              fontSize={11}
+              x={cx}
+              y={cy - R * 0.42}
+              textAnchor="middle"
+              fill={inkSoft(0.55)}
+              fontSize={8}
               fontWeight="700"
-              opacity={1 - sunsetFlash * 0.6}
+              letterSpacing={2}
+            >
+              {isDay ? "DAY · NOW" : "NIGHT · NOW"}
+            </SvgText>
+            <SvgText
+              x={cx}
+              y={cy - R * 0.42 + 22}
+              textAnchor="middle"
+              fill={ink}
+              fontSize={22}
+              fontWeight="800"
+              letterSpacing={0.5}
             >
               {nowLabel}
             </SvgText>

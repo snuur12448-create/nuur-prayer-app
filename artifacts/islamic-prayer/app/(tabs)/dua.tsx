@@ -1,5 +1,5 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import * as Clipboard from "expo-clipboard";
 import {
@@ -115,7 +115,7 @@ function TodayHero({
             <Text style={[styles.heroDate, { color: colors.gold + "B3" }]}>{hijriDate}</Text>
             <View style={[styles.heroDateRule, { backgroundColor: colors.gold + "44" }]} />
             <View style={[styles.heroBadge, { backgroundColor: colors.gold + "1A", borderColor: colors.gold + "55" }]}>
-              <NuurMark size={11} />
+              <NuurMark size={11} color={colors.gold} />
               <Text style={[styles.heroBadgeText, { color: colors.gold }]}>TODAY</Text>
             </View>
           </View>
@@ -399,6 +399,18 @@ export default function DuaScreen() {
   const { doneIds, toggle: toggleDone } = useDailyAdhkar();
 
   const hijriToday = useMemo(() => approximateHijriToday(), []);
+
+  // Deep link from the home-screen widget: nuur://dua?window=morning|evening
+  // jumps straight to the relevant adhkar list that the widget was showing.
+  const { window: windowParam } = useLocalSearchParams<{ window?: string }>();
+  useEffect(() => {
+    if (windowParam === "morning" || windowParam === "evening") {
+      setSelectedCategoryId(windowParam);
+      // Clear any leftover search so the chosen list is actually visible.
+      setSearchQuery("");
+      setDebouncedQuery("");
+    }
+  }, [windowParam]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -878,21 +890,21 @@ const styles = StyleSheet.create({
   doneChipText: { fontSize: 8, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
   cardTopRight: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 0 },
 
-  cardTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginBottom: 8 },
+  cardTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold", marginBottom: 8 },
 
   cardArabic: {
     fontFamily: "AmiriQuran_400Regular",
-    fontSize: 18,
-    lineHeight: 34,
+    fontSize: 24,
+    lineHeight: 44,
     textAlign: "right",
-    marginBottom: 10,
+    marginBottom: 12,
     writingDirection: "rtl",
   },
   cardTranslation: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: "Inter_400Regular",
     fontStyle: "italic",
-    lineHeight: 22,
+    lineHeight: 24,
     marginBottom: 8,
   },
   cardRefCollapsed: {

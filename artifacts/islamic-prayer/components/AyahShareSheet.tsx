@@ -28,11 +28,13 @@ export default function AyahShareSheet({
   // visibly — keep for future tweaks without changing the API.
   void surahName;
 
+  // Single source line at the top — the bottom attribution duplicated the
+  // surah/verse and was dropped. The eyebrow now leads with "QUR'AN" so the
+  // card's origin is clear at a glance even without the bottom caption.
   const content = useMemo<ShareCardContent>(() => ({
-    eyebrow: `${surahEnglish.toUpperCase()} · ${surahNumber}:${verseNumber}`,
+    eyebrow: `QUR'AN · ${surahEnglish.toUpperCase()} · ${surahNumber}:${verseNumber}`,
     arabic: arabicText,
     body: translation,
-    attribution: `Qur'an · ${surahEnglish} · ${surahNumber}:${verseNumber}`,
   }), [arabicText, translation, surahEnglish, surahNumber, verseNumber]);
 
   return (

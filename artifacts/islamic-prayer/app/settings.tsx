@@ -24,14 +24,22 @@ import { THEMES, ThemeName, DisplayMode } from "@/constants/themes";
 import {
   CALC_METHODS,
   HIGH_LAT_RULES,
+  POLAR_RESOLUTIONS,
   CalcMethodId,
   MadhabId,
   HighLatRuleId,
+  PolarResolutionId,
   TimeFormat,
   PrayerOffsets,
 } from "@/utils/prayerTimes";
-import { ADHAN_STYLES, AdhanStyle, AdhanMode, ADHAN_MODE_INFO } from "@/utils/adhanData";
+import { ADHAN_STYLES, AdhanStyle, AdhanMode, ADHAN_MODE_INFO, getAdhanStyle } from "@/utils/adhanData";
 import { prefetchAdhanAudio, previewAdhan, stopAdhanAudio } from "@/utils/adhanPlayer";
+import {
+  ensureAndroidNotificationChannels,
+  resolvePrayerNotificationPresentation,
+} from "@/utils/notifications";
+import * as Notifications from "expo-notifications";
+import { Alert } from "react-native";
 import { CornerFloret, NuurMark } from "@/components/share/ShareDecor";
 
 const isWeb = Platform.OS === "web";
@@ -713,6 +721,7 @@ export default function SettingsScreen() {
     calcMethod, setCalcMethod,
     madhab, setMadhab,
     highLatRule, setHighLatRule,
+    polarResolution, setPolarResolution,
     timeFormat, setTimeFormat,
     notificationsEnabled, toggleNotifications,
     jummahReminderEnabled, jummahMinutesBefore, setJummahReminder,
@@ -762,7 +771,7 @@ export default function SettingsScreen() {
             </Text>
           </View>
           <View style={[styles.headerBadge, { borderColor: colors.gold, backgroundColor: colors.gold + "1A" }]}>
-            <NuurMark size={12} />
+            <NuurMark size={12} color={colors.gold} />
             <Text style={[styles.headerBadgeText, { color: colors.gold }]}>NUUR</Text>
           </View>
         </View>
@@ -776,24 +785,10 @@ export default function SettingsScreen() {
         {/* ── APPEARANCE ── */}
         <SectionDivider label="APPEARANCE · المظهر" colors={colors} />
         <GroupCard colors={colors}>
-          <View style={styles.cardRow}>
-            <View style={styles.rowLeft}>
-              <Feather name="sun" size={16} color={colors.gold} style={styles.rowIcon} />
-              <Text style={[styles.rowLabel, { color: colors.text }]}>Display Mode</Text>
-            </View>
-          </View>
-          <View style={styles.chipPad}>
-            <ChipGroup<DisplayMode>
-              options={[
-                { value: "auto", label: "AUTO" },
-                { value: "light", label: "LIGHT" },
-                { value: "dark", label: "DARK" },
-              ]}
-              value={displayMode}
-              onChange={setDisplayMode}
-              colors={colors}
-            />
-          </View>
+          {/* Display Mode chooser intentionally hidden — Nuur is dark-only for
+              the v1 release. The setting, persistence, and theme palettes are
+              preserved in code so we can re-introduce light / auto modes
+              later without touching context plumbing. */}
 
           <RowSeparator colors={colors} />
 
@@ -903,6 +898,47 @@ export default function SettingsScreen() {
                       ]}
                     >
                       {rule.label.toUpperCase()}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <RowSeparator colors={colors} />
+
+          <View style={styles.cardRow}>
+            <View style={styles.rowLeft}>
+              <Feather name="compass" size={16} color={colors.gold} style={styles.rowIcon} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Polar Day & Night</Text>
+                <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                  {POLAR_RESOLUTIONS.find((r) => r.id === polarResolution)?.detail ?? ""}
+                </Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.chipPad}>
+            <View style={styles.chipRow}>
+              {POLAR_RESOLUTIONS.map((resolution) => {
+                const active = resolution.id === polarResolution;
+                return (
+                  <Pressable
+                    key={resolution.id}
+                    onPress={() => setPolarResolution(resolution.id as PolarResolutionId)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Polar fallback: ${resolution.label}`}
+                    accessibilityState={{ selected: active }}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: active ? colors.gold : "transparent",
+                        borderColor: active ? colors.gold : colors.gold + "44",
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.chipText, { color: active ? colors.background : colors.textSecondary }]}>
+                      {resolution.label.toUpperCase()}
                     </Text>
                   </Pressable>
                 );
@@ -1096,6 +1132,12 @@ export default function SettingsScreen() {
                   {adhanCurrentStyle.location} · {adhanCurrentStyle.description}
                 </Text>
               </View>
+              <View style={[styles.adhanInfoRow, { backgroundColor: colors.gold + "08" }]}>
+                <Feather name="info" size={12} color={colors.gold} />
+                <Text style={[styles.adhanInfoText, { color: colors.textSecondary }]}>
+                  Full adhan plays when the app is open. iOS limits notification sounds to ~30 seconds when your phone is locked.
+                </Text>
+              </View>
             </>
           )}
         </GroupCard>
@@ -1123,6 +1165,67 @@ export default function SettingsScreen() {
                   ios_backgroundColor={colors.gold + "22"}
                 />
               </View>
+
+              <RowSeparator colors={colors} />
+
+              {/* Test Notification — diagnostic */}
+              <TouchableOpacity
+                style={styles.cardRow}
+                onPress={async () => {
+                  try {
+                    const perm = await Notifications.getPermissionsAsync();
+                    if (perm.status !== "granted") {
+                      Alert.alert(
+                        "Permission not granted",
+                        "Nuur doesn't have notification permission. Open your device Settings → Notifications → Nuur → Allow Notifications.",
+                      );
+                      return;
+                    }
+                    await ensureAndroidNotificationChannels();
+                    const presentation = resolvePrayerNotificationPresentation(
+                      adhanEnabled ? "adhan" : "notification",
+                      adhanMode,
+                      adhanStyleId,
+                    );
+                    await Notifications.scheduleNotificationAsync({
+                      content: {
+                        title: "Nuur · Test Notification",
+                        body: "If you hear this, notifications work. Fires in 10 seconds.",
+                        sound: presentation.sound,
+                        interruptionLevel: "timeSensitive",
+                        data: { type: "test" },
+                      },
+                      trigger: {
+                        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+                        seconds: 10,
+                        ...(Platform.OS === "android"
+                          ? { channelId: presentation.androidChannelId }
+                          : {}),
+                      },
+                    });
+                    Alert.alert(
+                      "Test scheduled",
+                      "Lock your phone now. Notification will fire in 10 seconds. If you don't hear it, Sleep/Do Not Disturb Focus is blocking Nuur.",
+                    );
+                  } catch (err) {
+                    Alert.alert("Test failed", String(err));
+                  }
+                }}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Send test notification"
+              >
+                <View style={styles.rowLeft}>
+                  <Feather name="zap" size={16} color={colors.gold} style={styles.rowIcon} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.rowLabel, { color: colors.text }]}>Send Test Notification</Text>
+                    <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                      Verify notifications + sound work on this device
+                    </Text>
+                  </View>
+                </View>
+                <Feather name="chevron-right" size={16} color={colors.gold + "AA"} />
+              </TouchableOpacity>
 
               <RowSeparator colors={colors} />
 
@@ -1316,26 +1419,17 @@ export default function SettingsScreen() {
         />
 
         {/* ── PRIVACY ── */}
-        {/*
-          A "Privacy Centre" inspired by Pillars. Three goals:
-            1. Reassure the user — Nuur is local-first by design.
-            2. Help with App Store review — explicit "no GPS leaves this device" claim.
-            3. Be honest — disclose the *one* network request the app makes
-               (audio recitations stream from verses.quran.com when played).
-          Plain-English copy, no legalese — the formal Privacy Policy link is
-          still in About below.
-        */}
         <SectionDivider label="PRIVACY · الخصوصية" colors={colors} />
         <Text style={[styles.privacyIntro, { color: colors.textSecondary }]}>
-          Nuur is built to live on your phone, not on a server. Your location,
-          prayer history, and bookmarks never leave this device.
+          Nuur is local-first. Your worship history, bookmarks, and settings are
+          stored on this device, and you do not need an account to use the app.
         </Text>
         <GroupCard colors={colors}>
           <PledgeRow
             colors={colors}
-            icon="map-pin"
-            title="No location ever leaves this device"
-            body="Your coordinates are used only on this phone to compute prayer times and Qibla direction. Nuur has no servers — your location can't be sent anywhere."
+            icon="shield"
+            title="Your worship data stays local"
+            body="Prayer tracking, qadā counts, adhkār progress, bookmarks, and preferences are stored on your device. Nuur does not upload them to an account."
           />
           <RowSeparator colors={colors} />
           <PledgeRow
@@ -1348,15 +1442,15 @@ export default function SettingsScreen() {
           <PledgeRow
             colors={colors}
             icon="eye-off"
-            title="No analytics, no trackers"
-            body="No third-party SDKs measure how you use the app. Your prayer tracker, qadā count, and adhkār streaks stay private to you."
+            title="No ads or behavioural analytics"
+            body="Nuur does not use advertising trackers or behavioural analytics to profile how you worship or use the app."
           />
           <RowSeparator colors={colors} />
           <PledgeRow
             colors={colors}
             icon="download-cloud"
-            title="What does leave your phone — honestly"
-            body="When you tap play on a recitation, the audio file is fetched from verses.quran.com (Quran.com's CDN). That single audio request is the only network call Nuur makes."
+            title="When Nuur connects"
+            body="Prayer times and Qibla are calculated on your device. City lookup, nearby mosques, weather, Quran and tafsir content, hadith, audio, and live Nisab prices use third-party services. Location-based services may receive your coordinates."
           />
         </GroupCard>
 

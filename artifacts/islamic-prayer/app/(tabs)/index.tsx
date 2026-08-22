@@ -21,7 +21,7 @@ import { PrayerNotifSheet } from "@/components/PrayerNotifSheet";
 import { NotifQuickSheet } from "@/components/NotifQuickSheet";
 import AyahShareSheet from "@/components/AyahShareSheet";
 import { getIslamicDate } from "@/utils/islamicData";
-import { getDailyAyah, getNightlyAyah } from "@/utils/ayahData";
+import { getMomentAyah } from "@/utils/momentVerse";
 import { calculatePrayerTimes, applyPrayerOffsets, getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
 import { PrayerKey } from "@/utils/prayerNotifData";
 import { HomeV2 } from "@/components/HomeV2";
@@ -45,7 +45,7 @@ export default function PrayerScreen() {
     usingDefaultLocation,
     refreshPrayerTimes, requestLocation, setManualLocation,
     themeColors: colors, notificationsEnabled,
-    timeFormat, calcMethod, madhab, highLatRule, prayerOffsets,
+    timeFormat, calcMethod, madhab, highLatRule, polarResolution, prayerOffsets,
     prayerNotifConfig, setPrayerNotifSettings, toggleMasterPrayerBell,
     notifSnoozeUntil, prayerPreReminderMinutes,
     calcMethodAutoSetLabel, dismissCalcMethodNotice,
@@ -89,8 +89,14 @@ export default function PrayerScreen() {
     (nowMs < prayerTimes.sunrise.time.getTime() || nowMs >= prayerTimes.maghrib.time.getTime());
   const dawnApproaching = currentPrayer?.name?.toLowerCase() === "fajr";
 
-  // Verse swaps to a Verse of the Night during the Maghrib→Sunrise window.
-  const dailyAyah = isNight ? getNightlyAyah() : getDailyAyah();
+  // Verse of the Moment — picks the contextually-best verse for right now
+  // (Friday / late night override; otherwise the base verse for the current
+  // prayer window). Mirrors the Large widget's resolver. Recomputes whenever
+  // currentTime ticks (every 60s) so it swaps automatically at window edges.
+  const dailyAyah = useMemo(
+    () => getMomentAyah(currentTime, prayerTimes),
+    [currentTime, prayerTimes],
+  );
 
   const handleShareAyah = useCallback(() => setShowAyahShare(true), []);
   const handleReadAyahSurah = useCallback(() => {
@@ -156,6 +162,7 @@ export default function PrayerScreen() {
           madhab,
           highLatRule,
           timeFormat,
+          polarResolution,
         );
         const tomorrowTimes = applyPrayerOffsets(rawTomorrow, prayerOffsets, location.timezone, timeFormat);
         next = tomorrowTimes.fajr;
@@ -188,6 +195,7 @@ export default function PrayerScreen() {
           madhab,
           highLatRule,
           timeFormat,
+          polarResolution,
         );
         const yesterdayTimes = applyPrayerOffsets(rawYesterday, prayerOffsets, location.timezone, timeFormat);
         const ishaPrev = yesterdayTimes.isha;
@@ -206,7 +214,7 @@ export default function PrayerScreen() {
         setProgress(0);
       }
     }
-  }, [prayerTimes, currentTime, location, calcMethod, madhab, highLatRule, timeFormat, prayerOffsets]);
+  }, [prayerTimes, currentTime, location, calcMethod, madhab, highLatRule, polarResolution, timeFormat, prayerOffsets]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -357,6 +365,25 @@ export default function PrayerScreen() {
           </View>
           <TouchableOpacity onPress={dismissCalcMethodNotice} hitSlop={8}>
             <Feather name="x" size={14} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {prayerTimes?.polarFallback && (
+        <View style={[bannerStyles.autoMethodBanner, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "55" }]}>
+          <View style={bannerStyles.autoMethodBannerLeft}>
+            <Feather name="compass" size={14} color={colors.gold} />
+            <Text style={[bannerStyles.autoMethodText, { color: colors.text }]}>
+              {prayerTimes.polarFallback.label}. These are calculated estimates; compare with trusted local guidance.
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => router.push("/settings")}
+            style={[bannerStyles.bannerCta, { backgroundColor: colors.gold }]}
+            accessibilityRole="button"
+            accessibilityLabel="Review polar prayer time settings"
+          >
+            <Text style={bannerStyles.bannerCtaText}>Review</Text>
           </TouchableOpacity>
         </View>
       )}

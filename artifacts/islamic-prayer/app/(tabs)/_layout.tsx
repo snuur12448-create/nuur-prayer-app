@@ -16,6 +16,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppContext } from "@/context/AppContext";
 import { useQuranPlayer } from "@/context/QuranPlayerContext";
 
+/** Detect dark theme by sampling the luminance of the surface color.
+ *  More reliable than useColorScheme(), which reflects the iOS system mode
+ *  rather than the user's chosen in-app theme. */
+function isThemeDark(colors: { surface: string }): boolean {
+  const hex = colors.surface.replace("#", "");
+  if (hex.length < 6) return true;
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  // Rec. 709 luma; <128 = dark surface.
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128;
+}
+
 function MiniPlayer() {
   const { themeColors: colors } = useAppContext();
   const {
@@ -124,11 +137,31 @@ function ClassicTabLayout() {
           },
           tabBarBackground: () =>
             isIOS ? (
-              <BlurView
-                intensity={100}
-                tint={isDark ? "dark" : "light"}
-                style={StyleSheet.absoluteFill}
-              />
+              <View style={StyleSheet.absoluteFill}>
+                {/* Frosted-glass blur for the iOS look. Tint follows the theme's
+                    actual surface color (not system colorScheme — those can
+                    disagree, e.g. dark theme on a light-mode iPhone). */}
+                <BlurView
+                  intensity={70}
+                  tint={isThemeDark(colors) ? "dark" : "light"}
+                  style={StyleSheet.absoluteFill}
+                />
+                {/* Soft scrim — enough opacity for icons to read clearly, but
+                    light enough that the blur still feels glassy. */}
+                <View
+                  style={[
+                    StyleSheet.absoluteFill,
+                    { backgroundColor: colors.surface, opacity: 0.45 },
+                  ]}
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0, left: 0, right: 0, height: StyleSheet.hairlineWidth,
+                    backgroundColor: isThemeDark(colors) ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+                  }}
+                />
+              </View>
             ) : isWeb ? (
               <View
                 style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }]}

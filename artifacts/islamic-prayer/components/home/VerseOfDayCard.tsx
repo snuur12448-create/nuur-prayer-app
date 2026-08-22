@@ -26,10 +26,10 @@ function VerseOfDayCardInner({
     <View style={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 }}>
       <View style={styles.verseHeader}>
         <Text style={[styles.verseEyebrow, { color: colors.textSecondary }]}>
-          {isVerseOfNight ? "VERSE OF THE NIGHT" : "VERSE OF THE DAY"}
+          VERSE OF THE MOMENT
         </Text>
         <Text style={[styles.verseEyebrowAr, { color: colors.gold, fontFamily: "AmiriQuran_400Regular" }]}>
-          {isVerseOfNight ? "آية الليل" : "آية اليوم"}
+          آية اللحظة
         </Text>
       </View>
       <View style={[styles.verseCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>

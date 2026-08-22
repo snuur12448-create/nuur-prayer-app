@@ -12,7 +12,7 @@ export interface AdhanStyle {
   audioUrl: string;       // Full Adhan — Dhuhr/Asr/Maghrib/Isha (~2–3.5 min)
   fajrAudioUrl: string;   // Adhan Al-Fajr — includes "As-salatu khayrun minan nawm" (~3–5 min)
   shortAudioUrl: string;  // Short Adhan — condensed (~2 min)
-  cafFilename: string;    // Bundled .caf file for iOS background notifications (28s clip)
+  notificationSoundFilename: string; // Bundled .wav clip for native notification audio
   // Optional: skip this many ms at the start of the preview so the user
   // doesn't sit through dead air / mic-warmup / a slow takbir intro before
   // hearing the reciter's character. Only applied to in-app previews —
@@ -35,7 +35,7 @@ export const ADHAN_STYLES: AdhanStyle[] = [
     audioUrl: `${ALA}/a8.mp3`,                                       // Masjid Al-Haram, 128 kbps
     fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan9.mp3",  // Makkah Fajr (best available)
     shortAudioUrl: `${ALA}/a11-mansour-al-zahrani.mp3`,              // Salah Mansoor Az-Zahrani, 204 kbps
-    cafFilename: "adhan_makkah.caf",
+    notificationSoundFilename: "adhan_makkah.wav",
   },
   {
     id: "madinah",
@@ -47,7 +47,7 @@ export const ADHAN_STYLES: AdhanStyle[] = [
     audioUrl: `${ALA}/a1.mp3`,                                        // Ahmad al-Nafees, 128 kbps
     fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan10.mp3", // Madinah Fajr (best available)
     shortAudioUrl: `${ALA}/a6.mp3`,                                   // Salah Mansoor Az-Zahrani, 128 kbps
-    cafFilename: "adhan_madinah.caf",
+    notificationSoundFilename: "adhan_madinah.wav",
     // The Madinah file (a1.mp3) opens with ~6s of low-volume buildup before
     // the first audible takbir. Skip it so the preview is representative
     // of the reciter, not the silence.
@@ -63,7 +63,7 @@ export const ADHAN_STYLES: AdhanStyle[] = [
     audioUrl: `${ALA}/a9.mp3`,   // Mishary Rashid Alafasy, 128 kbps
     fajrAudioUrl: `${ALA}/a4.mp3`, // Mishary Rashid Alafasy (Dubai One TV), 199 kbps — upgrade from 40 kbps!
     shortAudioUrl: `${ALA}/a7.mp3`, // Mishary Rashid Alafasy (variant), 128 kbps
-    cafFilename: "adhan_afasy.caf",
+    notificationSoundFilename: "adhan_afasy.wav",
   },
   {
     id: "egyptian",
@@ -75,7 +75,7 @@ export const ADHAN_STYLES: AdhanStyle[] = [
     audioUrl: `${ALA}/a10.mp3`,                                        // Qari Abdul Karim, 226 kbps
     fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan14.mp3",  // Egyptian Fajr (best available)
     shortAudioUrl: `${ALA}/a10.mp3`,                                   // Qari Abdul Karim, 226 kbps (concise)
-    cafFilename: "adhan_egyptian.caf",
+    notificationSoundFilename: "adhan_egyptian.wav",
   },
   {
     id: "turkish",
@@ -87,7 +87,7 @@ export const ADHAN_STYLES: AdhanStyle[] = [
     audioUrl: `${ALA}/a2.mp3`,                                         // Hafiz Mustafa Özcan, 128 kbps
     fajrAudioUrl: "https://www.islamcan.com/audio/adhan/azan18.mp3",  // Turkish Fajr (best available)
     shortAudioUrl: `${ALA}/a10.mp3`,                                   // Qari Abdul Karim, 226 kbps (shorter)
-    cafFilename: "adhan_turkish.caf",
+    notificationSoundFilename: "adhan_turkish.wav",
   },
 ];
 

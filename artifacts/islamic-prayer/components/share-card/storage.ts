@@ -14,6 +14,7 @@ import type { ShareContentKind, ShareThemeId } from "./types";
 const KIND_KEY = (kind: ShareContentKind) => `nuur:share:lastTheme:${kind}`;
 const LEGACY_KEY = "nuur:share:lastTheme";
 const ARABIC_KEY  = "nuur:share:showArabic";
+const ENGLISH_KEY = "nuur:share:showEnglish";
 
 /**
  * Read/write the user's last manually-picked share theme **for the given
@@ -86,6 +87,35 @@ export function useShowArabicInShare(): [boolean, (next: boolean) => void] {
   const update = useCallback((next: boolean) => {
     setValue(next);
     AsyncStorage.setItem(ARABIC_KEY, next ? "1" : "0").catch(() => {});
+  }, []);
+
+  return [value, update];
+}
+
+/**
+ * Read/write the user's preference for showing English text (translation,
+ * transliteration, source) in the share card. Default is `true`. Persisted
+ * across app launches.
+ */
+export function useShowEnglishInShare(): [boolean, (next: boolean) => void] {
+  const [value, setValue] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(ENGLISH_KEY)
+      .then((raw) => {
+        // Only flip to false when we have an explicit "0" written by the user.
+        if (!cancelled && raw === "0") setValue(false);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const update = useCallback((next: boolean) => {
+    setValue(next);
+    AsyncStorage.setItem(ENGLISH_KEY, next ? "1" : "0").catch(() => {});
   }, []);
 
   return [value, update];
