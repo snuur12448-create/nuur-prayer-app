@@ -10,6 +10,11 @@ import {
   type TimeFormat,
 } from "./prayerTimes";
 import { verseForDate } from "./widgetVerses";
+import {
+  dateByAddingDaysInTimeZone,
+  dateKeyInTimeZone,
+  type TimeZoneValue,
+} from "./timeZone";
 
 export const WIDGET_PRAYER_CACHE_DAYS = 35;
 
@@ -29,7 +34,7 @@ export interface WidgetPrayerDay {
 interface BuildWidgetPrayerScheduleInput {
   latitude: number;
   longitude: number;
-  timezone: number;
+  timezone: TimeZoneValue;
   startDate?: Date;
   days?: number;
   calcMethod: CalcMethodId;
@@ -38,14 +43,6 @@ interface BuildWidgetPrayerScheduleInput {
   polarResolution: PolarResolutionId;
   timeFormat: TimeFormat;
   prayerOffsets: PrayerOffsets;
-}
-
-function localDateKey(date: Date): string {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
 }
 
 /**
@@ -69,9 +66,7 @@ export function buildWidgetPrayerSchedule({
   const result: WidgetPrayerDay[] = [];
 
   for (let dayOffset = 0; dayOffset < days; dayOffset++) {
-    const target = new Date(startDate);
-    target.setHours(12, 0, 0, 0);
-    target.setDate(startDate.getDate() + dayOffset);
+    const target = dateByAddingDaysInTimeZone(startDate, timezone, dayOffset);
 
     const raw = calculatePrayerTimes(
       latitude,
@@ -85,11 +80,11 @@ export function buildWidgetPrayerSchedule({
       polarResolution,
     );
     const times = applyPrayerOffsets(raw, prayerOffsets, timezone, timeFormat);
-    const h = gregorianToHijri(target);
-    const verse = verseForDate(target);
+    const h = gregorianToHijri(raw.date);
+    const verse = verseForDate(raw.date);
 
     result.push({
-      dateKey: localDateKey(target),
+      dateKey: dateKeyInTimeZone(target, timezone),
       fajr: isoOrEmpty(times.fajr.time),
       sunrise: isoOrEmpty(times.sunrise.time),
       dhuhr: isoOrEmpty(times.dhuhr.time),

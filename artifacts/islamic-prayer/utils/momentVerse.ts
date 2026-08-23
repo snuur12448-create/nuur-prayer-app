@@ -14,6 +14,7 @@
  * VerseOfDayCard without further plumbing.
  */
 import type { PrayerTimesResult } from "./prayerTimes";
+import { civilPartsInTimeZone, dayOfWeekInTimeZone, type TimeZoneValue } from "./timeZone";
 // Single source of truth — same JSON the widget mirrors into Swift. Edit the
 // JSON to add/change verses; the Swift mirror in
 // `native/NuurShared/VerseOfMoment.swift` must be updated to match (the
@@ -99,12 +100,13 @@ const TRIGGER_LABELS: Record<MomentTrigger, string> = {
 };
 
 /** Active triggers at `now` (JS-side: friday + late_night only). */
-function activeTriggers(now: Date): Set<MomentTrigger> {
+function activeTriggers(now: Date, timeZone?: TimeZoneValue): Set<MomentTrigger> {
   const active = new Set<MomentTrigger>();
   // Friday: getDay() returns 0 (Sun) … 5 (Fri) … 6 (Sat).
-  if (now.getDay() === 5) active.add("friday");
+  if ((timeZone === undefined ? now.getDay() : dayOfWeekInTimeZone(now, timeZone)) === 5) active.add("friday");
   // Late night: 00:00–03:59 local.
-  if (now.getHours() < 4) active.add("late_night");
+  const hour = timeZone === undefined ? now.getHours() : civilPartsInTimeZone(now, timeZone).hour;
+  if (hour < 4) active.add("late_night");
   return active;
 }
 
@@ -134,9 +136,12 @@ function currentWindow(now: Date, pt?: PrayerTimesResult | null): MomentWindow {
   return "isha";
 }
 
-function dayOfYear(d: Date): number {
-  const start = new Date(d.getFullYear(), 0, 0);
-  return Math.floor((d.getTime() - start.getTime()) / 86_400_000);
+function dayOfYear(d: Date, timeZone?: TimeZoneValue): number {
+  const p = timeZone === undefined
+    ? { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() }
+    : civilPartsInTimeZone(d, timeZone);
+  const start = Date.UTC(p.year, 0, 0);
+  return Math.floor((Date.UTC(p.year, p.month - 1, p.day) - start) / 86_400_000);
 }
 
 function stableHash(s: string): number {
@@ -153,9 +158,10 @@ function stableHash(s: string): number {
 export function resolveMomentVerse(
   now: Date,
   prayerTimes?: PrayerTimesResult | null,
+  timeZone?: TimeZoneValue,
 ): ResolvedMomentVerse {
   const win = currentWindow(now, prayerTimes);
-  const active = activeTriggers(now);
+  const active = activeTriggers(now, timeZone);
 
   // Candidate set: contextual matches OR base verses for the current window.
   const candidates = MOMENT_VERSES.filter((v) => {
@@ -165,7 +171,7 @@ export function resolveMomentVerse(
     return v.windows.includes(win);
   });
 
-  const day = dayOfYear(now);
+  const day = dayOfYear(now, timeZone);
   const winner = candidates.sort((a, b) => {
     if (a.priority !== b.priority) return b.priority - a.priority;
     return stableHash(`${day}-${b.id}`) - stableHash(`${day}-${a.id}`);
@@ -186,8 +192,9 @@ export function resolveMomentVerse(
 export function getMomentAyah(
   now: Date = new Date(),
   prayerTimes?: PrayerTimesResult | null,
+  timeZone?: TimeZoneValue,
 ): MomentAyah {
-  const v = resolveMomentVerse(now, prayerTimes);
+  const v = resolveMomentVerse(now, prayerTimes, timeZone);
   return {
     arabic: v.arabic,
     translation: v.translation,

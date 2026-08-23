@@ -27,6 +27,7 @@ private struct TTSnapshot: Decodable {
     /// "12h" or "24h" — when missing, default to 12h with AM/PM (US-friendly).
     let timeFormat: String?
     let prayerDays: [TTPrayerDay]?
+    let timeZone: String?
 }
 
 private enum TTReader {
@@ -46,6 +47,16 @@ private func ttParseISO(_ s: String) -> Date? {
     if let d = iso.date(from: s) { return d }
     iso.formatOptions = [.withInternetDateTime]
     return iso.date(from: s)
+}
+
+private func ttTimeZone(_ snap: TTSnapshot) -> TimeZone {
+    snap.timeZone.flatMap(TimeZone.init(identifier:)) ?? .current
+}
+
+private func ttCalendar(_ snap: TTSnapshot) -> Calendar {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = ttTimeZone(snap)
+    return calendar
 }
 
 private struct TTSlot {
@@ -74,7 +85,7 @@ private func ttSlots(from snap: TTSnapshot) -> [TTSlot] {
     if let raw = snap.fajrTomorrow, let d = ttParseISO(raw) {
         result.append(TTSlot(prayer: .fajr, date: d))
     } else if let fajrToday = result.first(where: { $0.prayer == .fajr })?.date,
-              let fajrTomorrow = Calendar.current.date(byAdding: .day, value: 1, to: fajrToday) {
+              let fajrTomorrow = ttCalendar(snap).date(byAdding: .day, value: 1, to: fajrToday) {
         result.append(TTSlot(prayer: .fajr, date: fajrTomorrow))
     }
     return result
@@ -83,15 +94,16 @@ private func ttSlots(from snap: TTSnapshot) -> [TTSlot] {
 private func ttHijri(from snap: TTSnapshot, at date: Date) -> String {
     if let day = snap.prayerDays?.first(where: {
         guard let fajr = ttParseISO($0.fajr) else { return false }
-        return Calendar.current.isDate(fajr, inSameDayAs: date)
+        return ttCalendar(snap).isDate(fajr, inSameDayAs: date)
     }) {
         return day.hijri
     }
     return snap.hijri
 }
 
-private func ttFormat(_ date: Date, is24h: Bool) -> (hm: String, ampm: String) {
+private func ttFormat(_ date: Date, is24h: Bool, timeZone: TimeZone) -> (hm: String, ampm: String) {
     let f = DateFormatter()
+    f.timeZone = timeZone
     if is24h {
         f.dateFormat = "HH:mm"
         return (f.string(from: date), "")
@@ -156,6 +168,8 @@ struct TimetableProvider: AppIntentTimelineProvider {
         guard !slots.isEmpty else { return nil }
         // Widget toggle wins; otherwise fall back to the app's stored preference.
         let is24h = config.use24Hour || (snap.timeFormat ?? "12h") == "24h"
+        let calendar = ttCalendar(snap)
+        let timeZone = ttTimeZone(snap)
 
         let upcoming = slots.first { $0.date > now } ?? slots.last!
         let active = slots.last(where: { $0.date <= now && $0.prayer != upcoming.prayer })
@@ -165,9 +179,9 @@ struct TimetableProvider: AppIntentTimelineProvider {
         let main: [Prayer] = [.fajr, .dhuhr, .asr, .maghrib, .isha]
         let rows: [DailyTimetable.Row] = main.compactMap { p in
             guard let slot = slots.first(where: {
-                $0.prayer == p && Calendar.current.isDate($0.date, inSameDayAs: now)
+                $0.prayer == p && calendar.isDate($0.date, inSameDayAs: now)
             }) else { return nil }
-            let fmt = ttFormat(slot.date, is24h: is24h)
+            let fmt = ttFormat(slot.date, is24h: is24h, timeZone: timeZone)
             return DailyTimetable.Row(
                 prayer: p, timeHM: fmt.hm, timeAmPm: fmt.ampm,
                 isPast: slot.date <= now,

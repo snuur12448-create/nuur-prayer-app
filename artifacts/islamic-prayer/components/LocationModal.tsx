@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { LocationData } from "@/context/AppContext";
 import { ThemeColors } from "@/constants/themes";
+import { legacyOffsetForLongitude, timeZoneAtCoordinates } from "@/utils/timeZone";
 
 interface NominatimResult {
   place_id: number;
@@ -49,20 +50,6 @@ async function nominatimSearch(query: string): Promise<NominatimResult[]> {
   const res = await fetch(url, { headers: { "Accept-Language": "en" } });
   if (!res.ok) return [];
   return res.json();
-}
-
-async function getTimezoneOffset(lat: number, lon: number): Promise<number> {
-  try {
-    const res = await fetch(
-      `https://timeapi.io/api/timezone/coordinate?latitude=${lat}&longitude=${lon}`
-    );
-    if (!res.ok) throw new Error("failed");
-    const data = await res.json();
-    const seconds: number = data?.currentUtcOffset?.seconds ?? 0;
-    return seconds / 3600;
-  } catch {
-    return Math.round(lon / 15);
-  }
 }
 
 interface Props {
@@ -136,7 +123,7 @@ export function LocationModal({
     try {
       const lat = parseFloat(r.lat);
       const lon = parseFloat(r.lon);
-      const tz = await getTimezoneOffset(lat, lon);
+      const tz = timeZoneAtCoordinates(lat, lon) ?? legacyOffsetForLongitude(lon);
       const city = buildCityLabel(r);
       await onSelectManual({ latitude: lat, longitude: lon, city, timezone: tz });
       onClose();

@@ -55,12 +55,19 @@ import {
   AdhanMode,
 } from "@/utils/adhanData";
 import { playAdhanAudio, stopAdhanAudio } from "@/utils/adhanPlayer";
+import {
+  getDeviceTimeZone,
+  isValidIanaTimeZone,
+  legacyOffsetForLongitude,
+  timeZoneAtCoordinates,
+  type TimeZoneValue,
+} from "@/utils/timeZone";
 
 export interface LocationData {
   latitude: number;
   longitude: number;
   city: string;
-  timezone: number;
+  timezone: TimeZoneValue;
 }
 
 interface AppContextType {
@@ -174,16 +181,31 @@ const STORAGE_KEYS = {
   PRAYER_PRE_REMINDER: "prayer_pre_reminder_minutes",
 };
 
-function getTimezoneOffset(): number {
-  return -new Date().getTimezoneOffset() / 60;
-}
-
 const DEFAULT_LOCATION: LocationData = {
   latitude: 21.4225,
   longitude: 39.8262,
   city: "Makkah",
-  timezone: 3,
+  timezone: "Asia/Riyadh",
 };
+
+function normalizeStoredLocation(value: unknown): LocationData | null {
+  if (!value || typeof value !== "object") return null;
+  const loc = value as Partial<LocationData>;
+  if (!Number.isFinite(loc.latitude) || !Number.isFinite(loc.longitude) || typeof loc.city !== "string") {
+    return null;
+  }
+  const timezone = isValidIanaTimeZone(loc.timezone)
+    ? loc.timezone
+    : typeof loc.timezone === "number" && Number.isFinite(loc.timezone)
+      ? loc.timezone
+      : legacyOffsetForLongitude(loc.longitude as number);
+  return {
+    latitude: loc.latitude as number,
+    longitude: loc.longitude as number,
+    city: loc.city,
+    timezone,
+  };
+}
 
 function extractCity(geocode: Location.LocationGeocodedAddress | null | undefined): string | null {
   if (!geocode) return null;
@@ -581,7 +603,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // GPS is unavailable (indoors, permission denied, etc.).
       if (Platform.OS !== "web" && notifs === "true" && locationRaw) {
         try {
-          const loc: LocationData = JSON.parse(locationRaw);
+          const storedLoc = normalizeStoredLocation(JSON.parse(locationRaw));
+          if (!storedLoc) throw new Error("Invalid stored location");
+          const resolvedZone = timeZoneAtCoordinates(storedLoc.latitude, storedLoc.longitude);
+          const loc = resolvedZone
+            ? { ...storedLoc, timezone: resolvedZone }
+            : storedLoc;
           const jEnabled = jummahRaw !== "false"; // null = never saved → default true
           const jMins    = (jummahMinsRaw && [15, 30, 60].includes(Number(jummahMinsRaw)))
                            ? Number(jummahMinsRaw) : 30;
@@ -1153,7 +1180,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setMadhabAutoSetLabel(getMadhabLabel(suggestedMadhab));
         }
       }
-      const tz = getTimezoneOffset();
+      // Resolve on-device so precise GPS coordinates are never disclosed to
+      // a third-party timezone service.
+      const tz = timeZoneAtCoordinates(latitude, longitude)
+        ?? getDeviceTimeZone()
+        ?? -new Date().getTimezoneOffset() / 60;
       const locationData: LocationData = {
         latitude, longitude,
         city: cityName ?? "Your Location",
@@ -1201,6 +1232,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.LOCATION, JSON.stringify(loc));
     } catch {}
+    if (Platform.OS !== "web" && notificationsRef.current) {
+      await schedulePrayerNotifications(
+        loc.latitude, loc.longitude, loc.timezone, loc.city,
+        jummahReminderRef.current, jummahMinutesRef.current,
+        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
+        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
+        islamicEventsRef.current,
+        prayerNotifConfigRef.current,
+        prayerOffsetsRef.current,
+        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+        polarResolutionRef.current,
+      );
+    }
   }, [updateLocation]);
 
   const initLocation = async () => {
@@ -1212,10 +1256,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION);
       if (stored) {
-        const cachedLocation: LocationData = JSON.parse(stored);
-        setLocation(cachedLocation);
-        setUsingDefaultLocation(false);
-        hasStored = true;
+        const cachedLocation = normalizeStoredLocation(JSON.parse(stored));
+        if (cachedLocation) {
+          const resolvedZone = timeZoneAtCoordinates(
+            cachedLocation.latitude,
+            cachedLocation.longitude,
+          );
+          const upgradedLocation = resolvedZone && cachedLocation.timezone !== resolvedZone
+            ? { ...cachedLocation, timezone: resolvedZone }
+            : cachedLocation;
+          setLocation(upgradedLocation);
+          setUsingDefaultLocation(false);
+          hasStored = true;
+          if (upgradedLocation !== cachedLocation) {
+            await AsyncStorage.setItem(STORAGE_KEYS.LOCATION, JSON.stringify(upgradedLocation));
+          }
+        }
       }
     } catch {}
     setIsLoadingLocation(false);

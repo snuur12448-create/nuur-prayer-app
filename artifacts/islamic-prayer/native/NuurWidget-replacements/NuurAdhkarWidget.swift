@@ -303,6 +303,7 @@ private struct SharedPrayerSnapshot: Decodable {
     let maghrib: String
     let isha: String?
     let prayerDays: [AdhkarPrayerDay]?
+    let timeZone: String?
 }
 
 private func readPrayerSnapshot() -> SharedPrayerSnapshot? {
@@ -320,30 +321,41 @@ private func parseISODate(_ s: String) -> Date? {
     return iso.date(from: s)
 }
 
+private func adhkarTimeZone(_ snap: SharedPrayerSnapshot) -> TimeZone {
+    snap.timeZone.flatMap(TimeZone.init(identifier:)) ?? .current
+}
+
+private func adhkarCalendar(_ snap: SharedPrayerSnapshot) -> Calendar {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = adhkarTimeZone(snap)
+    return calendar
+}
+
 private func adhkarWindow(at now: Date, from snap: SharedPrayerSnapshot)
     -> (fajr: Date, asr: Date, nextFajr: Date)? {
     if let days = snap.prayerDays, !days.isEmpty,
        let index = days.firstIndex(where: {
            guard let fajr = parseISODate($0.fajr) else { return false }
-           return Calendar.current.isDate(fajr, inSameDayAs: now)
+           return adhkarCalendar(snap).isDate(fajr, inSameDayAs: now)
        }),
        let fajr = parseISODate(days[index].fajr),
        let asr = parseISODate(days[index].asr) {
         let nextFajr = days.indices.contains(index + 1)
             ? parseISODate(days[index + 1].fajr)
-            : Calendar.current.date(byAdding: .day, value: 1, to: fajr)
+            : adhkarCalendar(snap).date(byAdding: .day, value: 1, to: fajr)
         if let nextFajr { return (fajr, asr, nextFajr) }
     }
 
     guard let fajr = parseISODate(snap.fajr),
           let asr = parseISODate(snap.asr),
-          let nextFajr = Calendar.current.date(byAdding: .day, value: 1, to: fajr)
+          let nextFajr = adhkarCalendar(snap).date(byAdding: .day, value: 1, to: fajr)
     else { return nil }
     return (fajr, asr, nextFajr)
 }
 
 private func formatHM(_ date: Date) -> String {
     let f = DateFormatter()
+    if let snap = readPrayerSnapshot() { f.timeZone = adhkarTimeZone(snap) }
     f.locale = Locale(identifier: "en_US_POSIX")
     f.dateFormat = "HH:mm"
     return f.string(from: date)
@@ -352,6 +364,7 @@ private func formatHM(_ date: Date) -> String {
 // 12-hour clock with AM/PM in the user's current locale (e.g. "4:15 PM").
 private func format12h(_ date: Date) -> String {
     let f = DateFormatter()
+    if let snap = readPrayerSnapshot() { f.timeZone = adhkarTimeZone(snap) }
     f.locale = Locale.current
     f.setLocalizedDateFormatFromTemplate("h:mm a")
     return f.string(from: date)

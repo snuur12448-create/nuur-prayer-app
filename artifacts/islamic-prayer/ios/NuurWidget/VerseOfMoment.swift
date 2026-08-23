@@ -69,11 +69,13 @@ public enum TriggerDetector {
     /// shared defaults — the widget never fetches WeatherKit itself (rate
     /// limit). Stubbed triggers (snow / ramadan / traveling / etc.) return
     /// false until their detectors are wired up in a later prompt.
-    public static func activeTriggers(at date: Date, appGroupId: String) -> Set<String> {
+    public static func activeTriggers(at date: Date, appGroupId: String,
+                                      timeZone: TimeZone = .current) -> Set<String> {
         var active = Set<String>()
 
         // friday: weekday == 6 in iOS (Sunday = 1).
-        let cal = Calendar.current
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = timeZone
         if cal.component(.weekday, from: date) == 6 {
             active.insert(VerseTrigger.friday)
         }
@@ -251,14 +253,17 @@ public enum VerseResolver {
                                fajr: Date, sunrise: Date, dhuhr: Date,
                                asr: Date, maghrib: Date, isha: Date,
                                appGroupId: String,
+                               timeZone: TimeZone = .current,
                                library: [MomentVerse] = VerseLibrary.all) -> ResolvedVerse {
         let window = VerseOfMoment.window(at: date,
                                           fajr: fajr, sunrise: sunrise, dhuhr: dhuhr,
                                           asr: asr, maghrib: maghrib, isha: isha)
-        let active = TriggerDetector.activeTriggers(at: date, appGroupId: appGroupId)
+        let active = TriggerDetector.activeTriggers(
+            at: date, appGroupId: appGroupId, timeZone: timeZone
+        )
 
         var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = .current
+        cal.timeZone = timeZone
         let dayOfYear = cal.ordinality(of: .day, in: .year, for: date) ?? 1
         let weekIndex = ((dayOfYear - 1) % 7) + 1
 

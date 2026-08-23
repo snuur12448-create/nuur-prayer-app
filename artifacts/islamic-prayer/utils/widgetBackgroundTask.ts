@@ -22,6 +22,7 @@ import {
 } from "@/utils/prayerTimes";
 import { calculateQiblaDirection } from "@/utils/qibla";
 import { buildWidgetPrayerSchedule } from "@/utils/widgetPrayerSchedule";
+import type { TimeZoneValue } from "@/utils/timeZone";
 
 const TASK_NAME = "com.nuur.widget-refresh";
 
@@ -46,7 +47,7 @@ interface StoredLocation {
   latitude: number;
   longitude: number;
   city: string;
-  timezone: number;
+  timezone: TimeZoneValue;
 }
 
 function dateKey(d: Date): string {
@@ -214,6 +215,7 @@ export async function refreshWidgetSnapshotFromStorage(): Promise<boolean> {
     isha: isoOrEmpty(todayPT.isha.time),
     fajrTomorrow: tomorrowDay?.fajr || isoOrEmpty(new Date(todayPT.fajr.time.getTime() + 86_400_000)),
     prayerDays,
+    timeZone: typeof timezone === "string" ? timezone : undefined,
     location: todayPT.polarFallback ? `${city} · Estimated` : city,
     hijri: todayDay.hijri,
     timeFormat: inputs.timeFormat,

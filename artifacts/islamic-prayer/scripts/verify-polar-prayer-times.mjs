@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 
-import { calculatePrayerTimes } from "../utils/prayerTimes.ts";
+import prayerTimesModule from "../utils/prayerTimes.ts";
+
+const { calculatePrayerTimes } = prayerTimesModule;
 
 const PRAYER_KEYS = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
 const LOCATIONS = [

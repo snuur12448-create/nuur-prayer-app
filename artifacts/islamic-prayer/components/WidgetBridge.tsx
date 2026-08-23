@@ -124,6 +124,7 @@ export function WidgetBridge() {
         isha: isoOrEmpty(prayerTimes.isha.time),
         fajrTomorrow: tomorrow?.fajr || isoOrEmpty(new Date(prayerTimes.fajr.time.getTime() + 86_400_000)),
         prayerDays,
+        timeZone: typeof location.timezone === "string" ? location.timezone : undefined,
         location: prayerTimes.polarFallback ? `${location.city} · Estimated` : location.city,
         hijri: today.hijri,
         timeFormat,

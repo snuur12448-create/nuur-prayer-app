@@ -37,6 +37,7 @@ import {
   PrayerTimesResult,
 } from "@/utils/prayerTimes";
 import { getIslamicDateForDate } from "@/utils/islamicData";
+import { dateForCivilDateInTimeZone } from "@/utils/timeZone";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -694,9 +695,11 @@ export default function TrackerScreen() {
   // ─── Prayer times for selected date ───
   useEffect(() => {
     if (!location) return;
+    const [year, month, day] = selectedKey.split("-").map(Number);
+    const prayerDate = dateForCivilDateInTimeZone(year, month, day, location.timezone);
     const raw = calculatePrayerTimes(
       location.latitude, location.longitude, location.timezone,
-      selectedDate, calcMethod, madhab, highLatRule, timeFormat, polarResolution,
+      prayerDate, calcMethod, madhab, highLatRule, timeFormat, polarResolution,
     );
     const adjusted = applyPrayerOffsets(raw, prayerOffsets, location.timezone, timeFormat);
     setPrayerTimes(adjusted);

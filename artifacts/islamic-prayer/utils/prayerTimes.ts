@@ -6,6 +6,11 @@ import {
   PolarCircleResolution,
   PrayerTimes,
 } from 'adhan';
+import {
+  civilDateInTimeZone,
+  formatTimeInTimeZone,
+  type TimeZoneValue,
+} from './timeZone';
 
 export interface PrayerTime {
   name: string;
@@ -132,26 +137,6 @@ export function normalizePolarResolution(value: unknown): PolarResolutionId {
     : DEFAULT_POLAR_RESOLUTION;
 }
 
-/**
- * Format a UTC Date using the target location's UTC offset.
- * adhan returns absolute UTC timestamps, so we offset manually for display
- * rather than relying on the browser's local timezone (which may differ from
- * the prayer location).
- */
-function fmtWithTz(d: Date, tz: number, format: TimeFormat = '12h'): string {
-  if (!d || isNaN(d.getTime())) return '--:--';
-  const totalMins = d.getUTCHours() * 60 + d.getUTCMinutes() + Math.round(tz * 60);
-  const h24 = ((Math.floor(totalMins / 60)) % 24 + 24) % 24;
-  const m = ((totalMins % 60) + 60) % 60;
-  const mm = m.toString().padStart(2, '0');
-  if (format === '24h') {
-    return `${h24.toString().padStart(2, '0')}:${mm}`;
-  }
-  const ampm = h24 >= 12 ? 'PM' : 'AM';
-  const hh = h24 % 12 || 12;
-  return `${hh}:${mm} ${ampm}`;
-}
-
 function buildParams(
   methodId: CalcMethodId,
   madhabId: MadhabId,
@@ -249,7 +234,7 @@ function hasUnavailableSolarTimes(pt: PrayerTimes): boolean {
 export function calculatePrayerTimes(
   lat: number,
   lng: number,
-  timezone: number,
+  timezone: TimeZoneValue,
   date: Date = new Date(),
   methodId: CalcMethodId = DEFAULT_CALC_METHOD,
   madhabId: MadhabId = DEFAULT_MADHAB,
@@ -258,6 +243,7 @@ export function calculatePrayerTimes(
   polarResolutionId: PolarResolutionId = DEFAULT_POLAR_RESOLUTION,
 ): PrayerTimesResult {
   const coordinates = new Coordinates(lat, lng);
+  const calculationDate = civilDateInTimeZone(date, timezone);
   const normalizedPolarResolution = normalizePolarResolution(polarResolutionId);
   const params = buildParams(
     methodId,
@@ -265,7 +251,7 @@ export function calculatePrayerTimes(
     normalizeHighLatRule(highLatRuleId),
     normalizedPolarResolution,
   );
-  const pt = new PrayerTimes(coordinates, date, params);
+  const pt = new PrayerTimes(coordinates, calculationDate, params);
 
   // adhan.js does not expose whether its polar resolver was used. Compare
   // against the same calculation with resolution disabled so the UI can
@@ -278,7 +264,7 @@ export function calculatePrayerTimes(
       normalizeHighLatRule(highLatRuleId),
       'Unresolved',
     );
-    const unresolved = new PrayerTimes(coordinates, date, unresolvedParams);
+    const unresolved = new PrayerTimes(coordinates, calculationDate, unresolvedParams);
     if (hasUnavailableSolarTimes(unresolved) && !hasUnavailableSolarTimes(pt)) {
       polarFallback = {
         applied: true,
@@ -294,7 +280,7 @@ export function calculatePrayerTimes(
     name,
     arabicName: arabic,
     time: d,
-    timeString: fmtWithTz(d, timezone, timeFormat),
+    timeString: formatTimeInTimeZone(d, timezone, timeFormat),
   });
 
   return {
@@ -304,7 +290,7 @@ export function calculatePrayerTimes(
     asr:     mk('Asr',     'العصر',  pt.asr),
     maghrib: mk('Maghrib', 'المغرب', pt.maghrib),
     isha:    mk('Isha',    'العشاء', pt.isha),
-    date,
+    date: calculationDate,
     polarFallback,
   };
 }
@@ -333,13 +319,13 @@ export const DEFAULT_PRAYER_OFFSETS: PrayerOffsets = {
 export function applyPrayerOffsets(
   result: PrayerTimesResult,
   offsets: PrayerOffsets,
-  timezone: number,
+  timezone: TimeZoneValue,
   timeFormat: TimeFormat = '12h',
 ): PrayerTimesResult {
   const shift = (pt: PrayerTime, mins: number): PrayerTime => {
     if (mins === 0) return pt;
     const shifted = new Date(pt.time.getTime() + mins * 60_000);
-    return { ...pt, time: shifted, timeString: fmtWithTz(shifted, timezone, timeFormat) };
+    return { ...pt, time: shifted, timeString: formatTimeInTimeZone(shifted, timezone, timeFormat) };
   };
   return {
     ...result,

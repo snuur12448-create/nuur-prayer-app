@@ -42,6 +42,9 @@ private struct SharedSnapshot: Decodable {
     // Rolling prayer cache. Optional so snapshots written by older app builds
     // remain decodable during an upgrade.
     let prayerDays: [SharedPrayerDay]?
+    // IANA timezone for the selected prayer location. Optional for snapshots
+    // written by older app versions, which fall back to the device timezone.
+    let timeZone: String?
 }
 
 private struct PrayerSlot {
@@ -71,6 +74,16 @@ private func parseISO(_ s: String) -> Date? {
     return iso.date(from: s)
 }
 
+private func prayerTimeZone(_ identifier: String?) -> TimeZone {
+    identifier.flatMap(TimeZone.init(identifier:)) ?? .current
+}
+
+private func prayerCalendar(_ identifier: String?) -> Calendar {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = prayerTimeZone(identifier)
+    return calendar
+}
+
 private func slots(from snap: SharedSnapshot) -> [PrayerSlot] {
     if let days = snap.prayerDays, !days.isEmpty {
         let result = days.flatMap { day -> [PrayerSlot] in
@@ -97,7 +110,7 @@ private func slots(from snap: SharedSnapshot) -> [PrayerSlot] {
     if let raw = snap.fajrTomorrow, let d = parseISO(raw) {
         result.append(PrayerSlot(prayer: .fajr, date: d))
     } else if let fajrToday = result.first(where: { $0.prayer == .fajr })?.date,
-              let fajrTomorrow = Calendar.current.date(byAdding: .day, value: 1, to: fajrToday) {
+              let fajrTomorrow = prayerCalendar(snap.timeZone).date(byAdding: .day, value: 1, to: fajrToday) {
         result.append(PrayerSlot(prayer: .fajr, date: fajrTomorrow))
     }
     return result
@@ -107,7 +120,7 @@ private func metadata(from snap: SharedSnapshot, at date: Date)
     -> (hijri: String, verseAr: String, verseRef: String) {
     if let day = snap.prayerDays?.first(where: {
         guard let fajr = parseISO($0.fajr) else { return false }
-        return Calendar.current.isDate(fajr, inSameDayAs: date)
+        return prayerCalendar(snap.timeZone).isDate(fajr, inSameDayAs: date)
     }) {
         return (day.hijri, day.verseAr, day.verseRef)
     }
@@ -126,8 +139,9 @@ private func stateFor(minutesUntil m: Int) -> NuurState {
     return .normal
 }
 
-private func formatHM(_ date: Date, is24h: Bool) -> String {
+private func formatHM(_ date: Date, is24h: Bool, timeZone: TimeZone) -> String {
     let f = DateFormatter()
+    f.timeZone = timeZone
     if is24h {
         f.dateFormat = "HH:mm"
     } else {
@@ -147,9 +161,9 @@ private func countdown(from now: Date, to target: Date) -> (h: String, m: String
 /// Look up today's prayer dates (Fajr/Dhuhr/Asr/Maghrib/Isha) from a slot
 /// list. Used to drive Verse of the Moment window selection. Returns nil if
 /// any of the five are missing.
-private func todaysFiveDates(from slots: [PrayerSlot], now: Date)
+private func todaysFiveDates(from slots: [PrayerSlot], now: Date, calendar: Calendar)
     -> (fajr: Date, sunrise: Date, dhuhr: Date, asr: Date, maghrib: Date, isha: Date)? {
-    let cal = Calendar.current
+    let cal = calendar
     let today = cal.startOfDay(for: now)
     func first(_ p: Prayer) -> Date? {
         slots.first { s in s.prayer == p && cal.isDate(s.date, inSameDayAs: today) }?.date
@@ -165,6 +179,7 @@ private func makeEntry(now: Date, slots: [PrayerSlot], location: String, hijri: 
                        streakDays: Int, weekPct: Int,
                        verseAr fallbackVerseAr: String, verseRef fallbackVerseRef: String,
                        is24h: Bool, themeName: String?,
+                       timeZone: TimeZone,
                        config: ConfigurationAppIntent) -> NuurEntry {
     // Verse of the Moment: resolver picks the highest-priority match across
     // (a) base verses for the current prayer window and (b) contextual verses
@@ -174,11 +189,14 @@ private func makeEntry(now: Date, slots: [PrayerSlot], location: String, hijri: 
     let verseAr: String
     let verseRef: String
     let verseWindow: String
-    if let t = todaysFiveDates(from: slots, now: now) {
+    var cal = Calendar(identifier: .gregorian)
+    cal.timeZone = timeZone
+    if let t = todaysFiveDates(from: slots, now: now, calendar: cal) {
         let resolved = VerseResolver.resolve(
             at: now, fajr: t.fajr, sunrise: t.sunrise, dhuhr: t.dhuhr,
             asr: t.asr, maghrib: t.maghrib, isha: t.isha,
-            appGroupId: SnapshotReader.suiteName
+            appGroupId: SnapshotReader.suiteName,
+            timeZone: timeZone
         )
         verseAr = resolved.verse.arabic
         verseRef = resolved.verse.referenceShort
@@ -208,14 +226,13 @@ private func makeEntry(now: Date, slots: [PrayerSlot], location: String, hijri: 
 
     // 5 prayers (exclude Sunrise) for the strip.
     let mainPrayers: [Prayer] = [.fajr, .dhuhr, .asr, .maghrib, .isha]
-    let cal = Calendar.current
     let times: [DailyCompanionLarge.PrayerTime] = mainPrayers.compactMap { p in
         guard let slot = slots.first(where: {
             $0.prayer == p && cal.isDate($0.date, inSameDayAs: now)
         }) else { return nil }
         return DailyCompanionLarge.PrayerTime(
             prayer: p,
-            timeHM: formatHM(slot.date, is24h: is24h),
+            timeHM: formatHM(slot.date, is24h: is24h, timeZone: timeZone),
             isPast: slot.date <= now,
             isActive: slot.prayer == activePrayerSlot.prayer
         )
@@ -228,7 +245,7 @@ private func makeEntry(now: Date, slots: [PrayerSlot], location: String, hijri: 
         skin: upcoming.prayer.skin,
         prayerEn: upcoming.prayer.en,
         prayerAr: upcoming.prayer.ar,
-        nextAt: formatHM(upcoming.date, is24h: is24h),
+        nextAt: formatHM(upcoming.date, is24h: is24h, timeZone: timeZone),
         countdownH: cd.h,
         countdownM: cd.m,
         countdownLabel: "UNTIL \(upcoming.prayer.en.uppercased())",
@@ -323,6 +340,7 @@ struct NuurProvider: AppIntentTimelineProvider {
         // Settings preference embedded in the snapshot.
         let is24h = config.use24Hour || (snap.timeFormat == "24h")
         let themeName = snap.themeName
+        let timeZone = prayerTimeZone(snap.timeZone)
 
         func mk(_ t: Date) -> NuurEntry {
             let dayMetadata = metadata(from: snap, at: t)
@@ -330,7 +348,8 @@ struct NuurProvider: AppIntentTimelineProvider {
                              location: snap.location, hijri: dayMetadata.hijri,
                              streakDays: streak, weekPct: week,
                              verseAr: dayMetadata.verseAr, verseRef: dayMetadata.verseRef,
-                             is24h: is24h, themeName: themeName, config: config)
+                             is24h: is24h, themeName: themeName,
+                             timeZone: timeZone, config: config)
         }
 
         var entries: [NuurEntry] = []
@@ -371,7 +390,8 @@ struct NuurProvider: AppIntentTimelineProvider {
                 entries.append(mk(slot.date))
             }
         }
-        let cal = Calendar.current
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = timeZone
         // Midnight = start of tomorrow (Friday/weekday flip + late_night start)
         if let tomorrowMidnight = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now)) {
             entries.append(mk(tomorrowMidnight))

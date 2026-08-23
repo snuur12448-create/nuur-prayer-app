@@ -41,6 +41,7 @@ private struct LockSnapshot: Decodable {
     let hijri: String
     let fajrTomorrow: String?
     let prayerDays: [LockPrayerDay]?
+    let timeZone: String?
 }
 
 private enum LockSnapshotReader {
@@ -61,6 +62,16 @@ private func parseLockISO(_ s: String) -> Date? {
     if let d = iso.date(from: s) { return d }
     iso.formatOptions = [.withInternetDateTime]
     return iso.date(from: s)
+}
+
+private func lockTimeZone(_ snap: LockSnapshot) -> TimeZone {
+    snap.timeZone.flatMap(TimeZone.init(identifier:)) ?? .current
+}
+
+private func lockCalendar(_ snap: LockSnapshot) -> Calendar {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = lockTimeZone(snap)
+    return calendar
 }
 
 private struct LockSlot {
@@ -95,7 +106,7 @@ private func lockSlots(from snap: LockSnapshot) -> [LockSlot] {
     if let raw = snap.fajrTomorrow, let d = parseLockISO(raw) {
         out.append(LockSlot(prayer: .fajr, date: d, label: "Fajr"))
     } else if let fajrToday = out.first(where: { $0.prayer == .fajr })?.date,
-              let fajrTomorrow = Calendar.current.date(byAdding: .day, value: 1, to: fajrToday) {
+              let fajrTomorrow = lockCalendar(snap).date(byAdding: .day, value: 1, to: fajrToday) {
         out.append(LockSlot(prayer: .fajr, date: fajrTomorrow, label: "Fajr"))
     }
     return out
@@ -104,7 +115,7 @@ private func lockSlots(from snap: LockSnapshot) -> [LockSlot] {
 private func lockHijri(from snap: LockSnapshot, at date: Date) -> String {
     if let day = snap.prayerDays?.first(where: {
         guard let fajr = parseLockISO($0.fajr) else { return false }
-        return Calendar.current.isDate(fajr, inSameDayAs: date)
+        return lockCalendar(snap).isDate(fajr, inSameDayAs: date)
     }) {
         return day.hijri
     }
@@ -125,6 +136,7 @@ private func activeSlot(at now: Date, slots: [LockSlot], windowSec: TimeInterval
 
 private func formatLockHM(_ date: Date) -> String {
     let f = DateFormatter()
+    if let snap = LockSnapshotReader.read() { f.timeZone = lockTimeZone(snap) }
     f.dateFormat = "HH:mm"
     return f.string(from: date)
 }
@@ -197,7 +209,7 @@ private struct LockProvider: TimelineProvider {
         let slots = lockSlots(from: snap)
         var seen = Set<Prayer>()
         let today = slots.filter { s in
-            guard Calendar.current.isDate(s.date, inSameDayAs: now),
+            guard lockCalendar(snap).isDate(s.date, inSameDayAs: now),
                   s.prayer != .sunrise, !seen.contains(s.prayer) else { return false }
             seen.insert(s.prayer); return true
         }

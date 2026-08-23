@@ -11,6 +11,11 @@ import { getDailyHadithForDate } from "./hadithData";
 import { RAW_EVENTS as ISLAMIC_RAW_EVENTS, hijriToJD, jdToDate, gregorianToHijri } from "./hijriCalendar";
 import { ADHAN_STYLES, getAdhanStyle } from "./adhanData";
 import { PrayerNotifConfig, PrayerKey } from "./prayerNotifData";
+import {
+  dateByAddingDaysInTimeZone,
+  dayOfWeekInTimeZone,
+  type TimeZoneValue,
+} from "./timeZone";
 
 // Storage keys for the home-screen notification quick-sheet controls.
 // Read directly inside schedulePrayerNotifications so the existing 8+ callsites
@@ -358,7 +363,7 @@ const ANDROID_PRAYER_SCHEDULE_DAYS = 30;
 async function performPrayerNotificationSchedule(
   lat: number,
   lng: number,
-  tz: number,
+  tz: TimeZoneValue,
   city: string,
   jummahEnabled = false,
   jummahMinutesBefore = 30,
@@ -414,8 +419,7 @@ async function performPrayerNotificationSchedule(
     ? IOS_PRAYER_SCHEDULE_DAYS
     : ANDROID_PRAYER_SCHEDULE_DAYS;
   for (let dayOffset = 0; dayOffset < prayerScheduleDays; dayOffset++) {
-    const targetDate = new Date(now);
-    targetDate.setDate(now.getDate() + dayOffset);
+    const targetDate = dateByAddingDaysInTimeZone(now, tz, dayOffset);
     const raw = calculatePrayerTimes(
       lat, lng, tz, targetDate, calcMethodId, madhabId, highLatRuleId, '12h', polarResolutionId,
     );
@@ -442,7 +446,7 @@ async function performPrayerNotificationSchedule(
 
       if (cfg) {
         if (!cfg.enabled) continue;
-        const dow = prayer.time.getDay();
+        const dow = dayOfWeekInTimeZone(prayer.time, tz);
         if (!cfg.days.includes(dow)) continue;
 
         const presentation = resolvePrayerNotificationPresentation(cfg.type, cfg.adhanMode, cfg.adhanStyleId);
@@ -487,7 +491,7 @@ async function performPrayerNotificationSchedule(
         if (Number.isNaN(prayer.time.getTime())) continue;
         const cfg = prayerNotifConfig?.[key];
         if (cfg && !cfg.enabled) continue;
-        if (cfg && !cfg.days.includes(prayer.time.getDay())) continue;
+        if (cfg && !cfg.days.includes(dayOfWeekInTimeZone(prayer.time, tz))) continue;
 
         const reminderTime = new Date(prayer.time.getTime() - preReminderMinutes * 60_000);
         if (reminderTime <= now) continue;
@@ -517,7 +521,7 @@ async function performPrayerNotificationSchedule(
       const minutesBefore = sunriseCfg.minutesBefore ?? 20;
       const reminderTime = new Date(times.sunrise.time.getTime() - minutesBefore * 60_000);
       if (reminderTime > now) {
-        const dow = reminderTime.getDay();
+        const dow = dayOfWeekInTimeZone(reminderTime, tz);
         if (sunriseCfg.days.includes(dow)) {
           const presentation = resolvePrayerNotificationPresentation(
             sunriseCfg.type,
@@ -546,8 +550,7 @@ async function performPrayerNotificationSchedule(
     const tahajjudCfg = prayerNotifConfig?.tahajjud;
     if (tahajjudCfg?.enabled) {
       const minutesBefore = tahajjudCfg.minutesBefore ?? 30;
-      const tomorrow = new Date(targetDate);
-      tomorrow.setDate(targetDate.getDate() + 1);
+      const tomorrow = dateByAddingDaysInTimeZone(targetDate, tz, 1);
       const tomorrowRaw = calculatePrayerTimes(
         lat, lng, tz, tomorrow, calcMethodId, madhabId, highLatRuleId, '12h', polarResolutionId,
       );
@@ -558,7 +561,7 @@ async function performPrayerNotificationSchedule(
         const lastThirdMs = maghribMs + ((nextFajrMs - maghribMs) * 2) / 3;
         const reminderTime = new Date(lastThirdMs - minutesBefore * 60_000);
         if (reminderTime > now && snoozeUntil <= reminderTime.getTime()) {
-          const dow = reminderTime.getDay();
+          const dow = dayOfWeekInTimeZone(reminderTime, tz);
           if (tahajjudCfg.days.includes(dow)) {
             const presentation = resolvePrayerNotificationPresentation(
               tahajjudCfg.type,
@@ -584,9 +587,8 @@ async function performPrayerNotificationSchedule(
   // ── Jummah reminder (next 4 Fridays = 28-day scan) ──
   if (jummahEnabled) {
     for (let dayOffset = 0; dayOffset < 28; dayOffset++) {
-      const targetDate = new Date(now);
-      targetDate.setDate(now.getDate() + dayOffset);
-      if (targetDate.getDay() !== 5) continue;
+      const targetDate = dateByAddingDaysInTimeZone(now, tz, dayOffset);
+      if (dayOfWeekInTimeZone(targetDate, tz) !== 5) continue;
 
       const times = calculatePrayerTimes(
         lat, lng, tz, targetDate, calcMethodId, madhabId, highLatRuleId, '12h', polarResolutionId,

@@ -25,6 +25,7 @@ import { getMomentAyah } from "@/utils/momentVerse";
 import { calculatePrayerTimes, applyPrayerOffsets, getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
 import { PrayerKey } from "@/utils/prayerNotifData";
 import { HomeV2 } from "@/components/HomeV2";
+import { dateByAddingDaysInTimeZone, dateKeyInTimeZone } from "@/utils/timeZone";
 
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 
@@ -94,8 +95,8 @@ export default function PrayerScreen() {
   // prayer window). Mirrors the Large widget's resolver. Recomputes whenever
   // currentTime ticks (every 60s) so it swaps automatically at window edges.
   const dailyAyah = useMemo(
-    () => getMomentAyah(currentTime, prayerTimes),
-    [currentTime, prayerTimes],
+    () => getMomentAyah(currentTime, prayerTimes, location?.timezone),
+    [currentTime, prayerTimes, location?.timezone],
   );
 
   const handleShareAyah = useCallback(() => setShowAyahShare(true), []);
@@ -116,19 +117,24 @@ export default function PrayerScreen() {
 
   // Refresh prayer times only when the calendar date changes (i.e. at midnight),
   // not every minute — the calculation for a given day is stable within that day.
-  const lastDateRef = useRef(new Date().toDateString());
+  const lastDateRef = useRef(
+    location ? dateKeyInTimeZone(new Date(), location.timezone) : new Date().toDateString(),
+  );
   useEffect(() => {
+    lastDateRef.current = location
+      ? dateKeyInTimeZone(new Date(), location.timezone)
+      : new Date().toDateString();
     const timer = setInterval(() => {
       const now = new Date();
       setCurrentTime(now);
-      const todayStr = now.toDateString();
+      const todayStr = location ? dateKeyInTimeZone(now, location.timezone) : now.toDateString();
       if (todayStr !== lastDateRef.current) {
         lastDateRef.current = todayStr;
         refreshPrayerTimes();
       }
     }, 60000);
     return () => clearInterval(timer);
-  }, [refreshPrayerTimes]);
+  }, [refreshPrayerTimes, location]);
 
   // Fast clock: fire immediately then every second so the display is always current.
   useEffect(() => {
@@ -151,8 +157,7 @@ export default function PrayerScreen() {
       // Next prayer — if all today's prayers are done, fetch tomorrow's Fajr
       let next = getNextPrayer(prayerTimes);
       if (!next && location) {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrow = dateByAddingDaysInTimeZone(new Date(), location.timezone, 1);
         const rawTomorrow = calculatePrayerTimes(
           location.latitude,
           location.longitude,
@@ -184,8 +189,7 @@ export default function PrayerScreen() {
         // Before today's Fajr — we're inside the overnight Isha→Fajr window
         // that began with YESTERDAY's Isha. Compute it so the marker
         // correctly tracks progress through the night.
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterday = dateByAddingDaysInTimeZone(new Date(), location.timezone, -1);
         const rawYesterday = calculatePrayerTimes(
           location.latitude,
           location.longitude,

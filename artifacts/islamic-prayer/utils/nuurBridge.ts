@@ -31,6 +31,8 @@ export interface WidgetSnapshot {
   /** Rolling cache used by WidgetKit to remain accurate when iOS does not
    *  grant the containing app a background refresh. */
   prayerDays?: WidgetPrayerDay[];
+  /** IANA timezone for rendering and calendar matching inside WidgetKit. */
+  timeZone?: string;
   /** Display label for the widget header, e.g. "London, UK". */
   location: string;
   /** Formatted Hijri date, e.g. "18 Dhū al-Qaʿdah 1446". */
