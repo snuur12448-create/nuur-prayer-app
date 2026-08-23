@@ -31,6 +31,10 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.3.12
+          bundler-cache: true
       - uses: pnpm/action-setup@v4
         with:
           version: 11.0.7
@@ -41,7 +45,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Install locked CocoaPods dependencies
         working-directory: artifacts/islamic-prayer/ios
-        run: pod install --deployment
+        run: bundle exec pod install --deployment
       - name: Build app and widget extension
         working-directory: artifacts/islamic-prayer
         run: >-

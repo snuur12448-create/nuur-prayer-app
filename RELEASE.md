@@ -1,13 +1,15 @@
 # Reproducible release check
 
-Nuur releases are built from a clean Git commit. The JavaScript and iOS dependency graphs are locked by `pnpm-lock.yaml` and `artifacts/islamic-prayer/ios/Podfile.lock`.
+Nuur releases are built from a clean Git commit. The JavaScript, Ruby, and iOS dependency graphs are locked by `pnpm-lock.yaml`, `Gemfile.lock`, and `artifacts/islamic-prayer/ios/Podfile.lock`.
 
 ## Required tools
 
 - Node.js 24
 - pnpm 11.0.7
+- Ruby 3.3.12
+- Bundler
 - Xcode with an iOS simulator runtime
-- CocoaPods
+- CocoaPods 1.16.2 (installed through Bundler)
 
 ## Verification
 
@@ -17,14 +19,16 @@ From the repository root:
 pnpm install --frozen-lockfile
 pnpm --dir artifacts/islamic-prayer run typecheck
 pnpm --dir artifacts/islamic-prayer run qa:polar
+pnpm --dir artifacts/islamic-prayer run qa:timezone
 pnpm --dir artifacts/islamic-prayer exec expo export --platform ios --output-dir /tmp/nuur-ios-export
 ```
 
 Then verify the locked native project:
 
 ```sh
+bundle install
 cd artifacts/islamic-prayer/ios
-pod install --deployment
+bundle exec pod install --deployment
 cd ..
 xcodebuild -workspace ios/Nuur.xcworkspace -scheme Nuur -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/nuur-derived-data CODE_SIGNING_ALLOWED=NO build
 ```
