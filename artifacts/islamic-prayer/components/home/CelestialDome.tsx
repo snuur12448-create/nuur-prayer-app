@@ -134,14 +134,19 @@ function CelestialDomeInner(props: CelestialDomeProps) {
   );
 
   const bellControl = bell && onBellPress ? (
-    <Pressable onPress={onBellPress} style={[styles.bellBtn, { backgroundColor: bell.bg }]} hitSlop={10}>
+    <Pressable
+      onPress={onBellPress}
+      style={[styles.bellBtn, { backgroundColor: bell.bg }]}
+      accessibilityRole="button"
+      accessibilityLabel="Prayer notification settings"
+    >
       <Feather name={bell.iconName} size={14} color={bell.iconColor} />
       {bell.showDot && (
         <View
           style={{
             position: "absolute",
-            top: 4,
-            right: 4,
+            top: 8,
+            right: 8,
             width: 7,
             height: 7,
             borderRadius: 4,
@@ -841,7 +846,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    minHeight: 44,
+    paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: "rgba(0,0,0,0.35)",
     maxWidth: "55%",
@@ -860,12 +866,12 @@ const styles = StyleSheet.create({
   locPillAccessibility: { maxWidth: "44%" },
   topBarRightAccessibility: { width: "52%", flexShrink: 0 },
   dateText: { fontSize: 10, fontFamily: "Inter_500Medium", letterSpacing: 1 },
-  dateControl: { flexShrink: 1, minWidth: 0 },
+  dateControl: { flexShrink: 1, minWidth: 0, minHeight: 44, justifyContent: "center" },
   dateControlAccessibility: { flexShrink: 1, minWidth: 0 },
   bellBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -202,7 +202,8 @@ const VerseCard = React.memo(function VerseCard({
                 },
               ]}
               onPress={onPlay}
-              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={`${isActive ? "Pause" : "Play"} verse ${verse.number}`}
             >
               {playIcon === "loader" ? (
                 <ActivityIndicator size="small" color={isActive ? "#fff" : colors.tint} />
@@ -216,17 +217,23 @@ const VerseCard = React.memo(function VerseCard({
               <TouchableOpacity
                 onPress={onCopy}
                 style={[styles.copyBtn, { backgroundColor: isCopied ? colors.gold + "20" : "transparent" }]}
-                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={isCopied ? `Verse ${verse.number} copied` : `Copy verse ${verse.number}`}
               >
                 <Feather name={isCopied ? "check" : "copy"} size={15} color={isCopied ? colors.gold : colors.textSecondary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={onShare} style={[styles.copyBtn, { backgroundColor: "transparent" }]} hitSlop={10}>
+              <TouchableOpacity
+                onPress={onShare}
+                style={[styles.copyBtn, { backgroundColor: "transparent" }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Share verse ${verse.number}`}
+              >
                 <Feather name="share-2" size={15} color={colors.textSecondary} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={onTafsir}
                 style={[styles.copyBtn, { backgroundColor: "transparent" }]}
-                hitSlop={10}
+                accessibilityRole="button"
                 accessibilityLabel="Open tafsir"
               >
                 <Feather name="book-open" size={15} color={colors.textSecondary} />
@@ -239,8 +246,9 @@ const VerseCard = React.memo(function VerseCard({
           {isHidden && hafidhDifficulty !== "hard" && (
             <TouchableOpacity
               onPress={onReveal}
-              hitSlop={10}
               style={[styles.eyeBtn, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "15" }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Reveal verse ${verse.number}`}
             >
               <Feather name="eye" size={13} color={colors.gold} />
             </TouchableOpacity>
@@ -251,12 +259,18 @@ const VerseCard = React.memo(function VerseCard({
             </View>
           )}
           {isSaved && !hafidhMode && (
-            <TouchableOpacity onPress={onToggleSave} hitSlop={10} style={[styles.savedBadge, { backgroundColor: colors.gold + "20", borderColor: colors.gold }]}>
+            <TouchableOpacity
+              onPress={onToggleSave}
+              style={[styles.savedBadge, { backgroundColor: colors.gold + "20", borderColor: colors.gold }]}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove bookmark from verse ${verse.number}`}
+            >
               <Feather name="bookmark" size={11} color={colors.gold} />
             </TouchableOpacity>
           )}
           <View style={[styles.verseNumberBadge, { backgroundColor: isActive ? colors.tint : hafidhMode ? colors.gold + "25" : colors.prayerCard }]}>
-            <Text style={[styles.verseNumber, { color: isActive ? "#fff" : colors.gold }]}>{verse.number}</Text>
+            <Text style={[styles.verseNumber, { color: isActive ? colors.onTint : colors.gold }]}>{verse.number}</Text>
           </View>
         </View>
       </View>
@@ -1038,14 +1052,15 @@ export default function QuranDetailScreen() {
                 backgroundColor: isActive ? colors.tint : colors.gold + "18",
                 borderColor: isActive ? colors.tint : colors.gold + "55",
               }]}
-              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`${isActive ? "Pause" : "Play"} ayah 1`}
             >
               <Feather
                 name={getPlayIcon(verse) as any}
                 size={12}
-                color={isActive ? "#fff" : colors.gold}
+                color={isActive ? colors.onTint : colors.gold}
               />
-              <Text style={[styles.bismillahPlayText, { color: isActive ? "#fff" : colors.gold }]}>
+              <Text style={[styles.bismillahPlayText, { color: isActive ? colors.onTint : colors.gold }]}>
                 Ayah 1
               </Text>
             </TouchableOpacity>
@@ -1098,14 +1113,25 @@ export default function QuranDetailScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 16, backgroundColor: colors.prayerCard }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
             <Feather name="arrow-left" size={22} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={[styles.headerArabic, { color: colors.text }]}>{surah.name}</Text>
             <Text style={[styles.headerEnglish, { color: colors.textSecondary }]}>{surah.englishName}</Text>
           </View>
-          <TouchableOpacity onPress={() => toggleBookmark(surahNumber)} style={styles.bookmarkBtn}>
+          <TouchableOpacity
+            onPress={() => toggleBookmark(surahNumber)}
+            style={styles.bookmarkBtn}
+            accessibilityRole="button"
+            accessibilityLabel={isBookmarked ? `Remove ${surah.englishName} bookmark` : `Bookmark ${surah.englishName}`}
+            accessibilityState={{ selected: isBookmarked }}
+          >
             <Feather name="bookmark" size={22} color={isBookmarked ? colors.gold : colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -1132,6 +1158,7 @@ export default function QuranDetailScreen() {
         <TouchableOpacity
           style={[styles.reciterChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
           onPress={() => setShowReciterModal(true)}
+          accessibilityRole="button"
           accessibilityLabel={`Reciter ${selectedReciter.name}. Tap to change.`}
         >
           <Feather name="mic" size={13} color={colors.gold} />
@@ -1157,6 +1184,9 @@ export default function QuranDetailScreen() {
               borderColor: hafidhMode ? colors.gold : colors.border,
             }]}
             onPress={toggleHafidhMode}
+            accessibilityRole="switch"
+            accessibilityLabel="Hafidh mode"
+            accessibilityState={{ checked: hafidhMode }}
           >
             <MaterialCommunityIcons name="brain" size={16} color={hafidhMode ? colors.gold : colors.textSecondary} />
           </TouchableOpacity>
@@ -1164,6 +1194,8 @@ export default function QuranDetailScreen() {
             <TouchableOpacity
               style={[styles.playAllBtn, { backgroundColor: colors.tint }]}
               onPress={playAllVerses}
+              accessibilityRole="button"
+              accessibilityLabel={(playState === "playing" || playState === "loading") ? "Stop surah playback" : "Play the full surah"}
             >
               <Feather name={(playState === "playing" || playState === "loading") ? "square" : "play"} size={13} color={colors.onTint} />
               <Text style={[styles.playAllText, { color: colors.onTint }]}>
@@ -1179,6 +1211,8 @@ export default function QuranDetailScreen() {
                 borderColor: playbackRate !== 1.0 ? colors.tint + "60" : colors.border,
               }]}
               onPress={() => setShowSpeedMenu(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`Playback speed ${playbackRate} times`}
             >
               <Text style={[styles.toggleChipText, { color: playbackRate !== 1.0 ? colors.tint : colors.textSecondary }]}>
                 {playbackRate === 0.75 ? "¾×" : playbackRate === 1.0 ? "1×" : `${playbackRate}×`}
@@ -1193,6 +1227,9 @@ export default function QuranDetailScreen() {
                 borderColor: autoAdvance ? colors.tint + "60" : colors.border,
               }]}
               onPress={() => setAutoAdvance(!autoAdvance)}
+              accessibilityRole="switch"
+              accessibilityLabel="Auto-advance verses"
+              accessibilityState={{ checked: autoAdvance }}
             >
               <Feather name="repeat" size={13} color={autoAdvance ? colors.tint : colors.textSecondary} />
             </TouchableOpacity>
@@ -1217,6 +1254,7 @@ export default function QuranDetailScreen() {
                   borderColor: active ? colors.gold + "60" : colors.border,
                 }]}
                 onPress={() => setShowDisplaySheet(true)}
+                accessibilityRole="button"
                 accessibilityLabel="Display settings"
               >
                 <Feather name="sliders" size={13} color={active ? colors.gold : colors.textSecondary} />
@@ -1273,6 +1311,7 @@ export default function QuranDetailScreen() {
               onPress={toggleHafidhMode}
               hitSlop={6}
               style={[styles.hafidhExitBtn, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "12" }]}
+              accessibilityRole="button"
               accessibilityLabel="Exit Hafidh mode and return to reading view"
             >
               <Feather name="book-open" size={11} color={colors.gold} />
@@ -1294,6 +1333,10 @@ export default function QuranDetailScreen() {
                       borderColor: hafidhDifficulty === level ? colors.gold : colors.gold + "55",
                     },
                   ]}
+                  hitSlop={8}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: hafidhDifficulty === level }}
+                  accessibilityLabel={`${level} Hafidh difficulty`}
                 >
                   <Text style={[styles.hafidhChipText, { color: hafidhDifficulty === level ? "#fff" : colors.gold }]}>
                     {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -1327,6 +1370,9 @@ export default function QuranDetailScreen() {
             <TouchableOpacity
               onPress={resetHafidh}
               style={[styles.hafidhResetBtn, { borderColor: colors.gold + "55", backgroundColor: colors.gold + "12" }]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Reset Hafidh progress"
             >
               <Feather name="refresh-cw" size={11} color={colors.gold} />
               <Text style={[styles.hafidhResetText, { color: colors.gold }]}>Reset</Text>
@@ -1399,7 +1445,12 @@ export default function QuranDetailScreen() {
                       {playState === "loading" ? "Loading…" : `Verse ${playingVerse} · ${selectedReciter.name}`}
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={stopAudio} hitSlop={8}>
+                  <TouchableOpacity
+                    onPress={stopAudio}
+                    style={styles.nowPlayingClose}
+                    accessibilityRole="button"
+                    accessibilityLabel="Stop playback"
+                  >
                     <Feather name="x" size={15} color={colors.tint} />
                   </TouchableOpacity>
                 </View>
@@ -1710,15 +1761,15 @@ const styles = StyleSheet.create({
   errorRetryText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   header: { paddingHorizontal: 20, paddingBottom: 16 },
   headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
-  backBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
+  backBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   headerCenter: { alignItems: "center", flex: 1 },
   headerArabic: { color: "#fff", fontSize: 22, fontFamily: "Inter_700Bold" },
   headerEnglish: { color: "rgba(255,255,255,0.7)", fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
-  bookmarkBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
+  bookmarkBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   savedBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -1746,6 +1797,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     maxWidth: 130,
+    minHeight: 44,
   },
   reciterChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
   attributionRow: {
@@ -1777,6 +1829,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     marginTop: 12,
+    minHeight: 44,
   },
   bismillahPlayText: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.4 },
   displayRow: {
@@ -1808,6 +1861,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 10,
+    minHeight: 44,
   },
   playAllText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   toggleChip: {
@@ -1815,6 +1869,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
+    minHeight: 44,
+    justifyContent: "center",
   },
   toggleChipText: {
     fontSize: 11,
@@ -1836,12 +1892,13 @@ const styles = StyleSheet.create({
   nowPlayingLeft: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
   playingDot: { width: 7, height: 7, borderRadius: 4 },
   nowPlayingText: { fontSize: 12, fontFamily: "Inter_500Medium", flex: 1 },
+  nowPlayingClose: { width: 44, height: 44, alignItems: "center", justifyContent: "center", margin: -10 },
   bismillah: { fontSize: 26, textAlign: "center", marginBottom: 20, lineHeight: 52, fontFamily: "AmiriQuran_400Regular" },
   verseCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
   verseHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   verseHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  playBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", borderWidth: 1 },
-  copyBtn: { width: 34, height: 34, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  playBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1 },
+  copyBtn: { width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   verseNumberBadge: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   verseNumber: { fontSize: 12, fontFamily: "Inter_700Bold" },
   arabicVerse: { fontSize: 26, textAlign: "right", lineHeight: 52, letterSpacing: 0, writingDirection: "rtl", fontFamily: "AmiriQuran_400Regular" },
@@ -1868,9 +1925,9 @@ const styles = StyleSheet.create({
 
   /* ── Hafidh Mode ──────────────────────────────────────────────── */
   hafidhToggleBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -1958,9 +2015,9 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   eyeBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",

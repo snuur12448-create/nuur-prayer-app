@@ -317,7 +317,12 @@ export default function GuideScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 16, backgroundColor: colors.prayerCard, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
           <Feather name="chevron-left" size={24} color={colors.tint} />
         </Pressable>
 
@@ -334,6 +339,8 @@ export default function GuideScreen() {
             <Pressable
               key={tab}
               onPress={() => setActiveTab(tab)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === tab }}
               style={[
                 styles.tabBtn,
                 activeTab === tab && { backgroundColor: colors.tint },
@@ -433,6 +440,9 @@ function StepCard({ step, isLast, colors }: { step: GuideStep; isLast: boolean; 
       <Pressable
         style={[styles.stepCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={() => setExpanded((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={`Step ${step.number}. ${step.title}`}
+        accessibilityState={{ expanded }}
       >
         <View style={styles.stepCardHeader}>
           <View style={styles.stepTitleBlock}>
@@ -489,6 +499,10 @@ const styles = StyleSheet.create({
   backBtn: {
     alignSelf: "flex-start",
     marginBottom: 4,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerContent: { gap: 2 },
   headerTitle: {

@@ -979,7 +979,12 @@ export default function TasbeehScreen() {
       {/* ── Header ── */}
       <View style={[cs.header, { paddingTop: topPad + 14, borderBottomColor: colors.border }]}>
         <View style={cs.headerRow}>
-          <Pressable onPress={() => router.back()} hitSlop={10} style={cs.backBtn}>
+          <Pressable
+            onPress={() => router.back()}
+            style={cs.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
             <Feather name="chevron-left" size={24} color={colors.tint} />
           </Pressable>
 
@@ -1009,13 +1014,16 @@ export default function TasbeehScreen() {
               <TouchableOpacity
                 style={[cs.iconHeaderBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => { setShowSelector(false); setShowLibrary(true); }}
-                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Add custom dhikr"
               >
                 <Feather name="plus" size={18} color={colors.tint} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={[cs.fullResetBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={handleFullReset}
+                accessibilityRole="button"
+                accessibilityLabel="Reset all counters"
               >
                 <Feather name="refresh-cw" size={14} color={colors.textSecondary} />
                 <Text style={[cs.fullResetText, { color: colors.textSecondary }]}>Reset All</Text>
@@ -1025,7 +1033,8 @@ export default function TasbeehScreen() {
             <TouchableOpacity
               style={[cs.fullResetBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
               onPress={handleGuideRestart}
-              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Restart dhikr guide"
             >
               <Feather name="refresh-cw" size={14} color={colors.textSecondary} />
               <Text style={[cs.fullResetText, { color: colors.textSecondary }]}>Restart</Text>
@@ -1041,6 +1050,8 @@ export default function TasbeehScreen() {
             style={[cs.modeTab, mode === "counter" && { backgroundColor: colors.tint }]}
             onPress={() => switchMode("counter")}
             activeOpacity={0.75}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: mode === "counter" }}
           >
             <MaterialCommunityIcons
               name="circle-multiple-outline"
@@ -1055,6 +1066,8 @@ export default function TasbeehScreen() {
             style={[cs.modeTab, mode === "guide" && { backgroundColor: colors.tint }]}
             onPress={() => switchMode("guide")}
             activeOpacity={0.75}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: mode === "guide" }}
           >
             <MaterialCommunityIcons
               name="hands-pray"
@@ -1463,7 +1476,13 @@ export default function TasbeehScreen() {
 
 const cs = StyleSheet.create({
   container: { flex: 1 },
-  backBtn: { marginRight: 12 },
+  backBtn: {
+    width: 44,
+    height: 44,
+    marginRight: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 0,
@@ -1492,6 +1511,7 @@ const cs = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 10,
     borderWidth: 1,
+    minHeight: 44,
   },
   fullResetText: { fontSize: 12, fontFamily: "Inter_500Medium" },
 
@@ -1682,7 +1702,7 @@ const cs = StyleSheet.create({
   // Header right row (+ button + Reset All)
   headerRightRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   iconHeaderBtn: {
-    width: 34, height: 34, borderRadius: 10, borderWidth: 1,
+    width: 44, height: 44, borderRadius: 12, borderWidth: 1,
     alignItems: "center", justifyContent: "center",
   },
 

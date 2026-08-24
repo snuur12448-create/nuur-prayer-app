@@ -224,6 +224,9 @@ function StepCard({ step, isLast, colors }: { step: GuideStep; isLast: boolean; 
       <Pressable
         style={[styles.stepCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={() => setExpanded((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={`Step ${step.number}. ${step.title}`}
+        accessibilityState={{ expanded }}
       >
         <View style={styles.stepCardHeader}>
           <View style={styles.stepTitleBlock}>
@@ -295,6 +298,8 @@ export function GuideSection({ colors }: GuideSectionProps) {
               <Pressable
                 key={tab}
                 onPress={() => setActiveTab(tab)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === tab }}
                 style={[
                   styles.tabBtn,
                   activeTab === tab && { backgroundColor: colors.tint },

@@ -184,8 +184,9 @@ export function LocationModal({
           >
             <Pressable
               onPress={onClose}
-              hitSlop={16}
               style={styles.handleArea}
+              accessibilityRole="button"
+              accessibilityLabel="Close location picker"
               {...dismissPan.panHandlers}
             >
               <View
@@ -203,6 +204,8 @@ export function LocationModal({
               <TouchableOpacity
                 onPress={onClose}
                 style={[styles.closeBtn, { borderColor: colors.border }]}
+                accessibilityRole="button"
+                accessibilityLabel="Close location picker"
               >
                 <Feather name="x" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
@@ -220,6 +223,8 @@ export function LocationModal({
                 },
               ]}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Use my current location"
             >
               {gpsLoading || isLoadingGps ? (
                 <ActivityIndicator size="small" color={colors.tint} />
@@ -280,7 +285,9 @@ export function LocationModal({
                     setQuery("");
                     setResults([]);
                   }}
-                  hitSlop={10}
+                  style={styles.searchClearBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear location search"
                 >
                   <Feather
                     name="x-circle"
@@ -326,6 +333,8 @@ export function LocationModal({
                         },
                       ]}
                       activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Use ${buildCityLabel(item)}`}
                     >
                       <View
                         style={[
@@ -432,9 +441,9 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
   },
   closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -479,6 +488,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_400Regular",
     padding: 0,
+  },
+  searchClearBtn: {
+    width: 44,
+    height: 44,
+    marginVertical: -12,
+    marginRight: -10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   resultList: {
     maxHeight: 280,
