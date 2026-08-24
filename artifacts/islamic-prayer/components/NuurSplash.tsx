@@ -149,20 +149,20 @@ export function NuurSplash({ onComplete }: Props) {
             { opacity: coreFade, transform: [{ scale: coreScale }] },
           ]}
         >
-          <Text style={styles.coreGlyph}>ن</Text>
+          <Text style={styles.coreGlyph} maxFontSizeMultiplier={1}>ن</Text>
         </Animated.View>
       </View>
 
       {/* Text block */}
       <Animated.View style={[styles.textBlock, { opacity: textFade }]}>
-        <Text style={styles.arabicName}>نُور</Text>
+        <Text style={styles.arabicName} maxFontSizeMultiplier={1.1}>نُور</Text>
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerStar}>✸</Text>
+          <Text style={styles.dividerStar} maxFontSizeMultiplier={1}>✸</Text>
           <View style={styles.dividerLine} />
         </View>
-        <Text style={styles.latinName}>NUUR</Text>
-        <Text style={styles.tagline}>Light for your daily deen</Text>
+        <Text style={styles.latinName} maxFontSizeMultiplier={1.2}>NUUR</Text>
+        <Text style={styles.tagline} maxFontSizeMultiplier={1.4}>Light for your daily deen</Text>
       </Animated.View>
     </Animated.View>
   );

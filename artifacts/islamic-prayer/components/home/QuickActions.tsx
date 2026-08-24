@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { SERIF, type ThemeColors } from "./constants";
 
@@ -15,6 +15,9 @@ export interface QuickActionsProps {
 function QuickActionsInner({
   colors, showTahajjud, onTasbeeh, onTracker, onHadith, onTahajjud,
 }: QuickActionsProps) {
+  const { fontScale } = useWindowDimensions();
+  const accessibilityLayout = fontScale >= 1.6;
+
   // Day: Tasbeeh · Tracker · Hadith — surfaces second-tier worship tools
   // that otherwise live only under More. At night, swap Hadith for the
   // Tahajjud prompt so the screen still nudges the actionable night
@@ -33,23 +36,27 @@ function QuickActionsInner({
 
   return (
     <>
-      <View style={styles.quickRow}>
+      <View style={[styles.quickRow, accessibilityLayout && styles.quickRowAccessibility]}>
         {actions.map((a) => (
           <TouchableOpacity
             key={a.label}
             onPress={a.onPress}
             activeOpacity={0.85}
-            style={[styles.quickCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            style={[
+              styles.quickCard,
+              accessibilityLayout && styles.quickCardAccessibility,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
           >
             <Feather name={a.icon} size={18} color={colors.gold} />
-            <Text style={[styles.quickLabel, { color: colors.text }]}>{a.label}</Text>
+            <Text style={[styles.quickLabel, { color: colors.text }]} maxFontSizeMultiplier={2}>{a.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       <View style={styles.ornament}>
         <View style={[styles.ornamentLine, { backgroundColor: colors.gold + "38" }]} />
-        <Text style={[styles.ornamentMark, { color: colors.gold, fontFamily: SERIF }]}>۞</Text>
+        <Text style={[styles.ornamentMark, { color: colors.gold, fontFamily: SERIF }]} maxFontSizeMultiplier={1.5}>۞</Text>
         <View style={[styles.ornamentLine, { backgroundColor: colors.gold + "38" }]} />
       </View>
     </>
@@ -65,6 +72,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 14,
   },
+  quickRowAccessibility: { flexDirection: "column" },
   quickCard: {
     flex: 1,
     borderRadius: 16,
@@ -74,6 +82,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
+  quickCardAccessibility: { flex: 0, minHeight: 56, flexDirection: "row", justifyContent: "center" },
   quickLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
 
   ornament: {

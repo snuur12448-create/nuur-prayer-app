@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import type { ThemeColors } from "./constants";
 
 export interface ProgressHairlineProps {
@@ -15,6 +15,9 @@ export interface ProgressHairlineProps {
 function ProgressHairlineInner({
   colors, fraction, leftLabel, rightLabel, centreLabel, inkSoft16, accent,
 }: ProgressHairlineProps) {
+  const { fontScale } = useWindowDimensions();
+  const accessibilityLayout = fontScale >= 1.6;
+
   return (
     <View style={{ paddingHorizontal: 22, paddingTop: 6, paddingBottom: 14 }}>
       <View style={[styles.barTrack, { backgroundColor: inkSoft16 }]}>
@@ -35,13 +38,28 @@ function ProgressHairlineInner({
           ]}
         />
       </View>
-      <View style={styles.barLabels}>
-        <Text style={[styles.barTime, { color: colors.textSecondary }]}>{leftLabel}</Text>
-        <Text style={[styles.barTime, { color: colors.textSecondary }]} numberOfLines={1}>
-          {centreLabel}
-        </Text>
-        <Text style={[styles.barTime, { color: colors.textSecondary }]}>{rightLabel}</Text>
-      </View>
+      {accessibilityLayout ? (
+        <View style={styles.barLabelsAccessibility}>
+          <View style={styles.edgeLabels}>
+            <Text style={[styles.barTime, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.6}>{leftLabel}</Text>
+            <Text style={[styles.barTime, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.6}>{rightLabel}</Text>
+          </View>
+          <Text
+            style={[styles.barTime, styles.centreLabelAccessibility, { color: colors.textSecondary }]}
+            maxFontSizeMultiplier={1.6}
+          >
+            {centreLabel}
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.barLabels}>
+          <Text style={[styles.barTime, { color: colors.textSecondary }]}>{leftLabel}</Text>
+          <Text style={[styles.barTime, { color: colors.textSecondary }]} numberOfLines={1}>
+            {centreLabel}
+          </Text>
+          <Text style={[styles.barTime, { color: colors.textSecondary }]}>{rightLabel}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -78,5 +96,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 6,
   },
+  barLabelsAccessibility: { marginTop: 8 },
+  edgeLabels: { flexDirection: "row", justifyContent: "space-between" },
+  centreLabelAccessibility: { textAlign: "center", marginTop: 6 },
   barTime: { fontSize: 9, fontFamily: "Inter_600SemiBold", letterSpacing: 1 },
 });

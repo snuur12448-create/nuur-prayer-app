@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, {
@@ -58,6 +58,72 @@ function CelestialDomeInner(props: CelestialDomeProps) {
     dayBodyX, dayBodyY, nightBodyX, nightBodyY, nightBodyDeg, bodyDeg,
     nowLabel, stars, arcPrayers, nightPrayers, nightArcPrayers,
   } = sky;
+  const { fontScale } = useWindowDimensions();
+  const accessibilityLayout = fontScale >= 1.6;
+  const displayedLocationLabel = accessibilityLayout ? locationLabel.split(",")[0] : locationLabel;
+  const displayedHijriLabel = accessibilityLayout
+    ? hijriLabel.replace(/\s*·\s*\d{3,4}\s*$/, "")
+    : hijriLabel;
+
+  const locationControl = (
+    <TouchableOpacity
+      onPress={onLocationPress}
+      activeOpacity={0.7}
+      style={[styles.locPill, accessibilityLayout && styles.locPillAccessibility]}
+      accessibilityRole="button"
+      accessibilityLabel={`Change location. ${locationLabel}`}
+    >
+      <Feather name="map-pin" size={11} color={ink} />
+      <Text
+        style={[styles.locText, { color: ink }]}
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.35}
+      >
+        {displayedLocationLabel}
+      </Text>
+      <Feather name="chevron-down" size={11} color={ink} />
+    </TouchableOpacity>
+  );
+
+  const calendarControl = (
+    <TouchableOpacity
+      onPress={onCalendarPress}
+      activeOpacity={0.7}
+      hitSlop={8}
+      style={[styles.dateControl, accessibilityLayout && styles.dateControlAccessibility]}
+      accessibilityRole="button"
+      accessibilityLabel={`Open Islamic calendar. ${hijriLabel}`}
+    >
+      <Text
+        style={[styles.dateText, { color: inkSoft(0.85) }]}
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.35}
+      >
+        {displayedHijriLabel}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const bellControl = bell && onBellPress ? (
+    <Pressable onPress={onBellPress} style={[styles.bellBtn, { backgroundColor: bell.bg }]} hitSlop={10}>
+      <Feather name={bell.iconName} size={14} color={bell.iconColor} />
+      {bell.showDot && (
+        <View
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 4,
+            width: 7,
+            height: 7,
+            borderRadius: 4,
+            backgroundColor: colors.tint,
+            borderWidth: 1.5,
+            borderColor: colors.surface,
+          }}
+        />
+      )}
+    </Pressable>
+  ) : null;
 
   return (
     <View style={{ height: HERO_H, width: "100%", overflow: "hidden", position: "relative" }}>
@@ -695,7 +761,10 @@ function CelestialDomeInner(props: CelestialDomeProps) {
             alignItems: "center",
           }}
         >
-          <Text style={{ color: ink, fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 1.4, marginBottom: 12 }}>
+          <Text
+            style={{ color: ink, fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 1.4, marginBottom: 12 }}
+            maxFontSizeMultiplier={1.8}
+          >
             {locationLabel?.toUpperCase() ?? "NO LOCATION"}
           </Text>
           <TouchableOpacity
@@ -714,11 +783,17 @@ function CelestialDomeInner(props: CelestialDomeProps) {
             }}
           >
             <Feather name="map-pin" size={13} color={ink} />
-            <Text style={{ color: ink, fontFamily: "Inter_700Bold", fontSize: 12, letterSpacing: 0.4 }}>
+            <Text
+              style={{ color: ink, fontFamily: "Inter_700Bold", fontSize: 12, letterSpacing: 0.4 }}
+              maxFontSizeMultiplier={1.8}
+            >
               Set your location
             </Text>
           </TouchableOpacity>
-          <Text style={{ color: inkSoft(0.6), fontSize: 10, fontFamily: "Inter_500Medium", marginTop: 8, textAlign: "center", paddingHorizontal: 28 }}>
+          <Text
+            style={{ color: inkSoft(0.6), fontSize: 10, fontFamily: "Inter_500Medium", marginTop: 8, textAlign: "center", paddingHorizontal: 28 }}
+            maxFontSizeMultiplier={1.8}
+          >
             Prayer times are calculated from your position.
           </Text>
         </View>
@@ -732,40 +807,10 @@ function CelestialDomeInner(props: CelestialDomeProps) {
         ]}
         pointerEvents="box-none"
       >
-        <TouchableOpacity onPress={onLocationPress} activeOpacity={0.7} style={styles.locPill}>
-          <Feather name="map-pin" size={11} color={ink} />
-          <Text style={[styles.locText, { color: ink }]} numberOfLines={1}>
-            {locationLabel}
-          </Text>
-          <Feather name="chevron-down" size={11} color={ink} />
-        </TouchableOpacity>
-
-        <View style={styles.topBarRight}>
-          <TouchableOpacity onPress={onCalendarPress} activeOpacity={0.7} hitSlop={8}>
-            <Text style={[styles.dateText, { color: inkSoft(0.85) }]} numberOfLines={1}>
-              {hijriLabel}
-            </Text>
-          </TouchableOpacity>
-          {bell && onBellPress && (
-            <Pressable onPress={onBellPress} style={[styles.bellBtn, { backgroundColor: bell.bg }]} hitSlop={10}>
-              <Feather name={bell.iconName} size={14} color={bell.iconColor} />
-              {bell.showDot && (
-                <View
-                  style={{
-                    position: "absolute",
-                    top: 4,
-                    right: 4,
-                    width: 7,
-                    height: 7,
-                    borderRadius: 4,
-                    backgroundColor: colors.tint,
-                    borderWidth: 1.5,
-                    borderColor: colors.surface,
-                  }}
-                />
-              )}
-            </Pressable>
-          )}
+        {locationControl}
+        <View style={[styles.topBarRight, accessibilityLayout && styles.topBarRightAccessibility]}>
+          {calendarControl}
+          {bellControl}
         </View>
       </View>
     </View>
@@ -794,10 +839,23 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "rgba(0,0,0,0.35)",
     maxWidth: "55%",
+    flexShrink: 1,
   },
-  locText: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.3 },
-  topBarRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  locText: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.3, flexShrink: 1, minWidth: 0 },
+  topBarRight: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginLeft: 8,
+    minWidth: 0,
+  },
+  locPillAccessibility: { maxWidth: "44%" },
+  topBarRightAccessibility: { width: "52%", flexShrink: 0 },
   dateText: { fontSize: 10, fontFamily: "Inter_500Medium", letterSpacing: 1 },
+  dateControl: { flexShrink: 1, minWidth: 0 },
+  dateControlAccessibility: { flexShrink: 1, minWidth: 0 },
   bellBtn: {
     width: 28,
     height: 28,

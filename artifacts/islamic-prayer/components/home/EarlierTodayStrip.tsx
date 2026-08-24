@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, View, useWindowDimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { PrayerTimesResult } from "@/utils/prayerTimes";
 import type { TrackerPrayerKey } from "@/context/PrayerTrackerContext";
@@ -16,6 +16,9 @@ export interface EarlierTodayStripProps {
 function EarlierTodayStripInner({
   colors, prayerTimes, prayed, swapT, onToggleBud,
 }: EarlierTodayStripProps) {
+  const { fontScale } = useWindowDimensions();
+  const accessibilityLayout = fontScale >= 1.6;
+
   return (
     <View
       style={{ paddingHorizontal: 20, paddingTop: 0, paddingBottom: 14, opacity: swapT }}
@@ -29,7 +32,8 @@ function EarlierTodayStripInner({
           paddingVertical: 10,
           paddingHorizontal: 12,
           flexDirection: "row",
-          alignItems: "center",
+          alignItems: accessibilityLayout ? "stretch" : "center",
+          flexWrap: accessibilityLayout ? "wrap" : "nowrap",
           gap: 8,
         }}
       >
@@ -40,7 +44,9 @@ function EarlierTodayStripInner({
             color: colors.textSecondary,
             fontWeight: "700",
             marginRight: 4,
+            width: accessibilityLayout ? "100%" : undefined,
           }}
+          maxFontSizeMultiplier={1.6}
         >
           EARLIER TODAY
         </Text>
@@ -58,7 +64,8 @@ function EarlierTodayStripInner({
               onPress={() => onToggleBud(id)}
               hitSlop={6}
               style={{
-                flex: 1,
+                flex: accessibilityLayout ? 0 : 1,
+                width: accessibilityLayout ? "48%" : undefined,
                 flexDirection: "column",
                 alignItems: "center",
                 gap: 2,
@@ -88,6 +95,7 @@ function EarlierTodayStripInner({
                     fontWeight: "600",
                     color: done ? colors.text : colors.textSecondary,
                   }}
+                  maxFontSizeMultiplier={1.6}
                 >
                   {label}
                 </Text>
@@ -98,6 +106,7 @@ function EarlierTodayStripInner({
                   color: colors.textSecondary,
                   letterSpacing: 0.3,
                 }}
+                maxFontSizeMultiplier={1.6}
               >
                 {src.timeString}
               </Text>

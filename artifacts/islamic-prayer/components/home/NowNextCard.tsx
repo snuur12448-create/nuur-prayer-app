@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { TrackerPrayerKey } from "@/context/PrayerTrackerContext";
 import { SERIF, TRACKER_FIVE, type ThemeColors } from "./constants";
@@ -34,6 +34,8 @@ function NowNextCardInner(props: NowNextCardProps) {
     onToggleBud, onViewTracker, prayedAgoIsGold,
     recordingForYesterday, yesterdayLabel,
   } = props;
+  const { fontScale } = useWindowDimensions();
+  const accessibilityLayout = fontScale >= 1.6;
 
   return (
     <View style={{ paddingHorizontal: 20, paddingBottom: 14 }}>
@@ -54,15 +56,28 @@ function NowNextCardInner(props: NowNextCardProps) {
         />
 
         {/* NOW row */}
-        <View style={styles.nowRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.nowEyebrow, { color: colors.gold }]}>● NOW · IN PROGRESS</Text>
-            <View style={styles.nowTitleRow}>
-              <Text style={[styles.nowTitle, { color: colors.text }]} numberOfLines={1}>
+        <View style={[styles.nowRow, accessibilityLayout && styles.nowRowAccessibility]}>
+          <View style={[styles.nowContent, accessibilityLayout && styles.nowContentAccessibility]}>
+            <Text
+              style={[styles.nowEyebrow, { color: colors.gold }]}
+              maxFontSizeMultiplier={1.8}
+            >
+              ● NOW · IN PROGRESS
+            </Text>
+            <View style={[styles.nowTitleRow, accessibilityLayout && styles.nowTitleRowAccessibility]}>
+              <Text
+                style={[styles.nowTitle, { color: colors.text }]}
+                numberOfLines={accessibilityLayout ? 2 : 1}
+                maxFontSizeMultiplier={2}
+              >
                 {nowEn}
               </Text>
               {!!nowAr && (
-                <Text style={[styles.nowAr, { color: colors.gold, fontFamily: SERIF }]} numberOfLines={1}>
+                <Text
+                  style={[styles.nowAr, { color: colors.gold, fontFamily: SERIF }]}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={1.8}
+                >
                   {nowAr}
                 </Text>
               )}
@@ -73,7 +88,8 @@ function NowNextCardInner(props: NowNextCardProps) {
                   styles.nowSub,
                   { color: prayedAgoIsGold ? colors.gold : colors.textSecondary },
                 ]}
-                numberOfLines={1}
+                numberOfLines={accessibilityLayout ? 2 : 1}
+                maxFontSizeMultiplier={1.8}
               >
                 {nowSub}
               </Text>
@@ -86,6 +102,7 @@ function NowNextCardInner(props: NowNextCardProps) {
               onPress={onToggleNow}
               style={[
                 styles.markBtn,
+                accessibilityLayout && styles.markBtnAccessibility,
                 isPrayedNow
                   ? { backgroundColor: colors.gold + "26", borderWidth: 1, borderColor: colors.gold + "55" }
                   : { backgroundColor: colors.gold },
@@ -101,6 +118,7 @@ function NowNextCardInner(props: NowNextCardProps) {
                   styles.markBtnText,
                   { color: isPrayedNow ? colors.gold : "#0A1612" },
                 ]}
+                maxFontSizeMultiplier={1.8}
               >
                 {isPrayedNow ? "Prayed" : "Mark prayed"}
               </Text>
@@ -111,29 +129,39 @@ function NowNextCardInner(props: NowNextCardProps) {
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         {/* NEXT row */}
-        <View style={styles.nextRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.nextEyebrow, { color: colors.textSecondary }]}>{nextLabel}</Text>
-            <View style={styles.nextLineRow}>
-              <Text style={[styles.nextAt, { color: colors.textSecondary }]}>at</Text>
-              <Text style={[styles.nextTime, { color: colors.text }]}>{nextAt}</Text>
+        <View style={[styles.nextRow, accessibilityLayout && styles.nextRowAccessibility]}>
+          <View style={[styles.nextContent, accessibilityLayout && styles.nextContentAccessibility]}>
+            <Text
+              style={[styles.nextEyebrow, { color: colors.textSecondary }]}
+              maxFontSizeMultiplier={1.8}
+            >
+              {nextLabel}
+            </Text>
+            <View style={[styles.nextLineRow, accessibilityLayout && styles.nextLineRowAccessibility]}>
+              <Text style={[styles.nextAt, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.8}>at</Text>
+              <Text style={[styles.nextTime, { color: colors.text }]} maxFontSizeMultiplier={1.8}>{nextAt}</Text>
               {!!nextAr && (
-                <Text style={[styles.nextAr, { color: colors.textSecondary, fontFamily: SERIF }]}>· {nextAr}</Text>
+                <Text
+                  style={[styles.nextAr, { color: colors.textSecondary, fontFamily: SERIF }]}
+                  maxFontSizeMultiplier={1.8}
+                >
+                  · {nextAr}
+                </Text>
               )}
             </View>
           </View>
-          <View style={styles.cdRow}>
-            <Text style={[styles.cdNum, { color: colors.text, fontFamily: SERIF }]}>{cd.h}</Text>
-            <Text style={[styles.cdUnit, { color: colors.gold, fontFamily: SERIF }]}>h</Text>
-            <Text style={[styles.cdNum, { color: colors.text, fontFamily: SERIF }]}>{cd.m}</Text>
-            <Text style={[styles.cdUnit, { color: colors.gold, fontFamily: SERIF }]}>m</Text>
+          <View style={[styles.cdRow, accessibilityLayout && styles.cdRowAccessibility]}>
+            <Text style={[styles.cdNum, { color: colors.text, fontFamily: SERIF }]} maxFontSizeMultiplier={1.6}>{cd.h}</Text>
+            <Text style={[styles.cdUnit, { color: colors.gold, fontFamily: SERIF }]} maxFontSizeMultiplier={1.6}>h</Text>
+            <Text style={[styles.cdNum, { color: colors.text, fontFamily: SERIF }]} maxFontSizeMultiplier={1.6}>{cd.m}</Text>
+            <Text style={[styles.cdUnit, { color: colors.gold, fontFamily: SERIF }]} maxFontSizeMultiplier={1.6}>m</Text>
           </View>
         </View>
 
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         {/* Rosebud "X of 5 today" + View tracker */}
-        <View style={styles.rosebudRow}>
+        <View style={[styles.rosebudRow, accessibilityLayout && styles.rosebudRowAccessibility]}>
           <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 1 }}>
             {TRACKER_FIVE.map((k) => {
               const filled = !!prayed[k];
@@ -160,6 +188,7 @@ function NowNextCardInner(props: NowNextCardProps) {
                 { color: recordingForYesterday ? colors.gold : colors.textSecondary },
               ]}
               numberOfLines={1}
+              maxFontSizeMultiplier={1.8}
               accessibilityLabel={
                 recordingForYesterday && yesterdayLabel
                   ? `${prayedCount} of 5 — recording for ${yesterdayLabel}`
@@ -171,8 +200,13 @@ function NowNextCardInner(props: NowNextCardProps) {
                 : `${prayedCount} of 5 today`}
             </Text>
           </View>
-          <TouchableOpacity onPress={onViewTracker} hitSlop={8} activeOpacity={0.7}>
-            <Text style={[styles.viewTracker, { color: colors.gold }]}>↗ View tracker</Text>
+          <TouchableOpacity
+            onPress={onViewTracker}
+            hitSlop={8}
+            activeOpacity={0.7}
+            style={accessibilityLayout && styles.viewTrackerButtonAccessibility}
+          >
+            <Text style={[styles.viewTracker, { color: colors.gold }]} maxFontSizeMultiplier={1.8}>↗ View tracker</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -196,8 +230,12 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   nowRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  nowRowAccessibility: { flexDirection: "column", alignItems: "stretch", gap: 14 },
+  nowContent: { flex: 1 },
+  nowContentAccessibility: { flex: 0, width: "100%" },
   nowEyebrow: { fontSize: 9, letterSpacing: 2, fontFamily: "Inter_700Bold" },
   nowTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 4 },
+  nowTitleRowAccessibility: { flexDirection: "column", alignItems: "flex-start", gap: 0 },
   nowTitle: { fontSize: 24, fontFamily: "Inter_700Bold", letterSpacing: -0.3 },
   nowAr: { fontSize: 16 },
   nowSub: { fontSize: 10, fontFamily: "Inter_400Regular", marginTop: 2 },
@@ -209,21 +247,28 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
   },
+  markBtnAccessibility: { alignSelf: "stretch", justifyContent: "center", minHeight: 48 },
   markBtnText: { fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 0.3 },
 
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 12 },
 
   nextRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  nextRowAccessibility: { flexDirection: "column", alignItems: "flex-start", gap: 8 },
+  nextContent: { flex: 1 },
+  nextContentAccessibility: { flex: 0, width: "100%" },
   nextEyebrow: { fontSize: 9, letterSpacing: 2, fontFamily: "Inter_700Bold" },
   nextLineRow: { flexDirection: "row", alignItems: "baseline", gap: 6, marginTop: 2 },
+  nextLineRowAccessibility: { flexWrap: "wrap" },
   nextAt: { fontSize: 11 },
   nextTime: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   nextAr: { fontSize: 11 },
   cdRow: { flexDirection: "row", alignItems: "baseline" },
+  cdRowAccessibility: { alignSelf: "flex-start" },
   cdNum: { fontSize: 38, lineHeight: 42, letterSpacing: -1 },
   cdUnit: { fontSize: 22, paddingHorizontal: 2 },
 
   rosebudRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  rosebudRowAccessibility: { flexDirection: "column", alignItems: "flex-start", gap: 8 },
   bud: {
     width: 13,
     height: 13,
@@ -244,4 +289,5 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   viewTracker: { fontSize: 10, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5 },
+  viewTrackerButtonAccessibility: { minHeight: 44, justifyContent: "center" },
 });
