@@ -1165,8 +1165,8 @@ export default function QuranDetailScreen() {
               style={[styles.playAllBtn, { backgroundColor: colors.tint }]}
               onPress={playAllVerses}
             >
-              <Feather name={(playState === "playing" || playState === "loading") ? "square" : "play"} size={13} color="#fff" />
-              <Text style={styles.playAllText}>
+              <Feather name={(playState === "playing" || playState === "loading") ? "square" : "play"} size={13} color={colors.onTint} />
+              <Text style={[styles.playAllText, { color: colors.onTint }]}>
                 {(playState === "playing" || playState === "loading") ? "Stop" : "Play All"}
               </Text>
             </TouchableOpacity>
@@ -1809,7 +1809,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 10,
   },
-  playAllText: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  playAllText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   toggleChip: {
     paddingHorizontal: 8,
     paddingVertical: 5,

@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { BORDER_DIM, GOLD, SURFACE, TEXT, TEXT_DIM } from "./_constants";
+import { BORDER_DIM, GOLD, ON_GOLD, SURFACE, TEXT, TEXT_DIM } from "./_constants";
 
 export const s = StyleSheet.create({
   slide: {
@@ -90,7 +90,8 @@ export const s = StyleSheet.create({
     marginBottom: 10,
   },
   primaryDone: { backgroundColor: "#2A7A4F" },
-  primaryText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
+  primaryText: { color: ON_GOLD, fontSize: 16, fontFamily: "Inter_700Bold" },
+  primaryDoneText: { color: "#fff" },
   ghost: { paddingVertical: 11, paddingHorizontal: 16 },
   ghostSmall: { paddingVertical: 6, paddingHorizontal: 16 },
   ghostText: { color: TEXT_DIM, fontSize: 14, fontFamily: "Inter_400Regular" },

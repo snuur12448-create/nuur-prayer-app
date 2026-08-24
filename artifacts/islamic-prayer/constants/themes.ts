@@ -6,6 +6,8 @@ export type ThemeColors = {
   surfaceElevated: string;
   border: string;
   tint: string;
+  /** Accessible foreground for controls filled with tint. */
+  onTint: string;
   tintLight: string;
   gold: string;
   goldLight: string;
@@ -60,6 +62,7 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       surfaceElevated: "#172B1B",
       border: "#1F3526",
       tint: "#4ADE80",
+      onTint: "#07140B",
       tintLight: "#2D6A4F",
       gold: "#F4C842",
       goldLight: "#F9D97A",
@@ -82,6 +85,7 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       surfaceElevated: "#E0F2E7",
       border: "#B8DFC5",
       tint: "#15803D",
+      onTint: "#FFFFFF",
       tintLight: "#BBF7D0",
       gold: "#9A7B0A",
       goldLight: "#FBE38A",
@@ -109,6 +113,7 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       surfaceElevated: "#152035",
       border: "#1C2D42",
       tint: "#60A5FA",
+      onTint: "#071426",
       tintLight: "#1E3A5F",
       gold: "#F4C842",
       goldLight: "#F9D97A",
@@ -131,6 +136,7 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       surfaceElevated: "#DCE8FF",
       border: "#B0CCEE",
       tint: "#1D4ED8",
+      onTint: "#FFFFFF",
       tintLight: "#BFDBFE",
       gold: "#9A7B0A",
       goldLight: "#FBE38A",
@@ -158,6 +164,7 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       surfaceElevated: "#2C2400",
       border: "#3A3000",
       tint: "#D4AF37",
+      onTint: "#171104",
       tintLight: "#6B5200",
       gold: "#D4AF37",
       goldLight: "#E8CD70",
@@ -180,6 +187,7 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       surfaceElevated: "#FFF8D6",
       border: "#E8D070",
       tint: "#A07800",
+      onTint: "#FFFFFF",
       tintLight: "#FFF8D6",
       gold: "#7A5A00",
       goldLight: "#FFF0A0",
@@ -207,6 +215,7 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       surfaceElevated: "#1C2128",
       border: "#21262D",
       tint: "#94A3B8",
+      onTint: "#111827",
       tintLight: "#30363D",
       gold: "#F4C842",
       goldLight: "#F9D97A",
@@ -229,6 +238,7 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       surfaceElevated: "#E1E8F0",
       border: "#B0C0D0",
       tint: "#475569",
+      onTint: "#FFFFFF",
       tintLight: "#CBD5E1",
       gold: "#9A7B0A",
       goldLight: "#FBE38A",
@@ -256,6 +266,7 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       surfaceElevated: "#2E1020",
       border: "#3A1428",
       tint: "#C2185B",
+      onTint: "#FFFFFF",
       tintLight: "#6B0030",
       gold: "#F4C842",
       goldLight: "#F9D97A",
@@ -278,6 +289,7 @@ export const THEMES: Record<ThemeName, ThemeDefinition> = {
       surfaceElevated: "#FFE0EE",
       border: "#F0B0CC",
       tint: "#880E4F",
+      onTint: "#FFFFFF",
       tintLight: "#FFDDE8",
       gold: "#9A7B0A",
       goldLight: "#FBE38A",

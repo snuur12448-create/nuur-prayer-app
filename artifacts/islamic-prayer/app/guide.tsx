@@ -341,7 +341,7 @@ export default function GuideScreen() {
             >
               <Text style={[
                 styles.tabBtnText,
-                { color: activeTab === tab ? "#fff" : colors.textSecondary },
+                { color: activeTab === tab ? colors.onTint : colors.textSecondary },
               ]}>
                 {tab === "wudhu" ? "🌊 Wudhu" : tab === "prayer" ? "🕌 Prayer" : "💧 Ghusl"}
               </Text>
@@ -424,7 +424,7 @@ function StepCard({ step, isLast, colors }: { step: GuideStep; isLast: boolean; 
       {/* Timeline */}
       <View style={styles.timeline}>
         <View style={[styles.stepBubble, { backgroundColor: colors.tint }]}>
-          <Text style={styles.stepNum}>{step.number}</Text>
+          <Text style={[styles.stepNum, { color: colors.onTint }]}>{step.number}</Text>
         </View>
         {!isLast && <View style={[styles.stepLine, { backgroundColor: colors.border }]} />}
       </View>
@@ -551,7 +551,6 @@ const styles = StyleSheet.create({
   stepNum: {
     fontSize: 13,
     fontFamily: "Inter_700Bold",
-    color: "#fff",
   },
   stepLine: {
     width: 2,

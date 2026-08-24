@@ -3,7 +3,7 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { CalcMethodId, MadhabId } from "@/utils/prayerTimes";
 import { CALC_METHODS } from "@/utils/prayerTimes";
-import { GOLD } from "../_constants";
+import { GOLD, ON_GOLD } from "../_constants";
 import { s } from "../_styles";
 import { StepIcon } from "../atoms/StepIcon";
 import { Dots } from "../atoms/Dots";
@@ -116,7 +116,7 @@ export function CalcMethodStep({
             <ActivityIndicator color="#fff" size="small" />
           ) : (
             <>
-              <MaterialCommunityIcons name="check-circle-outline" size={18} color="#fff" />
+              <MaterialCommunityIcons name="check-circle-outline" size={18} color={ON_GOLD} />
               <Text style={s.primaryText}>Get Started</Text>
             </>
           )}

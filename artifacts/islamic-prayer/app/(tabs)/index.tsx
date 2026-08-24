@@ -314,8 +314,8 @@ export default function PrayerScreen() {
             onPress={() => Linking.openSettings()}
             activeOpacity={0.8}
           >
-            <Feather name="settings" size={14} color="#fff" />
-            <Text style={bannerStyles.deniedCardButtonText}>Open Settings</Text>
+            <Feather name="settings" size={14} color={colors.onTint} />
+            <Text style={[bannerStyles.deniedCardButtonText, { color: colors.onTint }]}>Open Settings</Text>
           </TouchableOpacity>
         </View>
       ) : usingDefaultLocation && !isLoadingLocation ? (
@@ -564,7 +564,6 @@ const bannerStyles = StyleSheet.create({
   deniedCardButtonText: {
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
-    color: "#fff",
   },
   autoMethodBanner: {
     flexDirection: "row",

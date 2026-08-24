@@ -3,6 +3,7 @@ import { ActivityIndicator, Linking, Text, TouchableOpacity, View } from "react-
 import { Feather } from "@expo/vector-icons";
 import { StepIcon } from "../atoms/StepIcon";
 import { Dots } from "../atoms/Dots";
+import { ON_GOLD } from "../_constants";
 import { s } from "../_styles";
 
 export interface LocationStepProps {
@@ -55,7 +56,7 @@ export function LocationStep({
               onPress={() => Linking.openSettings().catch(() => {})}
               activeOpacity={0.82}
             >
-              <Feather name="external-link" size={16} color="#fff" />
+              <Feather name="external-link" size={16} color={ON_GOLD} />
               <Text style={s.primaryText}>Open Settings</Text>
             </TouchableOpacity>
           </>
@@ -67,11 +68,11 @@ export function LocationStep({
             activeOpacity={0.82}
           >
             {locLoading ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={locDone ? "#fff" : ON_GOLD} size="small" />
             ) : (
               <>
-                <Feather name={locDone ? "check" : "map-pin"} size={16} color="#fff" />
-                <Text style={s.primaryText}>{locDone ? "Location set" : "Allow Location Access"}</Text>
+                <Feather name={locDone ? "check" : "map-pin"} size={16} color={locDone ? "#fff" : ON_GOLD} />
+                <Text style={[s.primaryText, locDone && s.primaryDoneText]}>{locDone ? "Location set" : "Allow Location Access"}</Text>
               </>
             )}
           </TouchableOpacity>

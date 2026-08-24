@@ -2,8 +2,9 @@ import type { ThemeColors } from "@/constants/themes";
 
 export const BG = "#09150D";
 export const GOLD = "#C9933A";
+export const ON_GOLD = "#20160A";
 export const TEXT = "#F0EDE4";
-export const TEXT_DIM = "rgba(240,237,228,0.5)";
+export const TEXT_DIM = "rgba(240,237,228,0.68)";
 export const SURFACE = "rgba(255,255,255,0.05)";
 export const SURFACE_ACTIVE = "rgba(201,147,58,0.13)";
 export const BORDER_DIM = "rgba(255,255,255,0.1)";
@@ -18,6 +19,7 @@ export const ONBOARDING_PICKER_COLORS: ThemeColors = {
   surfaceElevated: "#172620",
   border: BORDER_DIM,
   tint: GOLD,
+  onTint: ON_GOLD,
   tintLight: GOLD + "33",
   gold: GOLD,
   goldLight: GOLD + "33",

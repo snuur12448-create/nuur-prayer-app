@@ -264,7 +264,7 @@ function DetailSheet({
               onPress={dismiss}
               activeOpacity={0.85}
             >
-              <Feather name="x" size={16} color="#fff" />
+              <Feather name="x" size={16} color={colors.onTint} />
             </TouchableOpacity>
           </View>
         </View>

@@ -653,8 +653,8 @@ function MosqueDetailSheet({
             accessibilityRole="button"
             accessibilityLabel="Get directions"
           >
-            <Feather name="navigation" size={15} color="#fff" />
-            <Text style={sheetStyles.primaryBtnText}>Get Directions</Text>
+            <Feather name="navigation" size={15} color={colors.onTint} />
+            <Text style={[sheetStyles.primaryBtnText, { color: colors.onTint }]}>Get Directions</Text>
           </Pressable>
 
           {/* Secondary actions */}
@@ -870,9 +870,9 @@ export default function MosquesScreen() {
                 <Feather
                   name={mode === "list" ? "list" : "map"}
                   size={13}
-                  color={active ? "#fff" : colors.textSecondary}
+                  color={active ? colors.onTint : colors.textSecondary}
                 />
-                <Text style={[styles.toggleBtnText, { color: active ? "#fff" : colors.textSecondary }]}>
+                <Text style={[styles.toggleBtnText, { color: active ? colors.onTint : colors.textSecondary }]}>
                   {mode === "list" ? "List" : "Map"}
                 </Text>
               </Pressable>
@@ -1355,7 +1355,6 @@ const sheetStyles = StyleSheet.create({
     marginTop: 10,
   },
   primaryBtnText: {
-    color: "#fff",
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
   },

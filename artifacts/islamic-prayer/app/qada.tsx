@@ -332,7 +332,7 @@ function SetupView({
           onPress={onSave}
           activeOpacity={0.85}
         >
-          <Text style={[styles.primaryBtnText, { color: colors.background }]}>
+          <Text style={[styles.primaryBtnText, { color: colors.onTint }]}>
             {isFirstTime ? "Save my ledger" : "Save changes"}
           </Text>
         </TouchableOpacity>
@@ -436,7 +436,7 @@ function WizardView({
                         : { backgroundColor: colors.background, borderColor: colors.border },
                     ]}
                   >
-                    <Text style={[styles.chipText, { color: selected ? colors.background : colors.textSecondary }]}>
+                    <Text style={[styles.chipText, { color: selected ? colors.onTint : colors.textSecondary }]}>
                       {c.label}
                     </Text>
                   </Pressable>
@@ -451,7 +451,7 @@ function WizardView({
               onPress={() => setStep(2)}
               activeOpacity={0.85}
             >
-              <Text style={[styles.primaryBtnText, { color: colors.background }]}>Continue</Text>
+              <Text style={[styles.primaryBtnText, { color: colors.onTint }]}>Continue</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onCancel} style={styles.secondaryBtn}>
               <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Cancel</Text>
@@ -491,7 +491,7 @@ function WizardView({
                         : { backgroundColor: colors.background, borderColor: colors.border },
                     ]}
                   >
-                    <Text style={[styles.chipText, { color: selected ? colors.background : colors.textSecondary }]}>
+                    <Text style={[styles.chipText, { color: selected ? colors.onTint : colors.textSecondary }]}>
                       {n} of 5
                     </Text>
                   </Pressable>
@@ -529,7 +529,7 @@ function WizardView({
               onPress={() => onUseEstimate(counts)}
               activeOpacity={0.85}
             >
-              <Text style={[styles.primaryBtnText, { color: colors.background }]}>Use this estimate</Text>
+              <Text style={[styles.primaryBtnText, { color: colors.onTint }]}>Use this estimate</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setStep(1)} style={styles.secondaryBtn}>
               <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Back</Text>
@@ -652,8 +652,8 @@ function LedgerView({
           activeOpacity={0.85}
           disabled={remaining === 0}
         >
-          <Feather name="plus" size={16} color={colors.background} />
-          <Text style={[styles.primaryBtnText, { color: colors.background }]}>I made one up</Text>
+          <Feather name="plus" size={16} color={colors.onTint} />
+          <Text style={[styles.primaryBtnText, { color: colors.onTint }]}>I made one up</Text>
         </TouchableOpacity>
         <Text style={[styles.footerNote, { color: colors.textSecondary }]}>
           Allah is the most merciful — every step toward Him counts.
@@ -788,7 +788,7 @@ function MarkUpSheet({
         {/* Preview */}
         <View style={[styles.previewBox, { backgroundColor: colors.tint + "12", borderColor: colors.tint + "44" }]}>
           <View style={[styles.previewCheck, { backgroundColor: colors.tint }]}>
-            <Feather name="check" size={14} color={colors.background} />
+            <Feather name="check" size={14} color={colors.onTint} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.previewLine, { color: colors.text }]}>
@@ -806,7 +806,7 @@ function MarkUpSheet({
             onPress={() => onConfirm(selected, safeCount)}
             activeOpacity={0.85}
           >
-            <Text style={[styles.primaryBtnText, { color: colors.background }]}>Confirm</Text>
+            <Text style={[styles.primaryBtnText, { color: colors.onTint }]}>Confirm</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onCancel} style={styles.secondaryBtn}>
             <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Cancel</Text>
@@ -929,7 +929,7 @@ function SetTotalSheet({
             activeOpacity={0.85}
             disabled={isInvalid}
           >
-            <Text style={[styles.primaryBtnText, { color: colors.background }]}>
+            <Text style={[styles.primaryBtnText, { color: colors.onTint }]}>
               Apply {clamped.toLocaleString()}
             </Text>
           </TouchableOpacity>

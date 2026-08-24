@@ -1045,9 +1045,9 @@ export default function TasbeehScreen() {
             <MaterialCommunityIcons
               name="circle-multiple-outline"
               size={14}
-              color={mode === "counter" ? "#fff" : colors.textSecondary}
+              color={mode === "counter" ? colors.onTint : colors.textSecondary}
             />
-            <Text style={[cs.modeTabText, { color: mode === "counter" ? "#fff" : colors.textSecondary }]}>
+            <Text style={[cs.modeTabText, { color: mode === "counter" ? colors.onTint : colors.textSecondary }]}>
               Counter
             </Text>
           </TouchableOpacity>
@@ -1059,9 +1059,9 @@ export default function TasbeehScreen() {
             <MaterialCommunityIcons
               name="hands-pray"
               size={14}
-              color={mode === "guide" ? "#fff" : colors.textSecondary}
+              color={mode === "guide" ? colors.onTint : colors.textSecondary}
             />
-            <Text style={[cs.modeTabText, { color: mode === "guide" ? "#fff" : colors.textSecondary }]}>
+            <Text style={[cs.modeTabText, { color: mode === "guide" ? colors.onTint : colors.textSecondary }]}>
               Dhikr Guide
             </Text>
           </TouchableOpacity>
@@ -1363,8 +1363,8 @@ export default function TasbeehScreen() {
                       <Text style={[cs.libraryAddBtnText, { color: colors.textSecondary }]}>Preset</Text>
                     ) : (
                       <>
-                        <Feather name="plus" size={13} color="#fff" />
-                        <Text style={[cs.libraryAddBtnText, { color: "#fff" }]}>Add</Text>
+                        <Feather name="plus" size={13} color={colors.onTint} />
+                        <Text style={[cs.libraryAddBtnText, { color: colors.onTint }]}>Add</Text>
                       </>
                     )}
                   </TouchableOpacity>

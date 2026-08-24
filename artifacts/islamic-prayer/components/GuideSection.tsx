@@ -217,7 +217,7 @@ function StepCard({ step, isLast, colors }: { step: GuideStep; isLast: boolean; 
     <View style={styles.stepRow}>
       <View style={styles.timeline}>
         <View style={[styles.stepBubble, { backgroundColor: colors.tint }]}>
-          <Text style={styles.stepNum}>{step.number}</Text>
+          <Text style={[styles.stepNum, { color: colors.onTint }]}>{step.number}</Text>
         </View>
         {!isLast && <View style={[styles.stepLine, { backgroundColor: colors.border }]} />}
       </View>
@@ -300,7 +300,7 @@ export function GuideSection({ colors }: GuideSectionProps) {
                   activeTab === tab && { backgroundColor: colors.tint },
                 ]}
               >
-                <Text style={[styles.tabBtnText, { color: activeTab === tab ? "#fff" : colors.textSecondary }]}>
+                <Text style={[styles.tabBtnText, { color: activeTab === tab ? colors.onTint : colors.textSecondary }]}>
                   {tab === "wudhu" ? "🌊 Wudhu" : "🕌 Prayer"}
                 </Text>
               </Pressable>
@@ -438,7 +438,6 @@ const styles = StyleSheet.create({
   stepNum: {
     fontSize: 13,
     fontFamily: "Inter_700Bold",
-    color: "#fff",
   },
   stepLine: {
     width: 2,

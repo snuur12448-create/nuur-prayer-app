@@ -3,6 +3,7 @@ import { ActivityIndicator, Linking, Text, TouchableOpacity, View } from "react-
 import { Feather } from "@expo/vector-icons";
 import { StepIcon } from "../atoms/StepIcon";
 import { Dots } from "../atoms/Dots";
+import { ON_GOLD } from "../_constants";
 import { s } from "../_styles";
 
 export interface NotificationStepProps {
@@ -48,7 +49,7 @@ export function NotificationStep({
               onPress={() => Linking.openSettings().catch(() => {})}
               activeOpacity={0.82}
             >
-              <Feather name="external-link" size={16} color="#fff" />
+              <Feather name="external-link" size={16} color={ON_GOLD} />
               <Text style={s.primaryText}>Open Settings</Text>
             </TouchableOpacity>
           </>
@@ -60,11 +61,11 @@ export function NotificationStep({
             activeOpacity={0.82}
           >
             {notifLoading ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={notifDone ? "#fff" : ON_GOLD} size="small" />
             ) : (
               <>
-                <Feather name={notifDone ? "check" : "bell"} size={16} color="#fff" />
-                <Text style={s.primaryText}>
+                <Feather name={notifDone ? "check" : "bell"} size={16} color={notifDone ? "#fff" : ON_GOLD} />
+                <Text style={[s.primaryText, notifDone && s.primaryDoneText]}>
                   {notifDone ? "Notifications enabled" : "Enable Notifications"}
                 </Text>
               </>
