@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { Feather } from "@expo/vector-icons";
 import {
   Animated,
   Modal,
@@ -152,8 +153,13 @@ export function ThemePicker({
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: themeColors.text }]}>Choose Theme</Text>
-          <Pressable onPress={onClose} style={[styles.closeBtn, { borderColor: themeColors.border }]}>
-            <Text style={[styles.closeBtnText, { color: themeColors.textSecondary }]}>✕</Text>
+          <Pressable
+            onPress={onClose}
+            style={[styles.closeBtn, { borderColor: themeColors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="Close theme picker"
+          >
+            <Feather name="x" size={18} color={themeColors.textSecondary} />
           </Pressable>
         </View>
 
@@ -228,16 +234,12 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-  },
-  closeBtnText: {
-    fontSize: 13,
-    lineHeight: 18,
   },
   subtitle: {
     fontSize: 13,

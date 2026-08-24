@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import {
   ActionSheetIOS,
@@ -113,7 +113,7 @@ export default function MosqueMapView({
             {/* Custom gold pin */}
             <View style={styles.pinOuter}>
               <View style={[styles.pinCircle, { backgroundColor: GOLD }]}>
-                <Text style={styles.pinEmoji}>🕌</Text>
+                <MaterialCommunityIcons name="mosque" size={18} color="#20160A" />
               </View>
               <View style={[styles.pinTail, { borderTopColor: GOLD }]} />
             </View>
@@ -154,7 +154,7 @@ export default function MosqueMapView({
                     showDirectionsSheet(mosque.lat, mosque.lon, mosque.name)
                   }
                 >
-                  <Feather name="navigation" size={12} color="#fff" />
+                  <Feather name="navigation" size={12} color="#20160A" />
                   <Text style={styles.calloutDirText}>Get Directions</Text>
                 </TouchableOpacity>
               </View>
@@ -166,7 +166,7 @@ export default function MosqueMapView({
       {mosques.length === 0 && (
         <View style={styles.mapEmpty} pointerEvents="none">
           <View style={styles.mapEmptyCard}>
-            <Text style={{ fontSize: 28 }}>🕌</Text>
+            <MaterialCommunityIcons name="mosque" size={28} color={GOLD} />
             <Text style={styles.mapEmptyText}>No mosques found nearby</Text>
           </View>
         </View>
@@ -193,7 +193,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  pinEmoji: { fontSize: 16 },
   pinTail: {
     width: 0,
     height: 0,
@@ -254,7 +253,7 @@ const styles = StyleSheet.create({
   calloutDirText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#fff",
+    color: "#20160A",
   },
   mapEmpty: {
     ...StyleSheet.absoluteFillObject,

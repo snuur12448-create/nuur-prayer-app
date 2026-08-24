@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
   Platform,
@@ -346,12 +346,19 @@ export default function GuideScreen() {
                 activeTab === tab && { backgroundColor: colors.tint },
               ]}
             >
-              <Text style={[
-                styles.tabBtnText,
-                { color: activeTab === tab ? colors.onTint : colors.textSecondary },
-              ]}>
-                {tab === "wudhu" ? "🌊 Wudhu" : tab === "prayer" ? "🕌 Prayer" : "💧 Ghusl"}
-              </Text>
+              <View style={styles.tabContent}>
+                <MaterialCommunityIcons
+                  name={tab === "wudhu" ? "water" : tab === "prayer" ? "mosque" : "shower-head"}
+                  size={15}
+                  color={activeTab === tab ? colors.onTint : colors.textSecondary}
+                />
+                <Text style={[
+                  styles.tabBtnText,
+                  { color: activeTab === tab ? colors.onTint : colors.textSecondary },
+                ]}>
+                  {tab === "wudhu" ? "Wudhu" : tab === "prayer" ? "Prayer" : "Ghusl"}
+                </Text>
+              </View>
             </Pressable>
           ))}
         </View>
@@ -529,10 +536,12 @@ const styles = StyleSheet.create({
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 8,
+    minHeight: 44,
     borderRadius: 9,
     alignItems: "center",
+    justifyContent: "center",
   },
+  tabContent: { flexDirection: "row", alignItems: "center", gap: 5 },
   tabBtnText: {
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",

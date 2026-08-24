@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -917,7 +917,7 @@ export default function MosquesScreen() {
         </View>
       ) : searched && visibleMosques.length === 0 && viewMode === "list" ? (
         <View style={styles.centred}>
-          <Text style={{ fontSize: 40 }}>🕌</Text>
+          <MaterialCommunityIcons name="mosque" size={40} color={colors.textSecondary} />
           <Text style={[styles.stateTitle, { color: colors.text }]}>
             {savedOnly ? "No saved mosques in range" : "No mosques found"}
           </Text>
