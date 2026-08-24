@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -500,6 +501,7 @@ export default function QiblaScreen() {
   const [compassHeading, setCompassHeading] = useState(0);
   const [hasCompass, setHasCompass] = useState(false);
   const [needsPermission, setNeedsPermission] = useState(false);
+  const [compassUnavailable, setCompassUnavailable] = useState(false);
   const [aligned, setAligned] = useState(false);
   // Compass vs Map view toggle. The map shows the great-circle line from
   // the user to the Kaaba and reassures users the direction is real.
@@ -516,6 +518,8 @@ export default function QiblaScreen() {
   const compassCurrentRef = useRef(0);
   const needleCurrentRef = useRef(0);
   const headingSubRef = useRef<any>(null);
+  const hasCompassRef = useRef(false);
+  const compassTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // ── Haptic gating state ────────────────────────────────────────────────
   // Goals: no spam from sensor jitter at boundaries, and no repeated ticks
   // for the same threshold within one approach.
@@ -624,8 +628,15 @@ export default function QiblaScreen() {
   }, [fireHaptic]);
 
   const updateHeading = useCallback((heading: number) => {
+    hasCompassRef.current = true;
+    if (compassTimeoutRef.current) {
+      clearTimeout(compassTimeoutRef.current);
+      compassTimeoutRef.current = null;
+    }
     setCompassHeading(heading);
     setHasCompass(true);
+    setNeedsPermission(false);
+    setCompassUnavailable(false);
     animateCompass(heading);
     if (qiblaAngle !== null) {
       animateNeedle(heading, qiblaAngle);
@@ -641,6 +652,14 @@ export default function QiblaScreen() {
 
   // Start compass listening
   const startCompass = useCallback(async () => {
+    setNeedsPermission(false);
+    setCompassUnavailable(false);
+    hasCompassRef.current = false;
+    if (compassTimeoutRef.current) {
+      clearTimeout(compassTimeoutRef.current);
+      compassTimeoutRef.current = null;
+    }
+
     if (Platform.OS === "web") {
       // iOS requires explicit permission
       if (typeof (DeviceOrientationEvent as any).requestPermission === "function") {
@@ -684,7 +703,10 @@ export default function QiblaScreen() {
     } else {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") return;
+        if (status !== "granted") {
+          setNeedsPermission(true);
+          return;
+        }
         const sub = await Location.watchHeadingAsync((data) => {
           const h = data.trueHeading >= 0 ? data.trueHeading : data.magHeading;
           // expo-location reports accuracy 0–3 (3 = high). Some platforms
@@ -694,7 +716,12 @@ export default function QiblaScreen() {
           updateHeading(h);
         });
         headingSubRef.current = sub;
-      } catch {}
+        compassTimeoutRef.current = setTimeout(() => {
+          if (!hasCompassRef.current) setCompassUnavailable(true);
+        }, 6000);
+      } catch {
+        setCompassUnavailable(true);
+      }
     }
   }, [updateHeading]);
 
@@ -704,6 +731,7 @@ export default function QiblaScreen() {
     return () => {
       cleanup?.();
       headingSubRef.current?.remove?.();
+      if (compassTimeoutRef.current) clearTimeout(compassTimeoutRef.current);
     };
   }, [startCompass]);
 
@@ -719,7 +747,7 @@ export default function QiblaScreen() {
     extrapolate: "extend",
   });
 
-  const showCompassStatus = !hasCompass;
+  const showCompassStatus = !hasCompass && !needsPermission && !compassUnavailable;
   const alignedText = aligned && qiblaAngle !== null;
 
   // ── Accuracy chip descriptor (iOS only) ─────────────────────────────────
@@ -857,7 +885,7 @@ export default function QiblaScreen() {
                 </Animated.View>
               )}
 
-              {showCompassStatus && !needsPermission && (
+              {showCompassStatus && (
                 <View style={styles.noCompassOverlay}>
                   <ActivityIndicator color={colors.tint} />
                   <Text style={[styles.noCompassText, { color: "rgba(255,255,255,0.7)" }]}>Detecting compass…</Text>
@@ -866,13 +894,42 @@ export default function QiblaScreen() {
 
               {needsPermission && (
                 <View style={styles.noCompassOverlay}>
-                  <Feather name="rotate-cw" size={28} color={colors.tint} />
-                  <Text style={[styles.noCompassText, { color: "rgba(255,255,255,0.7)" }]}>Compass permission needed</Text>
+                  <Feather name="navigation" size={28} color={colors.gold} />
+                  <Text style={[styles.noCompassTitle, { color: colors.text }]}>Live compass is off</Text>
+                  <Text style={[styles.noCompassText, { color: "rgba(255,255,255,0.72)" }]}>
+                    {qiblaAngle !== null
+                      ? `Qibla is ${Math.round(qiblaAngle)}° from north. Allow Location access to add live guidance.`
+                      : "Allow Location access to use live compass guidance."}
+                  </Text>
                   <Pressable
-                    style={[styles.permBtn, { borderColor: colors.tint, backgroundColor: `${colors.tint}22` }]}
-                    onPress={startCompass}
+                    style={[styles.permBtn, { borderColor: colors.gold, backgroundColor: `${colors.gold}22` }]}
+                    onPress={Platform.OS === "web" ? startCompass : () => Linking.openSettings()}
+                    accessibilityRole="button"
+                    accessibilityLabel={Platform.OS === "web" ? "Enable compass" : "Open device settings"}
                   >
-                    <Text style={[styles.permBtnText, { color: colors.tint }]}>Enable Compass</Text>
+                    <Text style={[styles.permBtnText, { color: colors.gold }]}>
+                      {Platform.OS === "web" ? "Enable Compass" : "Open Settings"}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+
+              {compassUnavailable && (
+                <View style={styles.noCompassOverlay}>
+                  <Feather name="compass" size={28} color={colors.gold} />
+                  <Text style={[styles.noCompassTitle, { color: colors.text }]}>Live compass unavailable</Text>
+                  <Text style={[styles.noCompassText, { color: "rgba(255,255,255,0.72)" }]}>
+                    {qiblaAngle !== null
+                      ? `Use the bearing below: ${Math.round(qiblaAngle)}° from north.`
+                      : "Use Map view or try the compass again."}
+                  </Text>
+                  <Pressable
+                    style={[styles.permBtn, { borderColor: colors.gold, backgroundColor: `${colors.gold}22` }]}
+                    onPress={startCompass}
+                    accessibilityRole="button"
+                    accessibilityLabel="Try live compass again"
+                  >
+                    <Text style={[styles.permBtnText, { color: colors.gold }]}>Try Again</Text>
                   </Pressable>
                 </View>
               )}
@@ -1101,6 +1158,12 @@ const styles = StyleSheet.create({
   noCompassText: {
     fontSize: 13,
     fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    paddingHorizontal: 20,
+  },
+  noCompassTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
     textAlign: "center",
     paddingHorizontal: 20,
   },
