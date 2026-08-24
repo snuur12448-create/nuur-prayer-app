@@ -1155,29 +1155,37 @@ export default function QuranDetailScreen() {
 
       {/* Controls bar */}
       <View style={[styles.controlsBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <TouchableOpacity
-          style={[styles.reciterChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-          onPress={() => setShowReciterModal(true)}
-          accessibilityRole="button"
-          accessibilityLabel={`Reciter ${selectedReciter.name}. Tap to change.`}
-        >
-          <Feather name="mic" size={13} color={colors.gold} />
-          <Text
-            style={[styles.reciterChipText, { color: colors.text }]}
-            numberOfLines={1}
+        <View style={styles.controlsPrimaryRow}>
+          <TouchableOpacity
+            style={[styles.reciterChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+            onPress={() => setShowReciterModal(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Reciter ${selectedReciter.name}. Tap to change.`}
           >
-            {selectedReciter.name.split(" ").slice(-1)[0]}
-          </Text>
-          <Feather name="chevron-down" size={11} color={colors.textSecondary} />
-        </TouchableOpacity>
+            <Feather name="mic" size={14} color={colors.gold} />
+            <Text
+              style={[styles.reciterChipText, { color: colors.text }]}
+              numberOfLines={1}
+            >
+              {selectedReciter.name}
+            </Text>
+            <Feather name="chevron-down" size={12} color={colors.textSecondary} />
+          </TouchableOpacity>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.controlsRight}
-          style={styles.controlsScroll}
-        >
-          {/* Hafidh Mode toggle */}
+          {!hafidhMode && verses && (
+            <TouchableOpacity
+              style={[styles.playAllBtn, { backgroundColor: colors.tint }]}
+              onPress={playAllVerses}
+              accessibilityRole="button"
+              accessibilityLabel={(playState === "playing" || playState === "loading") ? "Stop surah playback" : "Play the full surah"}
+            >
+              <Feather name={(playState === "playing" || playState === "loading") ? "square" : "play"} size={14} color={colors.onTint} />
+              <Text style={[styles.playAllText, { color: colors.onTint }]}>
+                {(playState === "playing" || playState === "loading") ? "Stop" : "Play All"}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={[styles.hafidhToggleBtn, {
               backgroundColor: hafidhMode ? colors.gold + "22" : colors.surfaceElevated,
@@ -1189,22 +1197,14 @@ export default function QuranDetailScreen() {
             accessibilityState={{ checked: hafidhMode }}
           >
             <MaterialCommunityIcons name="brain" size={16} color={hafidhMode ? colors.gold : colors.textSecondary} />
+            <Text style={[styles.hafidhToggleText, { color: hafidhMode ? colors.gold : colors.textSecondary }]}>
+              {hafidhMode ? "Reading" : "Hafidh"}
+            </Text>
           </TouchableOpacity>
-          {!hafidhMode && verses && (
-            <TouchableOpacity
-              style={[styles.playAllBtn, { backgroundColor: colors.tint }]}
-              onPress={playAllVerses}
-              accessibilityRole="button"
-              accessibilityLabel={(playState === "playing" || playState === "loading") ? "Stop surah playback" : "Play the full surah"}
-            >
-              <Feather name={(playState === "playing" || playState === "loading") ? "square" : "play"} size={13} color={colors.onTint} />
-              <Text style={[styles.playAllText, { color: colors.onTint }]}>
-                {(playState === "playing" || playState === "loading") ? "Stop" : "Play All"}
-              </Text>
-            </TouchableOpacity>
-          )}
-          {/* Speed selector */}
-          {!hafidhMode && (
+        </View>
+
+        {!hafidhMode && (
+          <View style={styles.readerOptionsRow}>
             <TouchableOpacity
               style={[styles.toggleChip, {
                 backgroundColor: playbackRate !== 1.0 ? colors.tint + "20" : colors.surfaceElevated,
@@ -1215,14 +1215,14 @@ export default function QuranDetailScreen() {
               accessibilityLabel={`Playback speed ${playbackRate} times`}
             >
               <Text style={[styles.toggleChipText, { color: playbackRate !== 1.0 ? colors.tint : colors.textSecondary }]}>
-                {playbackRate === 0.75 ? "¾×" : playbackRate === 1.0 ? "1×" : `${playbackRate}×`}
+                Speed {playbackRate === 0.75 ? "¾×" : playbackRate === 1.0 ? "1×" : `${playbackRate}×`}
               </Text>
             </TouchableOpacity>
-          )}
-          {/* Auto-advance toggle */}
-          {!hafidhMode && (
             <TouchableOpacity
               style={[styles.toggleChip, {
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 5,
                 backgroundColor: autoAdvance ? colors.tint + "20" : colors.surfaceElevated,
                 borderColor: autoAdvance ? colors.tint + "60" : colors.border,
               }]}
@@ -1232,12 +1232,9 @@ export default function QuranDetailScreen() {
               accessibilityState={{ checked: autoAdvance }}
             >
               <Feather name="repeat" size={13} color={autoAdvance ? colors.tint : colors.textSecondary} />
+              <Text style={[styles.toggleChipText, { color: autoAdvance ? colors.tint : colors.textSecondary }]}>Auto</Text>
             </TouchableOpacity>
-          )}
-          {/* Display settings — collapses transliteration / word-by-word / translation
-              behind a single sheet to keep the toolbar uncluttered. The dot indicates
-              that one or more non-default reading aids are currently on. */}
-          {!hafidhMode && (() => {
+            {(() => {
             const aidsOn =
               (showTransliteration ? 1 : 0) +
               (showWordByWord ? 1 : 0) +
@@ -1263,8 +1260,9 @@ export default function QuranDetailScreen() {
                 </Text>
               </TouchableOpacity>
             );
-          })()}
-        </ScrollView>
+            })()}
+          </View>
+        )}
       </View>
 
       {/* Translator attribution + reading-progress strip. The progress bar
@@ -1780,15 +1778,24 @@ const styles = StyleSheet.create({
   metaLabel: { color: "rgba(255,255,255,0.5)", fontSize: 10, fontFamily: "Inter_400Regular" },
   metaDivider: { width: 1, height: 30, backgroundColor: "rgba(255,255,255,0.15)" },
   controlsBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    gap: 10,
+  },
+  controlsPrimaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  readerOptionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   reciterChip: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -1796,7 +1803,6 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 10,
     borderWidth: 1,
-    maxWidth: 130,
     minHeight: 44,
   },
   reciterChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
@@ -1848,12 +1854,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // Right-side controls scroll horizontally so the EN toggle + label always
-  // have room even when many chips are visible (Play All, speed, repeat,
-  // A-B-C, W·W, EN). flexShrink + minWidth: 0 lets the ScrollView claim only
-  // the leftover row space after the fixed mic button on the left.
-  controlsScroll: { flex: 1, flexShrink: 1, minWidth: 0 },
-  controlsRight: { flexDirection: "row", alignItems: "center", gap: 8, paddingRight: 4, justifyContent: "flex-end", flexGrow: 1 },
   playAllBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1865,6 +1865,8 @@ const styles = StyleSheet.create({
   },
   playAllText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   toggleChip: {
+    flex: 1,
+    alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 8,
@@ -1925,13 +1927,16 @@ const styles = StyleSheet.create({
 
   /* ── Hafidh Mode ──────────────────────────────────────────────── */
   hafidhToggleBtn: {
-    width: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     height: 44,
     borderRadius: 12,
     borderWidth: 1,
-    alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 11,
   },
+  hafidhToggleText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   hafidhBanner: {
     paddingHorizontal: 16,
     paddingTop: 10,
