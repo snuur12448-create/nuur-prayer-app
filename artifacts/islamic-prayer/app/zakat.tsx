@@ -523,32 +523,61 @@ function NisabLiveStatus({
   }, []);
 
   const ago = formatUpdatedAgo(fetchedAt);
-  const isLive = source === "live" || source === "cache";
-  const dotColor = source === "fallback" ? dim : source === "stale-cache" ? "#C9933A" : gold;
+  const isFresh = source === "live" || source === "cache";
+  const needsVerification = source === "stale-cache" || source === "fallback";
+  const dotColor = needsVerification ? "#C9933A" : gold;
   const label =
-    source === "fallback" ? "Offline · using saved values"
-    : source === "stale-cache" ? `Stale${ago ? ` · ${ago}` : ""}`
-    : source === "cache" ? `Live${ago ? ` · ${ago}` : ""}`
-    : `Live${ago ? ` · ${ago}` : ""}`;
+    source === "live" ? "Live metal prices"
+    : source === "cache" ? "Cached live prices"
+    : source === "stale-cache" ? "Cached prices are out of date"
+    : "Built-in price estimates";
+  const exactTimestamp = fetchedAt
+    ? new Date(fetchedAt).toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+  const detail = exactTimestamp
+    ? `Updated ${exactTimestamp}${ago ? ` · ${ago}` : ""}`
+    : "No live-price timestamp is available";
+  const warning = source === "stale-cache"
+    ? "These prices are more than 24 hours old. Refresh or verify current metal prices before paying."
+    : source === "fallback"
+    ? "Live prices are unavailable. Built-in estimates may differ from today’s market—verify before paying."
+    : null;
 
   return (
-    <View style={styles.nisabLiveRow}>
-      <View style={[styles.nisabLiveDot, { backgroundColor: dotColor }]} />
-      <Text style={[styles.nisabLiveText, { color: isLive ? gold : dim }]} numberOfLines={1}>
-        {label}
-      </Text>
-      <Pressable
-        onPress={onRefresh}
-        hitSlop={10}
-        disabled={loading}
-        accessibilityRole="button"
-        accessibilityLabel="Refresh live Nisab prices"
-        style={({ pressed }) => [styles.nisabLiveBtn, { opacity: pressed || loading ? 0.5 : 1 }]}
-      >
-        {loading
-          ? <ActivityIndicator size="small" color={gold} />
-          : <Feather name="refresh-cw" size={12} color={gold} />}
-      </Pressable>
+    <View style={styles.nisabStatusBlock} accessibilityLiveRegion="polite">
+      <View style={styles.nisabLiveRow}>
+        <View style={[styles.nisabLiveDot, { backgroundColor: dotColor }]} />
+        <View style={styles.nisabLiveCopy}>
+          <Text style={[styles.nisabLiveText, { color: isFresh ? gold : dim }]}>
+            {label}
+          </Text>
+          <Text style={[styles.nisabTimestamp, { color: dim }]}>{detail}</Text>
+        </View>
+        <Pressable
+          onPress={onRefresh}
+          disabled={loading}
+          accessibilityRole="button"
+          accessibilityLabel={loading ? "Refreshing live Nisab prices" : "Refresh live Nisab prices"}
+          accessibilityState={{ disabled: loading, busy: loading }}
+          style={({ pressed }) => [styles.nisabLiveBtn, { opacity: pressed || loading ? 0.5 : 1 }]}
+        >
+          {loading
+            ? <ActivityIndicator size="small" color={gold} />
+            : <Feather name="refresh-cw" size={15} color={gold} />}
+        </Pressable>
+      </View>
+      {warning && (
+        <View style={styles.nisabWarning}>
+          <Feather name="alert-triangle" size={13} color="#C9933A" style={styles.nisabWarningIcon} />
+          <Text style={[styles.nisabWarningText, { color: dim }]}>{warning}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -716,19 +745,33 @@ const styles = StyleSheet.create({
   nisabTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   nisabTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   nisabValue: { fontSize: 16, fontFamily: "Inter_700Bold", letterSpacing: -0.2 },
+  nisabStatusBlock: { marginTop: -4, marginBottom: 12, gap: 8 },
   nisabLiveRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: -4,
-    marginBottom: 12,
+    gap: 8,
   },
   nisabLiveDot: { width: 6, height: 6, borderRadius: 3 },
-  nisabLiveText: { flex: 1, fontSize: 11, fontFamily: "Inter_500Medium", letterSpacing: 0.2 },
+  nisabLiveCopy: { flex: 1, gap: 2 },
+  nisabLiveText: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.2 },
+  nisabTimestamp: { fontSize: 10, fontFamily: "Inter_400Regular", lineHeight: 14 },
   nisabLiveBtn: {
-    width: 24, height: 24, borderRadius: 12,
+    width: 44, height: 44, borderRadius: 22,
     alignItems: "center", justifyContent: "center",
   },
+  nisabWarning: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(201,147,58,0.28)",
+    backgroundColor: "rgba(201,147,58,0.08)",
+  },
+  nisabWarningIcon: { marginTop: 1 },
+  nisabWarningText: { flex: 1, fontSize: 10.5, lineHeight: 15, fontFamily: "Inter_400Regular" },
   nisabPillRow: { flexDirection: "row", gap: 8, marginBottom: 10 },
   nisabPill: {
     flex: 1,
