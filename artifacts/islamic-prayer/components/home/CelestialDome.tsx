@@ -45,6 +45,35 @@ export interface CelestialDomeProps {
   onPrayerSettingsPress?: (key: PrayerKey) => void;
 }
 
+type SvgTextAnchor = "start" | "middle" | "end";
+
+function estimatedSvgTextWidth(lines: Array<{ text?: string; fontSize: number }>): number {
+  return Math.max(
+    46,
+    ...lines.map(({ text = "", fontSize }) => text.length * fontSize * 0.62),
+  );
+}
+
+function clampSvgLabelX(
+  rawX: number,
+  anchor: SvgTextAnchor,
+  textWidth: number,
+  canvasWidth: number,
+  padding = 8,
+): number {
+  const safeWidth = Math.min(textWidth, canvasWidth - padding * 2);
+  if (anchor === "start") {
+    return Math.max(padding, Math.min(rawX, canvasWidth - padding - safeWidth));
+  }
+  if (anchor === "end") {
+    return Math.min(canvasWidth - padding, Math.max(rawX, padding + safeWidth));
+  }
+  return Math.min(
+    canvasWidth - padding - safeWidth / 2,
+    Math.max(rawX, padding + safeWidth / 2),
+  );
+}
+
 function CelestialDomeInner(props: CelestialDomeProps) {
   const {
     W, HERO_H, winW, cx, cy, R, topPad, colors, prayerTimes,
@@ -170,10 +199,10 @@ function CelestialDomeInner(props: CelestialDomeProps) {
         {prayerTimes && dayActive && (
           <G opacity={1 - swapT}>
             <Circle cx={cx - R} cy={cy - 4} r={2.2} fill={inkSoft(0.6)} />
-            <SvgText x={cx - R} y={cy + 16} textAnchor="middle" fill={inkSoft(0.55)} fontSize={9} fontWeight="700">
+            <SvgText x={Math.max(cx - R, 34)} y={cy + 16} textAnchor="middle" fill={inkSoft(0.55)} fontSize={9} fontWeight="700">
               SUNRISE
             </SvgText>
-            <SvgText x={cx - R} y={cy + 29} textAnchor="middle" fill={inkSoft(0.7)} fontSize={11} fontWeight="600">
+            <SvgText x={Math.max(cx - R, 34)} y={cy + 29} textAnchor="middle" fill={inkSoft(0.7)} fontSize={11} fontWeight="600">
               {prayerTimes.sunrise.timeString}
             </SvgText>
             {notifEnabled?.sunrise && (
@@ -204,7 +233,7 @@ function CelestialDomeInner(props: CelestialDomeProps) {
               const rawLabelX = x + nx * LABEL_OFFSET;
               const labelY = y + ny * LABEL_OFFSET;
               // Anchor by side so labels don't get clipped at the edges.
-              const anchor: "start" | "middle" | "end" = p.angle < -110
+              const anchor: SvgTextAnchor = p.angle < -110
                 ? "end"
                 : p.angle > -70
                 ? "start"
@@ -212,20 +241,11 @@ function CelestialDomeInner(props: CelestialDomeProps) {
               // Edge-safety: clamp x so the longest line never crosses the
               // screen edge, regardless of side. Keeps every prayer label
               // fully readable even when its marker sits near a horizon.
-              const labelX = (() => {
-                const PAD = 2;
-                const TEXT_W = 46;
-                if (anchor === "end") {
-                  return Math.max(rawLabelX, PAD + TEXT_W);
-                }
-                if (anchor === "start") {
-                  return Math.min(rawLabelX, W - PAD - TEXT_W);
-                }
-                return Math.min(
-                  Math.max(rawLabelX, PAD + TEXT_W / 2),
-                  W - PAD - TEXT_W / 2,
-                );
-              })();
+              const textWidth = estimatedSvgTextWidth([
+                { text: p.en.toUpperCase(), fontSize: 13 },
+                { text: p.time, fontSize: 12 },
+              ]);
+              const labelX = clampSvgLabelX(rawLabelX, anchor, textWidth, W);
               const timeX = labelX;
               const timeY = labelY + 15;
               const groupOpacity = past ? 0.55 : upcoming && !isDay ? 0.35 : 1;
@@ -411,7 +431,7 @@ function CelestialDomeInner(props: CelestialDomeProps) {
               const subDx = labelDx;
               const subDy = timeDy + 13;
               // Anchor by side so labels don't get clipped at the edges.
-              let anchor: "start" | "middle" | "end" = horizonExempt
+              const anchor: SvgTextAnchor = horizonExempt
                 ? "middle"
                 : a.angle < -110
                 ? "end"
@@ -423,33 +443,17 @@ function CelestialDomeInner(props: CelestialDomeProps) {
               // label/time/sub together so they stay aligned. Triggers only
               // when needed (e.g. Isha right after Maghrib, Fajr right before
               // Sunrise) — otherwise labels keep their normal radial layout.
-              let safeLabelDx = labelDx;
-              let safeTimeDx = timeDx;
-              let safeSubDx = subDx;
-              {
-                const PAD = 2;
-                const TEXT_W = 46; // widest expected line (e.g. "10:53 PM")
-                const projectedX = x + labelDx;
-                let shift = 0;
-                if (anchor === "end") {
-                  const minX = PAD + TEXT_W;
-                  if (projectedX < minX) shift = minX - projectedX;
-                } else if (anchor === "start") {
-                  const maxX = W - PAD - TEXT_W;
-                  if (projectedX > maxX) shift = maxX - projectedX;
-                } else {
-                  // middle
-                  const minX = PAD + TEXT_W / 2;
-                  const maxX = W - PAD - TEXT_W / 2;
-                  if (projectedX < minX) shift = minX - projectedX;
-                  else if (projectedX > maxX) shift = maxX - projectedX;
-                }
-                if (shift !== 0) {
-                  safeLabelDx = labelDx + shift;
-                  safeTimeDx = timeDx + shift;
-                  safeSubDx = subDx + shift;
-                }
-              }
+              const hideGatewayDetails = a.kind === "gateway" && past;
+              const textWidth = estimatedSvgTextWidth([
+                { text: a.label, fontSize: isPrayer || lastThird ? 13 : 12 },
+                { text: hideGatewayDetails ? "" : a.time, fontSize: 12 },
+                { text: hideGatewayDetails ? "" : a.sub, fontSize: lastThird ? 11 : 10 },
+              ]);
+              const projectedX = x + labelDx;
+              const safeProjectedX = clampSvgLabelX(projectedX, anchor, textWidth, W);
+              const safeLabelDx = labelDx + safeProjectedX - projectedX;
+              const safeTimeDx = timeDx + safeProjectedX - projectedX;
+              const safeSubDx = subDx + safeProjectedX - projectedX;
               const markerColor = isPrayer ? "#FFE4B5" : "rgba(201,212,240,0.7)";
               const markerR = now ? 7 : isPrayer ? 5 : 3;
               const groupOp = past ? 0.55 : !isPrayer ? 0.7 : 1;
@@ -503,17 +507,19 @@ function CelestialDomeInner(props: CelestialDomeProps) {
                       Maghrib is in the past — the EARLIER TODAY chip below
                       already shows the exact time. Keep just the marker + tiny
                       "MAGHRIB" label as a quiet visual anchor. */}
-                  <SvgText
-                    x={x + safeTimeDx}
-                    y={y + timeDy}
-                    textAnchor={anchor}
-                    fill={isPrayer ? "rgba(255,228,181,0.88)" : "rgba(220,228,248,0.78)"}
-                    fontSize={12}
-                    fontWeight="600"
-                  >
-                    {a.time}
-                  </SvgText>
-                  {a.sub && !(a.kind === "gateway" && past) && (
+                  {!hideGatewayDetails && (
+                    <SvgText
+                      x={x + safeTimeDx}
+                      y={y + timeDy}
+                      textAnchor={anchor}
+                      fill={isPrayer ? "rgba(255,228,181,0.88)" : "rgba(220,228,248,0.78)"}
+                      fontSize={12}
+                      fontWeight="600"
+                    >
+                      {a.time}
+                    </SvgText>
+                  )}
+                  {a.sub && !hideGatewayDetails && (
                     <SvgText
                       x={x + safeSubDx}
                       y={y + subDy}
