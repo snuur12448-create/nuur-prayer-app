@@ -589,7 +589,12 @@ export function getTodaysReminder(maghribTime?: Date): IslamicReminder {
 }
 
 export function getIslamicDateForDate(date: Date): { day: number; month: string; year: number } {
-  const JD = Math.floor(date.getTime() / 86400000) + 2440588;
+  // Convert the *civil* Gregorian date, not the timestamp. Tracker dates are
+  // intentionally created at local midnight; flooring their UTC timestamp
+  // moves them to the previous day in positive UTC offsets (for example BST),
+  // which made Tracker disagree with Home and Calendar by one Hijri day.
+  const civilUtcMs = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  const JD = Math.floor(civilUtcMs / 86400000) + 2440588;
   const L = JD - 1948440 + 10632;
   const N = Math.floor((L - 1) / 10631);
   const LL = L - 10631 * N + 354;
@@ -607,22 +612,5 @@ export function getIslamicDateForDate(date: Date): { day: number; month: string;
 }
 
 export function getIslamicDate(): { day: number; month: string; year: number } {
-  const now = new Date();
-  const JD = Math.floor(now.getTime() / 86400000) + 2440588;
-  const L = JD - 1948440 + 10632;
-  const N = Math.floor((L - 1) / 10631);
-  const LL = L - 10631 * N + 354;
-  const J = Math.floor((10985 - LL) / 5316) * Math.floor(50 * LL / 17719) + Math.floor(LL / 5670) * Math.floor(43 * LL / 15238);
-  const LL2 = LL - Math.floor((30 - J) / 15) * Math.floor(17719 * J / 50) - Math.floor(J / 16) * Math.floor(15238 * J / 43) + 29;
-  const month = Math.floor(24 * LL2 / 709);
-  const day = LL2 - Math.floor(709 * month / 24);
-  const year = 30 * N + J - 30;
-
-  const months = [
-    "Muharram", "Safar", "Rabi al-Awwal", "Rabi al-Thani",
-    "Jumada al-Awwal", "Jumada al-Thani", "Rajab", "Sha'ban",
-    "Ramadan", "Shawwal", "Dhu al-Qa'dah", "Dhu al-Hijjah"
-  ];
-
-  return { day, month: months[month - 1] || "Unknown", year };
+  return getIslamicDateForDate(new Date());
 }

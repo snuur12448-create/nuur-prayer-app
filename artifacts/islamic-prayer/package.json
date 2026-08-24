@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "qa:polar": "pnpm exec tsx scripts/verify-polar-prayer-times.mjs",
     "qa:timezone": "pnpm exec tsx scripts/verify-timezone-dst.mjs",
+    "qa:hijri": "pnpm exec tsx scripts/verify-hijri-date.mjs",
     "android": "expo run:android",
     "ios": "expo run:ios"
   },
