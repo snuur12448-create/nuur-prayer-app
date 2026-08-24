@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   FlatList,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
   PanResponder,
   Platform,
@@ -17,7 +18,10 @@ import {
 } from "react-native";
 import { LocationData } from "@/context/AppContext";
 import { ThemeColors } from "@/constants/themes";
-import { legacyOffsetForLongitude, timeZoneAtCoordinates } from "@/utils/timeZone";
+import {
+  legacyOffsetForLongitude,
+  timeZoneAtCoordinates,
+} from "@/utils/timeZone";
 
 interface NominatimResult {
   place_id: number;
@@ -123,9 +127,15 @@ export function LocationModal({
     try {
       const lat = parseFloat(r.lat);
       const lon = parseFloat(r.lon);
-      const tz = timeZoneAtCoordinates(lat, lon) ?? legacyOffsetForLongitude(lon);
+      const tz =
+        timeZoneAtCoordinates(lat, lon) ?? legacyOffsetForLongitude(lon);
       const city = buildCityLabel(r);
-      await onSelectManual({ latitude: lat, longitude: lon, city, timezone: tz });
+      await onSelectManual({
+        latitude: lat,
+        longitude: lon,
+        city,
+        timezone: tz,
+      });
       onClose();
     } finally {
       setSelectingId(null);
@@ -141,7 +151,7 @@ export function LocationModal({
       onPanResponderRelease: (_, g) => {
         if (g.dy > 50 || g.vy > 0.5) onClose();
       },
-    })
+    }),
   ).current;
 
   return (
@@ -151,136 +161,245 @@ export function LocationModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); onClose(); }}>
-        <View style={styles.backdrop} />
-      </TouchableWithoutFeedback>
-
-      <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Pressable onPress={onClose} hitSlop={16} style={styles.handleArea} {...dismissPan.panHandlers}>
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
-        </Pressable>
-
-        {/* Header */}
-        <View style={[styles.headerRow, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.title, { color: colors.text }]}>Change Location</Text>
-          <TouchableOpacity
-            onPress={onClose}
-            style={[styles.closeBtn, { borderColor: colors.border }]}
-          >
-            <Feather name="x" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* GPS button */}
-        <TouchableOpacity
-          onPress={handleGps}
-          disabled={gpsLoading || isLoadingGps}
-          style={[styles.gpsBtn, { backgroundColor: colors.tint + "18", borderColor: colors.tint + "40" }]}
-          activeOpacity={0.7}
+      <View style={styles.modalRoot}>
+        <TouchableWithoutFeedback
+          onPress={() => {
+            Keyboard.dismiss();
+            onClose();
+          }}
         >
-          {gpsLoading || isLoadingGps ? (
-            <ActivityIndicator size="small" color={colors.tint} />
-          ) : (
-            <Feather name="navigation" size={18} color={colors.tint} />
-          )}
-          <Text style={[styles.gpsBtnText, { color: colors.tint }]}>
-            {gpsLoading || isLoadingGps ? "Detecting location…" : "Use My Current Location"}
-          </Text>
-        </TouchableOpacity>
+          <View style={styles.backdrop} />
+        </TouchableWithoutFeedback>
 
-        <View style={[styles.dividerRow, { marginVertical: 16 }]}>
-          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-          <Text style={[styles.dividerText, { color: colors.textSecondary }]}>or search manually</Text>
-          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-        </View>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoider}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          pointerEvents="box-none"
+        >
+          <View
+            style={[
+              styles.sheet,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Pressable
+              onPress={onClose}
+              hitSlop={16}
+              style={styles.handleArea}
+              {...dismissPan.panHandlers}
+            >
+              <View
+                style={[styles.handle, { backgroundColor: colors.border }]}
+              />
+            </Pressable>
 
-        {/* Search input */}
-        <View style={[styles.searchRow, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-          <Feather name="search" size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
-          <TextInput
-            ref={inputRef}
-            value={query}
-            onChangeText={setQuery}
-            placeholder="City, town or country…"
-            placeholderTextColor={colors.textSecondary}
-            style={[styles.searchInput, { color: colors.text }]}
-            autoCapitalize="words"
-            autoCorrect={false}
-            returnKeyType="search"
-          />
-          {query.length > 0 && (
-            <TouchableOpacity onPress={() => { setQuery(""); setResults([]); }} hitSlop={10}>
-              <Feather name="x-circle" size={16} color={colors.textSecondary} />
+            {/* Header */}
+            <View
+              style={[styles.headerRow, { borderBottomColor: colors.border }]}
+            >
+              <Text style={[styles.title, { color: colors.text }]}>
+                Change Location
+              </Text>
+              <TouchableOpacity
+                onPress={onClose}
+                style={[styles.closeBtn, { borderColor: colors.border }]}
+              >
+                <Feather name="x" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* GPS button */}
+            <TouchableOpacity
+              onPress={handleGps}
+              disabled={gpsLoading || isLoadingGps}
+              style={[
+                styles.gpsBtn,
+                {
+                  backgroundColor: colors.tint + "18",
+                  borderColor: colors.tint + "40",
+                },
+              ]}
+              activeOpacity={0.7}
+            >
+              {gpsLoading || isLoadingGps ? (
+                <ActivityIndicator size="small" color={colors.tint} />
+              ) : (
+                <Feather name="navigation" size={18} color={colors.tint} />
+              )}
+              <Text style={[styles.gpsBtnText, { color: colors.tint }]}>
+                {gpsLoading || isLoadingGps
+                  ? "Detecting location…"
+                  : "Use My Current Location"}
+              </Text>
             </TouchableOpacity>
-          )}
-          {searching && <ActivityIndicator size="small" color={colors.tint} style={{ marginLeft: 8 }} />}
-        </View>
 
-        {/* Results */}
-        {showResults && (
-          <FlatList
-            data={results}
-            keyExtractor={(item) => String(item.place_id)}
-            style={styles.resultList}
-            keyboardShouldPersistTaps="handled"
-            ItemSeparatorComponent={() => (
-              <View style={[styles.itemSep, { backgroundColor: colors.border }]} />
-            )}
-            renderItem={({ item }) => {
-              const isLoading = selectingId === item.place_id;
-              return (
+            <View style={[styles.dividerRow, { marginVertical: 16 }]}>
+              <View
+                style={[styles.dividerLine, { backgroundColor: colors.border }]}
+              />
+              <Text
+                style={[styles.dividerText, { color: colors.textSecondary }]}
+              >
+                or search manually
+              </Text>
+              <View
+                style={[styles.dividerLine, { backgroundColor: colors.border }]}
+              />
+            </View>
+
+            {/* Search input */}
+            <View
+              style={[
+                styles.searchRow,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Feather
+                name="search"
+                size={16}
+                color={colors.textSecondary}
+                style={{ marginRight: 8 }}
+              />
+              <TextInput
+                ref={inputRef}
+                value={query}
+                onChangeText={setQuery}
+                placeholder="City, town or country…"
+                placeholderTextColor={colors.textSecondary}
+                style={[styles.searchInput, { color: colors.text }]}
+                autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+              {query.length > 0 && (
                 <TouchableOpacity
-                  onPress={() => handleSelect(item)}
-                  disabled={selectingId !== null}
-                  style={[styles.resultRow, { opacity: selectingId !== null && !isLoading ? 0.4 : 1 }]}
-                  activeOpacity={0.7}
+                  onPress={() => {
+                    setQuery("");
+                    setResults([]);
+                  }}
+                  hitSlop={10}
                 >
-                  <View style={[styles.pinDot, { backgroundColor: colors.tint + "20" }]}>
-                    <Feather name="map-pin" size={13} color={colors.tint} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.resultCity, { color: colors.text }]} numberOfLines={1}>
-                      {buildCityLabel(item)}
-                    </Text>
-                    <Text style={[styles.resultDetail, { color: colors.textSecondary }]} numberOfLines={1}>
-                      {item.display_name}
-                    </Text>
-                  </View>
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color={colors.tint} />
-                  ) : (
-                    <Feather name="chevron-right" size={15} color={colors.textSecondary} />
-                  )}
+                  <Feather
+                    name="x-circle"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
                 </TouchableOpacity>
-              );
-            }}
-          />
-        )}
+              )}
+              {searching && (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.tint}
+                  style={{ marginLeft: 8 }}
+                />
+              )}
+            </View>
 
-        {!showResults && !searching && query.trim().length >= 2 && (
-          <View style={styles.emptyState}>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No locations found for "{query}"
-            </Text>
+            {/* Results */}
+            {showResults && (
+              <FlatList
+                data={results}
+                keyExtractor={(item) => String(item.place_id)}
+                style={styles.resultList}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={
+                  Platform.OS === "ios" ? "interactive" : "on-drag"
+                }
+                ItemSeparatorComponent={() => (
+                  <View
+                    style={[styles.itemSep, { backgroundColor: colors.border }]}
+                  />
+                )}
+                renderItem={({ item }) => {
+                  const isLoading = selectingId === item.place_id;
+                  return (
+                    <TouchableOpacity
+                      onPress={() => handleSelect(item)}
+                      disabled={selectingId !== null}
+                      style={[
+                        styles.resultRow,
+                        {
+                          opacity: selectingId !== null && !isLoading ? 0.4 : 1,
+                        },
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <View
+                        style={[
+                          styles.pinDot,
+                          { backgroundColor: colors.tint + "20" },
+                        ]}
+                      >
+                        <Feather name="map-pin" size={13} color={colors.tint} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[styles.resultCity, { color: colors.text }]}
+                          numberOfLines={1}
+                        >
+                          {buildCityLabel(item)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.resultDetail,
+                            { color: colors.textSecondary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.display_name}
+                        </Text>
+                      </View>
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color={colors.tint} />
+                      ) : (
+                        <Feather
+                          name="chevron-right"
+                          size={15}
+                          color={colors.textSecondary}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+
+            {!showResults && !searching && query.trim().length >= 2 && (
+              <View style={styles.emptyState}>
+                <Text
+                  style={[styles.emptyText, { color: colors.textSecondary }]}
+                >
+                  No locations found for "{query}"
+                </Text>
+              </View>
+            )}
+
+            <View style={{ height: Platform.OS === "ios" ? 34 : 20 }} />
           </View>
-        )}
-
-        <View style={{ height: Platform.OS === "ios" ? 34 : 20 }} />
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  modalRoot: {
     flex: 1,
+    justifyContent: "flex-end",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.55)",
   },
+  keyboardAvoider: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
   sheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    width: "100%",
     maxHeight: "82%",
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
