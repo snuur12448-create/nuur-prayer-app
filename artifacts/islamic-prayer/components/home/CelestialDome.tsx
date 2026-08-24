@@ -424,13 +424,13 @@ function CelestialDomeInner(props: CelestialDomeProps) {
               const horizonExempt = a.id === "maghrib" || a.id === "sunrise";
               // Extra clearance when the moon is sitting on this marker so the
               // label isn't swallowed by the moon's glow.
-              // Last-third / tahajjud window sits at the apex and stacks 3
-              // lines (LAST 1/3 / time / "tahajjud window"). Push it further
-              // out so the sub line has room and doesn't crowd the marker.
+              // Last-third / tahajjud sits at the apex and stacks 3 lines.
+              // Place it below its marker (inside the arc), where it cannot
+              // collide with the floating location/date controls above.
               const lastThird = a.id === "lastThird";
               const LABEL_OFFSET = lastThird ? 48 : moonOnMe ? 46 : 30;
               const labelDx = horizonExempt ? 0 : nx * LABEL_OFFSET;
-              const labelDy = horizonExempt ? 24 : ny * LABEL_OFFSET;
+              const labelDy = horizonExempt ? 24 : lastThird ? 30 : ny * LABEL_OFFSET;
               const timeDx = labelDx;
               const timeDy = labelDy + 15;
               const subDx = labelDx;
