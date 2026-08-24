@@ -268,7 +268,7 @@ private struct LockRectView: View {
         if let slot = entry.slot {
             VStack(alignment: .leading, spacing: 2) {
                 Text("UNTIL \(slot.label.uppercased())")
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .tracking(1.6)
                     .foregroundStyle(Color.nuurGold)
                     .nuurFullColor()
@@ -334,7 +334,7 @@ private struct LockCircularCountdownView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Color.nuurCream)
                     Text("IN")
-                        .font(.system(size: 7, weight: .semibold, design: .rounded))
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
                         .tracking(1.2)
                         .foregroundStyle(Color.nuurCreamDim)
                     Text(formatGap(slot.date.timeIntervalSince(entry.date)))
@@ -342,7 +342,7 @@ private struct LockCircularCountdownView: View {
                         .monospacedDigit()
                         .foregroundStyle(Color.nuurGold)
                         .nuurFullColor()
-                        .minimumScaleFactor(0.6)
+                        .minimumScaleFactor(0.8)
                         .lineLimit(1)
                 }
             }
@@ -380,13 +380,13 @@ private struct LockCircularTimeView: View {
                         .monospacedDigit()
                         .foregroundStyle(Color.nuurGold)
                         .nuurFullColor()
-                        .minimumScaleFactor(0.6)
+                        .minimumScaleFactor(0.8)
                         .lineLimit(1)
                     Text(slot.label.uppercased())
-                        .font(.system(size: 7, weight: .semibold, design: .rounded))
-                        .tracking(1.2)
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .tracking(0.7)
                         .foregroundStyle(Color.nuurCream.opacity(0.80))
-                        .minimumScaleFactor(0.6)
+                        .minimumScaleFactor(0.8)
                         .lineLimit(1)
                 }
                 .padding(.horizontal, 4)
@@ -458,4 +458,54 @@ struct NuurLockCircularProgressWidget: Widget {
         .description("Progress ring showing prayers completed today out of 5.")
         .supportedFamilies([.accessoryCircular])
     }
+}
+
+// MARK: - Lock Screen previews
+
+private extension LockEntry {
+    static var preview: LockEntry {
+        let now = Date()
+        return LockEntry(
+            date: now,
+            slot: LockSlot(
+                prayer: .maghrib,
+                date: now.addingTimeInterval(4_620),
+                label: "Maghrib"
+            ),
+            active: nil,
+            hijri: "10 Rabi al-Awwal 1448",
+            doneToday: 3,
+            totalToday: 5
+        )
+    }
+}
+
+#Preview("Inline", as: .accessoryInline) {
+    NuurLockInlineWidget()
+} timeline: {
+    LockEntry.preview
+}
+
+#Preview("Detailed Countdown", as: .accessoryRectangular) {
+    NuurLockRectWidget()
+} timeline: {
+    LockEntry.preview
+}
+
+#Preview("Countdown Circle", as: .accessoryCircular) {
+    NuurLockCircularCountdownWidget()
+} timeline: {
+    LockEntry.preview
+}
+
+#Preview("Prayer Time Circle", as: .accessoryCircular) {
+    NuurLockCircularTimeWidget()
+} timeline: {
+    LockEntry.preview
+}
+
+#Preview("Prayer Progress Ring", as: .accessoryCircular) {
+    NuurLockCircularProgressWidget()
+} timeline: {
+    LockEntry.preview
 }

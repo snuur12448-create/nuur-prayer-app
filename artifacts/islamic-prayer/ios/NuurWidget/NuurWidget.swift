@@ -552,3 +552,10 @@ struct NuurWidget: Widget {
     NuurProvider.sample(.asr, state: .t1)
     NuurProvider.sample(.asr, state: .t0)
 }
+
+#Preview("Daily Companion", as: .systemLarge) {
+    NuurWidget()
+} timeline: {
+    NuurProvider.sample(.maghrib, state: .normal)
+    NuurProvider.sample(.isha, state: .normal)
+}

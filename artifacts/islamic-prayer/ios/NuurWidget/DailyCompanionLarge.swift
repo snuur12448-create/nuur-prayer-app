@@ -124,10 +124,14 @@ public struct DailyCompanionLarge: View {
                 Text(location)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(NuurTheme.text.opacity(0.95))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Text(hijri.uppercased())
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .tracking(1.2)
                     .foregroundColor(NuurTheme.text.opacity(0.75))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             Spacer()
         }
@@ -155,12 +159,12 @@ public struct DailyCompanionLarge: View {
                         .font(.system(size: 26, weight: .semibold, design: .serif))
                         .foregroundColor(NuurTheme.text)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.55)
+                        .minimumScaleFactor(0.78)
                     Text(activePrayer.ar)
                         .font(.system(size: 22, weight: .regular))
                         .foregroundColor(NuurTheme.text.opacity(0.85))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.55)
+                        .minimumScaleFactor(0.78)
                 }
                 .layoutPriority(1)
                 Spacer(minLength: 6)
@@ -187,9 +191,11 @@ public struct DailyCompanionLarge: View {
                         }
                     }
                     Text("UNTIL \(nextPrayerEn.uppercased())")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 10, weight: .bold))
                         .tracking(1.2)
                         .foregroundColor(NuurTheme.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
             }
         }
@@ -209,8 +215,8 @@ public struct DailyCompanionLarge: View {
         let dim = pt.isPast && !active
         return VStack(spacing: 4) {
             Text(pt.prayer.en)
-                .font(.system(size: 9, weight: .bold))
-                .tracking(1.0)
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.7)
                 .foregroundColor(active ? NuurTheme.gold
                                  : dim ? NuurTheme.text.opacity(0.4)
                                  : NuurTheme.text.opacity(0.7))
@@ -261,7 +267,7 @@ public struct DailyCompanionLarge: View {
                 .font(.system(size: 15, weight: .semibold, design: .serif))
                 .foregroundColor(NuurTheme.text)
             Text(label)
-                .font(.system(size: 8, weight: .bold))
+                .font(.system(size: 9, weight: .bold))
                 .tracking(1.2)
                 .foregroundColor(NuurTheme.textSecondary)
         }
@@ -272,7 +278,7 @@ public struct DailyCompanionLarge: View {
     private var verseBlock: some View {
         VStack(spacing: 4) {
             Text("VERSE OF THE MOMENT · \(verseRef)")
-                .font(.system(size: 7.5, weight: .bold))
+                .font(.system(size: 9, weight: .bold))
                 .tracking(1.4)
                 .foregroundColor(NuurTheme.gold.opacity(0.85))
             Text(verseAr)
@@ -280,7 +286,7 @@ public struct DailyCompanionLarge: View {
                 .foregroundColor(NuurTheme.text.opacity(0.92))
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 4)

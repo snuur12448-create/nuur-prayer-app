@@ -103,7 +103,7 @@ struct NuurSquareCard: View {
                     .frame(width: 5, height: 5)
                     .shadow(color: accent.dot.opacity(0.7), radius: 3)
                 Text("NOW")
-                    .font(.system(size: 8.5, weight: .bold))
+                    .font(.system(size: 9.5, weight: .bold))
                     .tracking(1.4)
                     .foregroundColor(accent.dot)
             }
@@ -122,11 +122,13 @@ struct NuurSquareCard: View {
                 Text(active.en)
                     .font(.system(size: 26, weight: .regular, design: .serif))
                     .foregroundColor(NuurTheme.text)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .padding(.bottom, 6)
 
                 // UNTIL [next] eyebrow
                 Text("UNTIL \(next.en.uppercased())")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .tracking(1.8)
                     .foregroundColor(accent.eyebrow)
                     .padding(.bottom, 1)
@@ -158,7 +160,7 @@ private func squareCountdown(h: String, m: String,
         .monospacedDigit()
         .multilineTextAlignment(.leading)
         .lineLimit(1)
-        .minimumScaleFactor(0.6)
+        .minimumScaleFactor(0.78)
 }
 
 // MARK: - Widget body
