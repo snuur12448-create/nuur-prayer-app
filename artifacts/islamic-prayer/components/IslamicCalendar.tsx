@@ -239,14 +239,26 @@ export function IslamicCalendar({ onClose }: Props) {
         </View>
         <View style={styles.topRight}>
           {!isCurrentViewingMonth && (
-            <TouchableOpacity onPress={goToToday} style={[styles.todayBtn, { borderColor: GOLD + "60" }]} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={goToToday}
+              style={[styles.todayBtn, { borderColor: GOLD + "60" }]}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Return to the current Hijri month"
+            >
               <Feather name="corner-up-left" size={12} color={GOLD} />
               <Text style={[styles.todayBtnText, { color: GOLD }]}>Today</Text>
             </TouchableOpacity>
           )}
           {onClose && (
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={12} activeOpacity={0.7}>
-              <Feather name="x" size={22} color={colors.textSecondary} />
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.closeBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Close calendar"
+            >
+              <Text style={[styles.closeBtnText, { color: colors.text }]}>Done</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -301,6 +313,8 @@ export function IslamicCalendar({ onClose }: Props) {
                 opacity: pressed ? 0.85 : 1,
               },
             ]}
+            accessibilityRole="button"
+            accessibilityLabel={`${nextEvent.ev.name}, ${nextEvent.daysAway === 0 ? "today" : `in ${nextEvent.daysAway} days`}`}
           >
             <View style={[styles.nextEventBadge, { backgroundColor: nextEvent.ev.color ?? GOLD }]}>
               <Text style={styles.nextEventBadgeNum}>{nextEvent.hDay}</Text>
@@ -325,7 +339,13 @@ export function IslamicCalendar({ onClose }: Props) {
 
         {/* ── Month navigator ───────────────────────────────────────── */}
         <View style={[styles.monthNav, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <TouchableOpacity onPress={prevMonth} hitSlop={14} style={[styles.navArrow, { borderColor: colors.border }]} activeOpacity={0.6}>
+          <TouchableOpacity
+            onPress={prevMonth}
+            style={[styles.navArrow, { borderColor: colors.border }]}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel="Previous Hijri month"
+          >
             <Feather name="chevron-left" size={20} color={colors.text} />
           </TouchableOpacity>
 
@@ -342,7 +362,13 @@ export function IslamicCalendar({ onClose }: Props) {
             <Text style={[styles.monthGregorian, { color: colors.textSecondary }]}>{gRange}</Text>
           </View>
 
-          <TouchableOpacity onPress={nextMonth} hitSlop={14} style={[styles.navArrow, { borderColor: colors.border }]} activeOpacity={0.6}>
+          <TouchableOpacity
+            onPress={nextMonth}
+            style={[styles.navArrow, { borderColor: colors.border }]}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel="Next Hijri month"
+          >
             <Feather name="chevron-right" size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -393,6 +419,8 @@ export function IslamicCalendar({ onClose }: Props) {
                       ci < 6 && { borderRightColor: colors.border, borderRightWidth: StyleSheet.hairlineWidth },
                     ]}
                     disabled={!hasEvent}
+                    accessibilityRole={hasEvent ? "button" : undefined}
+                    accessibilityLabel={hasEvent ? `${cell.event?.name}, ${cell.hDay} ${HIJRI_MONTHS_EN[hMonth - 1]} ${hYear}` : undefined}
                   >
                     {/* Hijri day with optional ring */}
                     <View
@@ -502,11 +530,14 @@ export function IslamicCalendar({ onClose }: Props) {
         animationType="fade"
         onRequestClose={() => setEventModalVisible(false)}
         statusBarTranslucent
+        presentationStyle="overFullScreen"
       >
         <Pressable style={styles.eventModalBg} onPress={() => setEventModalVisible(false)}>
           <Pressable
             style={[styles.eventModalCard, { backgroundColor: colors.surface, borderColor: GOLD + "50" }]}
             onPress={() => {}}
+            accessibilityViewIsModal
+            onAccessibilityEscape={() => setEventModalVisible(false)}
           >
             <Text style={styles.eventModalIcon}>☽</Text>
             <Text style={[styles.eventModalArabic, { color: GOLD }]}>{selectedEvent?.arabic}</Text>
@@ -519,6 +550,8 @@ export function IslamicCalendar({ onClose }: Props) {
               onPress={() => setEventModalVisible(false)}
               style={[styles.eventModalClose, { backgroundColor: GOLD }]}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Close event details"
             >
               <Text style={styles.eventModalCloseText}>Close</Text>
             </TouchableOpacity>
@@ -550,10 +583,19 @@ const styles = StyleSheet.create({
   topRight: { flexDirection: "row", alignItems: "center", gap: 10 },
   todayBtn: {
     flexDirection: "row", alignItems: "center", gap: 5,
-    borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,
+    borderWidth: 1, borderRadius: 22, paddingHorizontal: 12, minHeight: 44,
   },
   todayBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  closeBtn: { padding: 4 },
+  closeBtn: {
+    minWidth: 64,
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
 
   /* Hero */
   hero: {
@@ -624,7 +666,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   navArrow: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     alignItems: "center", justifyContent: "center",
     borderWidth: 1,
     marginHorizontal: 4,
@@ -728,6 +770,11 @@ const styles = StyleSheet.create({
     borderRadius: 24, borderWidth: 1,
     paddingHorizontal: 28, paddingVertical: 32,
     alignItems: "center", gap: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 12,
   },
   eventModalIcon: { fontSize: 36, marginBottom: 4, color: GOLD },
   eventModalArabic: { fontSize: 22, fontFamily: "Inter_700Bold", textAlign: "center" },
@@ -740,6 +787,8 @@ const styles = StyleSheet.create({
   eventModalClose: {
     marginTop: 12, borderRadius: 24,
     paddingHorizontal: 40, paddingVertical: 12,
+    minHeight: 48,
+    justifyContent: "center",
   },
   eventModalCloseText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#0B1F1A" },
 

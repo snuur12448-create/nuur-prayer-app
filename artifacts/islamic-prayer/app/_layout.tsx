@@ -47,7 +47,10 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="quran/[id]" options={{ headerShown: false, presentation: "card" }} />
-      <Stack.Screen name="calendar" options={{ headerShown: false, presentation: "modal" }} />
+      <Stack.Screen
+        name="calendar"
+        options={{ headerShown: false, presentation: "fullScreenModal", animation: "slide_from_bottom" }}
+      />
       <Stack.Screen name="qada" options={{ headerShown: false, presentation: "card" }} />
       <Stack.Screen name="sunnah-prayers" options={{ headerShown: false, presentation: "card" }} />
       {/* Promoted from (tabs)/ — these are reachable from More and Home QuickActions,
