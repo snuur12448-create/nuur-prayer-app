@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import Constants from "expo-constants";
 import React, { useState, useRef, useCallback, useLayoutEffect } from "react";
 import {
   ActivityIndicator,
@@ -43,6 +44,7 @@ import { Alert } from "react-native";
 import { CornerFloret, NuurMark } from "@/components/share/ShareDecor";
 
 const isWeb = Platform.OS === "web";
+const APP_VERSION = Constants.expoConfig?.version ?? "1.0.0";
 const THEME_ORDER: ThemeName[] = ["emerald", "midnight", "gold", "slate", "burgundy"];
 
 /* ============================================================
@@ -1472,7 +1474,7 @@ export default function SettingsScreen() {
               <Feather name="info" size={16} color={colors.gold} style={styles.rowIcon} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>Version</Text>
             </View>
-            <Text style={[styles.rowValue, { color: colors.textSecondary }]}>1.0.0</Text>
+            <Text style={[styles.rowValue, { color: colors.textSecondary }]}>{APP_VERSION}</Text>
           </View>
           <RowSeparator colors={colors} />
           <View style={styles.cardRow}>

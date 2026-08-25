@@ -47,17 +47,9 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
-    <key>NSCameraUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your camera</string>
-    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>Nuur uses your location to calculate accurate prayer times, determine your Qibla direction, and find nearby mosques.</string>
-    <key>NSLocationAlwaysUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your location</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Nuur uses your location to calculate accurate prayer times, determine your Qibla direction, and find nearby mosques.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>Nuur saves Quranic verse cards you share to your Camera Roll.</string>
-    <key>NSPhotoLibraryUsageDescription</key>
     <string>Nuur saves Quranic verse cards you share to your Camera Roll.</string>
     <key>NSSupportsLiveActivities</key>
     <true/>
@@ -73,11 +65,6 @@
     <array>
       <string>audio</string>
       <string>fetch</string>
-      <string>processing</string>
-    </array>
-    <key>BGTaskSchedulerPermittedIdentifiers</key>
-    <array>
-      <string>com.nuur.widget-refresh</string>
     </array>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
@@ -95,7 +82,7 @@
       <string>UIInterfaceOrientationPortraitUpsideDown</string>
     </array>
     <key>UIUserInterfaceStyle</key>
-    <string>Automatic</string>
+    <string>Dark</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
   </dict>

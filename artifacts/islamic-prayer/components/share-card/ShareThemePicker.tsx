@@ -264,7 +264,10 @@ export function ShareThemePicker({
     try {
       const uri = await captureCard();
       if (!uri) return;
-      const { status } = await MediaLibrary.requestPermissionsAsync();
+      // Saving a generated card only needs add/write access. Requesting the
+      // default permission would also ask to read the user's existing library,
+      // which Nuur never does.
+      const { status } = await MediaLibrary.requestPermissionsAsync(true, []);
       if (status !== "granted") {
         toast.show("Allow photo library access to save the image.", { variant: "error" });
         return;
