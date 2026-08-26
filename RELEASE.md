@@ -20,6 +20,8 @@ pnpm install --frozen-lockfile
 pnpm --dir artifacts/islamic-prayer run typecheck
 pnpm --dir artifacts/islamic-prayer run qa:polar
 pnpm --dir artifacts/islamic-prayer run qa:timezone
+pnpm --dir artifacts/islamic-prayer run qa:widget
+pnpm --dir artifacts/islamic-prayer run qa:notifications
 pnpm --dir artifacts/islamic-prayer run qa:hijri
 pnpm --dir artifacts/islamic-prayer run qa:release
 pnpm --dir artifacts/islamic-prayer exec expo export --platform ios --output-dir /tmp/nuur-ios-export

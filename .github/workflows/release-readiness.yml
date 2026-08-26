@@ -25,6 +25,8 @@ jobs:
       - run: pnpm --dir artifacts/islamic-prayer run typecheck
       - run: pnpm --dir artifacts/islamic-prayer run qa:polar
       - run: pnpm --dir artifacts/islamic-prayer run qa:timezone
+      - run: pnpm --dir artifacts/islamic-prayer run qa:widget
+      - run: pnpm --dir artifacts/islamic-prayer run qa:notifications
       - run: pnpm --dir artifacts/islamic-prayer run qa:hijri
       - run: pnpm --dir artifacts/islamic-prayer run qa:release
       - run: pnpm --dir artifacts/islamic-prayer exec expo export --platform ios --output-dir /tmp/nuur-ios-export

@@ -45,7 +45,7 @@ catalog:
   '@vitejs/plugin-react': ^5.0.4
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
-  drizzle-orm: ^0.45.1
+  drizzle-orm: ^0.45.2
   framer-motion: ^12.23.24
   lucide-react: ^0.545.0
   # Must be this exact version because expo requires it
@@ -59,6 +59,13 @@ catalog:
   zod: ^3.25.76
 
 autoInstallPeers: false
+
+overrides:
+  '@babel/core@7.29.0': 7.29.7
+  nanoid@3.3.11: 3.3.18
+  picomatch@2.3.1: 2.3.2
+  picomatch@4.0.3: 4.0.4
+  postcss@8.4.49: 8.5.23
 
 onlyBuiltDependencies:
   - '@swc/core'

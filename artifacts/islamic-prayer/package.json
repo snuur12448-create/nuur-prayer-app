@@ -10,6 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "qa:polar": "pnpm exec tsx scripts/verify-polar-prayer-times.mjs",
     "qa:timezone": "pnpm exec tsx scripts/verify-timezone-dst.mjs",
+    "qa:widget": "pnpm exec tsx scripts/verify-widget-overnight.mjs",
+    "qa:notifications": "pnpm exec tsx scripts/verify-notification-scheduler.mjs",
     "qa:hijri": "pnpm exec tsx scripts/verify-hijri-date.mjs",
     "qa:release": "node scripts/verify-release-config.mjs",
     "android": "expo run:android",

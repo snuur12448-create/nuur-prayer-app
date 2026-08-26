@@ -194,19 +194,47 @@ private struct LockProvider: TimelineProvider {
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<LockEntry>) -> Void) {
         let now = Date()
-        var entries: [LockEntry] = []
-        for i in 0..<60 {
-            let t = now.addingTimeInterval(Double(i) * 60)
-            entries.append(makeEntry(now: t))
+        guard let snap = LockSnapshotReader.read() else {
+            completion(Timeline(entries: [makeEntry(now: now)], policy: .after(now.addingTimeInterval(60 * 60))))
+            return
         }
-        let refreshAt = now.addingTimeInterval(60 * 60)
-        completion(Timeline(entries: entries, policy: .after(refreshAt)))
+
+        // Do not depend on iOS granting an hourly timeline reload. The shared
+        // snapshot contains 35 days, so preload every state transition through
+        // the next night: prayer boundaries, the end of the 30-minute "NOW"
+        // window, and local midnight. SwiftUI's .timer style keeps countdowns
+        // moving between these sparse entries without spending timeline budget.
+        let slots = lockSlots(from: snap)
+        let horizon = now.addingTimeInterval(36 * 60 * 60)
+        var moments = Set<Date>([now, horizon])
+        for slot in slots where slot.date > now && slot.date <= horizon {
+            moments.insert(slot.date)
+            let activeWindowEnd = slot.date.addingTimeInterval(30 * 60 + 1)
+            if activeWindowEnd <= horizon { moments.insert(activeWindowEnd) }
+        }
+
+        let calendar = lockCalendar(snap)
+        var midnight = calendar.nextDate(
+            after: now,
+            matching: DateComponents(hour: 0, minute: 0, second: 0),
+            matchingPolicy: .nextTime
+        )
+        while let boundary = midnight, boundary <= horizon {
+            moments.insert(boundary)
+            midnight = calendar.date(byAdding: .day, value: 1, to: boundary)
+        }
+
+        let entries = moments.sorted().map { makeEntry(now: $0, snap: snap, slots: slots) }
+        completion(Timeline(entries: entries, policy: .after(horizon)))
     }
     private func makeEntry(now: Date) -> LockEntry {
         guard let snap = LockSnapshotReader.read() else {
             return LockEntry(date: now, slot: nil, active: nil, hijri: "", doneToday: 0, totalToday: 5)
         }
         let slots = lockSlots(from: snap)
+        return makeEntry(now: now, snap: snap, slots: slots)
+    }
+    private func makeEntry(now: Date, snap: LockSnapshot, slots: [LockSlot]) -> LockEntry {
         var seen = Set<Prayer>()
         let today = slots.filter { s in
             guard lockCalendar(snap).isDate(s.date, inSameDayAs: now),
@@ -234,13 +262,14 @@ private struct LockInlineView: View {
             Label("\(active.label) · NOW",
                   systemImage: sfSymbol(for: active.prayer))
         } else if let slot = entry.slot {
-            let gap = slot.date.timeIntervalSince(entry.date)
-            if gap > 3600 {
-                Label("\(slot.label) in \(formatGap(gap))",
-                      systemImage: sfSymbol(for: slot.prayer))
-            } else {
-                Label("\(slot.label) at \(formatLockHM(slot.date))",
-                      systemImage: sfSymbol(for: slot.prayer))
+            Label {
+                HStack(spacing: 3) {
+                    Text("\(slot.label) in")
+                    Text(slot.date, style: .timer)
+                        .monospacedDigit()
+                }
+            } icon: {
+                Image(systemName: sfSymbol(for: slot.prayer))
             }
         } else {
             Text("Nuur — open app")
@@ -282,7 +311,7 @@ private struct LockRectView: View {
                         .foregroundStyle(Color.nuurGold)
                         .nuurFullColor()
                     Spacer(minLength: 4)
-                    Text(formatGap(slot.date.timeIntervalSince(entry.date)))
+                    Text(slot.date, style: .timer)
                         .font(.system(size: 17, weight: .medium, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(Color.nuurGold)
@@ -337,7 +366,7 @@ private struct LockCircularCountdownView: View {
                         .font(.system(size: 9, weight: .semibold, design: .rounded))
                         .tracking(1.2)
                         .foregroundStyle(Color.nuurCreamDim)
-                    Text(formatGap(slot.date.timeIntervalSince(entry.date)))
+                    Text(slot.date, style: .timer)
                         .font(.system(size: 13, weight: .medium, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(Color.nuurGold)

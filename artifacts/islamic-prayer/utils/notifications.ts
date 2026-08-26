@@ -16,6 +16,7 @@ import {
   dayOfWeekInTimeZone,
   type TimeZoneValue,
 } from "./timeZone";
+import { createLatestOnlyMutationQueue } from "./latestOnlyQueue";
 
 // Storage keys for the home-screen notification quick-sheet controls.
 // Read directly inside schedulePrayerNotifications so the existing 8+ callsites
@@ -41,19 +42,7 @@ const MANAGED_NOTIFICATION_ID_PREFIX = "nuur-managed-v1-";
 // every mutation and coalesce jobs that have not started yet. Without this,
 // two calls can interleave their cancel/create phases and leave duplicates or
 // a half-empty schedule.
-let notificationMutationQueue: Promise<void> = Promise.resolve();
-let latestNotificationMutation = 0;
-
-function enqueueLatestNotificationMutation(task: () => Promise<void>): Promise<void> {
-  const generation = ++latestNotificationMutation;
-  const run = async () => {
-    if (generation !== latestNotificationMutation) return;
-    await task();
-  };
-  const result = notificationMutationQueue.then(run, run);
-  notificationMutationQueue = result.catch(() => {});
-  return result;
-}
+const enqueueLatestNotificationMutation = createLatestOnlyMutationQueue();
 
 async function cancelManagedScheduledNotifications(): Promise<void> {
   let raw: string | null = null;
