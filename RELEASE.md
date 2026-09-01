@@ -2,6 +2,8 @@
 
 Nuur releases are built from a clean Git commit. The JavaScript, Ruby, and iOS dependency graphs are locked by `pnpm-lock.yaml`, `Gemfile.lock`, and `artifacts/islamic-prayer/ios/Podfile.lock`.
 
+`artifacts/islamic-prayer` is the only Expo/EAS app root. Run every `expo` and `eas` command from that directory. The repository root intentionally has no `app.json` or `eas.json`; adding either would create a competing app identity and fail release QA.
+
 ## Required tools
 
 - Node.js 24

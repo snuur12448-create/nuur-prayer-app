@@ -7,6 +7,13 @@ const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = join(appRoot, "..", "..");
 const read = (...parts) => readFileSync(join(appRoot, ...parts), "utf8");
 const appConfig = JSON.parse(read("app.json")).expo;
+const easConfig = JSON.parse(read("eas.json"));
+
+const RELEASE_IDENTITY = {
+  iosBundleIdentifier: "com.nuur.islamicprayer",
+  androidPackage: "com.nuur.islamicprayer",
+  easProjectId: "a884ac11-7548-4c3a-9b03-da8203c70865",
+};
 
 function check(condition, message) {
   if (!condition) throw new Error(message);
@@ -24,6 +31,22 @@ check(/^\d+\.\d+\.\d+$/.test(appConfig.version), "Expo version must use x.y.z fo
 check(/^\d+$/.test(appConfig.ios.buildNumber), "iOS buildNumber must be numeric.");
 check(Number.isInteger(appConfig.android.versionCode) && appConfig.android.versionCode > 0,
   "Android versionCode must be a positive integer.");
+check(appConfig.ios.bundleIdentifier === RELEASE_IDENTITY.iosBundleIdentifier,
+  "Unexpected iOS bundle identifier.");
+check(appConfig.android.package === RELEASE_IDENTITY.androidPackage,
+  "Unexpected Android package identifier.");
+check(appConfig.extra?.eas?.projectId === RELEASE_IDENTITY.easProjectId,
+  "Unexpected EAS project identifier.");
+check(!existsSync(join(repoRoot, "app.json")),
+  "Repository root must not contain a competing Expo app.json.");
+check(!existsSync(join(repoRoot, "eas.json")),
+  "Repository root must not contain a competing EAS configuration.");
+check(easConfig.cli?.version === ">= 18.3.0", "EAS CLI version requirement changed unexpectedly.");
+check(easConfig.cli?.requireCommit === true, "EAS builds must require a committed worktree.");
+check(easConfig.cli?.appVersionSource === "local",
+  "Release versions must come from tracked local project files.");
+check(!easConfig.build?.production?.autoIncrement,
+  "Production build numbers must be explicitly committed, not auto-incremented remotely.");
 
 const info = appConfig.ios.infoPlist;
 check(info.NSLocationWhenInUseUsageDescription, "Foreground location purpose string is required.");
@@ -107,8 +130,13 @@ check(!widgetPrivacy.includes("NSPrivacyCollectedDataTypePreciseLocation"),
   "Widget must not claim that it collects precise location.");
 
 const project = read("ios", "Nuur.xcodeproj", "project.pbxproj");
-check((project.match(/MARKETING_VERSION = 1\.0\.0;/g) ?? []).length === 4,
-  "App and widget marketing versions must match in Debug and Release.");
+check((project.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.nuur\.islamicprayer;/g) ?? []).length === 2,
+  "Native iOS app bundle identifiers differ from the canonical release identity.");
+check((project.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.nuur\.islamicprayer\.NuurWidget;/g) ?? []).length === 2,
+  "Native widget bundle identifiers differ from the canonical release identity.");
+const nativeMarketingVersion = `MARKETING_VERSION = ${appConfig.version};`;
+check(project.split(nativeMarketingVersion).length - 1 === 4,
+  "App and widget marketing versions must match the Expo version in Debug and Release.");
 check((project.match(/PrivacyInfo\.xcprivacy in Resources/g) ?? []).length === 2,
   "The app privacy manifest must have exactly one file and one resource entry.");
 
