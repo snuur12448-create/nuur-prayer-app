@@ -142,24 +142,32 @@ struct TimetableProvider: AppIntentTimelineProvider {
             return Timeline(entries: [entry], policy: .after(next))
         }
         let now = Date()
-        var entries: [TimetableEntry] = []
-        if let first = Self.buildEntry(now: now, snap: snap, config: configuration) {
-            entries.append(first)
-        }
-        // Add an entry just after each upcoming prayer so the highlight + footer
-        // roll forward at the right moment.
+        let calendar = ttCalendar(snap)
+        let horizon = calendar.date(byAdding: .day, value: 7, to: now)
+            ?? now.addingTimeInterval(7 * 24 * 60 * 60)
+
+        // Preload a full week. Prayer boundaries move the active row; local
+        // midnight rolls the table, Hijri date, and location-day metadata.
         let slots = ttSlots(from: snap)
-        let scheduleThrough = Calendar.current.date(byAdding: .hour, value: 36, to: now) ?? now
-        for slot in slots where slot.date > now && slot.date <= scheduleThrough {
-            if let t = Calendar.current.date(byAdding: .second, value: 5, to: slot.date),
-               let e = Self.buildEntry(now: t, snap: snap, config: configuration) {
-                entries.append(e)
-            }
+        var moments = Set<Date>([now, horizon])
+        for slot in slots where slot.date > now && slot.date <= horizon {
+            moments.insert(slot.date)
         }
-        let refreshAt = entries.last.map {
-            Calendar.current.date(byAdding: .minute, value: 5, to: $0.date) ?? $0.date
-        } ?? Calendar.current.date(byAdding: .hour, value: 1, to: now)!
-        return Timeline(entries: entries, policy: .after(refreshAt))
+
+        var midnight = calendar.nextDate(
+            after: now,
+            matching: DateComponents(hour: 0, minute: 0, second: 0),
+            matchingPolicy: .nextTime
+        )
+        while let boundary = midnight, boundary <= horizon {
+            moments.insert(boundary)
+            midnight = calendar.date(byAdding: .day, value: 1, to: boundary)
+        }
+
+        let entries = moments.sorted().compactMap {
+            Self.buildEntry(now: $0, snap: snap, config: configuration)
+        }
+        return Timeline(entries: entries, policy: .after(horizon))
     }
 
     private static func buildEntry(now: Date, snap: TTSnapshot,

@@ -207,8 +207,10 @@ private func makeEntry(now: Date, slots: [PrayerSlot], location: String, hijri: 
         verseWindow = ""
     }
 
-    // Pick first slot whose time is in the future; if none today, fall back to last (post-Isha shows Isha at t0).
-    let upcoming = slots.first { $0.date > now } ?? slots.last!
+    // Keep the prayer whose boundary is exactly `now` for one timeline entry so
+    // the T-0 "time for prayer" state is actually reachable. A later entry
+    // advances to the following slot.
+    let upcoming = slots.first { $0.date >= now } ?? slots.last!
     let mins = max(0, Int(upcoming.date.timeIntervalSince(now) / 60))
     let st = stateFor(minutesUntil: mins)
     let cd = countdown(from: now, to: upcoming.date)
@@ -318,16 +320,17 @@ struct NuurProvider: AppIntentTimelineProvider {
             return Timeline(entries: [entry], policy: .after(next))
         }
         let entries = buildEntries(from: snap, config: configuration)
-        // Refresh after the last scheduled entry (or in 1h if empty).
-        let refreshAt = entries.last.map {
-            Calendar.current.date(byAdding: .minute, value: 5, to: $0.date) ?? $0.date
-        } ?? Calendar.current.date(byAdding: .hour, value: 1, to: Date())!
+        // The timeline is self-contained for seven days. Asking for the next
+        // reload only after its final entry avoids depending on WidgetKit's
+        // discretionary background budget for daily correctness.
+        let refreshAt = entries.last?.date
+            ?? Calendar.current.date(byAdding: .hour, value: 1, to: Date())!
         return Timeline(entries: entries, policy: .after(refreshAt))
     }
 
-    /// Build a sequence of entries: "now" + every state-transition boundary
-    /// (T-30, T-10, T-1, T-0) for the next upcoming prayer, plus the first
-    /// entry of the prayer after that.
+    /// Preload seven days of predictable transitions. SwiftUI's `.timer`
+    /// countdown advances between entries, while these sparse entries rotate
+    /// prayers, urgency styling, daily rows, Hijri metadata, and verse windows.
     private func buildEntries(from snap: SharedSnapshot,
                               config: ConfigurationAppIntent) -> [NuurEntry] {
         let now = Date()
@@ -352,63 +355,35 @@ struct NuurProvider: AppIntentTimelineProvider {
                              timeZone: timeZone, config: config)
         }
 
-        var entries: [NuurEntry] = []
-        // Always include "now" first.
-        entries.append(mk(now))
+        let horizon = now.addingTimeInterval(7 * 24 * 60 * 60)
+        var moments = Set<Date>([now, horizon])
 
-        // For the next upcoming prayer, schedule one entry per minute for the
-        // final 30 minutes so the widget actually counts down 30 → 29 → 28 …
-        // instead of jumping at the state boundaries. iOS treats all entries
-        // returned from a single getTimeline() call as one budget unit, so 30
-        // pre-scheduled entries cost the same as 4. Ordered chronologically;
-        // the system picks the right one for entry.date <= currentTime.
-        if let upcoming = allSlots.first(where: { $0.date > now }) {
-            let target = upcoming.date
-            for minsBefore in stride(from: 30, through: 1, by: -1) {
-                guard let t = Calendar.current.date(byAdding: .minute, value: -minsBefore, to: target) else { continue }
-                if t > now { entries.append(mk(t)) }
-            }
-            // T-0 (the prayer time itself).
-            if target > now { entries.append(mk(target)) }
-            // After the prayer, surface the next one in normal state.
-            if let after = Calendar.current.date(byAdding: .minute, value: 1, to: target) {
-                entries.append(mk(after))
+        // T-30 and T-10 change the card's urgency treatment. The exact prayer
+        // boundary produces T-0, and +5 minutes advances to the next prayer.
+        // Countdown digits themselves remain live via SwiftUI's timer style.
+        for slot in allSlots where slot.date > now && slot.date <= horizon {
+            for offset in [-30, -10, 0, 5] {
+                let moment = slot.date.addingTimeInterval(TimeInterval(offset * 60))
+                if moment > now && moment <= horizon { moments.insert(moment) }
             }
         }
 
-        // Verse of the Moment refresh entries:
-        //  • Each of today's 5 prayer times → base window rotation
-        //  • Midnight local (00:00) → clears the late_night trigger window
-        //  • 04:00 local → clears late_night when it ends
-        //  • Friday transitions are covered by the midnight entries above
-        // Adds at most ~7 extra entries — well under the per-timeline budget.
-        // Duplicates that overlap the per-minute T-30 ramp are harmless
-        // (iOS picks the latest entry whose date <= now).
-        let mainPrayers: [Prayer] = [.fajr, .dhuhr, .asr, .maghrib, .isha]
-        for p in mainPrayers {
-            if let slot = allSlots.first(where: { $0.prayer == p && $0.date > now }) {
-                entries.append(mk(slot.date))
-            }
-        }
+        // Verse of the Moment also changes at local midnight and 04:00. Add
+        // those boundaries for every covered day (including DST transitions).
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = timeZone
-        // Midnight = start of tomorrow (Friday/weekday flip + late_night start)
-        if let tomorrowMidnight = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now)) {
-            entries.append(mk(tomorrowMidnight))
+        var day = cal.startOfDay(for: now)
+        while day <= horizon {
+            if day > now { moments.insert(day) }
+            if let fourAM = cal.date(bySettingHour: 4, minute: 0, second: 0, of: day),
+               fourAM > now && fourAM <= horizon {
+                moments.insert(fourAM)
+            }
+            guard let nextDay = cal.date(byAdding: .day, value: 1, to: day) else { break }
+            day = nextDay
         }
-        // 04:00 today (if still future) — clears late_night trigger
-        if let fourAM = cal.date(bySettingHour: 4, minute: 0, second: 0, of: now),
-           fourAM > now {
-            entries.append(mk(fourAM))
-        }
-        // 04:00 tomorrow — clears late_night after the overnight window
-        if let fourAMTomorrow = cal.date(bySettingHour: 4, minute: 0, second: 0,
-                                         of: cal.date(byAdding: .day, value: 1, to: now) ?? now) {
-            entries.append(mk(fourAMTomorrow))
-        }
-        // Keep ordered for the system scheduler.
-        entries.sort { $0.date < $1.date }
-        return entries
+
+        return moments.sorted().map(mk)
     }
 
     static func sample(_ state: NuurState, _ skin: Skin,

@@ -199,13 +199,12 @@ private struct LockProvider: TimelineProvider {
             return
         }
 
-        // Do not depend on iOS granting an hourly timeline reload. The shared
-        // snapshot contains 35 days, so preload every state transition through
-        // the next night: prayer boundaries, the end of the 30-minute "NOW"
-        // window, and local midnight. SwiftUI's .timer style keeps countdowns
-        // moving between these sparse entries without spending timeline budget.
+        // Do not depend on iOS granting a daily timeline reload. The shared
+        // snapshot contains 35 days, so preload a full week of prayer
+        // boundaries, 30-minute "NOW" window endings, and local midnights.
+        // SwiftUI's .timer style keeps countdowns moving between sparse entries.
         let slots = lockSlots(from: snap)
-        let horizon = now.addingTimeInterval(36 * 60 * 60)
+        let horizon = now.addingTimeInterval(7 * 24 * 60 * 60)
         var moments = Set<Date>([now, horizon])
         for slot in slots where slot.date > now && slot.date <= horizon {
             moments.insert(slot.date)

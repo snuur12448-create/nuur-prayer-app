@@ -370,9 +370,28 @@ private func format12h(_ date: Date) -> String {
     return f.string(from: date)
 }
 
+/// Return persisted progress only for the prayer-location date it belongs to.
+/// Future preloaded timeline entries must start clean instead of carrying
+/// today's completed adhkar into tomorrow.
+private func adhkarState(_ persisted: AdhkarState, at date: Date,
+                         snap: SharedPrayerSnapshot?) -> AdhkarState {
+    guard let snap else { return freshenForToday(persisted) }
+    let f = DateFormatter()
+    f.calendar = adhkarCalendar(snap)
+    f.timeZone = adhkarTimeZone(snap)
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.dateFormat = "yyyy-MM-dd"
+    let dateKey = f.string(from: date)
+    if persisted.dateISO == dateKey { return persisted }
+    return AdhkarState(
+        dateISO: dateKey, recitedIds: [], inProgressId: nil, inProgressCount: 0,
+        morningCompleted: false, eveningCompleted: false
+    )
+}
+
 // Resolve which state to show. Pure function of (now, snapshot, persisted state).
 private func resolveState(now: Date, snap: SharedPrayerSnapshot?, persisted: AdhkarState) -> AdhkarWidgetState {
-    var state = freshenForToday(persisted)
+    var state = adhkarState(persisted, at: now, snap: snap)
     recomputeCompletion(&state)
 
     guard let snap = snap,
@@ -445,10 +464,9 @@ struct IncrementAdhkarIntent: AppIntent {
     static var isDiscoverable: Bool = false
 
     func perform() async throws -> some IntentResult {
-        var state = freshenForToday(AdhkarStore.read())
-
         let snap = readPrayerSnapshot()
         let now = Date()
+        var state = adhkarState(AdhkarStore.read(), at: now, snap: snap)
         guard let snap = snap,
               let window = adhkarWindow(at: now, from: snap)
         else {
@@ -533,24 +551,44 @@ private struct AdhkarProvider: TimelineProvider {
         let now = Date()
         let snap = readPrayerSnapshot()
         let persisted = AdhkarStore.read()
-        let entry = AdhkarEntry(date: now, state: resolveState(now: now, snap: snap, persisted: persisted))
+        guard let snap else {
+            let entry = AdhkarEntry(
+                date: now,
+                state: resolveState(now: now, snap: nil, persisted: persisted)
+            )
+            completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(15 * 60))))
+            return
+        }
 
-        // Refresh at the next prayer-window boundary so the widget swaps
-        // between active/dormant/completed in real time without waiting for
-        // iOS's lazy 15-minute refresh.
-        var nextRefresh = now.addingTimeInterval(15 * 60)
-        if let snap = snap,
-           let window = adhkarWindow(at: now, from: snap) {
-            // Boundaries where the widget swaps state: morning opens (Fajr),
-            // morning→evening switch (Asr), and evening→next-morning (next Fajr).
-            let candidates = [window.fajr, window.asr, window.nextFajr]
-                .filter { $0 > now }
-            if let soonest = candidates.min() {
-                nextRefresh = min(nextRefresh, soonest.addingTimeInterval(1))
+        // Fajr and Asr are predictable state boundaries. Preload a week from
+        // the 35-day prayer cache so an iOS reload delay cannot strand this
+        // widget in yesterday's morning/evening state.
+        let calendar = adhkarCalendar(snap)
+        let horizon = calendar.date(byAdding: .day, value: 7, to: now)
+            ?? now.addingTimeInterval(7 * 24 * 60 * 60)
+        var moments = Set<Date>([now, horizon])
+        if let days = snap.prayerDays {
+            for day in days {
+                for raw in [day.fajr, day.asr] {
+                    if let boundary = parseISODate(raw), boundary > now, boundary <= horizon {
+                        moments.insert(boundary)
+                    }
+                }
+            }
+        } else if let window = adhkarWindow(at: now, from: snap) {
+            for boundary in [window.fajr, window.asr, window.nextFajr]
+                where boundary > now && boundary <= horizon {
+                moments.insert(boundary)
             }
         }
 
-        completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
+        let entries = moments.sorted().map {
+            AdhkarEntry(
+                date: $0,
+                state: resolveState(now: $0, snap: snap, persisted: persisted)
+            )
+        }
+        completion(Timeline(entries: entries, policy: .after(horizon)))
     }
 }
 
