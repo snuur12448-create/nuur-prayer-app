@@ -1,7 +1,17 @@
 const { getDefaultConfig } = require("expo/metro-config");
 const path = require("path");
+const fs = require("fs");
 
-const projectRoot = __dirname;
+// Xcode may spell a symlinked checkout differently from Node (macOS /tmp vs
+// /private/tmp). Match its entry-file spelling only when it is this same app.
+let projectRoot = __dirname;
+if (process.env.PROJECT_ROOT) {
+  try {
+    if (fs.realpathSync(process.env.PROJECT_ROOT) === fs.realpathSync(__dirname)) {
+      projectRoot = path.resolve(process.env.PROJECT_ROOT);
+    }
+  } catch { /* Ignore a stale or unrelated caller's PROJECT_ROOT. */ }
+}
 const monorepoRoot = path.resolve(projectRoot, "../..");
 
 const config = getDefaultConfig(projectRoot);

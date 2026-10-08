@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,11 +27,17 @@ function verifyBundle(path, bundleId, isApp) {
   assert.equal(info.CFBundleVersion, config.ios.buildNumber, "Build number differs from tracked release.");
   run("codesign", ["--verify", "--deep", "--strict", path]);
   const entitlements = decode(run("codesign", ["--display", "--entitlements", ":-", path]));
-  const profile = decode(run("security", ["cms", "-D", "-i", join(path, "embedded.mobileprovision")]));
-  assert(new Date(profile.ExpirationDate).getTime() > Date.now(), "Provisioning profile has expired.");
-  assert(!profile.ProvisionedDevices && !profile.ProvisionsAllDevices,
+  const profileXml = run("security", ["cms", "-D", "-i", join(path, "embedded.mobileprovision")]);
+  // A full provisioning profile contains date/data values that plutil cannot
+  // convert to JSON. Extract the specific typed fields before decoding.
+  const profileField = (key, format) => run("plutil", ["-extract", key, format, "-o", "-", "--", "-"], profileXml);
+  const hasProfileField = (key) => spawnSync("plutil", ["-extract", key, "xml1", "-o", "-", "--", "-"], {
+    input: profileXml, encoding: "utf8",
+  }).status === 0;
+  assert(new Date(profileField("ExpirationDate", "raw").trim()).getTime() > Date.now(), "Provisioning profile has expired.");
+  assert(!hasProfileField("ProvisionedDevices") && !hasProfileField("ProvisionsAllDevices"),
     "Export must use App Store distribution, not development, ad hoc or enterprise signing.");
-  const allowed = profile.Entitlements;
+  const allowed = decode(profileField("Entitlements", "xml1"));
   assert.equal(allowed["get-task-allow"], false, "Provisioning profile permits debugging.");
   assert(!entitlements["get-task-allow"], "Exported app permits debugging.");
   assert.equal(entitlements["com.apple.developer.team-identifier"], "FFD8LPJSCS", "Unexpected signing team.");
