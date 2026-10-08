@@ -381,6 +381,28 @@ permissionStatus = { status: "undetermined", canAskAgain: true, ios: { status: 3
 assert.equal(await notificationRuntime.getNotificationPermissionState(), "granted", "iOS provisional authorization can deliver notifications");
 permissionStatus = { status: "granted", canAskAgain: true };
 
+// Foreground and headless refresh must both respect the persisted explicit
+// Isha policy. Verify native request timestamps, not only calculator output.
+storage.set("umm_al_qura_isha_policy", "fixed90");
+await notificationRuntime.refreshPrayerNotificationsFromStorage({ force: true });
+const ishaByDate = () => new Map(managedRequests()
+  .filter(request => request.content.data?.type === "prayer" && request.content.data?.key === "isha")
+  .map(request => {
+    const fire = Number(request.content.data.nuurFireTimeMs);
+    return [new Date(fire).toISOString().slice(0, 10), fire];
+  }));
+const ninetyMinuteIsha = ishaByDate();
+storage.set("umm_al_qura_isha_policy", "fixed120");
+await notificationRuntime.refreshPrayerNotificationsFromStorage({ force: true });
+const twoHourIsha = ishaByDate();
+assert.ok(ninetyMinuteIsha.size >= 9);
+for (const [date, fire] of ninetyMinuteIsha) {
+  assert.equal(twoHourIsha.get(date) - fire, 30 * 60_000, `${date}: persisted 120-minute Isha must update actual alert time`);
+}
+assert.equal(logicalDuplicates(managedRequests()), 0, "changing Isha policy must replace, not duplicate, alerts");
+storage.delete("umm_al_qura_isha_policy");
+await notificationRuntime.schedulePrayerNotifications(...scheduleArgs);
+
 nativeQueue.set("cache-owned-opaque", {
   identifier: "cache-owned-opaque",
   content: { title: "Opaque old request", body: "No recognizable ownership payload", data: {} },

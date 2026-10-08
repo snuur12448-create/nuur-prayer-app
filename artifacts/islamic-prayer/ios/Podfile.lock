@@ -1,9 +1,6 @@
 PODS:
   - EXApplication (7.0.8):
     - ExpoModulesCore
-  - EXAV (16.0.8):
-    - ExpoModulesCore
-    - ReactCommon/turbomodule/core
   - EXConstants (18.0.14):
     - ExpoModulesCore
   - EXImageLoader (6.0.0):
@@ -38,13 +35,17 @@ PODS:
     - Yoga
   - ExpoAsset (12.0.13):
     - ExpoModulesCore
-  - ExpoBackgroundFetch (14.0.9):
+  - ExpoAudio (1.1.1):
+    - ExpoModulesCore
+  - ExpoBackgroundTask (1.0.10):
     - ExpoModulesCore
   - ExpoBlur (15.0.8):
     - ExpoModulesCore
   - ExpoClipboard (8.0.8):
     - ExpoModulesCore
   - ExpoCrypto (15.0.9):
+    - ExpoModulesCore
+  - ExpoDocumentPicker (14.0.8):
     - ExpoModulesCore
   - ExpoFileSystem (19.0.24):
     - ExpoModulesCore
@@ -2210,16 +2211,17 @@ PODS:
 
 DEPENDENCIES:
   - "EXApplication (from `../../../node_modules/.pnpm/expo-application@7.0.8_expo@54.0.37/node_modules/expo-application/ios`)"
-  - "EXAV (from `../../../node_modules/.pnpm/expo-av@16.0.8_expo@54.0.37_react-native-web@0.21.2_react-dom@19.1.0_react@19.1.0__reac_6ea969a351a9006beab591c59e156493/node_modules/expo-av/ios`)"
   - "EXConstants (from `../../../node_modules/.pnpm/expo-constants@18.0.14_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0_/node_modules/expo-constants/ios`)"
   - "EXImageLoader (from `../../../node_modules/.pnpm/expo-image-loader@6.0.0_expo@54.0.37/node_modules/expo-image-loader/ios`)"
   - "EXNotifications (from `../../../node_modules/.pnpm/expo-notifications@0.32.17_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+r_51274574d50717a575d7979dbd76389d/node_modules/expo-notifications/ios`)"
   - "Expo (from `../../../node_modules/.pnpm/expo@54.0.37_@babel+core@7.29.7_@expo+metro-runtime@6.1.2_expo-router@6.0.24_react-nati_63ad5ea6ceea3f4a3d8f42d75e50434c/node_modules/expo`)"
   - "ExpoAsset (from `../../../node_modules/.pnpm/expo-asset@12.0.13_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-asset/ios`)"
-  - "ExpoBackgroundFetch (from `../../../node_modules/.pnpm/expo-background-fetch@14.0.9_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0_/node_modules/expo-background-fetch/ios`)"
+  - "ExpoAudio (from `../../../node_modules/.pnpm/expo-audio@1.1.1_expo-asset@12.0.13_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_1e86eb4d2b0530497be61e7823440d39/node_modules/expo-audio/ios`)"
+  - "ExpoBackgroundTask (from `../../../node_modules/.pnpm/expo-background-task@1.0.10_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0_/node_modules/expo-background-task/ios`)"
   - "ExpoBlur (from `../../../node_modules/.pnpm/expo-blur@15.0.8_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-blur/ios`)"
   - "ExpoClipboard (from `../../../node_modules/.pnpm/expo-clipboard@8.0.8_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-clipboard/ios`)"
   - "ExpoCrypto (from `../../../node_modules/.pnpm/expo-crypto@15.0.9_expo@54.0.37/node_modules/expo-crypto/ios`)"
+  - "ExpoDocumentPicker (from `../../../node_modules/.pnpm/expo-document-picker@14.0.8_expo@54.0.37/node_modules/expo-document-picker/ios`)"
   - "ExpoFileSystem (from `../../../node_modules/.pnpm/expo-file-system@19.0.24_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0_/node_modules/expo-file-system/ios`)"
   - "ExpoFont (from `../../../node_modules/.pnpm/expo-font@14.0.12_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-font/ios`)"
   - "ExpoGlassEffect (from `../../../node_modules/.pnpm/expo-glass-effect@0.1.10_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+rea_97403609e9a9f0c041e7e9df9a5097a6/node_modules/expo-glass-effect/ios`)"
@@ -2338,8 +2340,6 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   EXApplication:
     :path: "../../../node_modules/.pnpm/expo-application@7.0.8_expo@54.0.37/node_modules/expo-application/ios"
-  EXAV:
-    :path: "../../../node_modules/.pnpm/expo-av@16.0.8_expo@54.0.37_react-native-web@0.21.2_react-dom@19.1.0_react@19.1.0__reac_6ea969a351a9006beab591c59e156493/node_modules/expo-av/ios"
   EXConstants:
     :path: "../../../node_modules/.pnpm/expo-constants@18.0.14_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0_/node_modules/expo-constants/ios"
   EXImageLoader:
@@ -2350,14 +2350,18 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.pnpm/expo@54.0.37_@babel+core@7.29.7_@expo+metro-runtime@6.1.2_expo-router@6.0.24_react-nati_63ad5ea6ceea3f4a3d8f42d75e50434c/node_modules/expo"
   ExpoAsset:
     :path: "../../../node_modules/.pnpm/expo-asset@12.0.13_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-asset/ios"
-  ExpoBackgroundFetch:
-    :path: "../../../node_modules/.pnpm/expo-background-fetch@14.0.9_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0_/node_modules/expo-background-fetch/ios"
+  ExpoAudio:
+    :path: "../../../node_modules/.pnpm/expo-audio@1.1.1_expo-asset@12.0.13_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_1e86eb4d2b0530497be61e7823440d39/node_modules/expo-audio/ios"
+  ExpoBackgroundTask:
+    :path: "../../../node_modules/.pnpm/expo-background-task@1.0.10_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0_/node_modules/expo-background-task/ios"
   ExpoBlur:
     :path: "../../../node_modules/.pnpm/expo-blur@15.0.8_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-blur/ios"
   ExpoClipboard:
     :path: "../../../node_modules/.pnpm/expo-clipboard@8.0.8_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-clipboard/ios"
   ExpoCrypto:
     :path: "../../../node_modules/.pnpm/expo-crypto@15.0.9_expo@54.0.37/node_modules/expo-crypto/ios"
+  ExpoDocumentPicker:
+    :path: "../../../node_modules/.pnpm/expo-document-picker@14.0.8_expo@54.0.37/node_modules/expo-document-picker/ios"
   ExpoFileSystem:
     :path: "../../../node_modules/.pnpm/expo-file-system@19.0.24_expo@54.0.37_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0_/node_modules/expo-file-system/ios"
   ExpoFont:
@@ -2562,16 +2566,17 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   EXApplication: 1e98d4b1dccdf30627f92917f4b2c5a53c330e5f
-  EXAV: b60fcf142fae6684d295bc28cd7cfcb3335570ea
   EXConstants: 18ac927605517285307ea8f7ffe6fe7ca538eb5d
   EXImageLoader: 189e3476581efe3ad4d1d3fb4735b7179eb26f05
   EXNotifications: c67e92b9fdfe785ff9dbdc5f4c0ff935de357da7
   Expo: 3ccbb4de93972b9a8214b8853ab0c4d4a317e62b
   ExpoAsset: 9e5a7c9c0a9fb83ad5b2bb365141f2bd7f289b66
-  ExpoBackgroundFetch: 1631d1fbf59e6ad98ca83b6780ae3a35f678f632
+  ExpoAudio: e4cfe3a2f3317b8487460685385a9867a07fb4fb
+  ExpoBackgroundTask: 835449414ab9f0e551de1f6d382fadbfad191dc7
   ExpoBlur: b90747a3f22a8b6ceffd9cb0dc41a4184efdc656
   ExpoClipboard: b36b287d8356887844bb08ed5c84b5979bb4dd1e
   ExpoCrypto: e2a2c4c748aac8485e5675f027b7901f511d43ff
+  ExpoDocumentPicker: 7cd9e71a0f66fb19eb0a586d6f26eee1284692e0
   ExpoFileSystem: 8e87545aef1d8d31f244edbfdd0780df4e5bac2e
   ExpoFont: dfb7c572372b610da45b41e3b436321fd6a97215
   ExpoGlassEffect: 2fd78765fb4633fc2575779a521ca6adb3488881

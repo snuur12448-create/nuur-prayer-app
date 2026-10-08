@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-08",
+  "scope": "Engineering source inventory, not legal clearance or scholarly certification. The release owner has not confirmed content rights. A reachable API and successful integrity tests do not establish redistribution permission.",
+  "ownerRightsConfirmed": false,
+  "items": [
+    {
+      "id": "quran-arabic",
+      "name": "Bundled Uthmani Quran text",
+      "usage": "Bundled offline corpus, reader, search, widgets and share cards",
+      "sourceFiles": ["artifacts/islamic-prayer/assets/quranIndex.json", "artifacts/islamic-prayer/assets/quran-content-provenance.json", "artifacts/islamic-prayer/utils/quranIntegrity.ts"],
+      "attributionUrls": ["https://alquran.cloud/", "https://tanzil.net/"],
+      "evidenceUrls": ["https://alquran.cloud/terms-and-conditions", "https://tanzil.net/docs/text_license"],
+      "rightsStatus": "unverified",
+      "evidence": "Full corpus matches the named AlQuran Cloud edition; original import provenance was not recorded. AlQuran Cloud identifies upstream curated text. Tanzil permits verbatim use with source, link and copyright notice conditions; applicability to these exact imported bytes must be established.",
+      "requiredOwnerAction": "Establish exact upstream edition/license chain and preserve required notices; review presentation normalization and excerpts with an appropriate content reviewer.",
+      "approvalEvidence": null
+    },
+    {
+      "id": "quran-sahih-translation",
+      "name": "Sahih International English translation",
+      "usage": "Bundled offline translation, remote validation, share cards and excerpts",
+      "sourceFiles": ["artifacts/islamic-prayer/assets/quranIndex.json", "artifacts/islamic-prayer/utils/quranCache.ts", "artifacts/islamic-prayer/utils/ayahData.ts"],
+      "attributionUrls": ["https://alquran.cloud/"],
+      "evidenceUrls": ["https://alquran.cloud/terms-and-conditions"],
+      "rightsStatus": "unverified",
+      "evidence": "The complete bundled translation matches edition en.sahih. Provider terms call for translator attribution but do not supply an app-specific permission record for this bundled edition.",
+      "requiredOwnerAction": "Record applicable translation redistribution/share rights and required translator/publisher notices. Dataset matching is not permission.",
+      "approvalEvidence": null
+    },
+    {
+      "id": "quran-transliteration",
+      "name": "Latin transliteration",
+      "usage": "Fetched and cached alongside chapter text; selected bundled excerpts",
+      "sourceFiles": ["artifacts/islamic-prayer/utils/quranCache.ts", "artifacts/islamic-prayer/utils/ayahData.ts"],
+      "attributionUrls": ["https://alquran.cloud/"],
+      "evidenceUrls": ["https://alquran.cloud/terms-and-conditions"],
+      "rightsStatus": "unverified",
+      "evidence": "Runtime edition en.transliteration is identified; specific authorship and licensing of manually curated excerpt transliterations are not documented.",
+      "requiredOwnerAction": "Identify the edition author and terms, and document curated excerpt provenance.",
+      "approvalEvidence": null
+    },
+    {
+      "id": "quran-word-data",
+      "name": "Quran Foundation word meanings, transliteration, morphology and pronunciation",
+      "usage": "Online-only QDC chapter reads, on-demand roots and audio; memory limited to reader session",
+      "sourceFiles": ["artifacts/islamic-prayer/utils/quranCache.ts", "artifacts/islamic-prayer/app/quran/[id].tsx"],
+      "attributionUrls": ["https://quran.com/", "https://quran.foundation/"],
+      "evidenceUrls": ["https://api-docs.quran.com/legal/developer-terms/", "https://api-docs.quran.com/docs/tutorials/content-sync/getting-started/"],
+      "rightsStatus": "unverified",
+      "evidence": "Developer terms reviewed 2026-10-08 distinguish content display from recording rights and restrict offline copies. The owner chose online-only: persistent caching/reuse/prefetch removed, with narrowly targeted legacy-cache cleanup. No Content Sync access is assumed.",
+      "requiredOwnerAction": "Confirm provider usage and word-audio rights. Keep offline availability disabled until approved Content Sync access and maintenance are implemented or specific permission is recorded.",
+      "approvalEvidence": null
+    },
+    {
+      "id": "tafsir-ibn-kathir",
+      "name": "Ibn Kathir abridged English tafsir, Mubarakpuri edition",
+      "usage": "Online-only QDC resource 169, parsed into text blocks in the open reader sheet",
+      "sourceFiles": ["artifacts/islamic-prayer/utils/tafsirData.ts", "artifacts/islamic-prayer/utils/tafsirCache.ts", "artifacts/islamic-prayer/components/TafsirSheet.tsx"],
+      "attributionUrls": ["https://quran.com/"],
+      "evidenceUrls": ["https://api-docs.quran.com/legal/developer-terms/", "https://api-docs.quran.com/docs/tutorials/content-sync/getting-started/"],
+      "rightsStatus": "unverified",
+      "evidence": "Edition attribution exists in the UI. Owner selected online-only; persistent reads/writes were removed and legacy cache cleanup added. Content Sync would be required for supported future offline resources.",
+      "requiredOwnerAction": "Confirm publisher/provider usage and attribution obligations. Keep offline tafsir disabled until approved sync or specific permission is established.",
+      "approvalEvidence": null
+    },
+    {
+      "id": "quran-recitations",
+      "name": "Sixteen Quran reciter/translation selections",
+      "usage": "Streamed verse/surah audio and reciter previews",
+      "sourceFiles": ["artifacts/islamic-prayer/utils/audioData.ts", "artifacts/islamic-prayer/utils/quranAudioFallback.ts", "artifacts/islamic-prayer/context/QuranPlayerContext.tsx"],
+      "attributionUrls": ["https://quran.com/", "https://alquran.cloud/", "https://mp3quran.net/", "https://everyayah.com/"],
+      "evidenceUrls": ["https://alquran.cloud/terms-and-conditions", "https://api-docs.quran.com/legal/developer-terms/"],
+      "rightsStatus": "unverified",
+      "evidence": "Code identifies reciters and hosts verses.quran.com, cdn.islamic.network, server8.mp3quran.net and everyayah.com. Provider availability and metadata do not establish rights in each recording.",
+      "requiredOwnerAction": "Confirm streaming and any caching rights per recording/provider; verify reciter attribution, including Ibrahim Walk English translation audio.",
+      "approvalEvidence": null
+    },
+    {
+      "id": "adhan-recordings",
+      "name": "Five bundled notification clips and streamed full/Fajr/short adhans",
+      "usage": "Native WAV notification sounds and foreground streamed audio",
+      "sourceFiles": ["artifacts/islamic-prayer/utils/adhanData.ts", "artifacts/islamic-prayer/assets/sounds/adhan_makkah.wav", "artifacts/islamic-prayer/assets/sounds/adhan_madinah.wav", "artifacts/islamic-prayer/assets/sounds/adhan_afasy.wav", "artifacts/islamic-prayer/assets/sounds/adhan_egyptian.wav", "artifacts/islamic-prayer/assets/sounds/adhan_turkish.wav"],
+      "attributionUrls": ["https://aladhan.com/download-adhans", "https://www.islamcan.com/audio/adhan/"],
+      "evidenceUrls": ["https://aladhan.com/credits-and-terms"],
+      "rightsStatus": "unverified",
+      "evidence": "AlAdhan explicitly retains audio copyrights. Source code supplies stream URLs; no tracked recording license or reproducible WAV derivation/provenance record was found. Short Turkish mode currently uses the Egyptian a10 recording.",
+      "requiredOwnerAction": "Obtain permission for distribution and edited notification excerpts, identify each clip's original recording, and verify reciter/location labels. Use commissioned or clearly licensed recordings if permission cannot be documented.",
+      "approvalEvidence": null
+    },
+    {
+      "id": "curated-islamic-text",
+      "name": "Hadith, dua/adhkar, Allah's names and selected Quran excerpts",
+      "usage": "Bundled reading content, widgets, reminders and share cards",
+      "sourceFiles": ["artifacts/islamic-prayer/utils/hadithData.ts", "artifacts/islamic-prayer/utils/duaData.ts", "artifacts/islamic-prayer/utils/adhkarSequence.ts", "artifacts/islamic-prayer/utils/namesData.ts", "artifacts/islamic-prayer/utils/namesEnrichment.ts", "artifacts/islamic-prayer/utils/ayahData.ts", "artifacts/islamic-prayer/ios/NuurWidget/NuurAdhkarWidget.swift"],
+      "attributionUrls": [],
+      "evidenceUrls": [],
+      "rightsStatus": "unverified",
+      "evidence": "Collection/verse references are stored, but translator, publisher, original import URLs and permissions are not consistently recorded. Collection citations alone do not verify translation rights or accuracy. Some adhkar entries are excerpts rather than full passages.",
+      "requiredOwnerAction": "Review each text/reference/grade and excerpt label with a qualified content reviewer; document original translation authorship or permission and widget-copy parity.",
+      "approvalEvidence": null
+    },
+    {
+      "id": "fonts",
+      "name": "Inter, Amiri Quran and Cormorant Garamond",
+      "usage": "Bundled application fonts",
+      "sourceFiles": ["artifacts/islamic-prayer/app/_layout.tsx", "artifacts/islamic-prayer/package.json"],
+      "attributionUrls": ["https://github.com/rsms/inter", "https://github.com/aliftype/amiri", "https://github.com/CatharsisFonts/Cormorant"],
+      "evidenceUrls": ["https://raw.githubusercontent.com/rsms/inter/master/LICENSE.txt", "https://raw.githubusercontent.com/aliftype/amiri/main/OFL.txt", "https://raw.githubusercontent.com/CatharsisFonts/Cormorant/master/OFL.txt"],
+      "rightsStatus": "license-evidence-found",
+      "evidence": "Installed @expo-google-fonts packages include LICENSE_FONT with SIL OFL 1.1. Public upstream license texts corroborate the license. Package copyright lines must be preserved with their exact distributed versions.",
+      "requiredOwnerAction": "Verify copyright and complete license notices are included and user-accessible in the final app distribution. Evidence of a license is not verification of notice packaging.",
+      "approvalEvidence": null
+    },
+    {
+      "id": "visual-assets",
+      "name": "Application branding and premium share/wallpaper artwork",
+      "usage": "Bundled app icon, backgrounds and exported share cards",
+      "sourceFiles": ["artifacts/islamic-prayer/app.json", "artifacts/islamic-prayer/components/cards/QuoteCard.tsx", "artifacts/islamic-prayer/components/share/ShareDecor.tsx"],
+      "attributionUrls": [],
+      "evidenceUrls": [],
+      "rightsStatus": "unverified",
+      "evidence": "Assets are present locally; ownership, commissions and upstream artwork provenance were not established by this review.",
+      "requiredOwnerAction": "Confirm rights to every included image/logo and permission for user-exported derivatives; remove unowned branding or stale nuur.app branding if not controlled.",
+      "approvalEvidence": null
+    }
+  ],
+  "bundledAdhanAssets": [
+    { "styleId": "makkah", "path": "artifacts/islamic-prayer/assets/sounds/adhan_makkah.wav", "sha256": "042296b2914faeebf03e1187bf18f0b562541af473e1cfa1b625241481ecc485", "originalRecordingVerified": false, "fullUrl": "https://cdn.aladhan.com/audio/adhans/a8.mp3", "fajrUrl": "https://www.islamcan.com/audio/adhan/azan9.mp3", "shortUrl": "https://cdn.aladhan.com/audio/adhans/a11-mansour-al-zahrani.mp3" },
+    { "styleId": "madinah", "path": "artifacts/islamic-prayer/assets/sounds/adhan_madinah.wav", "sha256": "e648c37c8e2084259a77f33aaef85d961fba7360dd74b970314abd0c2bd9426b", "originalRecordingVerified": false, "fullUrl": "https://cdn.aladhan.com/audio/adhans/a1.mp3", "fajrUrl": "https://www.islamcan.com/audio/adhan/azan10.mp3", "shortUrl": "https://cdn.aladhan.com/audio/adhans/a6.mp3" },
+    { "styleId": "afasy", "path": "artifacts/islamic-prayer/assets/sounds/adhan_afasy.wav", "sha256": "34f4716c8498979bf5c3261a38fc7adee01a6dcc6b9f61929c2902e094114ccc", "originalRecordingVerified": false, "fullUrl": "https://cdn.aladhan.com/audio/adhans/a9.mp3", "fajrUrl": "https://cdn.aladhan.com/audio/adhans/a4.mp3", "shortUrl": "https://cdn.aladhan.com/audio/adhans/a7.mp3" },
+    { "styleId": "egyptian", "path": "artifacts/islamic-prayer/assets/sounds/adhan_egyptian.wav", "sha256": "ccda6d8e18ab228888387292cf8e35f345e04a8c25a57ea7709d03bb33e10dfd", "originalRecordingVerified": false, "fullUrl": "https://cdn.aladhan.com/audio/adhans/a10.mp3", "fajrUrl": "https://www.islamcan.com/audio/adhan/azan14.mp3", "shortUrl": "https://cdn.aladhan.com/audio/adhans/a10.mp3" },
+    { "styleId": "turkish", "path": "artifacts/islamic-prayer/assets/sounds/adhan_turkish.wav", "sha256": "c019e331df27fb19e2d6347f1383f1dd9cd32866fd20d023950b47e8a7a87da0", "originalRecordingVerified": false, "fullUrl": "https://cdn.aladhan.com/audio/adhans/a2.mp3", "fajrUrl": "https://www.islamcan.com/audio/adhan/azan18.mp3", "shortUrl": "https://cdn.aladhan.com/audio/adhans/a10.mp3" }
+  ]
+}

@@ -1,6 +1,7 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@/utils/AppStorage";
 import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
+import { scheduleAuxiliaryNotification } from "@/utils/auxiliaryNotifications";
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -495,7 +496,7 @@ export default function TrackerScreen() {
   const {
     themeColors: colors,
     effectiveDisplayMode,
-    location, calcMethod, madhab, highLatRule, polarResolution, timeFormat, prayerOffsets,
+    location, calcMethod, madhab, highLatRule, polarResolution, ummAlQuraIshaPolicy, timeFormat, prayerOffsets,
     prayerPreReminderMinutes, setPrayerPreReminderMinutes,
     // The app-wide prayer times are always computed for the *current* date,
     // so they're the right source for deciding whether we're before today's
@@ -622,7 +623,7 @@ export default function TrackerScreen() {
 
     if (Platform.OS !== "web") {
       newMilestones.forEach((m, idx) => {
-        Notifications.scheduleNotificationAsync({
+        scheduleAuxiliaryNotification({
           content: {
             title: "Prayer Streak 🕌",
             body: MILESTONE_MESSAGES[m],
@@ -699,11 +700,11 @@ export default function TrackerScreen() {
     const prayerDate = dateForCivilDateInTimeZone(year, month, day, location.timezone);
     const raw = calculatePrayerTimes(
       location.latitude, location.longitude, location.timezone,
-      prayerDate, calcMethod, madhab, highLatRule, timeFormat, polarResolution,
+      prayerDate, calcMethod, madhab, highLatRule, timeFormat, polarResolution, ummAlQuraIshaPolicy,
     );
     const adjusted = applyPrayerOffsets(raw, prayerOffsets, location.timezone, timeFormat);
     setPrayerTimes(adjusted);
-  }, [selectedKey, location, calcMethod, madhab, highLatRule, polarResolution, timeFormat, prayerOffsets]);
+  }, [selectedKey, location, calcMethod, madhab, highLatRule, polarResolution, ummAlQuraIshaPolicy, timeFormat, prayerOffsets]);
 
   const togglePrayer = useCallback((p: PrayerKey) => {
     if (Platform.OS !== "web") {

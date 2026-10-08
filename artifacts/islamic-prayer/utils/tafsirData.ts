@@ -156,7 +156,8 @@ export async function fetchSurahTafsir(
     throw new Error(`tafsir-http-${res.status}`);
   }
   const json = (await res.json()) as QdcByChapterResponse;
-  const list = Array.isArray(json?.tafsirs) ? json.tafsirs : [];
+  if (!Array.isArray(json?.tafsirs)) throw new Error("bad-tafsir-response");
+  const list = json.tafsirs;
   const byAyah: TafsirByAyah = {};
   for (const item of list) {
     const key = item?.verse_key ?? "";

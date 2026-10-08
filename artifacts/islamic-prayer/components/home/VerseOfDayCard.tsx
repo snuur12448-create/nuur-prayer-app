@@ -83,6 +83,8 @@ function VerseOfDayCardInner({
           <View style={[styles.verseActions, accessibilityLayout && styles.verseActionsAccessibility]}>
             <TouchableOpacity
               onPress={onReadAyah}
+              accessibilityRole="button"
+              accessibilityLabel={`Read ${ayah.surahName}, verse ${ayah.ayahNumber}`}
               activeOpacity={0.8}
               style={[styles.verseBtn, accessibilityLayout && styles.verseBtnAccessibility, { backgroundColor: colors.gold + "1E" }]}
             >
@@ -91,6 +93,8 @@ function VerseOfDayCardInner({
             </TouchableOpacity>
             <TouchableOpacity
               onPress={onCopyAyah}
+              accessibilityRole="button"
+              accessibilityLabel={ayahCopied ? "Verse copied" : "Copy verse"}
               activeOpacity={0.8}
               style={[styles.verseBtn, accessibilityLayout && styles.verseBtnAccessibility, { backgroundColor: colors.gold + "1E" }]}
             >
@@ -98,6 +102,8 @@ function VerseOfDayCardInner({
             </TouchableOpacity>
             <TouchableOpacity
               onPress={onShareAyah}
+              accessibilityRole="button"
+              accessibilityLabel="Share verse"
               activeOpacity={0.8}
               style={[styles.verseBtn, accessibilityLayout && styles.verseBtnAccessibility, { backgroundColor: colors.gold + "1E" }]}
             >
@@ -154,6 +160,9 @@ const styles = StyleSheet.create({
   verseActionsAccessibility: { alignSelf: "stretch" },
   verseSrc: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 1, flexShrink: 1, marginRight: 8 },
   verseBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: "center",
     flexDirection: "row",
     alignItems: "center",
     gap: 4,

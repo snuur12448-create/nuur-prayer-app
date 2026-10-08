@@ -27,6 +27,7 @@
 		A10000042FBF000100000001 /* adhan_egyptian.wav in Resources */ = {isa = PBXBuildFile; fileRef = A10000142FBF000100000001 /* adhan_egyptian.wav */; };
 		A10000052FBF000100000001 /* adhan_turkish.wav in Resources */ = {isa = PBXBuildFile; fileRef = A10000152FBF000100000001 /* adhan_turkish.wav */; };
 		A8AD3D26A7F8248C3B851FAD /* libPods-Nuur.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E3C363BD1B7F482AF949739 /* libPods-Nuur.a */; };
+		B30000012FC1000100000001 /* NuurBackupCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000022FC1000100000001 /* NuurBackupCrypto.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		E26FD8A50E7179B467965E4B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CF9148998AEBD0710956DFA /* ExpoModulesProvider.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
@@ -80,6 +81,7 @@
 		A10000142FBF000100000001 /* adhan_egyptian.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = adhan_egyptian.wav; path = ../assets/sounds/adhan_egyptian.wav; sourceTree = SOURCE_ROOT; };
 		A10000152FBF000100000001 /* adhan_turkish.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = adhan_turkish.wav; path = ../assets/sounds/adhan_turkish.wav; sourceTree = SOURCE_ROOT; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Nuur/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B30000022FC1000100000001 /* NuurBackupCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NuurBackupCrypto.swift; path = Nuur/NuurBackupCrypto.swift; sourceTree = "<group>"; };
 		B844BE2B4BC089A80B3B7434 /* Pods-Nuur.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Nuur.debug.xcconfig"; path = "Target Support Files/Pods-Nuur/Pods-Nuur.debug.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		BDECD71BA54FA03C560738E8 /* Pods-Nuur.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Nuur.release.xcconfig"; path = "Target Support Files/Pods-Nuur/Pods-Nuur.release.xcconfig"; sourceTree = "<group>"; };
@@ -171,6 +173,7 @@
 				1FBB1B232FBEB3F900EBB921 /* NuurTimetableWidget.swift */,
 				1F218B042FB690AA00E51C36 /* PrivacyInfo.xcprivacy */,
 				1FCE29FD2FAE65770093DD2E /* NuurBridge.swift */,
+				B30000022FC1000100000001 /* NuurBackupCrypto.swift */,
 				1FCE2A1A2FAE69E40093DD2E /* NuurBridge.m */,
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
 				F11748442D0722820044C1D9 /* Nuur-Bridging-Header.h */,
@@ -521,6 +524,7 @@
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
 				E26FD8A50E7179B467965E4B /* ExpoModulesProvider.swift in Sources */,
 				1FCE29FF2FAE65770093DD2E /* NuurBridge.swift in Sources */,
+				B30000012FC1000100000001 /* NuurBackupCrypto.swift in Sources */,
 				1FBB1B292FBF010000EBB921 /* AdhkarState.swift in Sources */,
 				1FBB1B2C2FBF010000EBB921 /* VerseOfMoment.swift in Sources */,
 				1FBB1B272FBEB42500EBB921 /* DailyTimetable.swift in Sources */,
@@ -555,7 +559,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Nuur/Nuur.entitlements;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = FFD8LPJSCS;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -592,7 +596,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Nuur/Nuur.entitlements;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = FFD8LPJSCS;
 				INFOPLIST_FILE = Nuur/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
@@ -631,7 +635,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_ENTITLEMENTS = NuurWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FFD8LPJSCS;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -681,7 +685,7 @@
 				CODE_SIGN_ENTITLEMENTS = NuurWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FFD8LPJSCS;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;

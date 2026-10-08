@@ -404,7 +404,7 @@ private func adhkarState(_ persisted: AdhkarState, at date: Date,
     if persisted.dateISO == dateKey { return persisted }
     return AdhkarState(
         dateISO: dateKey, recitedIds: [], inProgressId: nil, inProgressCount: 0,
-        morningCompleted: false, eveningCompleted: false
+        morningCompleted: false, eveningCompleted: false, maintenanceEpoch: persisted.maintenanceEpoch
     )
 }
 

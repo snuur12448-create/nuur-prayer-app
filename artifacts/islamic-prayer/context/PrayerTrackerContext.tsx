@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@/utils/AppStorage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 export const TRACKER_PRAYERS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;

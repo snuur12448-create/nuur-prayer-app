@@ -11,6 +11,18 @@ import {
   formatTimeInTimeZone,
   type TimeZoneValue,
 } from './timeZone';
+import {
+  DEFAULT_UMM_AL_QURA_ISHA_POLICY,
+  resolveUmmAlQuraIsha,
+  type UmmAlQuraIshaInfo,
+  type UmmAlQuraIshaPolicy,
+} from './ummAlQuraIsha';
+export {
+  DEFAULT_UMM_AL_QURA_ISHA_POLICY,
+  normalizeUmmAlQuraIshaPolicy,
+  type UmmAlQuraIshaInfo,
+  type UmmAlQuraIshaPolicy,
+} from './ummAlQuraIsha';
 
 export interface PrayerTime {
   name: string;
@@ -29,6 +41,8 @@ export interface PrayerTimesResult {
   date: Date;
   /** Present only when a polar-day/night estimate replaced unavailable solar values. */
   polarFallback: PolarFallbackInfo | null;
+  /** Explicit interval policy and calendar-availability disclosure, if relevant. */
+  ummAlQuraIsha: UmmAlQuraIshaInfo | null;
 }
 
 export type CalcMethodId =
@@ -72,7 +86,7 @@ export const CALC_METHODS: CalcMethodInfo[] = [
   { id: 'MuslimWorldLeague',    label: 'Muslim World League',   region: 'Europe & Far East',  detail: 'Fajr 18° · Isha 17°' },
   { id: 'Egyptian',             label: 'Egyptian',              region: 'Africa & Asia',      detail: 'Fajr 19.5° · Isha 17.5°' },
   { id: 'Karachi',              label: 'University of Karachi', region: 'Pakistan & South Asia', detail: 'Fajr 18° · Isha 18°' },
-  { id: 'UmmAlQura',            label: 'Umm al-Qura',          region: 'Saudi Arabia',       detail: 'Fajr 18.5° · Isha 90 min; confirm Ramadan times locally' },
+  { id: 'UmmAlQura',            label: 'Umm al-Qura',          region: 'Saudi Arabia',       detail: 'Fajr 18.5° · Choose Isha interval/Ramadan policy; follow local authority' },
   { id: 'Dubai',                label: 'Dubai',                 region: 'UAE',                detail: 'Fajr 18.2° · Isha 18.2°' },
   { id: 'Kuwait',               label: 'Kuwait',                region: 'Kuwait',             detail: 'Fajr 18° · Isha 17.5°' },
   { id: 'Qatar',                label: 'Qatar',                 region: 'Qatar',              detail: 'Fajr 18° · Isha 90 min' },
@@ -145,6 +159,7 @@ function buildParams(
   madhabId: MadhabId,
   highLatRuleId: HighLatRuleId,
   polarResolutionId: PolarResolutionId,
+  ummAlQuraIshaInterval: 90 | 120 = 90,
 ) {
   let params;
 
@@ -163,6 +178,7 @@ function buildParams(
       break;
     case 'UmmAlQura':
       params = CalculationMethod.UmmAlQura();
+      params.ishaInterval = ummAlQuraIshaInterval;
       break;
     case 'Dubai':
       params = CalculationMethod.Dubai();
@@ -236,15 +252,20 @@ export function calculatePrayerTimes(
   highLatRuleId: HighLatRuleId = DEFAULT_HIGH_LAT_RULE,
   timeFormat: TimeFormat = DEFAULT_TIME_FORMAT,
   polarResolutionId: PolarResolutionId = DEFAULT_POLAR_RESOLUTION,
+  ummAlQuraIshaPolicy: UmmAlQuraIshaPolicy = DEFAULT_UMM_AL_QURA_ISHA_POLICY,
 ): PrayerTimesResult {
   const coordinates = new Coordinates(lat, lng);
   const calculationDate = civilDateInTimeZone(date, timezone);
   const normalizedPolarResolution = normalizePolarResolution(polarResolutionId);
+  const ummAlQuraIsha = methodId === 'UmmAlQura'
+    ? resolveUmmAlQuraIsha(date, timezone, ummAlQuraIshaPolicy)
+    : null;
   const params = buildParams(
     methodId,
     madhabId,
     normalizeHighLatRule(highLatRuleId),
     normalizedPolarResolution,
+    ummAlQuraIsha?.intervalMinutes,
   );
   const pt = new PrayerTimes(coordinates, calculationDate, params);
 
@@ -258,6 +279,7 @@ export function calculatePrayerTimes(
       madhabId,
       normalizeHighLatRule(highLatRuleId),
       'Unresolved',
+      ummAlQuraIsha?.intervalMinutes,
     );
     const unresolved = new PrayerTimes(coordinates, calculationDate, unresolvedParams);
     if (hasUnavailableSolarTimes(unresolved) && !hasUnavailableSolarTimes(pt)) {
@@ -287,6 +309,7 @@ export function calculatePrayerTimes(
     isha:    mk('Isha',    'العشاء', pt.isha),
     date: calculationDate,
     polarFallback,
+    ummAlQuraIsha,
   };
 }
 

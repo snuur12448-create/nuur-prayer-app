@@ -2,19 +2,21 @@
 // Quran offline cache + smart prefetch
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Persists per-surah verse text (Arabic + translation + transliteration) and
-// word-by-word data into AsyncStorage so the Quran reader works in airplane
+// Persists AlQuran Cloud verse text (Arabic + translation + transliteration)
+// into AsyncStorage so the main Quran reader works in airplane
 // mode, the masjid basement, on the train through a tunnel — anywhere with no
 // signal. When the user opens a surah, we silently prefetch the next two so
 // they can keep reading without ever hitting the network again.
 //
 // Sources mirrored:
 //   • api.alquran.cloud      → verses (quran-uthmani + en.sahih + en.transliteration)
-//   • api.qurancdn.com       → word-by-word morphology
+//   • api.qurancdn.com       → ONLINE-ONLY word-by-word morphology
 //
 // Storage shape:
 //   nuur_quran_verses_v4_<n>  → { v: 4, source, t: <ms>, d: Verse[] }
-//   nuur_quran_words_v4_<n>   → { v: 4, source, t: <ms>, d: Record<verseNum, WordInfo[]> }
+// QF word data is never persisted or restored. Approved Content Sync access
+// is required before offering offline QF content; ordinary APIs do not replace
+// that requirement. Old caches are removed by purgeLegacyQuranFoundationCaches.
 //
 // Every cache and network response is structurally validated before use. Arabic
 // must also match the immutable bundled integrity anchor. If the network is
@@ -22,7 +24,7 @@
 // Sahih International text rather than displaying incomplete content.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@/utils/AppStorage";
 import {
   getBundledSurahVerses,
   getExpectedVerseCount,
@@ -44,24 +46,20 @@ export interface CachedWord {
 
 export type CachedWordsByVerse = Record<number, CachedWord[]>;
 
+export interface OnlineWordsResult {
+  words: CachedWordsByVerse;
+  storage: "session-only";
+}
+
 export const QURAN_CACHE_VERSION = 4;
 const VERSES_PREFIX = `nuur_quran_verses_v${QURAN_CACHE_VERSION}_`;
-const WORDS_PREFIX = `nuur_quran_words_v${QURAN_CACHE_VERSION}_`;
 const VERSES_KEY = (n: number) => `${VERSES_PREFIX}${n}`;
-const WORDS_KEY  = (n: number) => `${WORDS_PREFIX}${n}`;
 
 interface VerseCachePayload {
   v: number;
   source: "network-validated";
   t: number;
   d: CachedVerse[];
-}
-
-interface WordCachePayload {
-  v: number;
-  source: "quran-foundation-qdc";
-  t: number;
-  d: CachedWordsByVerse;
 }
 
 function validateWordsByVerse(n: number, value: unknown): CachedWordsByVerse {
@@ -82,7 +80,7 @@ function validateWordsByVerse(n: number, value: unknown): CachedWordsByVerse {
       if (!Number.isInteger(word.position) || (word.position as number) < 1) {
         throw new Error("bad-word-position");
       }
-      if (typeof word.location !== "string" || !word.location) throw new Error("bad-word-location");
+      if (word.location !== `${n}:${verseNumber}:${word.position}`) throw new Error("bad-word-location");
       if (typeof word.arabic !== "string" || !/[\u0600-\u06FF]/u.test(word.arabic)) {
         throw new Error("bad-word-arabic");
       }
@@ -120,22 +118,6 @@ export async function getCachedVerses(n: number): Promise<CachedVerse[] | null> 
     return validateSurahVerses(n, parsed.d) as CachedVerse[];
   } catch {
     // Corrupt, partial, or pre-validation cache data must never be displayed.
-    await AsyncStorage.removeItem(key).catch(() => {});
-    return null;
-  }
-}
-
-export async function getCachedWords(n: number): Promise<CachedWordsByVerse | null> {
-  const key = WORDS_KEY(n);
-  try {
-    const raw = await AsyncStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<WordCachePayload>;
-    if (parsed?.v !== QURAN_CACHE_VERSION || parsed.source !== "quran-foundation-qdc") {
-      throw new Error("stale-words-cache");
-    }
-    return validateWordsByVerse(n, parsed.d);
-  } catch {
     await AsyncStorage.removeItem(key).catch(() => {});
     return null;
   }
@@ -202,10 +184,10 @@ async function fetchAndCacheVerses(
   return validated;
 }
 
-async function fetchAndCacheWords(
+async function fetchOnlineWords(
   n: number,
   signal?: AbortSignal,
-): Promise<CachedWordsByVerse> {
+): Promise<OnlineWordsResult> {
   const res = await fetch(
     `https://api.qurancdn.com/api/qdc/verses/by_chapter/${n}?words=true&word_fields=text_uthmani,transliteration,translation&per_page=300&page=1`,
     { signal },
@@ -232,18 +214,7 @@ async function fetchAndCacheWords(
       }));
   });
   const validated = validateWordsByVerse(n, byVerse);
-  try {
-    await AsyncStorage.setItem(
-      WORDS_KEY(n),
-      JSON.stringify({
-        v: QURAN_CACHE_VERSION,
-        source: "quran-foundation-qdc",
-        t: Date.now(),
-        d: validated,
-      } satisfies WordCachePayload),
-    );
-  } catch { /* ignore */ }
-  return validated;
+  return { words: validated, storage: "session-only" };
 }
 
 // ── Public: fetch with cache ────────────────────────────────────────────────
@@ -269,9 +240,15 @@ export async function loadWords(
   n: number,
   signal?: AbortSignal,
 ): Promise<CachedWordsByVerse> {
-  const cached = await getCachedWords(n);
-  if (cached) return cached;
-  return fetchAndCacheWords(n, signal);
+  return (await loadWordsWithStatus(n, signal)).words;
+}
+
+export async function loadWordsWithStatus(
+  n: number,
+  signal?: AbortSignal,
+): Promise<OnlineWordsResult> {
+  if (signal?.aborted) throw new Error("word-load-aborted");
+  return fetchOnlineWords(n, signal);
 }
 
 // ── Smart prefetch (silent, deduped) ────────────────────────────────────────
@@ -286,14 +263,8 @@ async function prefetchOne(n: number): Promise<void> {
   if (inFlight.has(n)) return;
   inFlight.add(n);
   try {
-    const [haveV, haveW] = await Promise.all([
-      getCachedVerses(n),
-      getCachedWords(n),
-    ]);
-    const jobs: Promise<unknown>[] = [];
-    if (!haveV) jobs.push(fetchAndCacheVerses(n).catch(() => null));
-    if (!haveW) jobs.push(fetchAndCacheWords(n).catch(() => null));
-    if (jobs.length) await Promise.all(jobs);
+    // Only AlQuran Cloud text is prefetched. QF words are on-demand/online-only.
+    if (!await getCachedVerses(n)) await fetchAndCacheVerses(n).catch(() => null);
   } finally {
     inFlight.delete(n);
   }

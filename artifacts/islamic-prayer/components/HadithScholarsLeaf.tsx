@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import Svg, { Circle, Defs, Line, RadialGradient, Stop } from "react-native-svg";
@@ -38,6 +38,8 @@ type Props = {
 };
 
 function HadithScholarsLeafInner({ colors, hadith, hadithCopied, onCopy, onShare, onMore }: Props) {
+  const { fontScale } = useWindowDimensions();
+  const largeText = fontScale >= 1.4;
   const { name: narratorName, honorific } = splitNarrator(hadith.narrator);
   const ref = shortRef(hadith.source);
   const leafEdge = colors.tint + "40";
@@ -56,7 +58,7 @@ function HadithScholarsLeafInner({ colors, hadith, hadithCopied, onCopy, onShare
   return (
     <View style={styles.wrapper}>
       {/* Header — sits in the dark app chrome above the paper */}
-      <View style={styles.header}>
+      <View style={[styles.header, largeText && { flexWrap: "wrap", gap: 8 }]}>
         <View style={[styles.badge, { backgroundColor: colors.gold + "20", borderColor: colors.gold + "55" }]}>
           <Text style={[styles.badgeMark, { color: colors.gold }]} allowFontScaling={false}>☾</Text>
           <Text style={[styles.badgeText, { color: colors.gold }]}>HADITH OF THE DAY</Text>
@@ -101,10 +103,10 @@ function HadithScholarsLeafInner({ colors, hadith, hadithCopied, onCopy, onShare
             style={styles.leafPaper}
           >
             {/* TOP RIBBON — chain sigil + topic + ḥadīth № */}
-            <View style={styles.ribbon}>
+            <View style={[styles.ribbon, largeText && { flexDirection: "column", alignItems: "flex-start", gap: 8 }]}>
               <View style={styles.ribbonLeft}>
                 <ChainSigil stroke={colors.paperRule} />
-                <Text style={styles.ribbonText} numberOfLines={1}>
+                <Text style={styles.ribbonText} numberOfLines={largeText ? undefined : 1}>
                   Bāb · {hadith.topic}
                 </Text>
               </View>
@@ -117,7 +119,7 @@ function HadithScholarsLeafInner({ colors, hadith, hadithCopied, onCopy, onShare
               <Text style={styles.pilcrow} allowFontScaling={false}>❖</Text>
 
               {/* Arabic — Amiri Quran, RTL */}
-              <Text style={styles.arabic} allowFontScaling={false}>
+              <Text style={styles.arabic} accessibilityLanguage="ar">
                 {hadith.arabic}
               </Text>
 
@@ -140,7 +142,7 @@ function HadithScholarsLeafInner({ colors, hadith, hadithCopied, onCopy, onShare
                   <Text style={styles.isnadName}>
                     {narratorName}
                     {honorific ? "  " : ""}
-                    {honorific ? <Text style={styles.isnadHonorific} allowFontScaling={false}>{honorific}</Text> : null}
+                    {honorific ? <Text style={styles.isnadHonorific} accessibilityLanguage="ar">{honorific}</Text> : null}
                   </Text>
                 </View>
               </View>
@@ -149,7 +151,7 @@ function HadithScholarsLeafInner({ colors, hadith, hadithCopied, onCopy, onShare
             {/* Source — library catalog stamp */}
             <View style={styles.sourceStamp}>
               <Text style={styles.sourceLabel}>﹡ SOURCE</Text>
-              <Text style={styles.sourceText} numberOfLines={2}>
+              <Text style={styles.sourceText}>
                 {hadith.source}
               </Text>
             </View>
@@ -157,7 +159,7 @@ function HadithScholarsLeafInner({ colors, hadith, hadithCopied, onCopy, onShare
         </View>
 
         {/* Wax seal — sits over the upper-right corner of the leaf */}
-        <View style={styles.sealWrap} pointerEvents="none">
+        <View style={styles.sealWrap} pointerEvents="none" accessible accessibilityLabel={`Hadith grade: ${hadith.grade}`}>
           <WaxSeal label={hadith.grade} />
         </View>
       </View>
@@ -173,7 +175,7 @@ function HadithScholarsLeafInner({ colors, hadith, hadithCopied, onCopy, onShare
         <Feather name="user" size={12} color={colors.gold} />
         <Text
           style={[styles.moreText, { color: colors.gold }]}
-          numberOfLines={1}
+          numberOfLines={largeText ? undefined : 1}
           ellipsizeMode="tail"
         >
           More on {hadith.topic}
@@ -297,8 +299,8 @@ const makeStyles = (c: ThemeColors) => {
       gap: 6,
     },
     iconBtn: {
-      width: 30,
-      height: 30,
+      width: 44,
+      height: 44,
       borderRadius: 8,
       borderWidth: 1,
       alignItems: "center",
@@ -479,6 +481,7 @@ const makeStyles = (c: ThemeColors) => {
     },
     // ── CTA ─────────────────────────────────────────────────
     moreBtn: {
+      minHeight: 44,
       marginTop: 16,
       flexDirection: "row",
       alignItems: "center",

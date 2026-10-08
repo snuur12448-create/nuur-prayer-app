@@ -1,10 +1,12 @@
 import { NativeModules, NativeEventEmitter, Platform } from "react-native";
 import type { WidgetPrayerDay } from "./widgetPrayerSchedule";
+import { isStorageMaintenanceActive } from "./AppStorage";
 
 const { NuurBridge } = NativeModules as {
   NuurBridge?: {
     writeWidgetData: (json: string) => Promise<void>;
     reloadWidget: () => Promise<void>;
+    readWidgetDiagnostics?: () => Promise<WidgetDiagnostics>;
     refreshWeather?: (latitude: number, longitude: number) => Promise<void>;
     readAdhkarState?: () => Promise<AdhkarStateNative>;
     markAdhkarRecited?: (id: string) => Promise<AdhkarStateNative>;
@@ -15,6 +17,31 @@ const { NuurBridge } = NativeModules as {
     removeListeners?: (count: number) => void;
   };
 };
+
+export interface WidgetDiagnostics {
+  available: boolean;
+  generatedAt: string | null;
+  validThrough: string | null;
+  location: string | null;
+  timeZone: string | null;
+  prayerDayCount: number;
+}
+
+/** Inspect the saved App Group data, not an assertion that iOS rendered it. */
+export async function readWidgetDiagnostics(): Promise<WidgetDiagnostics> {
+  const empty: WidgetDiagnostics = { available: false, generatedAt: null,
+    validThrough: null, location: null, timeZone: null, prayerDayCount: 0 };
+  if (Platform.OS !== "ios" || !NuurBridge?.readWidgetDiagnostics) return empty;
+  const raw = await NuurBridge.readWidgetDiagnostics();
+  const date = (value: unknown) => typeof value === "string" && Number.isFinite(Date.parse(value)) ? value : null;
+  return {
+    available: raw.available === true,
+    generatedAt: date(raw.generatedAt), validThrough: date(raw.validThrough),
+    location: typeof raw.location === "string" ? raw.location : null,
+    timeZone: typeof raw.timeZone === "string" ? raw.timeZone : null,
+    prayerDayCount: Number.isInteger(raw.prayerDayCount) && raw.prayerDayCount >= 0 ? raw.prayerDayCount : 0,
+  };
+}
 
 export interface WidgetSnapshot {
   /** ISO 8601 UTC timestamps for today's prayers. */
@@ -67,6 +94,7 @@ export interface WidgetSnapshot {
  * (e.g. running in Expo Go without a custom dev client).
  */
 export async function pushWidgetSnapshot(snapshot: WidgetSnapshot): Promise<boolean> {
+  if (isStorageMaintenanceActive()) return false;
   if (Platform.OS !== "ios") return false;
   if (!NuurBridge) {
     if (__DEV__) {
@@ -79,6 +107,7 @@ export async function pushWidgetSnapshot(snapshot: WidgetSnapshot): Promise<bool
   }
   try {
     await NuurBridge.writeWidgetData(JSON.stringify(snapshot));
+    if (isStorageMaintenanceActive()) return false;
     await NuurBridge.reloadWidget();
     if (__DEV__) {
       console.log("[NuurBridge] snapshot pushed:", snapshot.location, snapshot.hijri);
@@ -101,6 +130,7 @@ export async function pushWidgetSnapshot(snapshot: WidgetSnapshot): Promise<bool
  * back to no-weather-trigger in that case.
  */
 export async function refreshWeather(latitude: number, longitude: number): Promise<void> {
+  if (isStorageMaintenanceActive()) return;
   if (Platform.OS !== "ios") return;
   if (!NuurBridge || !NuurBridge.refreshWeather) return;
   try {
@@ -156,6 +186,7 @@ export async function readAdhkarState(): Promise<AdhkarStateNative> {
 /** Mark a dhikr as recited. Idempotent. Resolves with the new state.
  *  No-ops with an empty state on non-iOS or when the native module is missing. */
 export async function markAdhkarRecited(id: string): Promise<AdhkarStateNative> {
+  if (isStorageMaintenanceActive()) return EMPTY_ADHKAR_STATE;
   if (Platform.OS !== "ios") return EMPTY_ADHKAR_STATE;
   if (!NuurBridge || !NuurBridge.markAdhkarRecited) return EMPTY_ADHKAR_STATE;
   try {

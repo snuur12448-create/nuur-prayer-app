@@ -31,6 +31,15 @@ jobs:
       - run: pnpm --dir artifacts/islamic-prayer run qa:notifications
       - run: pnpm --dir artifacts/islamic-prayer run qa:quran
       - run: pnpm --dir artifacts/islamic-prayer run qa:hijri
+      - run: pnpm --dir artifacts/islamic-prayer run qa:reader
+      - run: pnpm --dir artifacts/islamic-prayer run qa:audio
+      - run: pnpm --dir artifacts/islamic-prayer run qa:background
+      - run: pnpm --dir artifacts/islamic-prayer run qa:ramadan
+      - run: pnpm --dir artifacts/islamic-prayer run qa:health
+      - run: pnpm --dir artifacts/islamic-prayer run qa:data-controls
+      # Validate the inventory, without pretending unresolved owner approvals pass.
+      # The strict command (without this flag) must pass separately before publishing.
+      - run: pnpm --dir artifacts/islamic-prayer run qa:store-readiness --inventory-only
       - run: pnpm --dir artifacts/islamic-prayer run qa:release
       - run: pnpm --dir artifacts/islamic-prayer exec expo install --check
       - run: pnpm --dir artifacts/islamic-prayer exec expo export --platform ios --output-dir /tmp/nuur-ios-export
@@ -54,6 +63,10 @@ jobs:
       - name: Install locked CocoaPods dependencies
         working-directory: artifacts/islamic-prayer/ios
         run: bundle exec pod install --deployment
+      - name: Verify native backup encryption
+        run: pnpm --dir artifacts/islamic-prayer run qa:backup-crypto
+      - name: Verify app and widget data-maintenance locking
+        run: pnpm --dir artifacts/islamic-prayer run qa:shared-data
       - name: Build app and widget extension
         working-directory: artifacts/islamic-prayer
         run: >-

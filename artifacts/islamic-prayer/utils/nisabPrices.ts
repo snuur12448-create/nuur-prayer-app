@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@/utils/AppStorage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CurrencyCode,

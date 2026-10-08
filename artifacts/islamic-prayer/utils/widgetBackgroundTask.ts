@@ -1,5 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as BackgroundFetch from "expo-background-fetch";
+import AsyncStorage from "@/utils/AppStorage";
+import * as BackgroundTask from "expo-background-task";
 import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
 
@@ -15,6 +15,7 @@ import {
   DEFAULT_TIME_FORMAT,
   normalizeHighLatRule,
   normalizePolarResolution,
+  normalizeUmmAlQuraIshaPolicy,
   type CalcMethodId,
   type HighLatRuleId,
   type MadhabId,
@@ -28,7 +29,11 @@ import {
 } from "@/utils/widgetPrayerSchedule";
 import type { TimeZoneValue } from "@/utils/timeZone";
 
-const TASK_NAME = "com.nuur.widget-refresh";
+// Use a new name so a persisted BackgroundFetch consumer cannot be mistaken
+// for a registered BackgroundTask worker after an in-place update.
+export const WIDGET_BACKGROUND_TASK_NAME = "com.nuur.widget-refresh.v2";
+const TASK_NAME = WIDGET_BACKGROUND_TASK_NAME;
+const LEGACY_TASK_NAME = "com.nuur.widget-refresh";
 
 const STORAGE_KEYS = {
   LOCATION: "location_data",
@@ -36,6 +41,7 @@ const STORAGE_KEYS = {
   MADHAB: "madhab",
   HIGH_LAT_RULE: "high_lat_rule",
   POLAR_RESOLUTION: "polar_resolution",
+  UMM_AL_QURA_ISHA_POLICY: "umm_al_qura_isha_policy",
   TIME_FORMAT: "time_format",
   THEME: "app_theme",
   TRACKER: "nuur_prayer_tracker",
@@ -130,6 +136,7 @@ async function readSnapshotInputs() {
     madhabRaw,
     highLatRaw,
     polarResolutionRaw,
+    ummAlQuraIshaPolicyRaw,
     timeFmtRaw,
     themeRaw,
     trackerRaw,
@@ -140,6 +147,7 @@ async function readSnapshotInputs() {
     AsyncStorage.getItem(STORAGE_KEYS.MADHAB),
     AsyncStorage.getItem(STORAGE_KEYS.HIGH_LAT_RULE),
     AsyncStorage.getItem(STORAGE_KEYS.POLAR_RESOLUTION),
+    AsyncStorage.getItem(STORAGE_KEYS.UMM_AL_QURA_ISHA_POLICY),
     AsyncStorage.getItem(STORAGE_KEYS.TIME_FORMAT),
     AsyncStorage.getItem(STORAGE_KEYS.THEME),
     AsyncStorage.getItem(STORAGE_KEYS.TRACKER),
@@ -170,6 +178,7 @@ async function readSnapshotInputs() {
     madhab: (madhabRaw as MadhabId) || DEFAULT_MADHAB,
     highLatRule: normalizeHighLatRule(highLatRaw),
     polarResolution: normalizePolarResolution(polarResolutionRaw),
+    ummAlQuraIshaPolicy: normalizeUmmAlQuraIshaPolicy(ummAlQuraIshaPolicyRaw),
     timeFormat: (timeFmtRaw as TimeFormat) || DEFAULT_TIME_FORMAT,
     themeName: themeRaw || undefined,
     trackerData,
@@ -187,6 +196,7 @@ export async function refreshWidgetSnapshotFromStorage(): Promise<boolean> {
   const todayRaw = calculatePrayerTimes(
     latitude, longitude, timezone, today,
     inputs.calcMethod, inputs.madhab, inputs.highLatRule, inputs.timeFormat, inputs.polarResolution,
+    inputs.ummAlQuraIshaPolicy,
   );
   const todayPT = applyPrayerOffsets(
     todayRaw,
@@ -206,6 +216,7 @@ export async function refreshWidgetSnapshotFromStorage(): Promise<boolean> {
     polarResolution: inputs.polarResolution,
     timeFormat: inputs.timeFormat,
     prayerOffsets: inputs.prayerOffsets,
+    ummAlQuraIshaPolicy: inputs.ummAlQuraIshaPolicy,
   });
   const todayDay = prayerDays[0];
   const tomorrowDay = prayerDays[1];
@@ -247,10 +258,9 @@ function isoOrEmpty(date: Date): string {
 
 if (!TaskManager.isTaskDefined(TASK_NAME)) {
   TaskManager.defineTask(TASK_NAME, async () => {
-    let didUpdate = false;
     let didFail = false;
     try {
-      didUpdate = await refreshWidgetSnapshotFromStorage() || didUpdate;
+      await refreshWidgetSnapshotFromStorage();
     } catch (e) {
       didFail = true;
       if (__DEV__) console.warn("[widgetBgTask] widget refresh failed:", e);
@@ -259,36 +269,48 @@ if (!TaskManager.isTaskDefined(TASK_NAME)) {
       // This opportunistically tops up iOS's finite rolling notification
       // queue. Background execution is discretionary, so foreground refresh
       // remains the second line of defence.
-      didUpdate = await refreshPrayerNotificationsFromStorage() || didUpdate;
+      await refreshPrayerNotificationsFromStorage();
     } catch (e) {
       didFail = true;
       if (__DEV__) console.warn("[widgetBgTask] notification refresh failed:", e);
     }
-    if (didUpdate) {
-      return BackgroundFetch.BackgroundFetchResult.NewData;
-    }
+    // A no-op (for example notifications disabled) is a successful run. A
+    // partial failure must not be hidden by success from the other operation.
     return didFail
-      ? BackgroundFetch.BackgroundFetchResult.Failed
-      : BackgroundFetch.BackgroundFetchResult.NoData;
+      ? BackgroundTask.BackgroundTaskResult.Failed
+      : BackgroundTask.BackgroundTaskResult.Success;
   });
 }
 
-export async function registerWidgetBackgroundTask(): Promise<void> {
-  if (Platform.OS !== "ios") return;
+let registrationInFlight: Promise<void> | null = null;
+
+async function registerTask(): Promise<void> {
+  if (Platform.OS !== "ios" && Platform.OS !== "android") return;
   try {
-    const status = await BackgroundFetch.getStatusAsync();
-    if (status === BackgroundFetch.BackgroundFetchStatus.Restricted ||
-        status === BackgroundFetch.BackgroundFetchStatus.Denied) {
-      if (__DEV__) console.log("[widgetBgTask] background fetch unavailable:", status);
+    if (!await TaskManager.isAvailableAsync()) return;
+    const status = await BackgroundTask.getStatusAsync();
+    if (status !== BackgroundTask.BackgroundTaskStatus.Available) {
+      if (__DEV__) console.log("[widgetBgTask] background processing unavailable:", status);
       return;
     }
-    await BackgroundFetch.registerTaskAsync(TASK_NAME, {
-      minimumInterval: 60 * 60,
-      stopOnTerminate: false,
-      startOnBoot: true,
+    if (await TaskManager.isTaskRegisteredAsync(LEGACY_TASK_NAME)) {
+      await TaskManager.unregisterTaskAsync(LEGACY_TASK_NAME);
+    }
+    await BackgroundTask.registerTaskAsync(TASK_NAME, {
+      // This API uses minutes, unlike BackgroundFetch's seconds. It is a
+      // minimum, not an hourly promise; iOS decides when (or whether) to run.
+      minimumInterval: 60,
     });
     if (__DEV__) console.log("[widgetBgTask] registered");
   } catch (e) {
     if (__DEV__) console.warn("[widgetBgTask] register failed:", e);
   }
+}
+
+/** Best-effort replenishment, not a timer or a force-quit workaround. */
+export function registerWidgetBackgroundTask(): Promise<void> {
+  if (!registrationInFlight) {
+    registrationInFlight = registerTask().finally(() => { registrationInFlight = null; });
+  }
+  return registrationInFlight;
 }

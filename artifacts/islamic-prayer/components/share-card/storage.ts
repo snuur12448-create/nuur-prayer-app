@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@/utils/AppStorage";
 import { useEffect, useState, useCallback } from "react";
 
 import { THEMES } from "./themes";

@@ -100,6 +100,10 @@ function NowNextCardInner(props: NowNextCardProps) {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={onToggleNow}
+              accessibilityRole="checkbox"
+              accessibilityLabel={`${nowEn} prayer${recordingForYesterday ? ` for ${yesterdayLabel ?? "yesterday"}` : " today"}`}
+              accessibilityHint={isPrayedNow ? "Marks this prayer as not yet prayed." : "Marks this prayer as prayed."}
+              accessibilityState={{ checked: isPrayedNow }}
               style={[
                 styles.markBtn,
                 accessibilityLayout && styles.markBtnAccessibility,
@@ -162,23 +166,25 @@ function NowNextCardInner(props: NowNextCardProps) {
 
         {/* Rosebud "X of 5 today" + View tracker */}
         <View style={[styles.rosebudRow, accessibilityLayout && styles.rosebudRowAccessibility]}>
-          <View style={{ flexDirection: "row", alignItems: "center", flexShrink: 1 }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", flexShrink: 1 }}>
             {TRACKER_FIVE.map((k) => {
               const filled = !!prayed[k];
               return (
                 <Pressable
                   key={k}
                   onPress={() => onToggleBud(k)}
-                  hitSlop={6}
-                  style={[
-                    styles.bud,
-                    {
-                      backgroundColor: filled ? colors.gold : "transparent",
-                      borderColor: filled ? colors.gold + "B3" : colors.border,
-                    },
-                  ]}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={`${k.charAt(0).toUpperCase() + k.slice(1)} prayer${recordingForYesterday ? ` for ${yesterdayLabel ?? "yesterday"}` : " today"}`}
+                  accessibilityState={{ checked: filled }}
+                  accessibilityHint={filled ? "Marks this prayer as not yet prayed." : "Marks this prayer as prayed."}
+                  style={styles.budTarget}
                 >
-                  {filled && <View style={styles.budDot} />}
+                  <View style={[styles.bud, {
+                    backgroundColor: filled ? colors.gold : "transparent",
+                    borderColor: filled ? colors.gold + "B3" : colors.border,
+                  }]}>
+                    {filled && <View style={styles.budDot} />}
+                  </View>
                 </Pressable>
               );
             })}
@@ -202,9 +208,10 @@ function NowNextCardInner(props: NowNextCardProps) {
           </View>
           <TouchableOpacity
             onPress={onViewTracker}
-            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="View prayer tracker"
             activeOpacity={0.7}
-            style={accessibilityLayout && styles.viewTrackerButtonAccessibility}
+            style={styles.viewTrackerButtonAccessibility}
           >
             <Text style={[styles.viewTracker, { color: colors.gold }]} maxFontSizeMultiplier={1.8}>↗ View tracker</Text>
           </TouchableOpacity>
@@ -240,6 +247,7 @@ const styles = StyleSheet.create({
   nowAr: { fontSize: 16 },
   nowSub: { fontSize: 10, fontFamily: "Inter_400Regular", marginTop: 2 },
   markBtn: {
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
@@ -267,17 +275,17 @@ const styles = StyleSheet.create({
   cdNum: { fontSize: 38, lineHeight: 42, letterSpacing: -1 },
   cdUnit: { fontSize: 22, paddingHorizontal: 2 },
 
-  rosebudRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  rosebudRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" },
   rosebudRowAccessibility: { flexDirection: "column", alignItems: "flex-start", gap: 8 },
   bud: {
     width: 13,
     height: 13,
     borderRadius: 7,
     borderWidth: 1.5,
-    marginRight: 6,
     alignItems: "center",
     justifyContent: "center",
   },
+  budTarget: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   budDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: "#FFEEC2" },
   rosebudCount: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginLeft: 4 },
   recordingHint: {

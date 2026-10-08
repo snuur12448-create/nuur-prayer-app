@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import Svg, { Path } from "react-native-svg";
@@ -28,6 +28,8 @@ type Props = {
 };
 
 function MushafLeafVerseInner({ colors, ayah, ayahCopied, onCopy, onShare, onReadSurah }: Props) {
+  const { fontScale } = useWindowDimensions();
+  const largeText = fontScale >= 1.4;
   const surahArabic = SURAH_ARABIC[ayah.surahNumber] ?? ayah.surahName;
   // Theme-tinted outer hairline so the cream leaf reads cleanly against
   // every accent — especially Gold (warm-on-warm) and Burgundy (warm-on-pink).
@@ -38,7 +40,7 @@ function MushafLeafVerseInner({ colors, ayah, ayahCopied, onCopy, onShare, onRea
   return (
     <View style={styles.wrapper}>
       {/* Header — sits in the dark app chrome above the paper */}
-      <View style={styles.header}>
+      <View style={[styles.header, largeText && { flexWrap: "wrap", gap: 8 }]}>
         <View style={styles.headerLeft}>
           <View style={[styles.badge, { backgroundColor: colors.gold + "20", borderColor: colors.gold + "55" }]}>
             <Feather name="book-open" size={9} color={colors.gold} />
@@ -48,14 +50,16 @@ function MushafLeafVerseInner({ colors, ayah, ayahCopied, onCopy, onShare, onRea
         <View style={styles.actionRow}>
           <TouchableOpacity
             onPress={onCopy}
-            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={ayahCopied ? "Verse copied" : "Copy verse"}
             style={[styles.iconBtn, { backgroundColor: colors.surfaceElevated, borderColor: ayahCopied ? colors.tint + "60" : colors.border }]}
           >
             <Feather name={ayahCopied ? "check" : "copy"} size={13} color={ayahCopied ? colors.tint : colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={onShare}
-            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Share verse"
             style={[styles.iconBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
           >
             <Feather name="share-2" size={13} color={colors.textSecondary} />
@@ -82,14 +86,14 @@ function MushafLeafVerseInner({ colors, ayah, ayahCopied, onCopy, onShare, onRea
           {/* Inset hairline frame */}
           <View style={styles.leafFrame}>
             {/* Surah header band */}
-            <View style={styles.surahBand}>
+            <View style={[styles.surahBand, largeText && { flexDirection: "column" }]}>
               <Text style={styles.surahSide}>SŪRAH {ayah.surahNumber}</Text>
               <View style={styles.bandOrn}>
                 <View style={styles.bandLine} />
                 <View style={styles.bandDot} />
                 <View style={styles.bandLine} />
               </View>
-              <Text style={styles.surahArabic} allowFontScaling={false}>
+              <Text style={styles.surahArabic} accessibilityLanguage="ar">
                 سُورَةُ {surahArabic}
               </Text>
               <View style={styles.bandOrn}>
@@ -102,16 +106,16 @@ function MushafLeafVerseInner({ colors, ayah, ayahCopied, onCopy, onShare, onRea
 
             {/* Bismillah — only show when not Surah 1:1 (which IS the bismillah) */}
             {!(ayah.surahNumber === 1 && ayah.ayahNumber === 1) && (
-              <Text style={styles.bismillah} allowFontScaling={false}>
+              <Text style={styles.bismillah} accessibilityLanguage="ar">
                 بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
               </Text>
             )}
 
             {/* The verse with the ornate ﴿n﴾ stamp */}
-            <Text style={styles.verse} allowFontScaling={false}>
+            <Text style={styles.verse} accessibilityLanguage="ar">
               {ayah.arabic}
               {"\u00A0"}
-              <Text style={styles.verseStamp} allowFontScaling={false}>
+              <Text style={styles.verseStamp}>
                 ﴿{toArabicNumeral(ayah.ayahNumber)}﴾
               </Text>
             </Text>
@@ -134,6 +138,8 @@ function MushafLeafVerseInner({ colors, ayah, ayahCopied, onCopy, onShare, onRea
       <TouchableOpacity
         style={[styles.readBtn, { borderColor: colors.tint + "40", backgroundColor: colors.tint + "12" }]}
         onPress={onReadSurah}
+        accessibilityRole="button"
+        accessibilityLabel={`Read full surah ${ayah.surahName}`}
         activeOpacity={0.75}
       >
         <Feather name="book-open" size={12} color={colors.tint} />
@@ -211,8 +217,8 @@ const makeStyles = (c: ThemeColors) =>
       gap: 6,
     },
     iconBtn: {
-      width: 30,
-      height: 30,
+      width: 44,
+      height: 44,
       borderRadius: 8,
       borderWidth: 1,
       alignItems: "center",
@@ -334,6 +340,7 @@ const makeStyles = (c: ThemeColors) =>
       paddingHorizontal: 4,
     },
     readBtn: {
+      minHeight: 44,
       marginTop: 14,
       flexDirection: "row",
       alignItems: "center",

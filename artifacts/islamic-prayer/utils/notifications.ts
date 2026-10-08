@@ -1,11 +1,12 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@/utils/AppStorage";
 import {
   calculatePrayerTimes, applyPrayerOffsets, DEFAULT_PRAYER_OFFSETS, PrayerOffsets,
   CalcMethodId, MadhabId, HighLatRuleId, PolarResolutionId,
   DEFAULT_CALC_METHOD, DEFAULT_MADHAB, DEFAULT_HIGH_LAT_RULE, DEFAULT_POLAR_RESOLUTION,
   normalizeHighLatRule, normalizePolarResolution,
+  DEFAULT_UMM_AL_QURA_ISHA_POLICY, normalizeUmmAlQuraIshaPolicy, type UmmAlQuraIshaPolicy,
 } from "./prayerTimes";
 import { getDailyAyahForDate } from "./ayahData";
 import { getDailyHadithForDate } from "./hadithData";
@@ -30,6 +31,7 @@ import {
   isNuurManagedNotification,
 } from "./notificationOwnership";
 import { buildPrayerAlertPlan, takeRoundRobin } from "./notificationPlan";
+import { isStorageMaintenanceActive, storageReady } from "./AppStorage";
 
 // Storage keys for the home-screen notification quick-sheet controls.
 // Read directly inside schedulePrayerNotifications so the existing 8+ callsites
@@ -421,6 +423,7 @@ async function performPrayerNotificationSchedule(
   madhabId: MadhabId = DEFAULT_MADHAB,
   highLatRuleId: HighLatRuleId = DEFAULT_HIGH_LAT_RULE,
   polarResolutionId: PolarResolutionId = DEFAULT_POLAR_RESOLUTION,
+  ummAlQuraIshaPolicy: UmmAlQuraIshaPolicy = DEFAULT_UMM_AL_QURA_ISHA_POLICY,
 ): Promise<void> {
   if (Platform.OS === "web") return;
   if (Platform.OS === "android") await ensureAndroidNotificationChannels();
@@ -521,6 +524,7 @@ async function performPrayerNotificationSchedule(
     const targetDate = dateByAddingDaysInTimeZone(now, tz, dayOffset);
     const raw = calculatePrayerTimes(
       lat, lng, tz, targetDate, calcMethodId, madhabId, highLatRuleId, '12h', polarResolutionId,
+      ummAlQuraIshaPolicy,
     );
     const times = applyPrayerOffsets(raw, offsets, tz, "12h");
     dayTimes.push({ targetDate, times });
@@ -641,6 +645,7 @@ async function performPrayerNotificationSchedule(
       const tomorrow = dateByAddingDaysInTimeZone(targetDate, tz, 1);
       const tomorrowRaw = calculatePrayerTimes(
         lat, lng, tz, tomorrow, calcMethodId, madhabId, highLatRuleId, '12h', polarResolutionId,
+        ummAlQuraIshaPolicy,
       );
       const tomorrowTimes = applyPrayerOffsets(tomorrowRaw, offsets, tz, "12h");
       const maghribMs = times.maghrib.time.getTime();
@@ -680,6 +685,7 @@ async function performPrayerNotificationSchedule(
 
       const times = calculatePrayerTimes(
         lat, lng, tz, targetDate, calcMethodId, madhabId, highLatRuleId, '12h', polarResolutionId,
+        ummAlQuraIshaPolicy,
       );
       const reminderTime = new Date(
         times.dhuhr.time.getTime() - jummahMinutesBefore * 60_000,
@@ -858,8 +864,10 @@ async function performPrayerNotificationSchedule(
 export function schedulePrayerNotifications(
   ...args: Parameters<typeof performPrayerNotificationSchedule>
 ): Promise<void> {
-  if (Platform.OS === "web") return Promise.resolve();
+  if (Platform.OS === "web" || isStorageMaintenanceActive()) return Promise.resolve();
   return enqueueLatestNotificationMutation(async () => {
+    await storageReady();
+    if (isStorageMaintenanceActive()) return;
     try {
       await performPrayerNotificationSchedule(...args);
     } catch (error) {
@@ -883,6 +891,10 @@ export interface NotificationScheduleStatus {
   duplicateGroups: Array<{ label: string; count: number }>;
   scheduledThrough: string | null;
   lastScheduledAt: string | null;
+  nextPrayerAt: string | null;
+  nextPrayerLabel: string | null;
+  nextAlertAt: string | null;
+  nextAlertLabel: string | null;
   error: string | null;
 }
 
@@ -966,6 +978,10 @@ export async function readNotificationScheduleStatus(): Promise<NotificationSche
     duplicateCount: 0,
     duplicateGroups: [] as Array<{ label: string; count: number }>,
     scheduledThrough: null as string | null,
+    nextPrayerAt: null as string | null,
+    nextPrayerLabel: null as string | null,
+    nextAlertAt: null as string | null,
+    nextAlertLabel: null as string | null,
     lastScheduledAt: lastScheduledRaw && Number.isFinite(Number(lastScheduledRaw))
       ? new Date(Number(lastScheduledRaw)).toISOString()
       : null,
@@ -1002,6 +1018,13 @@ export async function readNotificationScheduleStatus(): Promise<NotificationSche
   const actualTimes = actual
     .map((request) => notificationFireTimeMs(request, sampledAtMs))
     .filter((value): value is number => value !== null);
+  const nextRequest = (requests: Notifications.NotificationRequest[]) => requests
+    .map((request) => ({ request, time: notificationFireTimeMs(request, sampledAtMs) }))
+    .filter((entry): entry is { request: Notifications.NotificationRequest; time: number } =>
+      entry.time !== null && entry.time > sampledAtMs)
+    .sort((a, b) => a.time - b.time)[0];
+  const nextPrayer = nextRequest(actual);
+  const nextAlert = nextRequest(managed);
 
   return {
     ...base,
@@ -1011,6 +1034,10 @@ export async function readNotificationScheduleStatus(): Promise<NotificationSche
     preReminderCount: pre.length,
     duplicateCount: duplicateGroups.reduce((total, group) => total + group.count - 1, 0),
     duplicateGroups,
+    nextPrayerAt: nextPrayer ? new Date(nextPrayer.time).toISOString() : null,
+    nextPrayerLabel: nextPrayer?.request.content.title ?? null,
+    nextAlertAt: nextAlert ? new Date(nextAlert.time).toISOString() : null,
+    nextAlertLabel: nextAlert?.request.content.title ?? null,
     scheduledThrough: actualTimes.length > 0
       ? new Date(Math.max(...actualTimes)).toISOString()
       : null,
@@ -1026,6 +1053,7 @@ const PERSISTED_NOTIFICATION_KEYS = {
   MADHAB: "madhab",
   HIGH_LAT_RULE: "high_lat_rule",
   POLAR_RESOLUTION: "polar_resolution",
+  UMM_AL_QURA_ISHA_POLICY: "umm_al_qura_isha_policy",
   PRAYER_CONFIG: "prayer_notif_config",
   JUMMAH_ENABLED: "jummah_reminder_enabled",
   JUMMAH_MINUTES: "jummah_minutes_before",
@@ -1071,6 +1099,7 @@ export async function refreshPrayerNotificationsFromStorage(
     madhabRaw,
     highLatRaw,
     polarRaw,
+    ummAlQuraIshaPolicyRaw,
     prayerConfigRaw,
     jummahRaw,
     jummahMinutesRaw,
@@ -1088,6 +1117,7 @@ export async function refreshPrayerNotificationsFromStorage(
     AsyncStorage.getItem(PERSISTED_NOTIFICATION_KEYS.MADHAB),
     AsyncStorage.getItem(PERSISTED_NOTIFICATION_KEYS.HIGH_LAT_RULE),
     AsyncStorage.getItem(PERSISTED_NOTIFICATION_KEYS.POLAR_RESOLUTION),
+    AsyncStorage.getItem(PERSISTED_NOTIFICATION_KEYS.UMM_AL_QURA_ISHA_POLICY),
     AsyncStorage.getItem(PERSISTED_NOTIFICATION_KEYS.PRAYER_CONFIG),
     AsyncStorage.getItem(PERSISTED_NOTIFICATION_KEYS.JUMMAH_ENABLED),
     AsyncStorage.getItem(PERSISTED_NOTIFICATION_KEYS.JUMMAH_MINUTES),
@@ -1147,6 +1177,7 @@ export async function refreshPrayerNotificationsFromStorage(
     madhabRaw === "Hanafi" ? "Hanafi" : DEFAULT_MADHAB,
     normalizeHighLatRule(highLatRaw),
     normalizePolarResolution(polarRaw),
+    normalizeUmmAlQuraIshaPolicy(ummAlQuraIshaPolicyRaw),
   );
   return true;
 }

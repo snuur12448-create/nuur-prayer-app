@@ -55,10 +55,15 @@ check(!("NSLocationAlwaysAndWhenInUseUsageDescription" in info), "Always-locatio
 check(!("NSCameraUsageDescription" in info), "Camera access is not used.");
 check(!("NSPhotoLibraryUsageDescription" in info), "Photo-library read access is not used.");
 check(info.NSPhotoLibraryAddUsageDescription, "Photo add-only purpose string is required.");
-check(JSON.stringify(info.UIBackgroundModes) === JSON.stringify(["audio", "fetch"]),
-  "Only audio playback and the registered widget background fetch may run in the background.");
-check(!("BGTaskSchedulerPermittedIdentifiers" in info),
-  "BGTask identifiers must not be declared without a BGTaskScheduler implementation.");
+check(JSON.stringify(info.UIBackgroundModes) === JSON.stringify(["audio", "processing"]),
+  "Only audio playback and the registered widget background task may run in the background.");
+check(JSON.stringify(info.BGTaskSchedulerPermittedIdentifiers) === JSON.stringify(["com.expo.modules.backgroundtask.processing"]),
+  "The Expo background-task worker identifier must match the registered native implementation.");
+check(appConfig.plugins.includes("expo-background-task"), "Background task config plugin is missing.");
+check(pluginConfig("expo-audio").microphonePermission === false &&
+  pluginConfig("expo-audio").recordAudioAndroid === false &&
+  pluginConfig("expo-audio").enableBackgroundRecording === false,
+  "Audio playback must not introduce recording permissions or background recording.");
 
 const locationPlugin = pluginConfig("expo-location");
 check(locationPlugin.locationAlwaysPermission === false, "Expo location plugin must disable Always access.");
@@ -104,12 +109,13 @@ for (const forbidden of [
   "NSLocationAlwaysUsageDescription",
   "NSLocationAlwaysAndWhenInUseUsageDescription",
   "NSPhotoLibraryUsageDescription",
-  "BGTaskSchedulerPermittedIdentifiers",
-  "<string>processing</string>",
+  "<string>fetch</string>",
 ]) {
   check(!nativeInfo.includes(forbidden), `Native Info.plist still contains ${forbidden}.`);
 }
 check(nativeInfo.includes("<string>Dark</string>"), "Native release appearance must be dark.");
+check(nativeInfo.includes("<string>processing</string>") &&
+  nativeInfo.includes("com.expo.modules.backgroundtask.processing"), "Native background-task configuration is missing.");
 check(nativeInfo.includes(`<string>${appConfig.version}</string>`), "Native and Expo versions differ.");
 check(nativeInfo.includes(`<string>${appConfig.ios.buildNumber}</string>`), "Native and Expo build numbers differ.");
 

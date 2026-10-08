@@ -32,6 +32,7 @@ import {
   PolarResolutionId,
   TimeFormat,
   PrayerOffsets,
+  type UmmAlQuraIshaPolicy,
 } from "@/utils/prayerTimes";
 import { ADHAN_STYLES, AdhanStyle, AdhanMode, ADHAN_MODE_INFO, getAdhanStyle } from "@/utils/adhanData";
 import { prefetchAdhanAudio, previewAdhan, stopAdhanAudio } from "@/utils/adhanPlayer";
@@ -42,6 +43,7 @@ import {
   resolvePrayerNotificationPresentation,
 } from "@/utils/notifications";
 import * as Notifications from "expo-notifications";
+import { scheduleAuxiliaryNotification } from "@/utils/auxiliaryNotifications";
 import { Alert } from "react-native";
 import { CornerFloret, NuurMark } from "@/components/share/ShareDecor";
 
@@ -726,6 +728,8 @@ export default function SettingsScreen() {
     madhab, setMadhab,
     highLatRule, setHighLatRule,
     polarResolution, setPolarResolution,
+    ummAlQuraIshaPolicy, setUmmAlQuraIshaPolicy,
+    prayerTimes,
     timeFormat, setTimeFormat,
     notificationsEnabled, toggleNotifications,
     prayerPreReminderMinutes, setPrayerPreReminderMinutes,
@@ -744,6 +748,7 @@ export default function SettingsScreen() {
   const [showAdhanModal, setShowAdhanModal] = useState(false);
   const [showAyahTimePicker, setShowAyahTimePicker] = useState(false);
   const [showHadithTimePicker, setShowHadithTimePicker] = useState(false);
+  const [savingIshaPolicy, setSavingIshaPolicy] = useState(false);
 
   const currentMethod = CALC_METHODS.find((m) => m.id === calcMethod);
 
@@ -1006,6 +1011,48 @@ export default function SettingsScreen() {
         </GroupCard>
 
         {/* ── DISPLAY ── */}
+        {calcMethod === "UmmAlQura" && (
+          <GroupCard colors={colors}>
+            <View style={{ padding: 16, gap: 12 }}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>Umm al-Qura · Isha interval</Text>
+              <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                Choose the interval after Maghrib used by your local authority. Existing settings stay at 90 minutes until you change this.
+              </Text>
+              {([
+                ["fixed90", "Always 90 minutes"],
+                ["calendar", "Calendar estimate · 90 / 120 minutes"],
+                ["fixed120", "Always 120 minutes"],
+              ] as const).map(([value, label]) => (
+                <Pressable
+                  key={value}
+                  accessibilityRole="radio"
+                  accessibilityLabel={label}
+                  accessibilityState={{ checked: ummAlQuraIshaPolicy === value, disabled: savingIshaPolicy }}
+                  disabled={savingIshaPolicy}
+                  onPress={async () => {
+                    setSavingIshaPolicy(true);
+                    try { await setUmmAlQuraIshaPolicy(value as UmmAlQuraIshaPolicy); }
+                    catch { Alert.alert("Couldn't save Isha policy", "Your previous setting has been kept. Please try again."); }
+                    finally { setSavingIshaPolicy(false); }
+                  }}
+                  style={{ minHeight: 48, justifyContent: "center", padding: 12, borderRadius: 10,
+                    borderWidth: 1, borderColor: ummAlQuraIshaPolicy === value ? colors.gold : colors.border }}
+                >
+                  <Text style={{ color: ummAlQuraIshaPolicy === value ? colors.gold : colors.text }}>{label}</Text>
+                </Pressable>
+              ))}
+              <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                Calendar mode estimates Ramadan using the calculated Umm al-Qura calendar: 120 minutes from the first Ramadan evening until the evening before Eid, otherwise 90. It does not confirm local moon sightings. Use a fixed interval when your local timetable differs. Your manual Isha offset still applies.
+              </Text>
+              {prayerTimes?.ummAlQuraIsha?.calendarStatus === "unavailable" && (
+                <Text accessibilityRole="alert" style={[styles.rowHint, { color: colors.gold }]}>
+                  Umm al-Qura calendar unavailable: using 90 minutes. Choose a local-authority interval above.
+                </Text>
+              )}
+            </View>
+          </GroupCard>
+        )}
+
         <SectionDivider label="DISPLAY · العرض" colors={colors} />
         <GroupCard colors={colors}>
           <View style={styles.cardRow}>
@@ -1222,6 +1269,7 @@ export default function SettingsScreen() {
                       `Advance reminders: ${status.preReminderCount}`,
                       `Duplicate alerts: ${status.duplicateCount}`,
                       `Last queued prayer: ${through}`,
+                      `Next prayer alert: ${status.nextPrayerLabel ?? "None"}${status.nextPrayerAt ? ` · ${new Date(status.nextPrayerAt).toLocaleString()}` : ""}`,
                       "iOS controls background refresh. Open Nuur regularly to replenish alerts.",
                     ].join("\n\n"));
                   } catch {
@@ -1243,6 +1291,22 @@ export default function SettingsScreen() {
               <RowSeparator colors={colors} />
               <TouchableOpacity
                 style={styles.cardRow}
+                accessibilityRole="button"
+                accessibilityLabel="Open app health"
+                onPress={() => router.push("/health")}
+              >
+                <View style={styles.rowLeft}>
+                  <Feather name="activity" size={16} color={colors.gold} style={styles.rowIcon} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.rowLabel, { color: colors.text }]}>App Health</Text>
+                    <Text style={[styles.rowHint, { color: colors.textSecondary }]}>Next alert, widget data age, and schedule coverage</Text>
+                  </View>
+                </View>
+                <Feather name="chevron-right" size={16} color={colors.gold} />
+              </TouchableOpacity>
+              <RowSeparator colors={colors} />
+              <TouchableOpacity
+                style={styles.cardRow}
                 onPress={async () => {
                   try {
                     const permission = await getNotificationPermissionState();
@@ -1259,7 +1323,7 @@ export default function SettingsScreen() {
                       adhanMode,
                       adhanStyleId,
                     );
-                    await Notifications.scheduleNotificationAsync({
+                    await scheduleAuxiliaryNotification({
                       identifier: "nuur-test-notification",
                       content: {
                         title: "Nuur · Test Notification",
@@ -1493,6 +1557,21 @@ export default function SettingsScreen() {
 
         {/* ── PRIVACY ── */}
         <SectionDivider label="PRIVACY · الخصوصية" colors={colors} />
+        <GroupCard colors={colors}>
+          <TouchableOpacity
+            style={[styles.cardRow, { minHeight: 48 }]}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel="Open backup and data controls"
+            onPress={() => router.push("/data-controls")}
+          >
+            <View style={styles.rowLeft}>
+              <Feather name="database" size={16} color={colors.gold} style={styles.rowIcon} />
+              <Text style={[styles.rowLabel, { color: colors.text }]}>Backup & Data Controls</Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={colors.gold} />
+          </TouchableOpacity>
+        </GroupCard>
         <Text style={[styles.privacyIntro, { color: colors.textSecondary }]}>
           Nuur is local-first. Your worship history, bookmarks, and settings are
           stored on this device, and you do not need an account to use the app.
@@ -1502,7 +1581,7 @@ export default function SettingsScreen() {
             colors={colors}
             icon="shield"
             title="Your worship data stays local"
-            body="Prayer tracking, qadā counts, adhkār progress, bookmarks, and preferences are stored on your device. Nuur does not upload them to an account."
+            body="Prayer tracking, qadā counts, adhkār progress, bookmarks, and preferences are stored on your device. Nuur does not upload them to an account. If you export an encrypted backup, you choose where to save or share that file."
           />
           <RowSeparator colors={colors} />
           <PledgeRow

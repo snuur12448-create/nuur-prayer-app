@@ -13,7 +13,7 @@
 //   arabicAnchor  — short Arabic line shown above the commentary as anchor
 //   blocks        — pre-parsed tafsir blocks, or null for not-yet-loaded
 //   loading       — true while first fetch is in flight
-//   error         — true after failed fetch with no cached data
+//   error         — true after a failed online fetch
 //   onClose       — dismiss
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -42,6 +42,7 @@ interface TafsirSheetProps {
   colors: ThemeColors;
   bottomInset: number;
   onClose: () => void;
+  onRetry: () => void;
 }
 
 const TafsirSheet: React.FC<TafsirSheetProps> = ({
@@ -54,6 +55,7 @@ const TafsirSheet: React.FC<TafsirSheetProps> = ({
   colors,
   bottomInset,
   onClose,
+  onRetry,
 }) => {
   if (!visible) return null;
 
@@ -73,8 +75,11 @@ const TafsirSheet: React.FC<TafsirSheetProps> = ({
       <View style={styles.stateBlock}>
         <Feather name="cloud-off" size={20} color={colors.textSecondary} />
         <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-          Tafsir unavailable. Check your connection and try again.
+          Tafsir is online-only and couldn't load. Connect to the internet and retry. Quran text remains available offline.
         </Text>
+        <TouchableOpacity onPress={onRetry} accessibilityRole="button" accessibilityLabel="Retry online tafsir" style={{ minHeight: 44, minWidth: 44, justifyContent: "center", paddingHorizontal: 16 }}>
+          <Text style={{ color: colors.gold }}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   } else if (!blocks || blocks.length === 0) {
@@ -134,8 +139,10 @@ const TafsirSheet: React.FC<TafsirSheetProps> = ({
           Pressable. Wrapping the sheet in a Pressable broke scrolling on iOS
           because the parent Pressable kept winning the responder. */}
       <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} />
         <View
+          accessibilityViewIsModal
+          onAccessibilityEscape={onClose}
           style={[
             styles.sheet,
             {
@@ -151,16 +158,19 @@ const TafsirSheet: React.FC<TafsirSheetProps> = ({
               and ScrollView never swallow the tap. */}
           <TouchableOpacity
             onPress={onClose}
-            hitSlop={16}
             style={[
               styles.closeBtn,
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
             accessibilityLabel="Close tafsir"
+            accessibilityRole="button"
           >
             <Feather name="x" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
 
+          {/* All reading text scrolls together, including attribution, so large
+              text never leaves the body or footer below the sheet bounds. */}
+          <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 16 }} showsVerticalScrollIndicator>
           {/* Header — verse label + optional Arabic anchor */}
           <View style={styles.header}>
             <Text style={[styles.label, { color: colors.gold }]}>
@@ -169,7 +179,7 @@ const TafsirSheet: React.FC<TafsirSheetProps> = ({
             {!!arabicAnchor && (
               <Text
                 style={[styles.arabic, { color: colors.text }]}
-                numberOfLines={2}
+                accessibilityLanguage="ar"
               >
                 {arabicAnchor}
               </Text>
@@ -178,14 +188,7 @@ const TafsirSheet: React.FC<TafsirSheetProps> = ({
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-          {/* Body — scrollable */}
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={{ paddingBottom: 16 }}
-            showsVerticalScrollIndicator
-          >
-            {body}
-          </ScrollView>
+          {body}
 
           {/* Footer attribution */}
           <View
@@ -194,9 +197,10 @@ const TafsirSheet: React.FC<TafsirSheetProps> = ({
             <Text
               style={[styles.footerText, { color: colors.textSecondary }]}
             >
-              {TAFSIR_SOURCE_ATTRIBUTION}
+              {TAFSIR_SOURCE_ATTRIBUTION}{"\n"}Online-only · commentary is not saved for offline use.
             </Text>
           </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -230,18 +234,18 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     position: "absolute",
-    top: 14,
-    right: 16,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    top: 10,
+    right: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
     elevation: 4,
   },
-  header: { gap: 6, marginBottom: 12, paddingRight: 28 },
+  header: { gap: 6, marginBottom: 12, paddingRight: 44 },
   label: {
     fontSize: 11,
     fontFamily: "Inter_700Bold",
@@ -254,7 +258,7 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   divider: { height: 1, marginBottom: 8 },
-  scroll: { flexGrow: 0, maxHeight: 480 },
+  scroll: { flexGrow: 0, flexShrink: 1 },
   h1: {
     fontSize: 16,
     fontFamily: "Inter_700Bold",

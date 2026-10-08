@@ -122,10 +122,14 @@ public enum WeatherCache {
         return cond
     }
 
-    public static func write(condition: String, appGroupId: String) {
-        guard let d = UserDefaults(suiteName: appGroupId) else { return }
-        d.set(condition, forKey: conditionKey)
-        d.set(Date(), forKey: fetchedAtKey)
+    public static func write(condition: String, appGroupId: String, expectedEpoch: String? = nil) {
+        try? SharedDataGate.withGroupLock { gate in
+            guard !gate.active, expectedEpoch == nil || gate.epoch == expectedEpoch,
+                  let d = UserDefaults(suiteName: appGroupId) else { return }
+            d.set(condition, forKey: conditionKey)
+            d.set(Date(), forKey: fetchedAtKey)
+            d.synchronize()
+        }
     }
 }
 
@@ -140,11 +144,15 @@ public enum WeatherFetcher {
     /// stays empty and the widget skips weather triggers.
     public static func refresh(latitude: Double, longitude: Double,
                                appGroupId: String) async {
+        guard let epoch = try? SharedDataGate.withGroupLock({ gate in
+            guard !gate.active else { throw CocoaError(.userCancelled) }
+            return gate.epoch
+        }) else { return }
         do {
             let location = CLLocation(latitude: latitude, longitude: longitude)
             let weather = try await WeatherService.shared.weather(for: location)
             let cond = String(describing: weather.currentWeather.condition)
-            WeatherCache.write(condition: cond, appGroupId: appGroupId)
+            WeatherCache.write(condition: cond, appGroupId: appGroupId, expectedEpoch: epoch)
         } catch {
             // No entitlement, no network, or rate-limited — leave the cache
             // alone; existing cached value (if any) stays valid until it

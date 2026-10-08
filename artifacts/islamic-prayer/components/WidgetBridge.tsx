@@ -86,7 +86,7 @@ function computeWeekPct(
  */
 export function WidgetBridge() {
   const {
-    prayerTimes, location, calcMethod, madhab, highLatRule, polarResolution, timeFormat,
+    prayerTimes, location, calcMethod, madhab, highLatRule, polarResolution, ummAlQuraIshaPolicy, timeFormat,
     themeName, prayerOffsets,
   } = useAppContext();
   const { trackerData, loaded } = usePrayerTracker();
@@ -112,6 +112,7 @@ export function WidgetBridge() {
         madhab,
         highLatRule,
         polarResolution,
+        ummAlQuraIshaPolicy,
         timeFormat,
         prayerOffsets,
       });
@@ -157,7 +158,7 @@ export function WidgetBridge() {
     buildAndPush();
   }, [
     prayerTimes, location, trackerData, loaded,
-    calcMethod, madhab, highLatRule, polarResolution, timeFormat, themeName, prayerOffsets,
+    calcMethod, madhab, highLatRule, polarResolution, ummAlQuraIshaPolicy, timeFormat, themeName, prayerOffsets,
   ]);
 
   // Re-push whenever the app comes back to the foreground. Keeps the widget

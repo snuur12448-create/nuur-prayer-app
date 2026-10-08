@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@/utils/AppStorage";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
@@ -18,6 +18,9 @@ import {
   DEFAULT_MADHAB,
   DEFAULT_HIGH_LAT_RULE,
   DEFAULT_POLAR_RESOLUTION,
+  DEFAULT_UMM_AL_QURA_ISHA_POLICY,
+  normalizeUmmAlQuraIshaPolicy,
+  type UmmAlQuraIshaPolicy,
   DEFAULT_TIME_FORMAT,
   normalizeHighLatRule,
   normalizePolarResolution,
@@ -119,6 +122,8 @@ interface AppContextType {
   setHighLatRule: (rule: HighLatRuleId) => void;
   polarResolution: PolarResolutionId;
   setPolarResolution: (resolution: PolarResolutionId) => void;
+  ummAlQuraIshaPolicy: UmmAlQuraIshaPolicy;
+  setUmmAlQuraIshaPolicy: (policy: UmmAlQuraIshaPolicy) => Promise<void>;
   timeFormat: TimeFormat;
   setTimeFormat: (format: TimeFormat) => void;
   adhanEnabled: boolean;
@@ -174,6 +179,7 @@ const STORAGE_KEYS = {
   MADHAB_SOURCE: "madhab_source",
   HIGH_LAT_RULE: "high_lat_rule",
   POLAR_RESOLUTION: "polar_resolution",
+  UMM_AL_QURA_ISHA_POLICY: "umm_al_qura_isha_policy",
   TIME_FORMAT: "time_format",
   ADHAN_ENABLED: "adhan_enabled",
   ADHAN_STYLE: "adhan_style",
@@ -216,6 +222,7 @@ interface NotificationScheduleOverrides {
   madhab?: MadhabId;
   highLatRule?: HighLatRuleId;
   polarResolution?: PolarResolutionId;
+  ummAlQuraIshaPolicy?: UmmAlQuraIshaPolicy;
 }
 
 function normalizeStoredLocation(value: unknown): LocationData | null {
@@ -286,6 +293,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const madhabSavedRef = useRef(false);
   const [highLatRule, setHighLatRuleState] = useState<HighLatRuleId>(DEFAULT_HIGH_LAT_RULE);
   const [polarResolution, setPolarResolutionState] = useState<PolarResolutionId>(DEFAULT_POLAR_RESOLUTION);
+  const [ummAlQuraIshaPolicy, setUmmAlQuraIshaPolicyState] = useState<UmmAlQuraIshaPolicy>(DEFAULT_UMM_AL_QURA_ISHA_POLICY);
   const [timeFormat, setTimeFormatState] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
 
   // Per-prayer notification config
@@ -330,6 +338,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const madhabRef = useRef(madhab);
   const highLatRuleRef = useRef(highLatRule);
   const polarResolutionRef = useRef(polarResolution);
+  const ummAlQuraIshaPolicyRef = useRef(ummAlQuraIshaPolicy);
   const timeFormatRef = useRef(timeFormat);
   const notificationsRef = useRef(notificationsEnabled);
   const jummahReminderRef = useRef(jummahReminderEnabled);
@@ -363,6 +372,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { madhabRef.current = madhab; }, [madhab]);
   useEffect(() => { highLatRuleRef.current = highLatRule; }, [highLatRule]);
   useEffect(() => { polarResolutionRef.current = polarResolution; }, [polarResolution]);
+  useEffect(() => { ummAlQuraIshaPolicyRef.current = ummAlQuraIshaPolicy; }, [ummAlQuraIshaPolicy]);
   useEffect(() => { timeFormatRef.current = timeFormat; }, [timeFormat]);
   useEffect(() => { notificationsRef.current = notificationsEnabled; }, [notificationsEnabled]);
   useEffect(() => { jummahReminderRef.current = jummahReminderEnabled; }, [jummahReminderEnabled]);
@@ -405,7 +415,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const raw = calculatePrayerTimes(
           location.latitude, location.longitude, location.timezone,
-          new Date(), calcMethod, madhab, highLatRule, timeFormat, polarResolution,
+          new Date(), calcMethod, madhab, highLatRule, timeFormat, polarResolution, ummAlQuraIshaPolicy,
         );
         const adjusted = applyPrayerOffsets(raw, prayerOffsets, location.timezone, timeFormat);
         setPrayerTimes(adjusted);
@@ -413,7 +423,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         console.warn("Prayer time calculation failed:", e);
       }
     }
-  }, [location, calcMethod, madhab, highLatRule, timeFormat, polarResolution, prayerOffsets]);
+  }, [location, calcMethod, madhab, highLatRule, timeFormat, polarResolution, ummAlQuraIshaPolicy, prayerOffsets]);
 
   // ── Push prayer-time snapshot to iOS widget ──
   // Now handled by <WidgetBridge /> mounted inside both AppProvider and
@@ -546,17 +556,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── Init ──
   useEffect(() => {
+    let active = true;
     void (async () => {
       // Location-based auto recommendations must not race ahead of persisted
       // user choices. Hydrate preferences first, then resolve/refresh location.
       await Promise.all([loadPreferences(), loadBookmarks()]);
-      await initLocation();
+      if (active) await initLocation();
     })();
+    return () => {
+      active = false;
+      // Invalidate pending GPS/geocoder responses during restore/reset or unmount.
+      locationRequestGenerationRef.current += 1;
+    };
   }, []);
 
   const loadPreferences = async () => {
     try {
-      const [theme, mode, notifs, method, methodSource, madhabVal, madhabSource, latRule, polarResolutionRaw, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw, islamicEventsRaw, locationRaw, prayerOffsetsRaw, snoozeRaw, preReminderRaw] =
+      const [theme, mode, notifs, method, methodSource, madhabVal, madhabSource, latRule, polarResolutionRaw, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw, islamicEventsRaw, locationRaw, prayerOffsetsRaw, snoozeRaw, preReminderRaw, ishaPolicyRaw] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.THEME),
           AsyncStorage.getItem(STORAGE_KEYS.DISPLAY_MODE),
@@ -585,6 +601,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(STORAGE_KEYS.PRAYER_OFFSETS),
           AsyncStorage.getItem(STORAGE_KEYS.NOTIF_SNOOZE_UNTIL),
           AsyncStorage.getItem(STORAGE_KEYS.PRAYER_PRE_REMINDER),
+          AsyncStorage.getItem(STORAGE_KEYS.UMM_AL_QURA_ISHA_POLICY),
         ]);
       if (theme && theme in THEMES) setThemeNameState(theme as ThemeName);
       if (mode === "auto" || mode === "dark" || mode === "light") setDisplayModeState(mode);
@@ -618,6 +635,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       highLatRuleRef.current = loadedHighLatRule;
       setPolarResolutionState(loadedPolarResolution);
       polarResolutionRef.current = loadedPolarResolution;
+      const loadedIshaPolicy = normalizeUmmAlQuraIshaPolicy(ishaPolicyRaw);
+      setUmmAlQuraIshaPolicyState(loadedIshaPolicy);
+      ummAlQuraIshaPolicyRef.current = loadedIshaPolicy;
       if (fmt === "12h" || fmt === "24h") setTimeFormatState(fmt);
       const loadedAdhanEnabled = adhanOn === "true";
       const loadedAdhanStyle = adhanStyle && ADHAN_STYLES.some((s) => s.id === adhanStyle)
@@ -731,6 +751,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             (madhabVal === "Hanafi" || madhabVal === "Shafi" ? madhabVal : DEFAULT_MADHAB) as MadhabId,
             normalizeHighLatRule(latRule),
             normalizePolarResolution(polarResolutionRaw),
+            loadedIshaPolicy,
           );
         } catch (error) {
           console.warn("Startup notification schedule failed:", error);
@@ -763,6 +784,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         overrides.madhab ?? madhabRef.current,
         overrides.highLatRule ?? highLatRuleRef.current,
         overrides.polarResolution ?? polarResolutionRef.current,
+        overrides.ummAlQuraIshaPolicy ?? ummAlQuraIshaPolicyRef.current,
       );
       return true;
     } catch (error) {
@@ -841,6 +863,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTimeFormatState(fmt);
     try { await AsyncStorage.setItem(STORAGE_KEYS.TIME_FORMAT, fmt); } catch {}
   }, []);
+
+  const setUmmAlQuraIshaPolicy = useCallback(async (value: UmmAlQuraIshaPolicy) => {
+    const policy = normalizeUmmAlQuraIshaPolicy(value);
+    // Persist before applying so a failed write never changes today's display
+    // while leaving tomorrow's background calculation on the previous policy.
+    await AsyncStorage.setItem(STORAGE_KEYS.UMM_AL_QURA_ISHA_POLICY, policy);
+    ummAlQuraIshaPolicyRef.current = policy;
+    setUmmAlQuraIshaPolicyState(policy);
+    await rescheduleAll(prayerNotifConfigRef.current, { ummAlQuraIshaPolicy: policy });
+  }, [rescheduleAll]);
 
   const loadBookmarks = async () => {
     try {
@@ -1285,6 +1317,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         prayerOffsetsRef.current,
         calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
         polarResolutionRef.current,
+        ummAlQuraIshaPolicyRef.current,
       );
       return true;
     } catch (error) {
@@ -1487,6 +1520,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           highLatRuleRef.current,
           timeFormatRef.current,
           polarResolutionRef.current,
+          ummAlQuraIshaPolicyRef.current,
         );
         const adjusted = applyPrayerOffsets(raw, prayerOffsetsRef.current, location.timezone, timeFormatRef.current);
         setPrayerTimes(adjusted);
@@ -1540,6 +1574,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setHighLatRule,
         polarResolution,
         setPolarResolution,
+        ummAlQuraIshaPolicy,
+        setUmmAlQuraIshaPolicy,
         timeFormat,
         setTimeFormat,
         adhanEnabled,

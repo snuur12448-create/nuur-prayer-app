@@ -1,24 +1,34 @@
 import TrackPlayer, { Event } from "react-native-track-player";
+import { isAudioMaintenanceActive, runTrackPlayerCommand } from "./audioFocus";
+
+// Remote controls can arrive while the screen replaces the queue. Serialise
+// them with those mutations and handle exhausted/empty queues without an
+// unhandled promise rejection in the background service.
+const command = (action: () => Promise<unknown>) => {
+  void runTrackPlayerCommand(async () => {
+    if (!isAudioMaintenanceActive()) await action();
+  }).catch(() => undefined);
+};
 
 export async function PlaybackService() {
   TrackPlayer.addEventListener(Event.RemotePlay, () => {
-    TrackPlayer.play();
+    command(() => TrackPlayer.play());
   });
 
   TrackPlayer.addEventListener(Event.RemotePause, () => {
-    TrackPlayer.pause();
+    command(() => TrackPlayer.pause());
   });
 
   TrackPlayer.addEventListener(Event.RemoteStop, () => {
-    TrackPlayer.stop();
+    command(() => TrackPlayer.stop());
   });
 
   TrackPlayer.addEventListener(Event.RemoteNext, () => {
-    TrackPlayer.skipToNext();
+    command(() => TrackPlayer.skipToNext());
   });
 
   TrackPlayer.addEventListener(Event.RemotePrevious, () => {
-    TrackPlayer.skipToPrevious();
+    command(() => TrackPlayer.skipToPrevious());
   });
 
   TrackPlayer.addEventListener(Event.RemoteDuck, async ({ permanent, paused }: { permanent: boolean; paused: boolean }) => {
@@ -26,13 +36,14 @@ export async function PlaybackService() {
     // position are preserved. stop() destroys the queue and forces the user
     // to start the surah over; pause() lets them resume from the same verse.
     if (permanent || paused) {
-      TrackPlayer.pause();
-    } else {
-      TrackPlayer.play();
+      command(() => TrackPlayer.pause());
     }
+    // Never resume automatically here. A user may have paused or started an
+    // Adhan while interrupted. Explicit user Play remains available for paused
+    // audio; setupPlayer also disables the equivalent native auto-resume path.
   });
 
   TrackPlayer.addEventListener(Event.RemoteSeek, ({ position }: { position: number }) => {
-    TrackPlayer.seekTo(position);
+    command(() => TrackPlayer.seekTo(position));
   });
 }

@@ -8,6 +8,7 @@ import {
   type PolarResolutionId,
   type PrayerOffsets,
   type TimeFormat,
+  type UmmAlQuraIshaPolicy,
 } from "./prayerTimes";
 import { verseForDate } from "./widgetVerses";
 import {
@@ -44,12 +45,13 @@ interface BuildWidgetPrayerScheduleInput {
   polarResolution: PolarResolutionId;
   timeFormat: TimeFormat;
   prayerOffsets: PrayerOffsets;
+  ummAlQuraIshaPolicy?: UmmAlQuraIshaPolicy;
 }
 
 /**
  * Precompute predictable prayer times for the widget extension. WidgetKit can
  * advance through this cache itself, so correct times do not depend on iOS
- * granting the JavaScript app a background-fetch window every day.
+ * granting the JavaScript app a background-processing window every day.
  */
 export function buildWidgetPrayerSchedule({
   latitude,
@@ -63,6 +65,7 @@ export function buildWidgetPrayerSchedule({
   polarResolution,
   timeFormat,
   prayerOffsets,
+  ummAlQuraIshaPolicy,
 }: BuildWidgetPrayerScheduleInput): WidgetPrayerDay[] {
   const result: WidgetPrayerDay[] = [];
 
@@ -79,6 +82,7 @@ export function buildWidgetPrayerSchedule({
       highLatRule,
       timeFormat,
       polarResolution,
+      ummAlQuraIshaPolicy,
     );
     const times = applyPrayerOffsets(raw, prayerOffsets, timezone, timeFormat);
     const h = gregorianToHijri(raw.date);

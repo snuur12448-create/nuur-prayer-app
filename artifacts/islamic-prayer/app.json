@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.nuur.islamicprayer",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "entitlements": {
         "com.apple.developer.weatherkit": true,
         "com.apple.developer.usernotifications.time-sensitive": true,
@@ -28,8 +28,9 @@
         "NSPhotoLibraryAddUsageDescription": "Nuur saves Quranic verse cards you share to your Camera Roll.",
         "UIBackgroundModes": [
           "audio",
-          "fetch"
+          "processing"
         ],
+        "BGTaskSchedulerPermittedIdentifiers": ["com.expo.modules.backgroundtask.processing"],
         "ITSAppUsesNonExemptEncryption": false,
         "NSSupportsLiveActivities": true,
         "NSSupportsLiveActivitiesFrequentUpdates": true
@@ -70,10 +71,13 @@
       ],
       "expo-font",
       "expo-web-browser",
+      "expo-background-task",
       [
-        "expo-av",
+        "expo-audio",
         {
-          "microphonePermission": false
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundRecording": false
         }
       ],
       [

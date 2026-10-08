@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-08",
+  "releaseReady": false,
+  "scope": "Recorded engineering evidence and explicit unresolved release-owner gates. This file is not App Store approval, legal advice or a claim that physical-device QA passed.",
+  "platform": {
+    "bundleIdentifier": "com.nuur.islamicprayer",
+    "minimumAppIOS": "16.2",
+    "minimumWidgetIOS": "17.0",
+    "ipadSupported": false,
+    "sourceFiles": ["artifacts/islamic-prayer/app.json", "artifacts/islamic-prayer/ios/Nuur.xcodeproj/project.pbxproj"],
+    "storeDisclosure": "App requires iOS 16.2 or later; home and lock-screen widgets require iOS 17 or later. Widgets and prayer alerts have finite saved schedules; background refresh is controlled by iOS."
+  },
+  "monetization": {
+    "intendedRelease": "free-no-pro",
+    "sourceFiles": ["artifacts/islamic-prayer/context/EntitlementsContext.tsx", "artifacts/islamic-prayer/utils/iap.ts", "artifacts/islamic-prayer/app/_layout.tsx"],
+    "evidence": "isPro is hard-coded false; existing-user cutoff is placeholder 2099-01-01. RevenueCat configuration no-ops only when platform keys are absent. Production build must keep keys absent and must not advertise purchase/restore or grandfathered benefits as shipped features.",
+    "productionEnvironmentVerified": false
+  },
+  "publicLinks": [
+    {
+      "id": "privacy-policy",
+      "url": "https://petalite-quartz-769.notion.site/PRIVACY-POLICY-332facde3948808d9d41f9d3a6af97fb",
+      "sourceFiles": ["artifacts/islamic-prayer/app/settings.tsx"],
+      "checkedAt": "2026-10-08",
+      "httpStatus": 200,
+      "contentVerified": true,
+      "disclosureAccuracyVerified": false,
+      "observation": "Root reviewer verified the public page in a real browser without login on 2026-10-08. The policy is dated 2026-05-15 and is outdated: it lists removed TimeAPI.io, Sunnah.com network calls and a Replit server; says no personal data is shared although selected coordinates and request/IP metadata reach providers; says all preferences stay on-device without the new user-directed encrypted-export exception; omits WeatherKit and backup/reset behavior; and claims immediate third-party discard without supporting retention evidence. Contact nuurapps@gmail.com is visible. Accessibility of the page is verified, not accuracy or legal approval."
+    },
+    {
+      "id": "marketing-share-url",
+      "url": "https://nuur.app",
+      "sourceFiles": ["artifacts/islamic-prayer/app/(tabs)/more.tsx", "artifacts/islamic-prayer/components/share/ShareDecor.tsx"],
+      "checkedAt": "2026-10-08",
+      "httpStatus": 200,
+      "contentVerified": false,
+      "observation": "Root response is a 114-character JavaScript redirect to /lander. That URL also returned HTTP 200 but no readable page text. A functional Nuur landing/support page and owner control were not established."
+    },
+    {
+      "id": "support-email",
+      "url": "mailto:nuurapps@gmail.com",
+      "sourceFiles": ["artifacts/islamic-prayer/app/(tabs)/more.tsx"],
+      "checkedAt": "2026-10-08",
+      "httpStatus": null,
+      "contentVerified": false,
+      "observation": "Feedback email is configured. No email was sent; mailbox ownership/delivery was not tested. No dedicated HTTPS support page was found in the reviewed application code."
+    }
+  ],
+  "networkServices": [
+    { "id": "city-search", "hosts": ["nominatim.openstreetmap.org"], "purpose": "Explicit city search and reverse geocoding", "transmitted": ["city query or coordinates", "IP address"], "sourceFiles": ["artifacts/islamic-prayer/utils/nominatim.ts"], "inAppDisclosure": "present", "publicPolicyVerified": false },
+    { "id": "mosques", "hosts": ["overpass-api.de", "overpass.kumi.systems"], "purpose": "Nearby mosque search", "transmitted": ["search-area coordinates", "IP address"], "sourceFiles": ["artifacts/islamic-prayer/app/mosques.tsx"], "inAppDisclosure": "present", "publicPolicyVerified": false },
+    { "id": "weather", "hosts": ["Apple WeatherKit"], "purpose": "Contextual widget verses, fetched by main app", "transmitted": ["selected location coordinates", "service request metadata"], "sourceFiles": ["artifacts/islamic-prayer/ios/NuurWidget/VerseOfMoment.swift"], "inAppDisclosure": "present", "publicPolicyVerified": false },
+    { "id": "quran-text", "hosts": ["api.alquran.cloud", "api.qurancdn.com"], "purpose": "Quran text, word details and tafsir", "transmitted": ["chapter/verse/resource request", "IP address"], "sourceFiles": ["artifacts/islamic-prayer/utils/quranCache.ts", "artifacts/islamic-prayer/utils/tafsirData.ts", "artifacts/islamic-prayer/app/quran/[id].tsx"], "inAppDisclosure": "category-level", "publicPolicyVerified": false },
+    { "id": "audio", "hosts": ["verses.quran.com", "cdn.islamic.network", "server8.mp3quran.net", "everyayah.com", "audio.qurancdn.com", "cdn.aladhan.com", "www.islamcan.com"], "purpose": "Recitation, word pronunciation and adhan streaming", "transmitted": ["requested recording", "IP address"], "sourceFiles": ["artifacts/islamic-prayer/utils/audioData.ts", "artifacts/islamic-prayer/utils/adhanData.ts", "artifacts/islamic-prayer/app/quran/[id].tsx"], "inAppDisclosure": "recitation category only; explicitly mention adhan providers in public policy", "publicPolicyVerified": false },
+    { "id": "nisab", "hosts": ["api.gold-api.com", "api.frankfurter.dev"], "purpose": "Gold/silver prices and currency rate", "transmitted": ["commodity/currency request", "IP address"], "sourceFiles": ["artifacts/islamic-prayer/utils/nisabPrices.ts"], "inAppDisclosure": "category-level", "publicPolicyVerified": false },
+    { "id": "external-maps", "hosts": ["www.google.com", "maps.apple.com"], "purpose": "User-requested mosque navigation in external maps", "transmitted": ["destination coordinates", "request metadata handled by external map provider"], "sourceFiles": ["artifacts/islamic-prayer/app/mosques.tsx"], "inAppDisclosure": "user action opens maps", "publicPolicyVerified": false },
+    { "id": "dormant-purchases", "hosts": ["RevenueCat, only if release keys are configured"], "purpose": "Future purchase infrastructure; not a shipped Pro feature", "transmitted": ["SDK identifiers and purchase data if enabled; exact production configuration unverified"], "sourceFiles": ["artifacts/islamic-prayer/utils/iap.ts"], "inAppDisclosure": "not active in intended free configuration", "publicPolicyVerified": false }
+  ],
+  "privacyEvidence": {
+    "sourceFiles": ["artifacts/islamic-prayer/app/settings.tsx", "artifacts/islamic-prayer/ios/Nuur/PrivacyInfo.xcprivacy", "artifacts/islamic-prayer/ios/NuurWidget/PrivacyInfo.xcprivacy"],
+    "localData": "Worship history, bookmarks and settings are local-first. Optional exports encrypt the selected personal-data allowlist before writing a temporary .nuurbackup file; the user chooses the share destination. The app cleans its temporary copy, not copies saved with external providers. Passwords are not persisted. User-directed export destinations and any OS-managed device backups require disclosure; local-first is not a blanket no-data-leaves-device claim.",
+    "manifest": "Application manifest declares precise location for functionality, not linked and not tracking. Required-reason APIs are also declared. A manifest is not an App Store privacy-label submission.",
+    "ownerQuestion": "Confirm actual retention/use of IP, location and request data by every production partner, support mailbox handling, intended backups and production SDK settings before selecting privacy labels.",
+    "evidenceUrls": ["https://developer.apple.com/app-store/app-privacy-details/"]
+  },
+  "encryptionEvidence": {
+    "sourceFiles": ["artifacts/islamic-prayer/ios/Nuur/NuurBackupCrypto.swift", "artifacts/islamic-prayer/ios/Nuur/NuurBridge.swift", "artifacts/islamic-prayer/utils/dataControls.ts", "artifacts/islamic-prayer/utils/backupSchema.ts", "artifacts/islamic-prayer/ios/Podfile.lock", "artifacts/islamic-prayer/app.json", "artifacts/islamic-prayer/ios/Nuur/Info.plist"],
+    "currentITSAppUsesNonExemptEncryption": false,
+    "backupImplementation": "iPhone-only encrypted backup uses Apple CryptoKit AES-256-GCM, Apple CommonCrypto PBKDF2-HMAC-SHA256 with 600000 iterations, and Security SecRandomCopyBytes for fresh salt and nonce. No bundled custom AES, KDF or random-number algorithm implements this feature. The JSON envelope is an application file format, not a proprietary cryptographic algorithm.",
+    "technicalExemptionInference": "Apple's current documentation table lists OS-only encryption as requiring no App Store Connect documentation. The reviewed backup primitives are OS-provided, supporting retention of false for this feature. This is an engineering inference, not a certification of the entire final binary or the owner's regulatory obligations.",
+    "reviewLimits": "All linked libraries, release configuration, distribution territories and any government reporting obligations still require release-owner review. App Store documentation exemption does not mean the app uses no encryption or that all export/import requirements disappear. No submission or compliance questionnaire was completed.",
+    "ownerConfirmed": false,
+    "approvalEvidence": null,
+    "evidenceUrls": ["https://developer.apple.com/help/app-store-connect/reference/app-information/export-compliance-documentation-for-encryption", "https://developer.apple.com/documentation/bundleresources/information-property-list/itsappusesnonexemptencryption", "https://developer.apple.com/documentation/Security/complying-with-encryption-export-regulations", "https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance/"]
+  },
+  "gates": [
+    { "id": "content-rights", "status": "unverified", "ownerAction": "Resolve every applicable item in content-rights.json with permission/license records and notices.", "approvalEvidence": null },
+    { "id": "quran-foundation-offline", "status": "unverified", "ownerAction": "Owner chose online-only word/tafsir. Verify final-build labeling and removal of legacy persistent content; keep offline functionality disabled until approved Content Sync or specific permission. Provider rights review remains separate.", "approvalEvidence": null },
+    { "id": "public-policy", "status": "unverified", "ownerAction": "Update the publicly reachable but outdated 2026-05-15 policy: remove obsolete TimeAPI.io/Sunnah.com-network/Replit-server descriptions, accurately disclose coordinate/request/IP transmissions, add WeatherKit and user-directed encrypted backup/reset behavior, qualify on-device-only claims, and verify rather than assume third-party retention. Re-review accuracy before publishing.", "approvalEvidence": null },
+    { "id": "support-and-domain", "status": "unverified", "ownerAction": "Provide a functioning public support URL, confirm mailbox/domain control and replace unowned or unusable marketing links.", "approvalEvidence": null },
+    { "id": "privacy-labels", "status": "unverified", "ownerAction": "Complete App Store privacy answers from verified production data flows and third-party retention; do not infer Data Not Collected from local-first architecture.", "approvalEvidence": null },
+    { "id": "export-compliance", "status": "unverified", "ownerAction": "Confirm the recorded OS-only CryptoKit/CommonCrypto backup exemption basis against the entire final binary and linked libraries before retaining ITSAppUsesNonExemptEncryption=false. Review intended countries and any separate reporting/import obligations; technical evidence is not owner certification.", "approvalEvidence": null },
+    { "id": "store-metadata", "status": "unverified", "ownerAction": "Confirm seller/contact identity, age rating, territories, screenshots, iOS/widget requirements, finite notification coverage and review notes. Do not market dormant Pro features.", "approvalEvidence": null },
+    { "id": "free-build-environment", "status": "unverified", "ownerAction": "Verify release RevenueCat keys are absent and no payment or placeholder eligibility feature is presented as live.", "approvalEvidence": null },
+    { "id": "physical-device-soak", "status": "unverified", "ownerAction": "Record locked actual-prayer sound/deduplication, optional reminder behavior and every widget family across 48 hours and eight days without opening the app.", "approvalEvidence": null },
+    { "id": "physical-audio-accessibility", "status": "unverified", "ownerAction": "Record Quran/background/interruptions/headphones tests, VoiceOver traversal, large text and small-screen rendering on the final build.", "approvalEvidence": null },
+    { "id": "religious-content-review", "status": "unverified", "ownerAction": "Review hadith references/grades, complete versus excerpted adhkar, regional prayer references and Ramadan/high-latitude policy disclosures with an appropriate reviewer.", "approvalEvidence": null }
+  ],
+  "guidanceUrls": [
+    "https://developer.apple.com/app-store/app-privacy-details/",
+    "https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information/",
+    "https://developer.apple.com/documentation/Security/complying-with-encryption-export-regulations",
+    "https://developer.apple.com/help/app-store-connect/reference/app-information/export-compliance-documentation-for-encryption",
+    "https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance/",
+    "https://api-docs.quran.com/legal/developer-terms/",
+    "https://api-docs.quran.com/docs/tutorials/content-sync/getting-started/"
+  ]
+}

@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@/utils/AppStorage";
 
 export const QADA_STORAGE_KEY = "nuur_qada_ledger_v1";
 

@@ -46,7 +46,7 @@ export default function PrayerScreen() {
     usingDefaultLocation,
     refreshPrayerTimes, requestLocation, setManualLocation,
     themeColors: colors, notificationsEnabled,
-    timeFormat, calcMethod, madhab, highLatRule, polarResolution, prayerOffsets,
+    timeFormat, calcMethod, madhab, highLatRule, polarResolution, ummAlQuraIshaPolicy, prayerOffsets,
     prayerNotifConfig, setPrayerNotifSettings, toggleMasterPrayerBell,
     notifSnoozeUntil, prayerPreReminderMinutes,
     calcMethodAutoSetLabel, dismissCalcMethodNotice,
@@ -168,6 +168,7 @@ export default function PrayerScreen() {
           highLatRule,
           timeFormat,
           polarResolution,
+          ummAlQuraIshaPolicy,
         );
         const tomorrowTimes = applyPrayerOffsets(rawTomorrow, prayerOffsets, location.timezone, timeFormat);
         next = tomorrowTimes.fajr;
@@ -200,6 +201,7 @@ export default function PrayerScreen() {
           highLatRule,
           timeFormat,
           polarResolution,
+          ummAlQuraIshaPolicy,
         );
         const yesterdayTimes = applyPrayerOffsets(rawYesterday, prayerOffsets, location.timezone, timeFormat);
         const ishaPrev = yesterdayTimes.isha;
@@ -218,7 +220,7 @@ export default function PrayerScreen() {
         setProgress(0);
       }
     }
-  }, [prayerTimes, currentTime, location, calcMethod, madhab, highLatRule, polarResolution, timeFormat, prayerOffsets]);
+  }, [prayerTimes, currentTime, location, calcMethod, madhab, highLatRule, polarResolution, ummAlQuraIshaPolicy, timeFormat, prayerOffsets]);
 
   const onRefresh = async () => {
     setRefreshing(true);

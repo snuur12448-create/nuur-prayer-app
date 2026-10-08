@@ -1,5 +1,5 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@/utils/AppStorage";
 import * as Font from "expo-font";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -22,7 +22,10 @@ import type { ThemeColors } from "@/constants/themes";
 import { useQuranPlayer } from "@/context/QuranPlayerContext";
 import { SURAHS } from "@/utils/islamicData";
 import { RECITERS, getVerseAudioUrl, Reciter } from "@/utils/audioData";
-import { loadVerses, loadWords, prefetchNextSurahs } from "@/utils/quranCache";
+import { loadVerses, loadWordsWithStatus, prefetchNextSurahs } from "@/utils/quranCache";
+import { createWordByWordLoader, type WordByWordState } from "@/utils/wordByWordLoader";
+import { createAudioPlayback, type AudioPlayback } from "@/utils/audioPlayback";
+import { acquireAudioFocus, type AudioFocusLease } from "@/utils/audioFocus";
 import AyahShareSheet from "@/components/AyahShareSheet";
 import TafsirSheet from "@/components/TafsirSheet";
 import { useTafsir } from "@/hooks/useTafsir";
@@ -86,7 +89,13 @@ function WordChip({
     <TouchableOpacity
       onPress={() => onTap(word)}
       activeOpacity={0.72}
+      accessibilityRole="button"
+      accessibilityLabel={`${word.arabic}. ${word.transliteration}. ${word.meaning}`}
+      accessibilityHint="Opens the word meaning, root and pronunciation."
       style={{
+        minWidth: 44,
+        minHeight: 44,
+        justifyContent: "center",
         paddingHorizontal: 9,
         paddingVertical: 6,
         borderRadius: 8,
@@ -97,7 +106,7 @@ function WordChip({
     >
       <Text
         style={{
-          fontFamily: "Inter_400Regular",
+          fontFamily: "AmiriQuran_400Regular",
           fontSize: 16,
           color: colors.gold,
           writingDirection: "rtl",
@@ -164,6 +173,7 @@ const VerseCard = React.memo(function VerseCard({
 
   return (
     <Pressable
+      accessible={false}
       onLongPress={hafidhMode ? undefined : onToggleSave}
       delayLongPress={400}
       style={[
@@ -192,7 +202,7 @@ const VerseCard = React.memo(function VerseCard({
     >
       <View style={styles.verseHeader}>
         <View style={styles.verseHeaderLeft}>
-          {hafidhDifficulty !== "hard" && (
+          {(!hafidhMode || hafidhDifficulty !== "hard") && (
             <TouchableOpacity
               style={[
                 styles.playBtn,
@@ -203,7 +213,8 @@ const VerseCard = React.memo(function VerseCard({
               ]}
               onPress={onPlay}
               accessibilityRole="button"
-              accessibilityLabel={`${isActive ? "Pause" : "Play"} verse ${verse.number}`}
+              accessibilityLabel={`${playIcon === "pause" ? "Pause" : "Play"} verse ${verse.number}`}
+              accessibilityState={{ busy: playIcon === "loader" }}
             >
               {playIcon === "loader" ? (
                 <ActivityIndicator size="small" color={isActive ? "#fff" : colors.tint} />
@@ -258,13 +269,13 @@ const VerseCard = React.memo(function VerseCard({
               <Feather name="check" size={10} color={colors.tint} />
             </View>
           )}
-          {isSaved && !hafidhMode && (
+          {!hafidhMode && (
             <TouchableOpacity
               onPress={onToggleSave}
-              style={[styles.savedBadge, { backgroundColor: colors.gold + "20", borderColor: colors.gold }]}
-              hitSlop={4}
+              style={[styles.savedBadge, { backgroundColor: isSaved ? colors.gold + "20" : "transparent", borderColor: isSaved ? colors.gold : colors.border }]}
               accessibilityRole="button"
-              accessibilityLabel={`Remove bookmark from verse ${verse.number}`}
+              accessibilityLabel={`${isSaved ? "Remove bookmark from" : "Bookmark"} verse ${verse.number}`}
+              accessibilityState={{ selected: isSaved }}
             >
               <Feather name="bookmark" size={11} color={colors.gold} />
             </TouchableOpacity>
@@ -333,6 +344,9 @@ function WordSheet({
   word,
   root,
   rootLoading,
+  rootError,
+  audioState,
+  audioError,
   colors,
   bottomInset,
   onClose,
@@ -341,6 +355,9 @@ function WordSheet({
   word: WordInfo | null;
   root: string | null;
   rootLoading: boolean;
+  rootError: boolean;
+  audioState: "idle" | "loading" | "playing";
+  audioError: boolean;
   colors: ThemeColors;
   bottomInset: number;
   onClose: () => void;
@@ -349,8 +366,11 @@ function WordSheet({
   if (!word) return null;
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable
+      <View style={styles.modalOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} />
+        <View
+          accessibilityViewIsModal
+          onAccessibilityEscape={onClose}
           style={[
             styles.modalSheet,
             {
@@ -359,23 +379,25 @@ function WordSheet({
               borderTopColor: colors.border,
               paddingBottom: Math.max(bottomInset, 20) + 12,
               gap: 0,
+              maxHeight: "85%",
             },
           ]}
-          onPress={() => {}}
         >
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 20 }}>
           <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
 
           {/* Close */}
           <TouchableOpacity
             onPress={onClose}
-            hitSlop={10}
-            style={{ position: "absolute", top: 18, right: 20 }}
+            accessibilityRole="button"
+            accessibilityLabel="Close word details"
+            style={{ position: "absolute", top: 0, right: 0, width: 44, height: 44, alignItems: "center", justifyContent: "center", zIndex: 1 }}
           >
             <Feather name="x" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
 
           {/* Arabic word */}
-          <Text style={[wbwStyles.sheetArabic, { color: colors.gold }]}>
+          <Text accessibilityLanguage="ar" style={[wbwStyles.sheetArabic, { color: colors.gold }]}>
             {word.arabic}
           </Text>
 
@@ -405,7 +427,7 @@ function WordSheet({
               <ActivityIndicator size="small" color={colors.gold} />
             ) : (
               <Text style={[wbwStyles.sheetRootValue, { color: colors.text }]}>
-                {root ?? "—"}
+                {rootError ? "Unavailable — internet required" : root ?? "Not provided"}
               </Text>
             )}
           </View>
@@ -413,19 +435,24 @@ function WordSheet({
           {/* Audio button */}
           <TouchableOpacity
             onPress={onAudio}
+            accessibilityRole="button"
+            accessibilityLabel={audioState === "idle" ? "Hear word pronunciation" : "Stop word pronunciation"}
+            accessibilityState={{ busy: audioState === "loading" }}
             activeOpacity={0.8}
             style={[
               wbwStyles.sheetAudioBtn,
               { backgroundColor: colors.gold + "20", borderColor: colors.gold + "55" },
             ]}
           >
-            <Feather name="volume-2" size={16} color={colors.gold} />
+            {audioState === "loading" ? <ActivityIndicator size="small" color={colors.gold} /> : <Feather name={audioState === "playing" ? "square" : "volume-2"} size={16} color={colors.gold} />}
             <Text style={[wbwStyles.sheetAudioText, { color: colors.gold }]}>
-              Hear word
+              {audioState === "loading" ? "Loading…" : audioState === "playing" ? "Stop" : audioError ? "Retry audio" : "Hear word"}
             </Text>
           </TouchableOpacity>
-        </Pressable>
-      </Pressable>
+          {audioError && <Text accessibilityLiveRegion="polite" style={{ color: colors.textSecondary, textAlign: "center", marginTop: 12 }}>Word audio couldn't load. Check your connection and retry.</Text>}
+          </ScrollView>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -433,7 +460,7 @@ function WordSheet({
 const wbwStyles = StyleSheet.create({
   sheetArabic: {
     fontSize: 36,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "AmiriQuran_400Regular",
     textAlign: "center",
     marginTop: 4,
     marginBottom: 8,
@@ -460,6 +487,7 @@ const wbwStyles = StyleSheet.create({
   },
   sheetRootRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
@@ -538,21 +566,38 @@ export default function QuranDetailScreen() {
   const [hafidhDifficulty, setHafidhDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [revealedAyahs, setRevealedAyahs] = useState<Set<number>>(new Set());
 
-  // ── Tafsir (Ibn Kathir abridged) — surah-scoped fetch + cache ──────────────
-  // Whole-surah load triggered by surahNumber change; per-ayah lookup is
-  // synchronous via getEntry. The sheet only mounts when tafsirVerse is set.
+  // Tafsir is fetched online when its sheet opens and held only in session.
   const {
     loading: tafsirLoading,
     error: tafsirError,
     getEntry: getTafsirEntry,
-  } = useTafsir(surahNumber);
+    retry: retryTafsir,
+  } = useTafsir(tafsirVerse ? surahNumber : null);
 
   // ── Word-by-word ────────────────────────────────────────────────────────────
-  const [wordsByVerse, setWordsByVerse] = useState<Record<number, WordInfo[]>>({});
+  const [wordLoadState, setWordLoadState] = useState<WordByWordState>({ status: "idle" });
+  const wordLoader = useMemo(() => createWordByWordLoader(loadWordsWithStatus, setWordLoadState), []);
+  const currentWordState = "surahNumber" in wordLoadState && wordLoadState.surahNumber !== surahNumber
+    ? { status: "idle" as const }
+    : wordLoadState;
+  const wordsByVerse = currentWordState.status === "ready" ? currentWordState.result.words : {};
+  const wordDownloadLabel = currentWordState.status === "loading"
+    ? "Loading word-by-word · online-only…"
+    : currentWordState.status === "ready"
+      ? "Word-by-word · online-only, not saved offline"
+      : currentWordState.status === "error"
+        ? "Word-by-word is online-only and couldn't load. Connect and retry. Arabic and translation remain available offline."
+        : "Word-by-word is online-only. Turn on while connected to load meanings.";
   const [wordSheetWord, setWordSheetWord] = useState<WordInfo | null>(null);
   const [wordRoot, setWordRoot] = useState<string | null>(null);
   const [wordRootLoading, setWordRootLoading] = useState(false);
-  const wordAudioRef = useRef<any>(null);
+  const [wordRootError, setWordRootError] = useState(false);
+  const [wordAudioState, setWordAudioState] = useState<"idle" | "loading" | "playing">("idle");
+  const [wordAudioError, setWordAudioError] = useState(false);
+  const wordRootAbortRef = useRef<AbortController | null>(null);
+  const wordAudioRef = useRef<AudioPlayback | null>(null);
+  const wordAudioLeaseRef = useRef<AudioFocusLease | null>(null);
+  const wordAudioGeneration = useRef(0);
 
   // ── Item height constants ──────────────────────────────────────────────────
   // Used for the onScrollToIndexFailed fallback offset estimation (rough guess),
@@ -619,8 +664,11 @@ export default function QuranDetailScreen() {
   const [showReciterModal, setShowReciterModal] = useState(false);
   const [showDisplaySheet, setShowDisplaySheet] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState(false);
   const [reciterListAtBottom, setReciterListAtBottom] = useState(false);
-  const previewAudioRef = useRef<any>(null);
+  const previewAudioRef = useRef<AudioPlayback | null>(null);
+  const previewLeaseRef = useRef<AudioFocusLease | null>(null);
+  const previewGeneration = useRef(0);
   const isMountedRef = useRef(true);
   const flatListRef = useRef<FlashListRef<Verse>>(null);
 
@@ -736,15 +784,11 @@ export default function QuranDetailScreen() {
     };
   }, [runLoadVerses]);
 
-  // Load word-by-word — cache first, network fallback.
+  // Online-only, requested explicitly. Cancel on toggle-off, navigation or unmount.
   useEffect(() => {
-    setWordsByVerse({});
-    const ctrl = new AbortController();
-    loadWords(surahNumber, ctrl.signal)
-      .then((byVerse) => setWordsByVerse(byVerse as Record<number, WordInfo[]>))
-      .catch(() => {});
-    return () => ctrl.abort();
-  }, [surahNumber]);
+    if (showWordByWord && !hafidhMode) wordLoader.start(surahNumber);
+    return () => wordLoader.cancel();
+  }, [surahNumber, showWordByWord, hafidhMode, wordLoader]);
 
   // After verses load, scroll to the currently playing verse if this is the active surah.
   // We track the last verse we scrolled to in a ref so layout-induced re-renders
@@ -821,7 +865,7 @@ export default function QuranDetailScreen() {
 
   useEffect(() => {
     // Only stop the reciter preview on unmount — main audio continues in the background
-    return () => { stopPreview(); };
+    return () => { stopPreview(); stopWordAudio(); wordRootAbortRef.current?.abort(); };
   }, []);
 
   // Load persisted hafidh difficulty on mount
@@ -843,49 +887,39 @@ export default function QuranDetailScreen() {
 
   /** Stop any active reciter preview */
   const stopPreview = useCallback(() => {
-    if (previewAudioRef.current) {
-      try {
-        if (Platform.OS === "web") {
-          previewAudioRef.current.pause();
-          previewAudioRef.current.src = "";
-        } else {
-          previewAudioRef.current.stopAsync?.();
-          previewAudioRef.current.unloadAsync?.();
-        }
-      } catch {}
-      previewAudioRef.current = null;
-    }
-    setPreviewingId(null);
+    previewGeneration.current += 1;
+    previewAudioRef.current?.stop();
+    previewAudioRef.current = null;
+    previewLeaseRef.current?.release();
+    previewLeaseRef.current = null;
+    if (isMountedRef.current) setPreviewingId(null);
   }, []);
 
   /** Play a short sample of a reciter (Surah 1, Verse 1) */
-  const togglePreview = useCallback((reciter: Reciter) => {
+  const togglePreview = useCallback(async (reciter: Reciter) => {
     if (previewingId === reciter.id) {
       stopPreview();
       return;
     }
     stopPreview();
+    const generation = previewGeneration.current;
     const url = getVerseAudioUrl(reciter, 1, 1, 1);
+    setPreviewError(false);
     setPreviewingId(reciter.id);
-    if (Platform.OS === "web") {
-      const audio = new Audio(url);
-      audio.onended = () => setPreviewingId(null);
-      audio.onerror = () => setPreviewingId(null);
-      previewAudioRef.current = audio;
-      audio.play().catch(() => setPreviewingId(null));
-    } else {
-      (async () => {
-        try {
-          const { Audio } = await import("expo-av");
-          const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
-          previewAudioRef.current = sound;
-          sound.setOnPlaybackStatusUpdate((status: any) => {
-            if (status.didJustFinish) setPreviewingId(null);
-          });
-        } catch {
-          setPreviewingId(null);
-        }
-      })();
+    try {
+      const lease = await acquireAudioFocus("quran-preview", stopPreview);
+      if (generation !== previewGeneration.current || !lease.isCurrent() || !isMountedRef.current) { lease.release(); return; }
+      previewLeaseRef.current = lease;
+      const current = () => generation === previewGeneration.current && lease.isCurrent() && isMountedRef.current;
+      const session = createAudioPlayback(url, {
+        onFinish: () => { if (current()) stopPreview(); },
+        onState: (state) => { if (state === "paused" && current()) stopPreview(); },
+        onError: () => { if (current()) { stopPreview(); setPreviewError(true); } },
+      });
+      previewAudioRef.current = session;
+      await session.start();
+    } catch {
+      if (generation === previewGeneration.current && isMountedRef.current) { stopPreview(); setPreviewError(true); }
     }
   }, [previewingId, stopPreview]);
 
@@ -920,7 +954,7 @@ export default function QuranDetailScreen() {
   };
 
   const getPlayIcon = (v: Verse) => {
-    if (playingVerse !== v.number) return "play";
+    if (playingSurahNum !== surahNumber || playingVerse !== v.number) return "play";
     if (playState === "loading") return "loader";
     if (playState === "playing") return "pause";
     return "play";
@@ -950,12 +984,34 @@ export default function QuranDetailScreen() {
   const hafidhProgress = verses && verses.length > 0 ? revealedAyahs.size / verses.length : 0;
 
   // ── Word-by-word callbacks ─────────────────────────────────────────────────
+  const stopWordAudio = useCallback(() => {
+    wordAudioGeneration.current += 1;
+    wordAudioRef.current?.stop();
+    wordAudioRef.current = null;
+    wordAudioLeaseRef.current?.release();
+    wordAudioLeaseRef.current = null;
+    if (isMountedRef.current) setWordAudioState("idle");
+  }, []);
+
   const handleWordTap = useCallback(async (w: WordInfo) => {
+    stopWordAudio();
+    setWordAudioError(false);
+    wordRootAbortRef.current?.abort();
+    const controller = new AbortController();
+    wordRootAbortRef.current = controller;
     setWordSheetWord(w);
     setWordRoot(null);
+    setWordRootError(false);
     setWordRootLoading(true);
+    const timer = setTimeout(() => {
+      if (controller.signal.aborted) return;
+      controller.abort();
+      setWordRootError(true);
+      setWordRootLoading(false);
+    }, 15_000);
     try {
-      const r = await fetch(`https://api.qurancdn.com/api/qdc/morphology/${w.location}`);
+      const r = await fetch(`https://api.qurancdn.com/api/qdc/morphology/${w.location}`, { signal: controller.signal });
+      if (!r.ok) throw new Error("root-unavailable");
       const json = await r.json();
       // Try multiple paths the API might return the root at
       const root =
@@ -963,57 +1019,55 @@ export default function QuranDetailScreen() {
         json?.words?.[0]?.root_arabic ??
         json?.root_arabic ??
         null;
-      setWordRoot(root);
+      if (controller.signal.aborted || !isMountedRef.current) return;
+      setWordRoot(typeof root === "string" ? root : null);
     } catch {
+      if (controller.signal.aborted || !isMountedRef.current) return;
       setWordRoot(null);
+      setWordRootError(true);
+    } finally {
+      clearTimeout(timer);
+      if (!controller.signal.aborted && isMountedRef.current) setWordRootLoading(false);
     }
-    setWordRootLoading(false);
-  }, []);
+  }, [stopWordAudio]);
 
   const closeWordSheet = useCallback(() => {
     setWordSheetWord(null);
     setWordRoot(null);
-    // Stop any playing word audio
-    try {
-      if (Platform.OS === "web") {
-        wordAudioRef.current?.pause();
-      } else {
-        wordAudioRef.current?.stopAsync?.();
-        wordAudioRef.current?.unloadAsync?.();
-      }
-    } catch {}
-    wordAudioRef.current = null;
-  }, []);
+    wordRootAbortRef.current?.abort();
+    stopWordAudio();
+  }, [stopWordAudio]);
+
+  useEffect(() => {
+    closeWordSheet();
+    return () => { wordRootAbortRef.current?.abort(); stopWordAudio(); };
+  }, [surahNumber, closeWordSheet, stopWordAudio]);
 
   const playWordAudio = useCallback(async () => {
     if (!wordSheetWord) return;
+    if (wordAudioState !== "idle") { stopWordAudio(); return; }
+    stopWordAudio();
+    const generation = wordAudioGeneration.current;
+    setWordAudioError(false);
+    setWordAudioState("loading");
     const [ch, v, w] = wordSheetWord.location.split(":").map((n) => n.padStart(3, "0"));
     const url = `https://audio.qurancdn.com/wbw/${ch}_${v}_${w}.mp3`;
-    // Stop previous word audio
     try {
-      if (Platform.OS === "web") {
-        wordAudioRef.current?.pause();
-      } else {
-        wordAudioRef.current?.stopAsync?.();
-        wordAudioRef.current?.unloadAsync?.();
-      }
-    } catch {}
-    wordAudioRef.current = null;
-    if (Platform.OS === "web") {
-      const audio = new Audio(url);
-      wordAudioRef.current = audio;
-      audio.play().catch(() => {});
-    } else {
-      try {
-        const { Audio } = await import("expo-av");
-        const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
-        wordAudioRef.current = sound;
-        sound.setOnPlaybackStatusUpdate((s: any) => {
-          if (s.didJustFinish) sound.unloadAsync().catch(() => {});
-        });
-      } catch {}
+      const lease = await acquireAudioFocus("quran-word", stopWordAudio);
+      if (generation !== wordAudioGeneration.current || !lease.isCurrent() || !isMountedRef.current) { lease.release(); return; }
+      wordAudioLeaseRef.current = lease;
+      const current = () => generation === wordAudioGeneration.current && lease.isCurrent() && isMountedRef.current;
+      const session = createAudioPlayback(url, {
+        onState: (state) => { if (current()) { if (state === "paused") stopWordAudio(); else setWordAudioState(state); } },
+        onFinish: () => { if (current()) stopWordAudio(); },
+        onError: () => { if (current()) { stopWordAudio(); setWordAudioError(true); } },
+      });
+      wordAudioRef.current = session;
+      await session.start();
+    } catch {
+      if (generation === wordAudioGeneration.current && isMountedRef.current) { stopWordAudio(); setWordAudioError(true); }
     }
-  }, [wordSheetWord]);
+  }, [wordSheetWord, wordAudioState, stopWordAudio]);
 
   const renderItem = useCallback(
     ({ item: verse }: { item: Verse }) => {
@@ -1021,7 +1075,7 @@ export default function QuranDetailScreen() {
       // a calligraphic banner rather than render it inside a verse card. We
       // still keep tap-to-play affordance via a small play icon centered below.
       if (surahNumber === 1 && verse.number === 1 && !hafidhMode) {
-        const isActive = playingVerse === verse.number;
+        const isActive = playingSurahNum === surahNumber && playingVerse === verse.number;
         return (
           <View style={{ marginBottom: 18, marginTop: 4, alignItems: "center" }}>
             <View style={[styles.bismillahOrnament, { backgroundColor: colors.gold + "55" }]} />
@@ -1049,6 +1103,11 @@ export default function QuranDetailScreen() {
                 {verse.translation}
               </Text>
             )}
+            {showWordByWord && (wordsByVerse[verse.number]?.length ?? 0) > 0 && (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 12 }}>
+                {wordsByVerse[verse.number].map((word) => <WordChip key={word.position} word={word} colors={colors} onTap={handleWordTap} />)}
+              </View>
+            )}
             <TouchableOpacity
               onPress={() => togglePlayPause(verse)}
               style={[styles.bismillahPlayBtn, {
@@ -1056,7 +1115,8 @@ export default function QuranDetailScreen() {
                 borderColor: isActive ? colors.tint : colors.gold + "55",
               }]}
               accessibilityRole="button"
-              accessibilityLabel={`${isActive ? "Pause" : "Play"} ayah 1`}
+              accessibilityLabel={`${getPlayIcon(verse) === "pause" ? "Pause" : "Play"} ayah 1`}
+              accessibilityState={{ busy: getPlayIcon(verse) === "loader" }}
             >
               <Feather
                 name={getPlayIcon(verse) as any}
@@ -1074,7 +1134,7 @@ export default function QuranDetailScreen() {
       return (
         <VerseCard
           verse={verse}
-          isActive={playingVerse === verse.number}
+          isActive={playingSurahNum === surahNumber && playingVerse === verse.number}
           isHighlighted={highlightedVerse === verse.number}
           playIcon={getPlayIcon(verse)}
           isCopied={copiedVerse === verse.number}
@@ -1098,7 +1158,7 @@ export default function QuranDetailScreen() {
         />
       );
     },
-    [surahNumber, playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, showWordByWord, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah, wordsByVerse, handleWordTap, quranFontLoaded, getPlayIcon, savedAyahs, toggleSavedAyah]
+    [surahNumber, playingSurahNum, playingVerse, playState, copiedVerse, highlightedVerse, showTransliteration, showTranslation, showWordByWord, colors, togglePlayPause, copyVerse, hafidhMode, hafidhDifficulty, revealedAyahs, revealAyah, wordsByVerse, handleWordTap, quranFontLoaded, getPlayIcon, savedAyahs, toggleSavedAyah]
   );
 
   const keyExtractor = useCallback((v: Verse) => String(v.number), []);
@@ -1418,6 +1478,25 @@ export default function QuranDetailScreen() {
         </View>
       )}
 
+      {!hafidhMode && showWordByWord && (
+        <View style={[styles.wordDownloadBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {currentWordState.status === "loading" && <ActivityIndicator size="small" color={colors.gold} />}
+          <Text style={[styles.wordDownloadText, { color: colors.textSecondary }]} accessibilityLiveRegion="polite">
+            {wordDownloadLabel}
+          </Text>
+          {currentWordState.status === "error" && (
+            <Pressable
+              onPress={() => wordLoader.start(surahNumber)}
+              accessibilityRole="button"
+              accessibilityLabel="Retry online word-by-word"
+              style={styles.wordDownloadRetry}
+            >
+              <Text style={{ color: colors.gold, fontFamily: "Inter_600SemiBold" }}>Retry</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+
       {/* Body */}
       {loadingVerses ? (
         <View style={styles.centered}>
@@ -1530,6 +1609,7 @@ export default function QuranDetailScreen() {
               <Text style={[styles.modalSub, { color: colors.textSecondary }]}>
                 Tap a name to select · tap play to sample
               </Text>
+              {previewError && <Text accessibilityLiveRegion="polite" style={{ color: colors.textSecondary, marginBottom: 12 }}>Preview couldn't load. Check your connection and tap play to retry.</Text>}
 
               {/* Scrollable list with fade hint */}
               <View style={styles.reciterScrollWrap}>
@@ -1546,7 +1626,7 @@ export default function QuranDetailScreen() {
                     const isSelected = selectedReciter.id === reciter.id;
                     const isPreviewing = previewingId === reciter.id;
                     return (
-                      <TouchableOpacity
+                      <View
                         key={reciter.id}
                         style={[
                           styles.reciterRow,
@@ -1555,14 +1635,18 @@ export default function QuranDetailScreen() {
                             borderColor: isSelected ? colors.tint + "40" : colors.border,
                           },
                         ]}
-                        onPress={() => {
+                      >
+                        <TouchableOpacity style={styles.reciterInfo}
+                          accessibilityRole="radio"
+                          accessibilityLabel={`Select reciter ${reciter.name}`}
+                          accessibilityState={{ selected: isSelected }}
+                          onPress={() => {
                           setSelectedReciter(reciter);
                           stopAudio();
                           stopPreview();
                           setShowReciterModal(false);
                         }}
-                      >
-                        <View style={styles.reciterInfo}>
+                        >
                           <View
                             style={[
                               styles.reciterIcon,
@@ -1584,7 +1668,7 @@ export default function QuranDetailScreen() {
                               {reciter.arabicName}
                             </Text>
                           </View>
-                        </View>
+                        </TouchableOpacity>
                         <View style={styles.reciterRowRight}>
                           <TouchableOpacity
                             style={[
@@ -1595,7 +1679,8 @@ export default function QuranDetailScreen() {
                               },
                             ]}
                             onPress={() => togglePreview(reciter)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${isPreviewing ? "Stop" : "Play"} ${reciter.name} preview`}
                           >
                             <Feather
                               name={isPreviewing ? "square" : "play"}
@@ -1609,7 +1694,7 @@ export default function QuranDetailScreen() {
                             <View style={{ width: 16 }} />
                           )}
                         </View>
-                      </TouchableOpacity>
+                      </View>
                     );
                   })}
                 </ScrollView>
@@ -1654,6 +1739,7 @@ export default function QuranDetailScreen() {
           colors={colors}
           bottomInset={insets.bottom}
           onClose={() => setTafsirVerse(null)}
+          onRetry={retryTafsir}
         />
       )}
 
@@ -1662,6 +1748,9 @@ export default function QuranDetailScreen() {
         word={wordSheetWord}
         root={wordRoot}
         rootLoading={wordRootLoading}
+        rootError={wordRootError}
+        audioState={wordAudioState}
+        audioError={wordAudioError}
         colors={colors}
         bottomInset={insets.bottom}
         onClose={closeWordSheet}
@@ -1755,11 +1844,15 @@ export default function QuranDetailScreen() {
             {([
               { label: "Translation", sub: "Sahih International (English)", value: showTranslation, onToggle: () => setShowTranslation((v) => !v) },
               { label: "Transliteration", sub: "Latin reading guide", value: showTransliteration, onToggle: () => setShowTransliteration((v) => !v) },
-              { label: "Word-by-word", sub: "Tap any word for meaning + root", value: showWordByWord, onToggle: () => setShowWordByWord((v) => !v) },
+              { label: "Word-by-word", sub: showWordByWord ? wordDownloadLabel : "Online-only meanings, roots and audio; not saved offline", value: showWordByWord, onToggle: () => setShowWordByWord((v) => !v) },
             ] as const).map((row) => (
               <Pressable
                 key={row.label}
                 onPress={row.onToggle}
+                accessibilityRole="switch"
+                accessibilityLabel={row.label}
+                accessibilityHint={row.sub}
+                accessibilityState={{ checked: row.value }}
                 style={[styles.displayRow, { borderColor: colors.border }]}
               >
                 <View style={{ flex: 1 }}>
@@ -1783,6 +1876,9 @@ export default function QuranDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  wordDownloadBanner: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  wordDownloadText: { flex: 1, fontSize: 12, lineHeight: 18, fontFamily: "Inter_400Regular" },
+  wordDownloadRetry: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   verseList: { flex: 1 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   loadingText: { fontSize: 14, fontFamily: "Inter_400Regular" },
@@ -1838,9 +1934,9 @@ const styles = StyleSheet.create({
   headerEnglish: { color: "rgba(255,255,255,0.7)", fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
   bookmarkBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   savedBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -1970,7 +2066,7 @@ const styles = StyleSheet.create({
   nowPlayingClose: { width: 44, height: 44, alignItems: "center", justifyContent: "center", margin: -10 },
   bismillah: { fontSize: 26, textAlign: "center", marginBottom: 20, lineHeight: 52, fontFamily: "AmiriQuran_400Regular" },
   verseCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
-  verseHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  verseHeader: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   verseHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
   playBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1 },
   copyBtn: { width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center" },
@@ -2122,10 +2218,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 6,
   },
-  reciterInfo: { flexDirection: "row", alignItems: "center", gap: 12 },
+  reciterInfo: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1, minHeight: 44, paddingRight: 8 },
   reciterIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  reciterDetails: { gap: 2 },
-  reciterNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  reciterDetails: { gap: 2, flex: 1 },
+  reciterNameRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 },
   reciterName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   reciterArabic: { fontSize: 12, fontFamily: "Inter_400Regular" },
   langBadge: {
@@ -2137,9 +2233,9 @@ const styles = StyleSheet.create({
   langBadgeText: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
   reciterRowRight: { flexDirection: "row", alignItems: "center", gap: 10 },
   previewBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",

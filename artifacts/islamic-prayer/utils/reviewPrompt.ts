@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@/utils/AppStorage";
 import * as StoreReview from "expo-store-review";
 import { Linking, Platform } from "react-native";
 

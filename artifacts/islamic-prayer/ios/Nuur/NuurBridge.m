@@ -10,6 +10,23 @@
 // dhikr (via the shared Darwin notification).
 @interface RCT_EXTERN_MODULE(NuurBridge, RCTEventEmitter)
 
+RCT_EXTERN_METHOD(readWidgetDiagnostics:(RCTPromiseResolveBlock)resolver
+                  rejecter:(RCTPromiseRejectBlock)rejecter)
+RCT_EXTERN_METHOD(beginDataMaintenance:(RCTPromiseResolveBlock)resolver
+                  rejecter:(RCTPromiseRejectBlock)rejecter)
+RCT_EXTERN_METHOD(endDataMaintenance:(RCTPromiseResolveBlock)resolver
+                  rejecter:(RCTPromiseRejectBlock)rejecter)
+RCT_EXTERN_METHOD(clearSharedData:(RCTPromiseResolveBlock)resolver
+                  rejecter:(RCTPromiseRejectBlock)rejecter)
+RCT_EXTERN_METHOD(encryptBackup:(NSString *)plaintext
+                  passphrase:(NSString *)passphrase
+                  resolver:(RCTPromiseResolveBlock)resolver
+                  rejecter:(RCTPromiseRejectBlock)rejecter)
+RCT_EXTERN_METHOD(decryptBackup:(NSString *)envelope
+                  passphrase:(NSString *)passphrase
+                  resolver:(RCTPromiseResolveBlock)resolver
+                  rejecter:(RCTPromiseRejectBlock)rejecter)
+
 RCT_EXTERN_METHOD(writeWidgetData:(NSString *)json
                   resolver:(RCTPromiseResolveBlock)resolver
                   rejecter:(RCTPromiseRejectBlock)rejecter)
