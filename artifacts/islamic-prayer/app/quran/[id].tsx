@@ -1595,17 +1595,30 @@ export default function QuranDetailScreen() {
           setShowReciterModal(false);
         }}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => {
-            stopPreview();
-            setShowReciterModal(false);
-          }}
-        >
-          <Pressable>
-            <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
+        <View style={styles.modalOverlay} accessible={false}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            accessible={false}
+            onPress={() => { stopPreview(); setShowReciterModal(false); }}
+          />
+            <View
+              accessible={false}
+              accessibilityViewIsModal
+              onAccessibilityEscape={() => { stopPreview(); setShowReciterModal(false); }}
+              style={[styles.modalSheet, { backgroundColor: colors.surface, maxHeight: "85%", paddingBottom: Math.max(insets.bottom, 20) }]}
+            >
               <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Choose Reciter</Text>
+              <View style={styles.modalHeadingRow}>
+                <Text accessibilityRole="header" style={[styles.modalTitle, styles.modalHeadingText, { color: colors.text }]}>Choose Reciter</Text>
+                <Pressable
+                  style={styles.modalCloseButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close reciter selection"
+                  onPress={() => { stopPreview(); setShowReciterModal(false); }}
+                >
+                  <Feather name="x" size={20} color={colors.textSecondary} />
+                </Pressable>
+              </View>
               <Text style={[styles.modalSub, { color: colors.textSecondary }]}>
                 Tap a name to select · tap play to sample
               </Text>
@@ -1719,8 +1732,7 @@ export default function QuranDetailScreen() {
                 )}
               </View>
             </View>
-          </Pressable>
-        </Pressable>
+        </View>
       </Modal>
 
       {/* ── Tafsir sheet (Ibn Kathir abridged) ──────────────────────────── */}
@@ -1778,12 +1790,27 @@ export default function QuranDetailScreen() {
         animationType="fade"
         onRequestClose={() => setShowSpeedMenu(false)}
       >
-        <Pressable style={styles.speedBackdrop} onPress={() => setShowSpeedMenu(false)}>
-          <Pressable>
-            <View style={[styles.speedCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={styles.speedBackdrop} accessible={false}>
+          <Pressable style={StyleSheet.absoluteFill} accessible={false} onPress={() => setShowSpeedMenu(false)} />
+            <View
+              accessible={false}
+              accessibilityViewIsModal
+              onAccessibilityEscape={() => setShowSpeedMenu(false)}
+              style={[styles.speedCard, { backgroundColor: colors.surface, borderColor: colors.border, maxHeight: "85%" }]}
+            >
               <View style={[styles.speedHandle, { backgroundColor: colors.border }]} />
-              <Text style={[styles.speedTitle, { color: colors.textSecondary }]}>Playback Speed</Text>
-              <View style={styles.speedGrid}>
+              <View style={styles.modalHeadingRow}>
+                <Text accessibilityRole="header" style={[styles.speedTitle, styles.modalHeadingText, { color: colors.textSecondary, marginBottom: 0 }]}>Playback Speed</Text>
+                <Pressable
+                  style={styles.modalCloseButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close playback speed"
+                  onPress={() => setShowSpeedMenu(false)}
+                >
+                  <Feather name="x" size={20} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.speedGrid}>
                 {([0.75, 1.0, 1.5, 2.0] as const).map((speed) => {
                   const active = playbackRate === speed;
                   const label = speed === 0.75 ? "¾×" : speed === 1.0 ? "1×" : `${speed}×`;
@@ -1792,6 +1819,9 @@ export default function QuranDetailScreen() {
                     <Pressable
                       key={speed}
                       onPress={() => { setPlaybackRate(speed); setShowSpeedMenu(false); }}
+                      accessibilityRole="radio"
+                      accessibilityLabel={`${speed} times speed, ${sublabel}`}
+                      accessibilityState={{ selected: active }}
                       style={[
                         styles.speedOption,
                         {
@@ -1812,10 +1842,9 @@ export default function QuranDetailScreen() {
                     </Pressable>
                   );
                 })}
-              </View>
+              </ScrollView>
             </View>
-          </Pressable>
-        </Pressable>
+        </View>
       </Modal>
 
       {/* ── Display settings sheet (Translation / Transliteration / Word-by-word) ── */}
@@ -1825,8 +1854,12 @@ export default function QuranDetailScreen() {
         animationType="slide"
         onRequestClose={() => setShowDisplaySheet(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowDisplaySheet(false)}>
-          <Pressable
+        <View style={styles.modalOverlay} accessible={false}>
+          <Pressable style={StyleSheet.absoluteFill} accessible={false} onPress={() => setShowDisplaySheet(false)} />
+          <View
+            accessible={false}
+            accessibilityViewIsModal
+            onAccessibilityEscape={() => setShowDisplaySheet(false)}
             style={[
               styles.modalSheet,
               {
@@ -1834,13 +1867,24 @@ export default function QuranDetailScreen() {
                 borderTopWidth: 1,
                 borderTopColor: colors.border,
                 paddingBottom: Math.max(insets.bottom, 20) + 12,
+                maxHeight: "85%",
               },
             ]}
-            onPress={() => {}}
           >
             <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
-            <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 18 }]}>Reading Display</Text>
+            <View style={styles.modalHeadingRow}>
+              <Text accessibilityRole="header" style={[styles.modalTitle, styles.modalHeadingText, { color: colors.text }]}>Reading Display</Text>
+              <Pressable
+                style={styles.modalCloseButton}
+                accessibilityRole="button"
+                accessibilityLabel="Close reading display"
+                onPress={() => setShowDisplaySheet(false)}
+              >
+                <Feather name="x" size={20} color={colors.textSecondary} />
+              </Pressable>
+            </View>
 
+            <ScrollView showsVerticalScrollIndicator={false}>
             {([
               { label: "Translation", sub: "Sahih International (English)", value: showTranslation, onToggle: () => setShowTranslation((v) => !v) },
               { label: "Transliteration", sub: "Latin reading guide", value: showTransliteration, onToggle: () => setShowTransliteration((v) => !v) },
@@ -1867,8 +1911,9 @@ export default function QuranDetailScreen() {
             <Text style={[styles.contentSourceNote, { color: colors.textSecondary }]}>
               Arabic text: Uthmani edition · Translation: Sahih International. Downloaded Arabic is checked against Nuur's bundled offline copy before display.
             </Text>
-          </Pressable>
-        </Pressable>
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -2208,6 +2253,9 @@ const styles = StyleSheet.create({
   modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingTop: 12, gap: 4 },
   modalHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 12 },
   modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold", marginBottom: 2 },
+  modalHeadingRow: { flexDirection: "row", alignItems: "center", alignSelf: "stretch", gap: 8, marginBottom: 8 },
+  modalHeadingText: { flex: 1, flexShrink: 1 },
+  modalCloseButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   modalSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 12 },
   reciterRow: {
     flexDirection: "row",
@@ -2240,7 +2288,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  reciterScrollWrap: { position: "relative", maxHeight: 360 },
+  reciterScrollWrap: { position: "relative", maxHeight: 360, flexShrink: 1 },
   reciterScrollView: { flexGrow: 0 },
   scrollFadeHint: {
     position: "absolute",

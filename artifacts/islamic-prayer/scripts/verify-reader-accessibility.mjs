@@ -190,6 +190,62 @@ assert.match(reader, /wordLoader\.cancel\(\)/);
 assert.match(reader, /Word-by-word · online-only, not saved offline/);
 assert.doesNotMatch(reader, /Word-by-word downloaded · available offline/);
 assert.match(reader, /accessibilityRole="switch"/);
+// Regression: a Pressable sheet/backdrop ancestor collapses its interactive
+// descendants into one iOS accessibility element. Check the actual JSX tree,
+// not just that switch/radio labels exist somewhere in the source.
+const ts = runtimeRequire("typescript");
+const readerAST = ts.createSourceFile("reader.tsx", reader, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const jsxOpening = node => ts.isJsxElement(node) ? node.openingElement : ts.isJsxSelfClosingElement(node) ? node : null;
+const jsxTag = node => jsxOpening(node)?.tagName.getText(readerAST);
+const attribute = (node, name) => jsxOpening(node)?.attributes.properties.find(property => ts.isJsxAttribute(property) && property.name.getText(readerAST) === name);
+const attributeText = (node, name) => attribute(node, name)?.initializer?.getText(readerAST);
+const collect = (node, predicate) => {
+  const matches = [];
+  const visit = current => { if (predicate(current)) matches.push(current); ts.forEachChild(current, visit); };
+  visit(node);
+  return matches;
+};
+for (const [visible, closeLabel, closeAction, role] of [
+  ["showDisplaySheet", "Close reading display", "setShowDisplaySheet(false)", "switch"],
+  ["showSpeedMenu", "Close playback speed", "setShowSpeedMenu(false)", "radio"],
+  ["showReciterModal", "Close reciter selection", "setShowReciterModal(false)", "radio"],
+]) {
+  const modal = collect(readerAST, node => jsxTag(node) === "Modal" && attributeText(node, "visible") === `{${visible}}`)[0];
+  assert.ok(modal, `${visible}: modal must exist`);
+  const wrapper = modal.children.find(node => jsxOpening(node));
+  assert.equal(jsxTag(wrapper), "View", `${visible}: backdrop cannot wrap controls in a Pressable`);
+  assert.equal(attributeText(wrapper, "accessible"), "{false}");
+  const siblings = wrapper.children.filter(node => jsxOpening(node));
+  assert.deepEqual(siblings.map(jsxTag), ["Pressable", "View"], `${visible}: backdrop and non-pressable sheet must be siblings`);
+  const [backdrop, sheet] = siblings;
+  assert.equal(attributeText(backdrop, "style"), "{StyleSheet.absoluteFill}");
+  assert.equal(attributeText(backdrop, "accessible"), "{false}", "decorative backdrop must not steal VoiceOver focus");
+  assert.equal(attributeText(sheet, "accessible"), "{false}");
+  assert.ok(attribute(sheet, "accessibilityViewIsModal"));
+  assert.ok(attributeText(sheet, "onAccessibilityEscape").includes(closeAction));
+  assert.equal(attribute(sheet, "onPress"), undefined);
+  const close = collect(sheet, node => attributeText(node, "accessibilityLabel") === JSON.stringify(closeLabel))[0];
+  assert.ok(close, `${visible}: explicit close must remain reachable`);
+  assert.equal(attributeText(close, "accessibilityRole"), '"button"');
+  assert.equal(attributeText(close, "style"), "{styles.modalCloseButton}");
+  assert.ok(attributeText(close, "onPress").includes(closeAction));
+  assert.ok(collect(sheet, node => jsxTag(node) === "ScrollView").length > 0, `${visible}: content must scroll at larger text sizes`);
+  const controls = collect(sheet, node => attributeText(node, "accessibilityRole") === JSON.stringify(role));
+  assert.ok(controls.length > 0, `${visible}: individual ${role} controls must exist`);
+  for (const control of controls) {
+    for (let ancestor = control.parent; ancestor !== modal; ancestor = ancestor.parent) {
+      assert.ok(ancestor, "control must remain inside its modal");
+      assert.ok(!["Pressable", "TouchableOpacity"].includes(jsxTag(ancestor)), `${visible}: interactive control must not have a touchable grouping ancestor`);
+    }
+  }
+  if (visible === "showReciterModal") {
+    assert.match(attributeText(close, "onPress"), /stopPreview\(\)/);
+    assert.match(attributeText(sheet, "onAccessibilityEscape"), /stopPreview\(\)/);
+  }
+}
+assert.match(reader, /modalCloseButton: \{ width: 44, height: 44/);
+assert.match(reader, /accessibilityState=\{\{ checked: row\.value \}\}/);
+assert.match(reader, /accessibilityState=\{\{ selected: active \}\}/);
 const tafsirSheet = await source("components/TafsirSheet.tsx");
 assert.match(tafsirSheet, /Retry online tafsir/);
 assert.match(tafsirSheet, /Online-only · commentary is not saved for offline use/);

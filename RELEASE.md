@@ -33,6 +33,7 @@ pnpm --dir artifacts/islamic-prayer run qa:audio
 pnpm --dir artifacts/islamic-prayer run qa:background
 pnpm --dir artifacts/islamic-prayer run qa:ramadan
 pnpm --dir artifacts/islamic-prayer run qa:health
+pnpm --dir artifacts/islamic-prayer run qa:home-night
 pnpm --dir artifacts/islamic-prayer run qa:data-controls
 pnpm --dir artifacts/islamic-prayer run qa:store-readiness --inventory-only
 pnpm --dir artifacts/islamic-prayer run qa:release
@@ -52,6 +53,8 @@ xcodebuild -workspace ios/Nuur.xcworkspace -scheme Nuur -configuration Release -
 ```
 
 The same sequence runs in `.github/workflows/release-readiness.yml`. Submit only a commit for which both jobs pass. A simulator build is not evidence of distribution signing or delivery of notifications on a phone.
+
+The unsigned simulator command above verifies compilation only. For installed simulator runtime QA, rebuild with `CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-` so Xcode embeds simulated App Group entitlements. Verify `xcrun simctl get_app_container <test-device-id> com.nuur.islamicprayer groups` exposes `group.com.nuur.shared`. An unsigned installation without the group cannot exercise widget storage or data recovery and deliberately stops at the recovery gate; do not bypass that safeguard.
 
 ## Signed iOS release
 

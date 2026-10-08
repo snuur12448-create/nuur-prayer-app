@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import type { PrayerTimesResult, PrayerTime } from "@/utils/prayerTimes";
+import type { HomeNightWindow } from "@/utils/homeNightWindow";
 import { ARABIC } from "./constants";
 import {
   blendedSky,
   buildStars,
-  formatHm,
   horizonOf,
   skyFor,
   timeFractionOfDay,
@@ -42,6 +42,7 @@ export type NightArcSpec = {
 
 export interface UseSkyStateInput {
   prayerTimes: PrayerTimesResult | null;
+  nightWindow: HomeNightWindow | null;
   currentPrayer: PrayerTime | null;
   nextPrayer: PrayerTime | null;
   nowMs: number;
@@ -93,7 +94,7 @@ export interface SkyState {
 }
 
 export function useSkyState(input: UseSkyStateInput): SkyState {
-  const { prayerTimes, currentPrayer, nextPrayer, nowMs, isNight, W, cy, R, cx } = input;
+  const { prayerTimes, nightWindow, currentPrayer, nextPrayer, nowMs, isNight, W, cy, R, cx } = input;
 
   const reduceMotion = useReduceMotion();
   const curName = currentPrayer?.name?.toLowerCase() ?? null;
@@ -119,15 +120,10 @@ export function useSkyState(input: UseSkyStateInput): SkyState {
     return -180 + f * 180;
   }, [prayerTimes, nowMs]);
   const nightBodyDeg = useMemo(() => {
-    if (!prayerTimes) return -90;
-    const sunriseMs = prayerTimes.sunrise.time.getTime();
-    const sunsetMs = prayerTimes.maghrib.time.getTime();
-    const beforeMaghrib = nowMs < sunsetMs;
-    const startMs = beforeMaghrib ? sunsetMs - 24 * 3600 * 1000 : sunsetMs;
-    const endMs = sunriseMs > startMs ? sunriseMs : sunriseMs + 24 * 3600 * 1000;
-    const f = timeFractionOfNight(nowMs, startMs, endMs);
+    if (!nightWindow) return -90;
+    const f = timeFractionOfNight(nowMs, nightWindow.maghrib.time.getTime(), nightWindow.sunrise.time.getTime());
     return -180 + f * 180;
-  }, [prayerTimes, nowMs]);
+  }, [nightWindow, nowMs]);
   const bodyDeg = isDay ? dayBodyDeg : nightBodyDeg;
 
   // ── Day→Night cross-fade (sunset animation) ──────────────────────────────
@@ -240,7 +236,8 @@ export function useSkyState(input: UseSkyStateInput): SkyState {
 
   const preDawn = !!prayerTimes && isNight && nowMs < prayerTimes.maghrib.time.getTime();
   const nightPrayers = useMemo<NightSpec[]>(() => {
-    if (!prayerTimes) return [];
+    const source = isNight ? nightWindow : prayerTimes;
+    if (!source) return [];
     const nextName = nextPrayer?.name?.toLowerCase();
     const mk = (id: NightSpec["id"], src: PrayerTime, side: "left" | "right", sub: string): NightSpec => {
       const ms = src.time.getTime();
@@ -253,29 +250,18 @@ export function useSkyState(input: UseSkyStateInput): SkyState {
       return { id, en: src.name, time: src.timeString, sub, side, status };
     };
     return [
-      mk("fajr", prayerTimes.fajr, "left", "pre-dawn"),
-      mk("isha", prayerTimes.isha, "right", "after sunset"),
+      mk("fajr", source.fajr, "left", "pre-dawn"),
+      mk("isha", source.isha, "right", "after sunset"),
     ];
-  }, [prayerTimes, curName, nextPrayer, nowMs, preDawn]);
+  }, [prayerTimes, nightWindow, isNight, curName, nextPrayer, nowMs, preDawn]);
 
   const nightArcPrayers = useMemo<NightArcSpec[]>(() => {
-    if (!prayerTimes) return [];
-    const maghribMs = prayerTimes.maghrib.time.getTime();
-    const fajrMs = prayerTimes.fajr.time.getTime();
-    const sunriseMs = prayerTimes.sunrise.time.getTime();
-    const ishaMs = prayerTimes.isha.time.getTime();
-    const startMs = nowMs < maghribMs ? maghribMs - 24 * 3600 * 1000 : maghribMs;
-    const endMs = sunriseMs > startMs ? sunriseMs : sunriseMs + 24 * 3600 * 1000;
-    const DAY = 24 * 3600 * 1000;
-    const intoWin = (ms: number) => {
-      let m = ms;
-      if (m < startMs) m += DAY;
-      else if (m > endMs) m -= DAY;
-      return m;
-    };
-    const fajrAdjMs = intoWin(fajrMs);
-    const ishaAdjMs = intoWin(ishaMs);
-    const lastThirdMs = startMs + ((fajrAdjMs - startMs) * 2) / 3;
+    if (!nightWindow) return [];
+    const startMs = nightWindow.maghrib.time.getTime();
+    const endMs = nightWindow.sunrise.time.getTime();
+    const fajrAdjMs = nightWindow.fajr.time.getTime();
+    const ishaAdjMs = nightWindow.isha.time.getTime();
+    const lastThirdMs = nightWindow.lastThird.time.getTime();
     const at = (ms: number) => {
       const f = Math.max(0, Math.min(1, (ms - startMs) / (endMs - startMs)));
       return -180 + f * 180;
@@ -294,7 +280,7 @@ export function useSkyState(input: UseSkyStateInput): SkyState {
       {
         id: "maghrib",
         label: "MAGHRIB",
-        time: prayerTimes.maghrib.timeString,
+        time: nightWindow.maghrib.timeString,
         sub: "sunset · night begins",
         angle: at(startMs),
         kind: "gateway",
@@ -304,7 +290,7 @@ export function useSkyState(input: UseSkyStateInput): SkyState {
         id: "isha",
         label: "ISHA",
         ar: ARABIC.isha,
-        time: prayerTimes.isha.timeString,
+        time: nightWindow.isha.timeString,
         angle: at(ishaAdjMs),
         kind: "prayer",
         status: status("isha", ishaAdjMs),
@@ -312,7 +298,7 @@ export function useSkyState(input: UseSkyStateInput): SkyState {
       {
         id: "lastThird",
         label: "LAST 1/3",
-        time: formatHm(lastThirdMs),
+        time: nightWindow.lastThird.timeString,
         sub: "tahajjud window",
         angle: at(lastThirdMs),
         kind: "window",
@@ -322,7 +308,7 @@ export function useSkyState(input: UseSkyStateInput): SkyState {
         id: "fajr",
         label: "FAJR",
         ar: ARABIC.fajr,
-        time: prayerTimes.fajr.timeString,
+        time: nightWindow.fajr.timeString,
         angle: at(fajrAdjMs),
         kind: "prayer",
         status: status("fajr", fajrAdjMs),
@@ -330,14 +316,14 @@ export function useSkyState(input: UseSkyStateInput): SkyState {
       {
         id: "sunrise",
         label: "SUNRISE",
-        time: prayerTimes.sunrise.timeString,
+        time: nightWindow.sunrise.timeString,
         sub: "fajr ends",
         angle: at(endMs),
         kind: "gateway",
         status: status("sunrise", endMs),
       },
     ];
-  }, [prayerTimes, curName, nextPrayer, nowMs]);
+  }, [nightWindow, curName, nextPrayer, nowMs]);
 
   const stars = useMemo(() => buildStars(isDay ? 1 : 3.2, W, cy), [isDay, W, cy]);
 

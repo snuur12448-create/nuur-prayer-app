@@ -36,6 +36,7 @@ jobs:
       - run: pnpm --dir artifacts/islamic-prayer run qa:background
       - run: pnpm --dir artifacts/islamic-prayer run qa:ramadan
       - run: pnpm --dir artifacts/islamic-prayer run qa:health
+      - run: pnpm --dir artifacts/islamic-prayer run qa:home-night
       - run: pnpm --dir artifacts/islamic-prayer run qa:data-controls
       # Validate the inventory, without pretending unresolved owner approvals pass.
       # The strict command (without this flag) must pass separately before publishing.

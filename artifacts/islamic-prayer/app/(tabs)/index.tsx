@@ -25,7 +25,8 @@ import { getMomentAyah } from "@/utils/momentVerse";
 import { calculatePrayerTimes, applyPrayerOffsets, getNextPrayer, getTimeUntilPrayer, PrayerTime, PrayerTimesResult } from "@/utils/prayerTimes";
 import { PrayerKey } from "@/utils/prayerNotifData";
 import { HomeV2 } from "@/components/HomeV2";
-import { dateByAddingDaysInTimeZone, dateKeyInTimeZone } from "@/utils/timeZone";
+import { dateByAddingDaysInTimeZone, dateForCivilDateInTimeZone, dateKeyInTimeZone, formatTimeInTimeZone } from "@/utils/timeZone";
+import { buildHomeNightWindow } from "@/utils/homeNightWindow";
 
 const PRAYER_ORDER = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"] as const;
 
@@ -89,6 +90,22 @@ export default function PrayerScreen() {
     !!prayerTimes &&
     (nowMs < prayerTimes.sunrise.time.getTime() || nowMs >= prayerTimes.maghrib.time.getTime());
   const dawnApproaching = currentPrayer?.name?.toLowerCase() === "fajr";
+
+  // The night spans actual adjacent civil days, never today's times ±24h.
+  // Keep this separate from prayerTimes so today's tracker labels do not move.
+  const nightWindow = useMemo(() => {
+    if (!prayerTimes || !location) return null;
+    return buildHomeNightWindow(prayerTimes, currentTime.getTime(), offset => {
+      // prayerTimes.date is adhan's device-local civil-date container, not a
+      // target-zone instant. Anchor its fields at target-zone noon first.
+      const base = dateForCivilDateInTimeZone(prayerTimes.date.getFullYear(),
+        prayerTimes.date.getMonth() + 1, prayerTimes.date.getDate(), location.timezone);
+      const adjacentDate = dateByAddingDaysInTimeZone(base, location.timezone, offset);
+      const raw = calculatePrayerTimes(location.latitude, location.longitude, location.timezone,
+        adjacentDate, calcMethod, madhab, highLatRule, timeFormat, polarResolution, ummAlQuraIshaPolicy);
+      return applyPrayerOffsets(raw, prayerOffsets, location.timezone, timeFormat);
+    }, date => formatTimeInTimeZone(date, location.timezone, timeFormat));
+  }, [prayerTimes, currentTime, location, calcMethod, madhab, highLatRule, polarResolution, ummAlQuraIshaPolicy, timeFormat, prayerOffsets]);
 
   // Verse of the Moment — picks the contextually-best verse for right now
   // (Friday / late night override; otherwise the base verse for the current
@@ -154,25 +171,9 @@ export default function PrayerScreen() {
       const prev = [...pList].reverse().find((p) => p.time.getTime() <= now) ?? null;
       setCurrentPrayer(prev);
 
-      // Next prayer — if all today's prayers are done, fetch tomorrow's Fajr
+      // Share the exact next dawn with the diagram and Isha end label.
       let next = getNextPrayer(prayerTimes);
-      if (!next && location) {
-        const tomorrow = dateByAddingDaysInTimeZone(new Date(), location.timezone, 1);
-        const rawTomorrow = calculatePrayerTimes(
-          location.latitude,
-          location.longitude,
-          location.timezone,
-          tomorrow,
-          calcMethod,
-          madhab,
-          highLatRule,
-          timeFormat,
-          polarResolution,
-          ummAlQuraIshaPolicy,
-        );
-        const tomorrowTimes = applyPrayerOffsets(rawTomorrow, prayerOffsets, location.timezone, timeFormat);
-        next = tomorrowTimes.fajr;
-      }
+      if (!next) next = nightWindow?.fajr ?? null;
       setNextPrayer(next);
 
       if (prev && next) {
@@ -186,25 +187,11 @@ export default function PrayerScreen() {
         const total = endPrayer.time.getTime() - prev.time.getTime();
         const elapsed = now - prev.time.getTime();
         setProgress(Math.min(1, Math.max(0, elapsed / total)));
-      } else if (next && location) {
+      } else if (next && nightWindow) {
         // Before today's Fajr — we're inside the overnight Isha→Fajr window
         // that began with YESTERDAY's Isha. Compute it so the marker
         // correctly tracks progress through the night.
-        const yesterday = dateByAddingDaysInTimeZone(new Date(), location.timezone, -1);
-        const rawYesterday = calculatePrayerTimes(
-          location.latitude,
-          location.longitude,
-          location.timezone,
-          yesterday,
-          calcMethod,
-          madhab,
-          highLatRule,
-          timeFormat,
-          polarResolution,
-          ummAlQuraIshaPolicy,
-        );
-        const yesterdayTimes = applyPrayerOffsets(rawYesterday, prayerOffsets, location.timezone, timeFormat);
-        const ishaPrev = yesterdayTimes.isha;
+        const ishaPrev = nightWindow.isha;
         // Surface yesterday's Isha as the "current" period so the palette
         // stays night and the Arabic name reads العشاء until Fajr.
         setCurrentPrayer(ishaPrev);
@@ -220,7 +207,7 @@ export default function PrayerScreen() {
         setProgress(0);
       }
     }
-  }, [prayerTimes, currentTime, location, calcMethod, madhab, highLatRule, polarResolution, ummAlQuraIshaPolicy, timeFormat, prayerOffsets]);
+  }, [prayerTimes, currentTime, nightWindow]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -412,6 +399,7 @@ export default function PrayerScreen() {
           colors={colors}
           topPad={topPad}
           prayerTimes={prayerTimes}
+          nightWindow={nightWindow}
           currentPrayer={currentPrayer}
           nextPrayer={nextPrayer}
           progressEndPrayer={progressEndPrayer}
@@ -480,23 +468,12 @@ export default function PrayerScreen() {
         let displayName: string;
         let displayTime: string;
         if (notifSheetKey === "tahajjud") {
-          const maghribMs = prayerTimes.maghrib.time.getTime();
-          const fajrMs = prayerTimes.fajr.time.getTime();
-          const DAY = 24 * 3600 * 1000;
-          // If today's Fajr already passed Maghrib (normal evening case),
-          // approximate tomorrow's Fajr as fajr + 24h. This is *display only*
-          // for the sheet header — the actual scheduler in notifications.ts
-          // recomputes tomorrow's Fajr properly so day-to-day astronomical
-          // drift (and DST transitions, which can shift the displayed time
-          // by ~1h on the rare cutover day) don't affect what actually fires.
-          const nextFajrMs = fajrMs > maghribMs ? fajrMs : fajrMs + DAY;
-          const lastThirdMs = maghribMs + ((nextFajrMs - maghribMs) * 2) / 3;
-          const d = new Date(lastThirdMs);
           displayName = "Tahajjud";
-          displayTime = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          displayTime = nightWindow?.lastThird.timeString ?? "Unavailable";
         } else {
           // notifSheetKey is now narrowed to a real PrayerTimesResult key.
-          const pt = prayerTimes[notifSheetKey];
+          const nightKey = notifSheetKey === "maghrib" || notifSheetKey === "isha" || notifSheetKey === "fajr" || notifSheetKey === "sunrise";
+          const pt = isNight && nightWindow && nightKey ? nightWindow[notifSheetKey] : prayerTimes[notifSheetKey];
           if (!pt) return null;
           displayName = pt.name;
           displayTime = pt.timeString;

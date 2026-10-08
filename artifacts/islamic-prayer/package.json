@@ -21,6 +21,7 @@
     "qa:background": "node --import tsx scripts/verify-background-task.mjs",
     "qa:ramadan": "node --import tsx scripts/verify-umm-al-qura-isha.mjs",
     "qa:health": "node --import tsx scripts/verify-health-status.mjs",
+    "qa:home-night": "node --import tsx scripts/verify-home-night-window.mjs",
     "qa:backup-crypto": "node scripts/verify-backup-crypto.mjs",
     "qa:shared-data": "node scripts/verify-shared-data-gate.mjs",
     "qa:data-controls": "node scripts/verify-data-controls.mjs",

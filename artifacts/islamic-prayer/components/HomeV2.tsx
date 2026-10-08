@@ -3,6 +3,7 @@ import { StyleSheet, View, useWindowDimensions } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import type { PrayerTimesResult, PrayerTime } from "@/utils/prayerTimes";
+import type { HomeNightWindow } from "@/utils/homeNightWindow";
 import type { TrackerPrayerKey } from "@/context/PrayerTrackerContext";
 import type { PrayerKey } from "@/utils/prayerNotifData";
 import { ARABIC, TRACKER_FIVE, type ThemeColors } from "./home/constants";
@@ -31,6 +32,7 @@ export interface HomeV2Props {
   colors: ThemeColors;
   topPad: number;
   prayerTimes: PrayerTimesResult | null;
+  nightWindow: HomeNightWindow | null;
   currentPrayer: PrayerTime | null;
   nextPrayer: PrayerTime | null;
   progressEndPrayer: PrayerTime | null;
@@ -94,7 +96,7 @@ export interface HomeV2Props {
 
 export function HomeV2(props: HomeV2Props) {
   const {
-    colors, topPad, prayerTimes, currentPrayer, nextPrayer, progressEndPrayer,
+    colors, topPad, prayerTimes, nightWindow, currentPrayer, nextPrayer, progressEndPrayer,
     timeRemaining, nowMs, isNight, locationLabel, hijriLabel, prayed,
     prayedCount, nowPrayedAtMs, recordingForYesterday, yesterdayLabel,
     ayah, isVerseOfNight, ayahCopied, bell, banners,
@@ -112,7 +114,7 @@ export function HomeV2(props: HomeV2Props) {
   const R = Math.min(138, W / 2 - 50);
 
   // ── Sky / body / anchor derivations ───────────────────────────────────────
-  const sky = useSkyState({ prayerTimes, currentPrayer, nextPrayer, nowMs, isNight, W, cy, R, cx });
+  const sky = useSkyState({ prayerTimes, nightWindow, currentPrayer, nextPrayer, nowMs, isNight, W, cy, R, cx });
   const {
     curName, isDay, horizonColor, inkSoft, swapT, nightActive,
     sunsetFlash, isDawnFlash,
@@ -126,14 +128,12 @@ export function HomeV2(props: HomeV2Props) {
     if (isDay) {
       return timeFractionOfDay(nowMs, sunriseMs, maghribMs);
     }
-    const beforeMaghrib = nowMs < maghribMs;
-    const startMs = beforeMaghrib ? maghribMs - 24 * 3600 * 1000 : maghribMs;
-    const endMs = sunriseMs > startMs ? sunriseMs : sunriseMs + 24 * 3600 * 1000;
-    return timeFractionOfNight(nowMs, startMs, endMs);
-  }, [prayerTimes, nowMs, isDay]);
+    if (!nightWindow) return 0;
+    return timeFractionOfNight(nowMs, nightWindow.maghrib.time.getTime(), nightWindow.sunrise.time.getTime());
+  }, [prayerTimes, nightWindow, nowMs, isDay]);
 
-  const barLeft = isDay ? prayerTimes?.sunrise.timeString ?? "" : prayerTimes?.maghrib.timeString ?? "";
-  const barRight = isDay ? prayerTimes?.maghrib.timeString ?? "" : prayerTimes?.sunrise.timeString ?? "";
+  const barLeft = isDay ? prayerTimes?.sunrise.timeString ?? "" : nightWindow?.maghrib.timeString ?? "";
+  const barRight = isDay ? prayerTimes?.maghrib.timeString ?? "" : nightWindow?.sunrise.timeString ?? "";
   const barCentre = isDay
     ? `${Math.round(barFraction * 100)}% OF DAYLIGHT`
     : `NIGHT · ${Math.round(barFraction * 100)}% ELAPSED`;
@@ -165,12 +165,7 @@ export function HomeV2(props: HomeV2Props) {
   const nowHasPeriod = (() => {
     if (!isCurrentTracked || !currentPrayer || !prayerTimes) return null;
     const startStr = currentPrayer.timeString;
-    let endStr = "";
-    if (curName === "fajr") endStr = prayerTimes.sunrise.timeString;
-    else if (curName === "dhuhr") endStr = prayerTimes.asr.timeString;
-    else if (curName === "asr") endStr = prayerTimes.maghrib.timeString;
-    else if (curName === "maghrib") endStr = prayerTimes.isha.timeString;
-    else if (curName === "isha") endStr = prayerTimes.fajr.timeString;
+    const endStr = progressEndPrayer?.timeString ?? "—";
     return `started ${startStr} · ends ${endStr}`;
   })();
 
@@ -338,4 +333,3 @@ export function HomeV2(props: HomeV2Props) {
     </View>
   );
 }
-
