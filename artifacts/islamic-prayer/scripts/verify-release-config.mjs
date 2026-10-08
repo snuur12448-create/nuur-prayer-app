@@ -136,6 +136,13 @@ check(!widgetPrivacy.includes("NSPrivacyCollectedDataTypePreciseLocation"),
   "Widget must not claim that it collects precise location.");
 
 const project = read("ios", "Nuur.xcodeproj", "project.pbxproj");
+check(project.includes(String.raw`export PROJECT_ROOT=\"$(cd \"$PROJECT_DIR/..\" && pwd -P)\"`),
+  "Xcode must canonicalize its project path to support symlinked clean checkouts.");
+check(project.includes(String.raw`export ENTRY_FILE=\"$(cd \"$(dirname \"$ENTRY_FILE\")\" && pwd -P)/$(basename \"$ENTRY_FILE\")\"`),
+  "Xcode must canonicalize absolute entry paths before invoking Metro.");
+const metroConfig = read("metro.config.js");
+check(metroConfig.includes("const projectRoot = __dirname;") && !metroConfig.includes("process.env.PROJECT_ROOT"),
+  "Metro must retain Node's physical project root, not Xcode's symlink spelling.");
 check((project.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.nuur\.islamicprayer;/g) ?? []).length === 2,
   "Native iOS app bundle identifiers differ from the canonical release identity.");
 check((project.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.nuur\.islamicprayer\.NuurWidget;/g) ?? []).length === 2,
