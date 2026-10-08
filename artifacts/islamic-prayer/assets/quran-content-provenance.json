@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "lastReviewed": "2026-10-08",
+  "bundledDataset": {
+    "path": "assets/quranIndex.json",
+    "contents": "Arabic Quran text and Sahih International English translation for 114 surahs / 6236 ayahs",
+    "historicalUpstream": "The original import commit did not record a source. A complete comparison on 2026-10-08 established that every bundled Arabic ayah matches AlQuran Cloud edition quran-uthmani and every bundled translation matches edition en.sahih after the documented presentation normalization.",
+    "certificationStatus": "Exact full-dataset provider match verified; not independently scholarly certified",
+    "role": "Offline fallback and immutable integrity anchor for runtime network/cache validation",
+    "rawFileSha256": "58fbf92ed6413a8f93b20814ce4e41c0bbc1d47139507109f84bee68f1dec10c",
+    "normalizedArabicSha256": "b883f1b8d31c904bf5345f466891b4eca8e887e51af32333eea1749c954ff584",
+    "normalizedSahihTranslationSha256": "3e8b6dde323792462f7744c174529df74267d7a77fb6732cc0f6079a75e173a5",
+    "normalization": "Rows serialized as surah:ayah:NFC Arabic after BOM removal, whitespace normalization, and Nuur's first-ayah Bismillah presentation rule, joined with LF"
+  },
+  "verificationEvidence": {
+    "verifiedAt": "2026-10-08",
+    "provider": "AlQuran Cloud by Islamic Network",
+    "providerProject": "https://github.com/quran-project/alquran.cloud",
+    "arabicEndpoint": "https://api.alquran.cloud/v1/quran/quran-uthmani",
+    "translationEndpoint": "https://api.alquran.cloud/v1/quran/en.sahih",
+    "arabicResult": {
+      "surahsCompared": 114,
+      "ayahsCompared": 6236,
+      "allMatched": true,
+      "normalizedSha256": "b883f1b8d31c904bf5345f466891b4eca8e887e51af32333eea1749c954ff584"
+    },
+    "translationResult": {
+      "surahsCompared": 114,
+      "ayahsCompared": 6236,
+      "allMatched": true,
+      "normalizedSha256": "3e8b6dde323792462f7744c174529df74267d7a77fb6732cc0f6079a75e173a5"
+    },
+    "reproduction": "Run: pnpm exec tsx scripts/verify-quran-integrity.mjs --live",
+    "scope": "This proves exact agreement with the named provider datasets on the verification date. It is not a claim of independent scholarly certification."
+  },
+  "runtimeVerseSource": {
+    "provider": "AlQuran Cloud by Islamic Network",
+    "providerProject": "https://github.com/quran-project/alquran.cloud",
+    "endpoint": "https://api.alquran.cloud/v1/surah/{surah}/editions/quran-uthmani,en.sahih,en.transliteration",
+    "editions": ["quran-uthmani", "en.sahih", "en.transliteration"],
+    "acceptancePolicy": "Exact edition identifiers, surah count/order/schema, Arabic equality, and Sahih International translation equality with the bundled integrity anchor",
+    "licensingStatus": "Provider software repository is GPL-3.0; redistribution terms for the Quran/translation dataset itself were not clearly established by that repository and require release-owner review"
+  },
+  "runtimeWordSource": {
+    "provider": "Quran Foundation Quran.com API/CDN",
+    "endpoint": "https://api.qurancdn.com/api/qdc/verses/by_chapter/{surah}",
+    "role": "Optional word-by-word display; never replaces the primary Arabic verse text"
+  },
+  "releaseRequirement": "Confirm Quran text, Sahih International translation, word-data, and audio redistribution/attribution terms before public release. Never imply this manifest or provider comparison is independent scholarly certification."
+}

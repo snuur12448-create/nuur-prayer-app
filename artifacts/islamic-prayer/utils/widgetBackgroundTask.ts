@@ -4,6 +4,7 @@ import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
 
 import { pushWidgetSnapshot } from "@/utils/nuurBridge";
+import { refreshPrayerNotificationsFromStorage } from "@/utils/notifications";
 import {
   applyPrayerOffsets,
   calculatePrayerTimes,
@@ -21,7 +22,10 @@ import {
   type TimeFormat,
 } from "@/utils/prayerTimes";
 import { calculateQiblaDirection } from "@/utils/qibla";
-import { buildWidgetPrayerSchedule } from "@/utils/widgetPrayerSchedule";
+import {
+  buildWidgetPrayerSchedule,
+  widgetScheduleValidThrough,
+} from "@/utils/widgetPrayerSchedule";
 import type { TimeZoneValue } from "@/utils/timeZone";
 
 const TASK_NAME = "com.nuur.widget-refresh";
@@ -206,7 +210,7 @@ export async function refreshWidgetSnapshotFromStorage(): Promise<boolean> {
   const todayDay = prayerDays[0];
   const tomorrowDay = prayerDays[1];
 
-  await pushWidgetSnapshot({
+  const pushed = await pushWidgetSnapshot({
     fajr: isoOrEmpty(todayPT.fajr.time),
     sunrise: isoOrEmpty(todayPT.sunrise.time),
     dhuhr: isoOrEmpty(todayPT.dhuhr.time),
@@ -215,6 +219,8 @@ export async function refreshWidgetSnapshotFromStorage(): Promise<boolean> {
     isha: isoOrEmpty(todayPT.isha.time),
     fajrTomorrow: tomorrowDay?.fajr || isoOrEmpty(new Date(todayPT.fajr.time.getTime() + 86_400_000)),
     prayerDays,
+    generatedAt: today.toISOString(),
+    validThrough: widgetScheduleValidThrough(prayerDays),
     timeZone: typeof timezone === "string" ? timezone : undefined,
     location: todayPT.polarFallback ? `${city} · Estimated` : city,
     hijri: todayDay.hijri,
@@ -232,7 +238,7 @@ export async function refreshWidgetSnapshotFromStorage(): Promise<boolean> {
     verseAr: todayDay.verseAr,
     verseRef: todayDay.verseRef,
   });
-  return true;
+  return pushed;
 }
 
 function isoOrEmpty(date: Date): string {
@@ -241,15 +247,29 @@ function isoOrEmpty(date: Date): string {
 
 if (!TaskManager.isTaskDefined(TASK_NAME)) {
   TaskManager.defineTask(TASK_NAME, async () => {
+    let didUpdate = false;
+    let didFail = false;
     try {
-      const ok = await refreshWidgetSnapshotFromStorage();
-      return ok
-        ? BackgroundFetch.BackgroundFetchResult.NewData
-        : BackgroundFetch.BackgroundFetchResult.NoData;
+      didUpdate = await refreshWidgetSnapshotFromStorage() || didUpdate;
     } catch (e) {
-      if (__DEV__) console.warn("[widgetBgTask] failed:", e);
-      return BackgroundFetch.BackgroundFetchResult.Failed;
+      didFail = true;
+      if (__DEV__) console.warn("[widgetBgTask] widget refresh failed:", e);
     }
+    try {
+      // This opportunistically tops up iOS's finite rolling notification
+      // queue. Background execution is discretionary, so foreground refresh
+      // remains the second line of defence.
+      didUpdate = await refreshPrayerNotificationsFromStorage() || didUpdate;
+    } catch (e) {
+      didFail = true;
+      if (__DEV__) console.warn("[widgetBgTask] notification refresh failed:", e);
+    }
+    if (didUpdate) {
+      return BackgroundFetch.BackgroundFetchResult.NewData;
+    }
+    return didFail
+      ? BackgroundFetch.BackgroundFetchResult.Failed
+      : BackgroundFetch.BackgroundFetchResult.NoData;
   });
 }
 

@@ -293,6 +293,7 @@ private struct AdhkarPrayerDay: Decodable {
     let fajr: String
     let asr: String
     let maghrib: String
+    let isha: String?
 }
 
 private struct SharedPrayerSnapshot: Decodable {
@@ -304,6 +305,8 @@ private struct SharedPrayerSnapshot: Decodable {
     let isha: String?
     let prayerDays: [AdhkarPrayerDay]?
     let timeZone: String?
+    let generatedAt: String?
+    let validThrough: String?
 }
 
 private func readPrayerSnapshot() -> SharedPrayerSnapshot? {
@@ -331,19 +334,35 @@ private func adhkarCalendar(_ snap: SharedPrayerSnapshot) -> Calendar {
     return calendar
 }
 
+private func adhkarValidThrough(_ snap: SharedPrayerSnapshot) -> Date? {
+    if let raw = snap.validThrough, let explicit = parseISODate(raw) { return explicit }
+    if let raw = snap.prayerDays?.last?.isha, let date = parseISODate(raw) {
+        return date.addingTimeInterval(5 * 60)
+    }
+    if let raw = snap.isha, let date = parseISODate(raw) {
+        return date.addingTimeInterval(5 * 60)
+    }
+    return nil
+}
+
+private func adhkarHasExpired(_ snap: SharedPrayerSnapshot, at date: Date) -> Bool {
+    nuurSnapshotHasExpired(validThrough: adhkarValidThrough(snap), at: date)
+}
+
 private func adhkarWindow(at now: Date, from snap: SharedPrayerSnapshot)
     -> (fajr: Date, asr: Date, nextFajr: Date)? {
-    if let days = snap.prayerDays, !days.isEmpty,
-       let index = days.firstIndex(where: {
+    if let days = snap.prayerDays, !days.isEmpty {
+        guard let index = days.firstIndex(where: {
            guard let fajr = parseISODate($0.fajr) else { return false }
            return adhkarCalendar(snap).isDate(fajr, inSameDayAs: now)
-       }),
-       let fajr = parseISODate(days[index].fajr),
-       let asr = parseISODate(days[index].asr) {
+        }),
+        let fajr = parseISODate(days[index].fajr),
+        let asr = parseISODate(days[index].asr) else { return nil }
         let nextFajr = days.indices.contains(index + 1)
             ? parseISODate(days[index + 1].fajr)
             : adhkarCalendar(snap).date(byAdding: .day, value: 1, to: fajr)
         if let nextFajr { return (fajr, asr, nextFajr) }
+        return nil
     }
 
     guard let fajr = parseISODate(snap.fajr),
@@ -397,7 +416,10 @@ private func resolveState(now: Date, snap: SharedPrayerSnapshot?, persisted: Adh
     guard let snap = snap,
           let window = adhkarWindow(at: now, from: snap)
     else {
-        return .empty(label: "Open Nuur to begin")
+        let label = snap.map { adhkarHasExpired($0, at: now) } == true
+            ? "Open Nuur to refresh"
+            : "Open Nuur to begin"
+        return .empty(label: label)
     }
     let fajr = window.fajr
     let asr = window.asr
@@ -559,6 +581,14 @@ private struct AdhkarProvider: TimelineProvider {
             completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(15 * 60))))
             return
         }
+        if adhkarHasExpired(snap, at: now) {
+            let entry = AdhkarEntry(
+                date: now,
+                state: .empty(label: "Open Nuur to refresh")
+            )
+            completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(6 * 60 * 60))))
+            return
+        }
 
         // Fajr and Asr are predictable state boundaries. Preload a week from
         // the 35-day prayer cache so an iOS reload delay cannot strand this
@@ -566,18 +596,20 @@ private struct AdhkarProvider: TimelineProvider {
         let calendar = adhkarCalendar(snap)
         let horizon = calendar.date(byAdding: .day, value: 7, to: now)
             ?? now.addingTimeInterval(7 * 24 * 60 * 60)
-        var moments = Set<Date>([now, horizon])
+        let expiryBoundary = adhkarValidThrough(snap)?.addingTimeInterval(1)
+        let timelineEnd = expiryBoundary.map { min(horizon, $0) } ?? horizon
+        var moments = Set<Date>([now, timelineEnd])
         if let days = snap.prayerDays {
             for day in days {
                 for raw in [day.fajr, day.asr] {
-                    if let boundary = parseISODate(raw), boundary > now, boundary <= horizon {
+                    if let boundary = parseISODate(raw), boundary > now, boundary <= timelineEnd {
                         moments.insert(boundary)
                     }
                 }
             }
         } else if let window = adhkarWindow(at: now, from: snap) {
             for boundary in [window.fajr, window.asr, window.nextFajr]
-                where boundary > now && boundary <= horizon {
+                where boundary > now && boundary <= timelineEnd {
                 moments.insert(boundary)
             }
         }
@@ -588,7 +620,7 @@ private struct AdhkarProvider: TimelineProvider {
                 state: resolveState(now: $0, snap: snap, persisted: persisted)
             )
         }
-        completion(Timeline(entries: entries, policy: .after(horizon)))
+        completion(Timeline(entries: entries, policy: .after(timelineEnd)))
     }
 }
 

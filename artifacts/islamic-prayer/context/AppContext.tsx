@@ -34,13 +34,17 @@ import {
 } from "@/constants/themes";
 import {
   cancelAllPrayerNotifications,
+  getNotificationPermissionState,
   getMillisSinceLastSchedule,
-  requestNotificationPermission,
   requestNotificationPermissionDetailed,
   schedulePrayerNotifications,
 } from "@/utils/notifications";
 import {
   DEFAULT_PRAYER_NOTIF_CONFIG,
+  normalizePrayerNotifConfig,
+  OBLIGATORY_PRAYER_KEYS,
+  patchObligatoryPrayerNotifications,
+  shouldPresentForegroundAdhan,
   PrayerKey,
   PrayerNotifConfig,
   PrayerNotifSettings,
@@ -56,18 +60,23 @@ import {
 } from "@/utils/adhanData";
 import { playAdhanAudio, stopAdhanAudio } from "@/utils/adhanPlayer";
 import {
+  dateKeyInTimeZone,
+  dayOfWeekInTimeZone,
   getDeviceTimeZone,
   isValidIanaTimeZone,
   legacyOffsetForLongitude,
   timeZoneAtCoordinates,
   type TimeZoneValue,
 } from "@/utils/timeZone";
+import { reverseNominatim } from "@/utils/nominatim";
 
 export interface LocationData {
   latitude: number;
   longitude: number;
   city: string;
   timezone: TimeZoneValue;
+  /** Uppercase ISO 3166-1 alpha-2 code when known. */
+  countryCode?: string;
 }
 
 interface AppContextType {
@@ -154,12 +163,15 @@ const AppContext = createContext<AppContextType | null>(null);
 
 const STORAGE_KEYS = {
   LOCATION: "location_data",
+  LOCATION_SOURCE: "location_source",
   BOOKMARKS: "bookmarked_surahs",
   THEME: "app_theme",
   DISPLAY_MODE: "display_mode",
   NOTIFICATIONS: "notifications_enabled",
   CALC_METHOD: "calc_method",
+  CALC_METHOD_SOURCE: "calc_method_source",
   MADHAB: "madhab",
+  MADHAB_SOURCE: "madhab_source",
   HIGH_LAT_RULE: "high_lat_rule",
   POLAR_RESOLUTION: "polar_resolution",
   TIME_FORMAT: "time_format",
@@ -186,7 +198,25 @@ const DEFAULT_LOCATION: LocationData = {
   longitude: 39.8262,
   city: "Makkah",
   timezone: "Asia/Riyadh",
+  countryCode: "SA",
 };
+
+interface NotificationScheduleOverrides {
+  jummahEnabled?: boolean;
+  jummahMinutes?: number;
+  ayahEnabled?: boolean;
+  ayahHour?: number;
+  ayahMinute?: number;
+  hadithEnabled?: boolean;
+  hadithHour?: number;
+  hadithMinute?: number;
+  eventsEnabled?: boolean;
+  offsets?: PrayerOffsets;
+  calcMethod?: CalcMethodId;
+  madhab?: MadhabId;
+  highLatRule?: HighLatRuleId;
+  polarResolution?: PolarResolutionId;
+}
 
 function normalizeStoredLocation(value: unknown): LocationData | null {
   if (!value || typeof value !== "object") return null;
@@ -204,6 +234,9 @@ function normalizeStoredLocation(value: unknown): LocationData | null {
     longitude: loc.longitude as number,
     city: loc.city,
     timezone,
+    ...(typeof loc.countryCode === "string" && /^[A-Za-z]{2}$/.test(loc.countryCode)
+      ? { countryCode: loc.countryCode.toUpperCase() }
+      : {}),
   };
 }
 
@@ -212,27 +245,25 @@ function extractCity(geocode: Location.LocationGeocodedAddress | null | undefine
   return geocode.city || geocode.subregion || geocode.district || geocode.region || null;
 }
 
-async function nominatimCity(lat: number, lng: number): Promise<string | null> {
+async function nominatimLocation(
+  lat: number,
+  lng: number,
+): Promise<{ city: string | null; countryCode: string | null } | null> {
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`,
-      { headers: { "Accept-Language": "en" } }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const addr = data?.address;
+    const addr = (await reverseNominatim(lat, lng))?.address;
     if (!addr) return null;
-    return (
-      addr.city || addr.town || addr.village ||
-      addr.municipality || addr.county ||
-      addr.state_district || addr.state || null
-    );
+    const city = addr.city || addr.town || addr.village ||
+      addr.municipality || addr.county || addr.state_district || addr.state || null;
+    const countryCode = typeof addr.country_code === "string"
+      ? addr.country_code.toUpperCase()
+      : null;
+    return { city, countryCode };
   } catch {
     return null;
   }
 }
 
-const PRAYER_KEYS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
+const PRAYER_KEYS = OBLIGATORY_PRAYER_KEYS;
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const systemColorScheme = useColorScheme();
@@ -322,6 +353,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const prayerTimesRef = useRef(prayerTimes);
   const prayerNotifConfigRef = useRef(prayerNotifConfig);
+  const locationRef = useRef(location);
+  const notifSnoozeUntilRef = useRef(notifSnoozeUntil);
+  const locationRequestGenerationRef = useRef(0);
+  const locationSourceRef = useRef<"gps" | "manual" | "default" | "unknown">("unknown");
   const lastPlayedRef = useRef<string>(""); // "prayerKey_YYYY-MM-DD"
 
   useEffect(() => { calcMethodRef.current = calcMethod; }, [calcMethod]);
@@ -346,6 +381,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [adhanEnabled, adhanStyleId, adhanMode]);
   useEffect(() => { prayerTimesRef.current = prayerTimes; }, [prayerTimes]);
   useEffect(() => { prayerNotifConfigRef.current = prayerNotifConfig; }, [prayerNotifConfig]);
+  useEffect(() => { locationRef.current = location; }, [location]);
+  useEffect(() => { notifSnoozeUntilRef.current = notifSnoozeUntil; }, [notifSnoozeUntil]);
 
   // Nuur is dark-only for the v1 release — the gold / mihrab brand language
   // is built for night. The `displayMode` state is still persisted so when we
@@ -385,13 +422,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── Adhan prayer-time watcher ──
   useEffect(() => {
     const check = () => {
-      const cfg = adhanConfigRef.current;
-      if (!cfg.enabled) return;
       const times = prayerTimesRef.current;
-      if (!times) return;
+      const activeLocation = locationRef.current;
+      if (!times || !activeLocation || !notificationsRef.current) return;
 
       const now = new Date();
-      const todayStr = now.toISOString().slice(0, 10);
+      const todayStr = dateKeyInTimeZone(now, activeLocation.timezone);
       const nowH = now.getHours();
       const nowM = now.getMinutes();
       const nowS = now.getSeconds();
@@ -401,6 +437,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       for (const key of PRAYER_KEYS) {
         const prayer = times[key];
+        const prayerCfg = prayerNotifConfigRef.current[key];
+        if (!shouldPresentForegroundAdhan(prayerCfg, {
+          notificationsEnabled: notificationsRef.current,
+          prayerTimeMs: prayer.time.getTime(),
+          snoozeUntil: notifSnoozeUntilRef.current,
+          dayOfWeek: dayOfWeekInTimeZone(prayer.time, activeLocation.timezone),
+        })) continue;
         const pH = prayer.time.getHours();
         const pM = prayer.time.getMinutes();
 
@@ -409,8 +452,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (lastPlayedRef.current === token) break; // already played today
           lastPlayedRef.current = token;
 
-          const style = getAdhanStyle(cfg.styleId);
-          const mode = cfg.mode;
+          const style = getAdhanStyle(prayerCfg.adhanStyleId);
+          const mode = prayerCfg.adhanMode;
           const isFajr = key === "fajr";
           const audioUrl = resolveAdhanUrl(style, mode, isFajr);
 
@@ -503,20 +546,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── Init ──
   useEffect(() => {
-    loadPreferences();
-    loadBookmarks();
-    initLocation();
+    void (async () => {
+      // Location-based auto recommendations must not race ahead of persisted
+      // user choices. Hydrate preferences first, then resolve/refresh location.
+      await Promise.all([loadPreferences(), loadBookmarks()]);
+      await initLocation();
+    })();
   }, []);
 
   const loadPreferences = async () => {
     try {
-      const [theme, mode, notifs, method, madhabVal, latRule, polarResolutionRaw, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw, islamicEventsRaw, locationRaw, prayerOffsetsRaw, snoozeRaw, preReminderRaw] =
+      const [theme, mode, notifs, method, methodSource, madhabVal, madhabSource, latRule, polarResolutionRaw, fmt, adhanOn, adhanStyle, adhanModeVal, prayerNotifRaw, jummahRaw, jummahMinsRaw, ayahRaw, ayahHrRaw, ayahMinRaw, hadithRaw, hadithHrRaw, hadithMinRaw, islamicEventsRaw, locationRaw, prayerOffsetsRaw, snoozeRaw, preReminderRaw] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.THEME),
           AsyncStorage.getItem(STORAGE_KEYS.DISPLAY_MODE),
           AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS),
           AsyncStorage.getItem(STORAGE_KEYS.CALC_METHOD),
+          AsyncStorage.getItem(STORAGE_KEYS.CALC_METHOD_SOURCE),
           AsyncStorage.getItem(STORAGE_KEYS.MADHAB),
+          AsyncStorage.getItem(STORAGE_KEYS.MADHAB_SOURCE),
           AsyncStorage.getItem(STORAGE_KEYS.HIGH_LAT_RULE),
           AsyncStorage.getItem(STORAGE_KEYS.POLAR_RESOLUTION),
           AsyncStorage.getItem(STORAGE_KEYS.TIME_FORMAT),
@@ -540,45 +588,96 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ]);
       if (theme && theme in THEMES) setThemeNameState(theme as ThemeName);
       if (mode === "auto" || mode === "dark" || mode === "light") setDisplayModeState(mode);
-      if (notifs === "true") setNotificationsEnabled(true);
-      if (method) { setCalcMethodState(method as CalcMethodId); calcMethodSavedRef.current = true; }
+      let canScheduleStoredNotifications = false;
+      if (notifs === "true" && Platform.OS !== "web") {
+        const permission = await getNotificationPermissionState();
+        canScheduleStoredNotifications = permission === "granted";
+        setNotifPermBlocked(permission === "blocked");
+        setNotificationsEnabled(canScheduleStoredNotifications);
+        notificationsRef.current = canScheduleStoredNotifications;
+        // Reconcile a revoked OS permission with Nuur's master switch. Keep an
+        // unsupported development client preference intact so a standalone
+        // build can recover it, but don't pretend alerts are active now.
+        if (permission === "denied" || permission === "blocked") {
+          await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "false").catch(() => {});
+        }
+      }
+      if (method) {
+        setCalcMethodState(method as CalcMethodId);
+        calcMethodRef.current = method as CalcMethodId;
+        calcMethodSavedRef.current = methodSource !== "auto";
+      }
       if (madhabVal === "Hanafi" || madhabVal === "Shafi") {
         setMadhabState(madhabVal);
-        madhabSavedRef.current = true;
+        madhabRef.current = madhabVal;
+        madhabSavedRef.current = madhabSource !== "auto";
       }
-      if (latRule) setHighLatRuleState(normalizeHighLatRule(latRule));
-      setPolarResolutionState(normalizePolarResolution(polarResolutionRaw));
+      const loadedHighLatRule = normalizeHighLatRule(latRule);
+      const loadedPolarResolution = normalizePolarResolution(polarResolutionRaw);
+      setHighLatRuleState(loadedHighLatRule);
+      highLatRuleRef.current = loadedHighLatRule;
+      setPolarResolutionState(loadedPolarResolution);
+      polarResolutionRef.current = loadedPolarResolution;
       if (fmt === "12h" || fmt === "24h") setTimeFormatState(fmt);
-      if (adhanOn === "true") setAdhanEnabled(true);
-      if (adhanStyle && ADHAN_STYLES.find((s) => s.id === adhanStyle)) {
-        setAdhanStyleIdState(adhanStyle);
+      const loadedAdhanEnabled = adhanOn === "true";
+      const loadedAdhanStyle = adhanStyle && ADHAN_STYLES.some((s) => s.id === adhanStyle)
+        ? adhanStyle
+        : DEFAULT_ADHAN_STYLE_ID;
+      const loadedAdhanMode: AdhanMode = adhanModeVal === "full" || adhanModeVal === "short" || adhanModeVal === "silent"
+        ? adhanModeVal
+        : DEFAULT_ADHAN_MODE;
+      setAdhanEnabled(loadedAdhanEnabled);
+      setAdhanStyleIdState(loadedAdhanStyle);
+      setAdhanModeState(loadedAdhanMode);
+      adhanConfigRef.current = {
+        enabled: loadedAdhanEnabled,
+        styleId: loadedAdhanStyle,
+        mode: loadedAdhanMode,
+      };
+      let startupNotifConfig = DEFAULT_PRAYER_NOTIF_CONFIG;
+      try {
+        startupNotifConfig = normalizePrayerNotifConfig(prayerNotifRaw ? JSON.parse(prayerNotifRaw) : null);
+      } catch {
+        startupNotifConfig = normalizePrayerNotifConfig(null);
       }
-      if (adhanModeVal === "full" || adhanModeVal === "short" || adhanModeVal === "silent") {
-        setAdhanModeState(adhanModeVal);
-      }
-      if (prayerNotifRaw) {
-        try {
-          const parsed = JSON.parse(prayerNotifRaw) as PrayerNotifConfig;
-          setPrayerNotifConfigState({ ...DEFAULT_PRAYER_NOTIF_CONFIG, ...parsed });
-        } catch {}
-      }
+      startupNotifConfig = patchObligatoryPrayerNotifications(startupNotifConfig, {
+        adhanStyleId: loadedAdhanStyle,
+        adhanMode: loadedAdhanMode,
+      });
+      setPrayerNotifConfigState(startupNotifConfig);
+      prayerNotifConfigRef.current = startupNotifConfig;
+      AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(startupNotifConfig)).catch(() => {});
       // jummahRaw null = never saved → default true; "false" → disabled
-      if (jummahRaw === "false") setJummahReminderEnabledState(false);
+      const loadedJummahEnabled = jummahRaw !== "false";
+      setJummahReminderEnabledState(loadedJummahEnabled);
+      jummahReminderRef.current = loadedJummahEnabled;
       if (jummahMinsRaw) {
         const mins = Number(jummahMinsRaw);
-        if (mins === 15 || mins === 30 || mins === 60) setJummahMinutesBeforeState(mins);
+        if (mins === 15 || mins === 30 || mins === 60) {
+          setJummahMinutesBeforeState(mins);
+          jummahMinutesRef.current = mins;
+        }
       }
       // null = never saved → default true; "false" → disabled
-      if (ayahRaw === "false") setAyahReminderEnabledState(false);
-      if (ayahHrRaw) { const h = Number(ayahHrRaw); if (h >= 0 && h <= 23) setAyahReminderHourState(h); }
-      if (ayahMinRaw) { const m = Number(ayahMinRaw); if (m >= 0 && m <= 55) setAyahReminderMinuteState(m); }
-      if (hadithRaw === "false") setHadithReminderEnabledState(false);
-      if (hadithHrRaw) { const h = Number(hadithHrRaw); if (h >= 0 && h <= 23) setHadithReminderHourState(h); }
-      if (hadithMinRaw) { const m = Number(hadithMinRaw); if (m >= 0 && m <= 55) setHadithReminderMinuteState(m); }
-      if (islamicEventsRaw === "false") setIslamicEventsEnabledState(false);
+      const loadedAyahEnabled = ayahRaw !== "false";
+      setAyahReminderEnabledState(loadedAyahEnabled);
+      ayahReminderRef.current = loadedAyahEnabled;
+      if (ayahHrRaw) { const h = Number(ayahHrRaw); if (h >= 0 && h <= 23) { setAyahReminderHourState(h); ayahHourRef.current = h; } }
+      if (ayahMinRaw) { const m = Number(ayahMinRaw); if (m >= 0 && m <= 55) { setAyahReminderMinuteState(m); ayahMinuteRef.current = m; } }
+      const loadedHadithEnabled = hadithRaw !== "false";
+      setHadithReminderEnabledState(loadedHadithEnabled);
+      hadithReminderRef.current = loadedHadithEnabled;
+      if (hadithHrRaw) { const h = Number(hadithHrRaw); if (h >= 0 && h <= 23) { setHadithReminderHourState(h); hadithHourRef.current = h; } }
+      if (hadithMinRaw) { const m = Number(hadithMinRaw); if (m >= 0 && m <= 55) { setHadithReminderMinuteState(m); hadithMinuteRef.current = m; } }
+      const loadedEventsEnabled = islamicEventsRaw !== "false";
+      setIslamicEventsEnabledState(loadedEventsEnabled);
+      islamicEventsRef.current = loadedEventsEnabled;
       if (snoozeRaw) {
         const n = Number(snoozeRaw);
-        if (Number.isFinite(n) && n > Date.now()) setNotifSnoozeUntilState(n);
+        if (Number.isFinite(n) && n > Date.now()) {
+          notifSnoozeUntilRef.current = n;
+          setNotifSnoozeUntilState(n);
+        }
         else AsyncStorage.removeItem(STORAGE_KEYS.NOTIF_SNOOZE_UNTIL).catch(() => {});
       }
       if (preReminderRaw) {
@@ -601,7 +700,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // reflect the stored settings, causing Ayah/Hadith notifications to be
       // skipped. Using the cached location means this always works even when
       // GPS is unavailable (indoors, permission denied, etc.).
-      if (Platform.OS !== "web" && notifs === "true" && locationRaw) {
+      if (canScheduleStoredNotifications && locationRaw) {
         try {
           const storedLoc = normalizeStoredLocation(JSON.parse(locationRaw));
           if (!storedLoc) throw new Error("Invalid stored location");
@@ -619,9 +718,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const hdHr      = hadithHrRaw  ? Math.min(23, Math.max(0, Number(hadithHrRaw)))  : 9;
           const hdMin     = hadithMinRaw ? Math.min(55, Math.max(0, Number(hadithMinRaw))) : 0;
           const evEnabled = islamicEventsRaw !== "false"; // null = never saved → default true
-          const startupNotifConfig: PrayerNotifConfig = prayerNotifRaw
-            ? { ...DEFAULT_PRAYER_NOTIF_CONFIG, ...(JSON.parse(prayerNotifRaw) as PrayerNotifConfig) }
-            : DEFAULT_PRAYER_NOTIF_CONFIG;
           await schedulePrayerNotifications(
             loc.latitude, loc.longitude, loc.timezone, loc.city,
             jEnabled, jMins,
@@ -636,10 +732,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             normalizeHighLatRule(latRule),
             normalizePolarResolution(polarResolutionRaw),
           );
-        } catch {}
+        } catch (error) {
+          console.warn("Startup notification schedule failed:", error);
+        }
       }
     } catch {}
   };
+
+  const rescheduleAll = useCallback(async (
+    cfg: PrayerNotifConfig = prayerNotifConfigRef.current,
+    overrides: NotificationScheduleOverrides = {},
+    surfaceError = true,
+  ): Promise<boolean> => {
+    if (!notificationsRef.current || !location) return false;
+    try {
+      await schedulePrayerNotifications(
+        location.latitude, location.longitude, location.timezone, location.city,
+        overrides.jummahEnabled ?? jummahReminderRef.current,
+        overrides.jummahMinutes ?? jummahMinutesRef.current,
+        overrides.ayahEnabled ?? ayahReminderRef.current,
+        overrides.ayahHour ?? ayahHourRef.current,
+        overrides.ayahMinute ?? ayahMinuteRef.current,
+        overrides.hadithEnabled ?? hadithReminderRef.current,
+        overrides.hadithHour ?? hadithHourRef.current,
+        overrides.hadithMinute ?? hadithMinuteRef.current,
+        overrides.eventsEnabled ?? islamicEventsRef.current,
+        cfg,
+        overrides.offsets ?? prayerOffsetsRef.current,
+        overrides.calcMethod ?? calcMethodRef.current,
+        overrides.madhab ?? madhabRef.current,
+        overrides.highLatRule ?? highLatRuleRef.current,
+        overrides.polarResolution ?? polarResolutionRef.current,
+      );
+      return true;
+    } catch (error) {
+      console.warn("Prayer notification reschedule failed:", error);
+      if (surfaceError) {
+        Alert.alert(
+          "Prayer alerts could not be updated",
+          "Your setting was saved, but Nuur could not rebuild the device alert queue. Open Nuur again and use “Check prayer alerts” in Settings.",
+        );
+      }
+      return false;
+    }
+  }, [location]);
 
   const setThemeName = useCallback(async (name: ThemeName) => {
     setThemeNameState(name);
@@ -653,10 +789,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setCalcMethod = useCallback(async (method: CalcMethodId) => {
     setCalcMethodState(method);
+    calcMethodRef.current = method;
     calcMethodSavedRef.current = true;
     setCalcMethodAutoSetLabel(null);
-    try { await AsyncStorage.setItem(STORAGE_KEYS.CALC_METHOD, method); } catch {}
-  }, []);
+    try {
+      await AsyncStorage.multiSet([
+        [STORAGE_KEYS.CALC_METHOD, method],
+        [STORAGE_KEYS.CALC_METHOD_SOURCE, "user"],
+      ]);
+    } catch {}
+    await rescheduleAll(prayerNotifConfigRef.current, { calcMethod: method });
+  }, [rescheduleAll]);
 
   const dismissCalcMethodNotice = useCallback(() => {
     setCalcMethodAutoSetLabel(null);
@@ -664,10 +807,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setMadhab = useCallback(async (m: MadhabId) => {
     setMadhabState(m);
+    madhabRef.current = m;
     madhabSavedRef.current = true;
     setMadhabAutoSetLabel(null);
-    try { await AsyncStorage.setItem(STORAGE_KEYS.MADHAB, m); } catch {}
-  }, []);
+    try {
+      await AsyncStorage.multiSet([
+        [STORAGE_KEYS.MADHAB, m],
+        [STORAGE_KEYS.MADHAB_SOURCE, "user"],
+      ]);
+    } catch {}
+    await rescheduleAll(prayerNotifConfigRef.current, { madhab: m });
+  }, [rescheduleAll]);
 
   const dismissMadhabNotice = useCallback(() => {
     setMadhabAutoSetLabel(null);
@@ -675,27 +825,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setHighLatRule = useCallback(async (rule: HighLatRuleId) => {
     setHighLatRuleState(rule);
+    highLatRuleRef.current = rule;
     try { await AsyncStorage.setItem(STORAGE_KEYS.HIGH_LAT_RULE, rule); } catch {}
-  }, []);
+    await rescheduleAll(prayerNotifConfigRef.current, { highLatRule: rule });
+  }, [rescheduleAll]);
 
   const setPolarResolution = useCallback(async (resolution: PolarResolutionId) => {
     setPolarResolutionState(resolution);
     polarResolutionRef.current = resolution;
     try { await AsyncStorage.setItem(STORAGE_KEYS.POLAR_RESOLUTION, resolution); } catch {}
-    if (notificationsRef.current && location) {
-      await schedulePrayerNotifications(
-        location.latitude, location.longitude, location.timezone, location.city,
-        jummahReminderRef.current, jummahMinutesRef.current,
-        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
-        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
-        islamicEventsRef.current,
-        prayerNotifConfigRef.current,
-        prayerOffsetsRef.current,
-        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
-        resolution,
-      );
-    }
-  }, [location]);
+    await rescheduleAll(prayerNotifConfigRef.current, { polarResolution: resolution });
+  }, [rescheduleAll]);
 
   const setTimeFormat = useCallback(async (fmt: TimeFormat) => {
     setTimeFormatState(fmt);
@@ -758,44 +898,72 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         return { blocked };
       }
+      notificationsRef.current = true;
       setNotificationsEnabled(true);
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "true");
-      if (location) {
-        await schedulePrayerNotifications(
-          location.latitude, location.longitude, location.timezone, location.city,
-          jummahReminderRef.current, jummahMinutesRef.current,
-          ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
-          hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
-          islamicEventsRef.current,
-          prayerNotifConfigRef.current,
-          prayerOffsetsRef.current,
-          calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
-          polarResolutionRef.current,
+      await rescheduleAll();
+      return { blocked: false };
+    } else {
+      notificationsRef.current = false;
+      setNotificationsEnabled(false);
+      await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "false");
+      try {
+        await cancelAllPrayerNotifications();
+      } catch (error) {
+        console.warn("Prayer notification cancellation failed:", error);
+        Alert.alert(
+          "Some prayer alerts could not be removed",
+          "Nuur turned alerts off, but the device queue could not be fully cleared. Use “Check prayer alerts” in Settings and try again.",
         );
       }
       return { blocked: false };
-    } else {
-      setNotificationsEnabled(false);
-      await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "false");
-      await cancelAllPrayerNotifications();
-      return { blocked: false };
     }
-  }, [location]);
-
-  // Forward-declared ref for setAllPrayersNotifType so toggleAdhan (defined
-  // first) can call into it without a cyclic useCallback dependency.
-  const setAllPrayersNotifTypeRef = useRef<((t: "silent" | "notification" | "adhan") => Promise<void>) | null>(null);
+  }, [rescheduleAll]);
 
   // ── Adhan callbacks ──
   // The "Play Adhan" switch in Settings and the "Adhan" sound mode in the
   // quick-sheet are presented to users as one unified setting. We keep them in
   // sync by writing to BOTH stores from BOTH entry points:
-  //   • adhanEnabled boolean → drives in-app foreground audio playback
+  //   • adhanEnabled boolean → records the global bulk-control state
   //   • per-prayer cfg.type → drives the OS notification sound (.caf)
   // Toggling here also bulk-updates the 5 obligatory prayers' notification
   // type, and setAllPrayersNotifType (below) mirrors back into adhanEnabled.
   const toggleAdhan = useCallback(async () => {
     const next = !adhanConfigRef.current.enabled;
+    // Enabling Adhan requires a working native alert queue. Ask before changing
+    // either persisted setting so a denial cannot leave the master switch and
+    // per-prayer sound modes in contradictory states.
+    if (next && !notificationsRef.current) {
+      const permission = await requestNotificationPermissionDetailed();
+      setNotifPermBlocked(permission === "blocked");
+      if (permission !== "granted") {
+        Alert.alert(
+          permission === "blocked" ? "Notifications are blocked" : "Permission needed",
+          permission === "blocked"
+            ? "Enable Notifications for Nuur in device Settings, then try again."
+            : "Allow notifications so Nuur can alert you at prayer time.",
+        );
+        return;
+      }
+      notificationsRef.current = true;
+      setNotificationsEnabled(true);
+      await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "true");
+    }
+
+    const nextConfig = patchObligatoryPrayerNotifications(
+      prayerNotifConfigRef.current,
+      {
+        type: next ? "adhan" : "notification",
+        ...(next ? { enabled: true } : {}),
+        adhanStyleId: adhanConfigRef.current.styleId,
+        adhanMode: adhanConfigRef.current.mode,
+      },
+    );
+    prayerNotifConfigRef.current = nextConfig;
+    setPrayerNotifConfigState(nextConfig);
+    try { await AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(nextConfig)); } catch {}
+
+    adhanConfigRef.current = { ...adhanConfigRef.current, enabled: next };
     setAdhanEnabled(next);
     try { await AsyncStorage.setItem(STORAGE_KEYS.ADHAN_ENABLED, next ? "true" : "false"); } catch {}
     if (!next) {
@@ -804,122 +972,76 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setAdhanPrayerName(null);
       setAdhanPrayerArabicName(null);
     }
-    // Mirror into per-prayer notification sound so the quick-sheet agrees.
-    // ON  → all 5 obligatory prayers play full adhan as their notification sound.
-    // OFF → revert to standard notification banner sound (preserves "silent"
-    //       overrides only by replacing them too — acceptable because the user
-    //       just took an explicit action on the master adhan toggle).
-    void setAllPrayersNotifTypeRef.current?.(next ? "adhan" : "notification");
-  }, []);
+    if (notificationsRef.current) await rescheduleAll(nextConfig);
+  }, [rescheduleAll]);
 
   const setAdhanStyleId = useCallback(async (id: string) => {
+    adhanConfigRef.current = { ...adhanConfigRef.current, styleId: id };
     setAdhanStyleIdState(id);
     try { await AsyncStorage.setItem(STORAGE_KEYS.ADHAN_STYLE, id); } catch {}
-  }, []);
+    const nextConfig = patchObligatoryPrayerNotifications(prayerNotifConfigRef.current, { adhanStyleId: id });
+    prayerNotifConfigRef.current = nextConfig;
+    setPrayerNotifConfigState(nextConfig);
+    try { await AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(nextConfig)); } catch {}
+    await rescheduleAll(nextConfig);
+  }, [rescheduleAll]);
 
   const setAdhanMode = useCallback(async (m: AdhanMode) => {
+    adhanConfigRef.current = { ...adhanConfigRef.current, mode: m };
     setAdhanModeState(m);
     try { await AsyncStorage.setItem(STORAGE_KEYS.ADHAN_MODE, m); } catch {}
-  }, []);
+    const nextConfig = patchObligatoryPrayerNotifications(prayerNotifConfigRef.current, { adhanMode: m });
+    prayerNotifConfigRef.current = nextConfig;
+    setPrayerNotifConfigState(nextConfig);
+    try { await AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(nextConfig)); } catch {}
+    await rescheduleAll(nextConfig);
+  }, [rescheduleAll]);
 
   const setPrayerNotifSettings = useCallback(async (key: PrayerKey, settings: PrayerNotifSettings) => {
-    // Capture the updated config synchronously inside the setState updater so
-    // the reschedule always uses the NEW value, not the stale ref.
-    let capturedConfig: PrayerNotifConfig = prayerNotifConfigRef.current; // safe default
-    setPrayerNotifConfigState((prev) => {
-      capturedConfig = { ...prev, [key]: settings };
-      AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(capturedConfig)).catch(() => {});
-      return capturedConfig;
-    });
-    if (notificationsRef.current && location) {
-      setTimeout(async () => {
-        await schedulePrayerNotifications(
-          location.latitude, location.longitude, location.timezone, location.city,
-          jummahReminderRef.current, jummahMinutesRef.current,
-          ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
-          hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
-          islamicEventsRef.current,
-          capturedConfig, // the freshly-updated config, not the stale ref
-          prayerOffsetsRef.current,
-          calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
-          polarResolutionRef.current,
-        );
-      }, 50);
-    }
-  }, [location]);
+    const nextConfig = { ...prayerNotifConfigRef.current, [key]: settings };
+    prayerNotifConfigRef.current = nextConfig;
+    setPrayerNotifConfigState(nextConfig);
+    try { await AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(nextConfig)); } catch {}
+    await rescheduleAll(nextConfig);
+  }, [rescheduleAll]);
 
   // Master bell: toggles all 5 prayer notifications (excludes Sunrise).
   // If all 5 are on → turns all off.
   // If any are off (mixed or all off) → turns all on, enabling global
   // notifications first if they were off.
-  const FIVE_PRAYER_KEYS: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
-
   const toggleMasterPrayerBell = useCallback(async () => {
     if (Platform.OS === "web") return;
     const cfg = prayerNotifConfigRef.current;
-    const allOn = FIVE_PRAYER_KEYS.every((k) => cfg[k].enabled);
+    const allOn = OBLIGATORY_PRAYER_KEYS.every((k) => cfg[k].enabled);
     const nextEnabled = !allOn; // all-on → turn off; anything else → turn all on
 
     // If enabling and global notifications aren't on yet, request permission
     if (nextEnabled && !notificationsRef.current) {
-      const granted = await requestNotificationPermission();
-      if (!granted) return;
+      const permission = await requestNotificationPermissionDetailed();
+      setNotifPermBlocked(permission === "blocked");
+      if (permission !== "granted") {
+        Alert.alert(
+          permission === "blocked" ? "Notifications are blocked" : "Permission needed",
+          permission === "blocked"
+            ? "Enable Notifications for Nuur in device Settings, then try again."
+            : "Allow notifications so Nuur can alert you at prayer time.",
+        );
+        return;
+      }
+      notificationsRef.current = true;
       setNotificationsEnabled(true);
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "true");
     }
 
-    // Update the 5 prayer enabled flags in one state update.
-    // Capture the resulting config synchronously inside the setter so the
-    // reschedule below always uses the NEW value, not the stale ref
-    // (ref is only synced after the next render via useEffect).
-    let capturedConfig: PrayerNotifConfig = prayerNotifConfigRef.current;
-    setPrayerNotifConfigState((prev) => {
-      const next = { ...prev };
-      for (const k of FIVE_PRAYER_KEYS) {
-        next[k] = { ...prev[k], enabled: nextEnabled };
-      }
-      capturedConfig = next;
-      AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(next)).catch(() => {});
-      return next;
-    });
+    // Update the five prayer enabled flags and the ref atomically so the
+    // replacement schedule always sees the just-saved value.
+    const nextConfig = patchObligatoryPrayerNotifications(cfg, { enabled: nextEnabled });
+    prayerNotifConfigRef.current = nextConfig;
+    setPrayerNotifConfigState(nextConfig);
+    try { await AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(nextConfig)); } catch {}
 
-    // Reschedule if notifications are (or just became) active.
-    // Use setTimeout so the setter runs before we schedule, and capturedConfig
-    // (not the stale ref) so we use the just-set enabled values.
-    const notifsActive = nextEnabled ? true : notificationsRef.current;
-    if (notifsActive && location) {
-      setTimeout(async () => {
-        await schedulePrayerNotifications(
-          location.latitude, location.longitude, location.timezone, location.city,
-          jummahReminderRef.current, jummahMinutesRef.current,
-          ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
-          hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
-          islamicEventsRef.current,
-          capturedConfig,
-          prayerOffsetsRef.current,
-          calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
-          polarResolutionRef.current,
-        );
-      }, 50);
-    }
-  }, [location]);
-
-  // ── Quick-sheet controls ──
-  // Reschedule helper used by all three quick-sheet setters below
-  const rescheduleAll = useCallback(async (cfg?: PrayerNotifConfig) => {
-    if (!notificationsRef.current || !location) return;
-    await schedulePrayerNotifications(
-      location.latitude, location.longitude, location.timezone, location.city,
-      jummahReminderRef.current, jummahMinutesRef.current,
-      ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
-      hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
-      islamicEventsRef.current,
-      cfg ?? prayerNotifConfigRef.current,
-      prayerOffsetsRef.current,
-      calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
-      polarResolutionRef.current,
-    );
-  }, [location]);
+    await rescheduleAll(nextConfig);
+  }, [rescheduleAll]);
 
   // ── Foreground reschedule (rolling notification window) ──────────────────
   // The scheduler queues a platform-sized rolling window (10 days on iOS,
@@ -941,11 +1063,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const maybeReschedule = async () => {
       if (inFlight) return;
       if (!notificationsRef.current || !location) return;
+      const permission = await getNotificationPermissionState();
+      if (permission !== "granted") {
+        notificationsRef.current = false;
+        setNotificationsEnabled(false);
+        setNotifPermBlocked(permission === "blocked");
+        if (permission === "blocked" || permission === "denied") {
+          await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "false").catch(() => {});
+        }
+        await cancelAllPrayerNotifications().catch(() => {});
+        return;
+      }
       const ageMs = await getMillisSinceLastSchedule();
       if (ageMs < FOREGROUND_RESCHEDULE_MAX_AGE_MS) return;
       inFlight = true;
       try {
-        await rescheduleAll();
+        await rescheduleAll(prayerNotifConfigRef.current, {}, false);
       } finally {
         inFlight = false;
       }
@@ -957,9 +1090,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (state === "active") void maybeReschedule();
     });
     return () => sub.remove();
-  }, [location, rescheduleAll]);
+  }, [location, notificationsEnabled, rescheduleAll]);
 
   const setNotifSnoozeUntil = useCallback(async (timestamp: number) => {
+    notifSnoozeUntilRef.current = timestamp;
     setNotifSnoozeUntilState(timestamp);
     try {
       if (timestamp > Date.now()) {
@@ -968,46 +1102,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.removeItem(STORAGE_KEYS.NOTIF_SNOOZE_UNTIL);
       }
     } catch {}
-    // Reschedule reads the new value from storage
-    setTimeout(() => { rescheduleAll(); }, 50);
+    // Reschedule reads the new value from storage.
+    await rescheduleAll();
   }, [rescheduleAll]);
 
   const setPrayerPreReminderMinutes = useCallback(async (minutes: 0 | 5 | 10 | 15) => {
     setPrayerPreReminderMinutesState(minutes);
     try { await AsyncStorage.setItem(STORAGE_KEYS.PRAYER_PRE_REMINDER, String(minutes)); } catch {}
-    setTimeout(() => { rescheduleAll(); }, 50);
+    await rescheduleAll();
   }, [rescheduleAll]);
 
   // Bulk-set the notification type for all 5 obligatory prayers (Sunrise unaffected).
   // Used by the quick-sheet's Sound mode selector.
   const setAllPrayersNotifType = useCallback(async (type: "silent" | "notification" | "adhan") => {
     if (Platform.OS === "web") return;
-    const FIVE: PrayerKey[] = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
-
     // If switching ON something and notifications are disabled, request permission first
     if (!notificationsRef.current) {
-      const granted = await requestNotificationPermission();
-      if (!granted) return;
+      const permission = await requestNotificationPermissionDetailed();
+      setNotifPermBlocked(permission === "blocked");
+      if (permission !== "granted") {
+        Alert.alert(
+          permission === "blocked" ? "Notifications are blocked" : "Permission needed",
+          permission === "blocked"
+            ? "Enable Notifications for Nuur in device Settings, then try again."
+            : "Allow notifications so Nuur can alert you at prayer time.",
+        );
+        return;
+      }
+      notificationsRef.current = true;
       setNotificationsEnabled(true);
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, "true");
     }
 
-    let captured: PrayerNotifConfig = prayerNotifConfigRef.current;
-    setPrayerNotifConfigState((prev) => {
-      const next: PrayerNotifConfig = { ...prev };
-      for (const k of FIVE) {
-        next[k] = { ...prev[k], type, enabled: true };
-      }
-      captured = next;
-      AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(next)).catch(() => {});
-      return next;
-    });
+    const nextConfig = patchObligatoryPrayerNotifications(
+      prayerNotifConfigRef.current,
+      {
+        type,
+        enabled: true,
+        adhanStyleId: adhanConfigRef.current.styleId,
+        adhanMode: adhanConfigRef.current.mode,
+      },
+    );
+    prayerNotifConfigRef.current = nextConfig;
+    setPrayerNotifConfigState(nextConfig);
+    try { await AsyncStorage.setItem(STORAGE_KEYS.PRAYER_NOTIF_CONFIG, JSON.stringify(nextConfig)); } catch {}
 
     // Mirror into the adhanEnabled boolean so Settings → "Play Adhan" agrees
     // with the quick-sheet sound mode. ON only when user explicitly chose
     // "adhan"; choosing silent/notification turns the in-app audio off too.
     const adhanNext = type === "adhan";
     if (adhanConfigRef.current.enabled !== adhanNext) {
+      adhanConfigRef.current = { ...adhanConfigRef.current, enabled: adhanNext };
       setAdhanEnabled(adhanNext);
       try { await AsyncStorage.setItem(STORAGE_KEYS.ADHAN_ENABLED, adhanNext ? "true" : "false"); } catch {}
       if (!adhanNext) {
@@ -1018,99 +1163,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    setTimeout(() => { rescheduleAll(captured); }, 50);
+    await rescheduleAll(nextConfig);
   }, [rescheduleAll]);
-
-  // Wire the forward-ref so toggleAdhan can call into setAllPrayersNotifType.
-  useEffect(() => { setAllPrayersNotifTypeRef.current = setAllPrayersNotifType; }, [setAllPrayersNotifType]);
 
   const setJummahReminder = useCallback(async (enabled: boolean, minutes: number) => {
     setJummahReminderEnabledState(enabled);
     setJummahMinutesBeforeState(minutes);
+    jummahReminderRef.current = enabled;
+    jummahMinutesRef.current = minutes;
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.JUMMAH_REMINDER, enabled ? "true" : "false");
       await AsyncStorage.setItem(STORAGE_KEYS.JUMMAH_MINUTES, String(minutes));
     } catch {}
-    if (notificationsRef.current && location) {
-      await schedulePrayerNotifications(
-        location.latitude, location.longitude, location.timezone, location.city,
-        enabled, minutes,
-        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
-        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
-        islamicEventsRef.current,
-        prayerNotifConfigRef.current,
-        prayerOffsetsRef.current,
-        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
-        polarResolutionRef.current,
-      );
-    }
-  }, [location]);
+    await rescheduleAll(prayerNotifConfigRef.current, { jummahEnabled: enabled, jummahMinutes: minutes });
+  }, [rescheduleAll]);
 
   const setAyahReminder = useCallback(async (enabled: boolean, hour: number, minute: number) => {
     setAyahReminderEnabledState(enabled);
     setAyahReminderHourState(hour);
     setAyahReminderMinuteState(minute);
+    ayahReminderRef.current = enabled;
+    ayahHourRef.current = hour;
+    ayahMinuteRef.current = minute;
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.AYAH_REMINDER, enabled ? "true" : "false");
       await AsyncStorage.setItem(STORAGE_KEYS.AYAH_HOUR, String(hour));
       await AsyncStorage.setItem(STORAGE_KEYS.AYAH_MINUTE, String(minute));
     } catch {}
-    if (notificationsRef.current && location) {
-      await schedulePrayerNotifications(
-        location.latitude, location.longitude, location.timezone, location.city,
-        jummahReminderRef.current, jummahMinutesRef.current,
-        enabled, hour, minute,
-        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
-        islamicEventsRef.current,
-        prayerNotifConfigRef.current,
-        prayerOffsetsRef.current,
-        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
-        polarResolutionRef.current,
-      );
-    }
-  }, [location]);
+    await rescheduleAll(prayerNotifConfigRef.current, {
+      ayahEnabled: enabled, ayahHour: hour, ayahMinute: minute,
+    });
+  }, [rescheduleAll]);
 
   const setHadithReminder = useCallback(async (enabled: boolean, hour: number, minute: number) => {
     setHadithReminderEnabledState(enabled);
     setHadithReminderHourState(hour);
     setHadithReminderMinuteState(minute);
+    hadithReminderRef.current = enabled;
+    hadithHourRef.current = hour;
+    hadithMinuteRef.current = minute;
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.HADITH_REMINDER, enabled ? "true" : "false");
       await AsyncStorage.setItem(STORAGE_KEYS.HADITH_HOUR, String(hour));
       await AsyncStorage.setItem(STORAGE_KEYS.HADITH_MINUTE, String(minute));
     } catch {}
-    if (notificationsRef.current && location) {
-      await schedulePrayerNotifications(
-        location.latitude, location.longitude, location.timezone, location.city,
-        jummahReminderRef.current, jummahMinutesRef.current,
-        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
-        enabled, hour, minute,
-        islamicEventsRef.current,
-        prayerNotifConfigRef.current,
-        prayerOffsetsRef.current,
-        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
-        polarResolutionRef.current,
-      );
-    }
-  }, [location]);
+    await rescheduleAll(prayerNotifConfigRef.current, {
+      hadithEnabled: enabled, hadithHour: hour, hadithMinute: minute,
+    });
+  }, [rescheduleAll]);
 
   const setIslamicEventsReminder = useCallback(async (enabled: boolean) => {
     setIslamicEventsEnabledState(enabled);
+    islamicEventsRef.current = enabled;
     try { await AsyncStorage.setItem(STORAGE_KEYS.ISLAMIC_EVENTS_REMINDER, enabled ? "true" : "false"); } catch {}
-    if (notificationsRef.current && location) {
-      await schedulePrayerNotifications(
-        location.latitude, location.longitude, location.timezone, location.city,
-        jummahReminderRef.current, jummahMinutesRef.current,
-        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
-        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
-        enabled,
-        prayerNotifConfigRef.current,
-        prayerOffsetsRef.current,
-        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
-        polarResolutionRef.current,
-      );
-    }
-  }, [location]);
+    await rescheduleAll(prayerNotifConfigRef.current, { eventsEnabled: enabled });
+  }, [rescheduleAll]);
 
   const stopAdhan = useCallback(async () => {
     await stopAdhanAudio();
@@ -1122,16 +1229,84 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── Location ──
   const updateLocation = useCallback((loc: LocationData) => {
+    locationRef.current = loc;
     setLocation(loc);
   }, []);
 
+  const applyCountryPrayerDefaults = useCallback(async (countryCode?: string | null) => {
+    if (!countryCode) return;
+    const requestGeneration = locationRequestGenerationRef.current;
+    const normalized = countryCode.toUpperCase();
+    if (!calcMethodSavedRef.current) {
+      const suggested = suggestCalcMethod(normalized);
+      if (suggested) {
+        if (suggested !== calcMethodRef.current) {
+          setCalcMethodState(suggested);
+          setCalcMethodAutoSetLabel(getCalcMethodLabel(suggested));
+        }
+        calcMethodRef.current = suggested;
+        try {
+          await AsyncStorage.multiSet([
+            [STORAGE_KEYS.CALC_METHOD, suggested],
+            [STORAGE_KEYS.CALC_METHOD_SOURCE, "auto"],
+          ]);
+        } catch {}
+      }
+    }
+    if (requestGeneration !== locationRequestGenerationRef.current) return;
+    if (!madhabSavedRef.current) {
+      const suggested = suggestMadhab(normalized);
+      if (suggested) {
+        if (suggested !== madhabRef.current) {
+          setMadhabState(suggested);
+          setMadhabAutoSetLabel(getMadhabLabel(suggested));
+        }
+        madhabRef.current = suggested;
+        try {
+          await AsyncStorage.multiSet([
+            [STORAGE_KEYS.MADHAB, suggested],
+            [STORAGE_KEYS.MADHAB_SOURCE, "auto"],
+          ]);
+        } catch {}
+      }
+    }
+  }, []);
+
+  const scheduleForLocation = useCallback(async (loc: LocationData): Promise<boolean> => {
+    if (Platform.OS === "web" || !notificationsRef.current) return false;
+    try {
+      await schedulePrayerNotifications(
+        loc.latitude, loc.longitude, loc.timezone, loc.city,
+        jummahReminderRef.current, jummahMinutesRef.current,
+        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
+        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
+        islamicEventsRef.current,
+        prayerNotifConfigRef.current,
+        prayerOffsetsRef.current,
+        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
+        polarResolutionRef.current,
+      );
+      return true;
+    } catch (error) {
+      console.warn("Location notification reschedule failed:", error);
+      Alert.alert(
+        "Prayer alerts could not be updated",
+        "Your location was saved, but Nuur could not rebuild the device alert queue. Use “Check prayer alerts” in Settings.",
+      );
+      return false;
+    }
+  }, []);
+
   const fetchGpsLocation = useCallback(async (showLoading: boolean): Promise<{ permanentlyDenied: boolean }> => {
+    const requestGeneration = ++locationRequestGenerationRef.current;
+    const isCurrentRequest = () => locationRequestGenerationRef.current === requestGeneration;
     if (showLoading) {
       setIsLoadingLocation(true);
       setLocationError(null);
     }
     try {
       const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
+      if (!isCurrentRequest()) return { permanentlyDenied: false };
       if (status !== "granted") {
         // canAskAgain is false when the user has permanently denied (iOS: after
         // first denial; Android: after "Don't ask again"). In that case we
@@ -1144,8 +1319,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               ? "Location access is blocked. Open Settings to allow Nuur to use your location."
               : "Location permission denied. Using Makkah as default.",
           );
+          await applyCountryPrayerDefaults(DEFAULT_LOCATION.countryCode);
+          if (!isCurrentRequest()) return { permanentlyDenied };
+          locationSourceRef.current = "default";
           setUsingDefaultLocation(true);
           updateLocation(DEFAULT_LOCATION);
+          await AsyncStorage.multiSet([
+            [STORAGE_KEYS.LOCATION, JSON.stringify(DEFAULT_LOCATION)],
+            [STORAGE_KEYS.LOCATION_SOURCE, "default"],
+          ]).catch(() => {});
+          if (!isCurrentRequest()) return { permanentlyDenied };
+          await scheduleForLocation(DEFAULT_LOCATION);
         }
         return { permanentlyDenied };
       }
@@ -1159,27 +1343,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         cityName = extractCity(geocode);
         detectedCountryCode = geocode?.isoCountryCode ?? null;
       } catch {}
-      if (!cityName) cityName = await nominatimCity(latitude, longitude);
-      if (detectedCountryCode && !calcMethodSavedRef.current) {
-        const suggested = suggestCalcMethod(detectedCountryCode);
-        if (suggested) {
-          setCalcMethodState(suggested);
-          calcMethodRef.current = suggested;
-          calcMethodSavedRef.current = true;
-          try { await AsyncStorage.setItem(STORAGE_KEYS.CALC_METHOD, suggested); } catch {}
-          setCalcMethodAutoSetLabel(getCalcMethodLabel(suggested));
-        }
+      if (!cityName || !detectedCountryCode) {
+        const nominatim = await nominatimLocation(latitude, longitude);
+        cityName = cityName ?? nominatim?.city ?? null;
+        detectedCountryCode = detectedCountryCode ?? nominatim?.countryCode ?? null;
       }
-      if (detectedCountryCode && !madhabSavedRef.current) {
-        const suggestedMadhab = suggestMadhab(detectedCountryCode);
-        if (suggestedMadhab) {
-          setMadhabState(suggestedMadhab);
-          madhabRef.current = suggestedMadhab;
-          madhabSavedRef.current = true;
-          try { await AsyncStorage.setItem(STORAGE_KEYS.MADHAB, suggestedMadhab); } catch {}
-          setMadhabAutoSetLabel(getMadhabLabel(suggestedMadhab));
-        }
-      }
+      if (!isCurrentRequest()) return { permanentlyDenied: false };
+      detectedCountryCode = detectedCountryCode?.toUpperCase() ?? null;
+      await applyCountryPrayerDefaults(detectedCountryCode);
+      if (!isCurrentRequest()) return { permanentlyDenied: false };
       // Resolve on-device so precise GPS coordinates are never disclosed to
       // a third-party timezone service.
       const tz = timeZoneAtCoordinates(latitude, longitude)
@@ -1189,72 +1361,84 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         latitude, longitude,
         city: cityName ?? "Your Location",
         timezone: tz,
+        ...(detectedCountryCode ? { countryCode: detectedCountryCode } : {}),
       };
+      locationSourceRef.current = "gps";
       setUsingDefaultLocation(false);
       updateLocation(locationData);
-      await AsyncStorage.setItem(STORAGE_KEYS.LOCATION, JSON.stringify(locationData));
-      if (Platform.OS !== "web" && notificationsRef.current) {
-        await schedulePrayerNotifications(
-          latitude, longitude, tz, locationData.city,
-          jummahReminderRef.current, jummahMinutesRef.current,
-          ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
-          hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
-          islamicEventsRef.current,
-          prayerNotifConfigRef.current,
-          prayerOffsetsRef.current,
-          calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
-          polarResolutionRef.current,
-        );
-      }
+      await AsyncStorage.multiSet([
+        [STORAGE_KEYS.LOCATION, JSON.stringify(locationData)],
+        [STORAGE_KEYS.LOCATION_SOURCE, "gps"],
+      ]);
+      if (!isCurrentRequest()) return { permanentlyDenied: false };
+      await scheduleForLocation(locationData);
       return { permanentlyDenied: false };
     } catch {
-      if (showLoading) {
+      if (showLoading && isCurrentRequest()) {
         setLocationError("Could not determine location. Using Makkah as default.");
+        await applyCountryPrayerDefaults(DEFAULT_LOCATION.countryCode);
+        if (!isCurrentRequest()) return { permanentlyDenied: false };
+        locationSourceRef.current = "default";
         setUsingDefaultLocation(true);
         updateLocation(DEFAULT_LOCATION);
+        await AsyncStorage.multiSet([
+          [STORAGE_KEYS.LOCATION, JSON.stringify(DEFAULT_LOCATION)],
+          [STORAGE_KEYS.LOCATION_SOURCE, "default"],
+        ]).catch(() => {});
+        if (!isCurrentRequest()) return { permanentlyDenied: false };
+        await scheduleForLocation(DEFAULT_LOCATION);
       }
       // A thrown error is not a permission denial — it's a network/GPS
       // glitch. Don't surface the blocked-recovery card for those.
       return { permanentlyDenied: false };
     } finally {
-      if (showLoading) setIsLoadingLocation(false);
+      if (showLoading && isCurrentRequest()) setIsLoadingLocation(false);
     }
-  }, [updateLocation]);
+  }, [applyCountryPrayerDefaults, scheduleForLocation, updateLocation]);
 
   const requestLocation = useCallback(async (): Promise<{ permanentlyDenied: boolean }> => {
     return fetchGpsLocation(true);
   }, [fetchGpsLocation]);
 
   const setManualLocation = useCallback(async (loc: LocationData) => {
+    // Invalidate a startup/explicit GPS lookup before any async country-default
+    // work. A late geocoder result must never overwrite a city the user chose.
+    const requestGeneration = ++locationRequestGenerationRef.current;
+    locationSourceRef.current = "manual";
+    setIsLoadingLocation(false);
+    const normalizedLoc = {
+      ...loc,
+      ...(loc.countryCode ? { countryCode: loc.countryCode.toUpperCase() } : {}),
+    };
+    await applyCountryPrayerDefaults(normalizedLoc.countryCode);
+    if (locationRequestGenerationRef.current !== requestGeneration) return;
     setUsingDefaultLocation(false);
     setLocationError(null);
-    updateLocation(loc);
+    updateLocation(normalizedLoc);
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.LOCATION, JSON.stringify(loc));
+      await AsyncStorage.multiSet([
+        [STORAGE_KEYS.LOCATION, JSON.stringify(normalizedLoc)],
+        [STORAGE_KEYS.LOCATION_SOURCE, "manual"],
+      ]);
     } catch {}
-    if (Platform.OS !== "web" && notificationsRef.current) {
-      await schedulePrayerNotifications(
-        loc.latitude, loc.longitude, loc.timezone, loc.city,
-        jummahReminderRef.current, jummahMinutesRef.current,
-        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
-        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
-        islamicEventsRef.current,
-        prayerNotifConfigRef.current,
-        prayerOffsetsRef.current,
-        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
-        polarResolutionRef.current,
-      );
-    }
-  }, [updateLocation]);
+    if (locationRequestGenerationRef.current !== requestGeneration) return;
+    await scheduleForLocation(normalizedLoc);
+  }, [applyCountryPrayerDefaults, scheduleForLocation, updateLocation]);
 
   const initLocation = async () => {
+    const requestGeneration = ++locationRequestGenerationRef.current;
     setIsLoadingLocation(true);
     setLocationError(null);
-    setLocation(DEFAULT_LOCATION);
+    locationSourceRef.current = "default";
+    updateLocation(DEFAULT_LOCATION);
     setUsingDefaultLocation(true);
-    let hasStored = false;
+    let shouldRefreshGps = false;
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION);
+      const [stored, locationSource] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.LOCATION),
+        AsyncStorage.getItem(STORAGE_KEYS.LOCATION_SOURCE),
+      ]);
+      if (locationRequestGenerationRef.current !== requestGeneration) return;
       if (stored) {
         const cachedLocation = normalizeStoredLocation(JSON.parse(stored));
         if (cachedLocation) {
@@ -1265,21 +1449,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const upgradedLocation = resolvedZone && cachedLocation.timezone !== resolvedZone
             ? { ...cachedLocation, timezone: resolvedZone }
             : cachedLocation;
-          setLocation(upgradedLocation);
-          setUsingDefaultLocation(false);
-          hasStored = true;
+          updateLocation(upgradedLocation);
+          const isDefault = locationSource === "default";
+          setUsingDefaultLocation(isDefault);
+          const knownSource: "gps" | "manual" | "default" | "unknown" =
+            locationSource === "gps" ? "gps" :
+            locationSource === "manual" ? "manual" :
+            isDefault ? "default" : "unknown";
+          locationSourceRef.current = knownSource;
+          shouldRefreshGps = knownSource === "gps";
           if (upgradedLocation !== cachedLocation) {
             await AsyncStorage.setItem(STORAGE_KEYS.LOCATION, JSON.stringify(upgradedLocation));
+          }
+          if (!locationSource) {
+            await AsyncStorage.setItem(STORAGE_KEYS.LOCATION_SOURCE, "unknown").catch(() => {});
           }
         }
       }
     } catch {}
+    if (locationRequestGenerationRef.current !== requestGeneration) return;
     setIsLoadingLocation(false);
-    // Only auto-refresh GPS if the user has already granted permission in a
-    // previous session (signalled by a stored location). On first launch the
-    // Onboarding flow is responsible for triggering the permission prompt
-    // via requestLocation(), so we must not call it here.
-    if (hasStored) fetchGpsLocation(false);
+    // Only auto-refresh a location explicitly recorded as GPS. A legacy record
+    // with unknown provenance may have been manually selected, so preserve it
+    // until the user taps Locate Me; also do not mistake the Makkah fallback
+    // for granted permission.
+    if (shouldRefreshGps) void fetchGpsLocation(false);
   };
 
   const refreshPrayerTimes = useCallback(() => {
@@ -1308,20 +1502,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.PRAYER_OFFSETS, JSON.stringify(offsets));
     } catch {}
-    if (notificationsRef.current && location) {
-      await schedulePrayerNotifications(
-        location.latitude, location.longitude, location.timezone, location.city,
-        jummahReminderRef.current, jummahMinutesRef.current,
-        ayahReminderRef.current, ayahHourRef.current, ayahMinuteRef.current,
-        hadithReminderRef.current, hadithHourRef.current, hadithMinuteRef.current,
-        islamicEventsRef.current,
-        prayerNotifConfigRef.current,
-        offsets,
-        calcMethodRef.current, madhabRef.current, highLatRuleRef.current,
-        polarResolutionRef.current,
-      );
-    }
-  }, [location]);
+    await rescheduleAll(prayerNotifConfigRef.current, { offsets });
+  }, [rescheduleAll]);
 
   return (
     <AppContext.Provider

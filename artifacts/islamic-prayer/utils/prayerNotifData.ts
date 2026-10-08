@@ -29,6 +29,8 @@ export interface PrayerNotifSettings {
 
 export type PrayerNotifConfig = Record<PrayerKey, PrayerNotifSettings>;
 
+export const OBLIGATORY_PRAYER_KEYS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
+
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 export const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;
 export const DAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
@@ -74,6 +76,76 @@ export const DEFAULT_PRAYER_NOTIF_CONFIG: PrayerNotifConfig = {
   tahajjud: { ...DEFAULT_TAHAJJUD_NOTIF_SETTINGS },
 };
 
+function normalizeDays(value: unknown, fallback: number[]): number[] {
+  if (!Array.isArray(value)) return [...fallback];
+  return Array.from(new Set(value.filter((day): day is number =>
+    Number.isInteger(day) && day >= 0 && day <= 6,
+  ))).sort((a, b) => a - b);
+}
+
+/** Safely migrate partial/corrupt persisted notification settings. */
+export function normalizePrayerNotifConfig(value: unknown): PrayerNotifConfig {
+  const stored = value && typeof value === "object"
+    ? value as Partial<Record<PrayerKey, Partial<PrayerNotifSettings>>>
+    : {};
+  const result = {} as PrayerNotifConfig;
+  for (const key of Object.keys(DEFAULT_PRAYER_NOTIF_CONFIG) as PrayerKey[]) {
+    const fallback = DEFAULT_PRAYER_NOTIF_CONFIG[key];
+    const item = stored[key];
+    const type = item?.type === "silent" || item?.type === "notification" || item?.type === "adhan"
+      ? item.type
+      : fallback.type;
+    const adhanMode = item?.adhanMode === "full" || item?.adhanMode === "short" || item?.adhanMode === "silent"
+      ? item.adhanMode
+      : fallback.adhanMode;
+    const rawMinutes = item?.minutesBefore;
+    const minutesBefore = rawMinutes === 10 || rawMinutes === 20 || rawMinutes === 30
+      ? rawMinutes
+      : fallback.minutesBefore;
+    result[key] = {
+      ...fallback,
+      enabled: typeof item?.enabled === "boolean" ? item.enabled : fallback.enabled,
+      type,
+      adhanStyleId: typeof item?.adhanStyleId === "string" && item.adhanStyleId.length > 0
+        ? item.adhanStyleId
+        : fallback.adhanStyleId,
+      adhanMode,
+      days: normalizeDays(item?.days, fallback.days),
+      ...(minutesBefore === undefined ? {} : { minutesBefore }),
+    };
+  }
+  return result;
+}
+
+/** Apply one global sound/style choice to the five obligatory prayers only. */
+export function patchObligatoryPrayerNotifications(
+  config: PrayerNotifConfig,
+  patch: Partial<PrayerNotifSettings>,
+): PrayerNotifConfig {
+  const next = { ...config };
+  for (const key of OBLIGATORY_PRAYER_KEYS) {
+    next[key] = { ...config[key], ...patch };
+  }
+  return next;
+}
+
+/** Keep foreground playback aligned with the exact native prayer alert. */
+export function shouldPresentForegroundAdhan(
+  settings: PrayerNotifSettings,
+  options: {
+    notificationsEnabled: boolean;
+    prayerTimeMs: number;
+    snoozeUntil: number;
+    dayOfWeek: number;
+  },
+): boolean {
+  return options.notificationsEnabled &&
+    settings.enabled &&
+    settings.type === "adhan" &&
+    settings.days.includes(options.dayOfWeek) &&
+    options.prayerTimeMs >= options.snoozeUntil;
+}
+
 export const PRAYER_ARABIC: Record<PrayerKey, string> = {
   fajr:     "الفجر",
   sunrise:  "الشروق",
@@ -102,15 +174,15 @@ export interface NotifTypeInfo {
 }
 
 export const NOTIF_TYPES: NotifTypeInfo[] = [
-  { id: "silent",       label: "Silent",       icon: "bell-off",  description: "No sound or alert at prayer time" },
+  { id: "silent",       label: "Silent",       icon: "bell-off",  description: "Banner without sound" },
   { id: "notification", label: "Notification", icon: "bell",      description: "Banner alert with default sound, no adhan" },
-  { id: "adhan",        label: "Adhan",        icon: "volume-2",  description: "Full adhan played + banner notification" },
+  { id: "adhan",        label: "Adhan",        icon: "volume-2",  description: "Adhan alert; full playback while the app is open" },
 ];
 
 // Offset prayers (Sunrise, Tahajjud) only get silent + notification — there
 // is no adhan associated with either event.
 export const SUNRISE_NOTIF_TYPES: NotifTypeInfo[] = [
-  { id: "silent",       label: "Silent",       icon: "bell-off",  description: "Vibrate only — no sound" },
+  { id: "silent",       label: "Silent",       icon: "bell-off",  description: "Banner without sound" },
   { id: "notification", label: "Notification", icon: "bell",      description: "Banner alert with default sound" },
 ];
 export const OFFSET_NOTIF_TYPES = SUNRISE_NOTIF_TYPES;

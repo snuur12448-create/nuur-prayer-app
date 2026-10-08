@@ -154,7 +154,7 @@ struct NuurSquareCard: View {
 private func squareCountdown(h: String, m: String,
                              target: Date, unitColor: Color) -> some View {
     let size: CGFloat = 28
-    Text(timerInterval: Date()...target, countsDown: true)
+    Text(timerInterval: nuurCountdownInterval(to: target), countsDown: true)
         .font(.system(size: size, weight: .regular, design: .serif))
         .foregroundColor(NuurTheme.text)
         .monospacedDigit()
@@ -168,9 +168,13 @@ struct NuurSquareWidgetView: View {
     var entry: NuurEntry
     var body: some View {
         GeometryReader { geo in
-            NuurSquareCard(entry: entry,
-                           width: geo.size.width,
-                           height: geo.size.height)
+            if entry.requiresRefresh {
+                NuurRefreshRequiredCard(compact: true)
+            } else {
+                NuurSquareCard(entry: entry,
+                               width: geo.size.width,
+                               height: geo.size.height)
+            }
         }
         .containerBackground(NuurTheme.surface, for: .widget)
     }

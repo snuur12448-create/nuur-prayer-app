@@ -17,6 +17,7 @@ import {
 } from "./timeZone";
 
 export const WIDGET_PRAYER_CACHE_DAYS = 35;
+export const WIDGET_CACHE_EXPIRY_GRACE_MS = 5 * 60 * 1000;
 
 export interface WidgetPrayerDay {
   dateKey: string;
@@ -98,6 +99,20 @@ export function buildWidgetPrayerSchedule({
   }
 
   return result;
+}
+
+/**
+ * Last instant for which the cached schedule can make an authoritative widget
+ * claim. The short grace period preserves the final prayer's T-0 presentation;
+ * after it, widgets must ask the user to reopen Nuur instead of recycling an
+ * old prayer as though it were upcoming.
+ */
+export function widgetScheduleValidThrough(schedule: WidgetPrayerDay[]): string | undefined {
+  const finalIsha = schedule.at(-1)?.isha;
+  if (!finalIsha) return undefined;
+  const instant = new Date(finalIsha);
+  if (Number.isNaN(instant.getTime())) return undefined;
+  return new Date(instant.getTime() + WIDGET_CACHE_EXPIRY_GRACE_MS).toISOString();
 }
 
 function isoOrEmpty(date: Date): string {

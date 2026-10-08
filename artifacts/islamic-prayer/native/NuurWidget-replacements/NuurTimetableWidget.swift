@@ -28,6 +28,8 @@ private struct TTSnapshot: Decodable {
     let timeFormat: String?
     let prayerDays: [TTPrayerDay]?
     let timeZone: String?
+    let generatedAt: String?
+    let validThrough: String?
 }
 
 private enum TTReader {
@@ -57,6 +59,21 @@ private func ttCalendar(_ snap: TTSnapshot) -> Calendar {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = ttTimeZone(snap)
     return calendar
+}
+
+private func ttValidThrough(_ snap: TTSnapshot) -> Date? {
+    if let raw = snap.validThrough, let explicit = ttParseISO(raw) { return explicit }
+    if let raw = snap.prayerDays?.last?.isha, let date = ttParseISO(raw) {
+        return date.addingTimeInterval(5 * 60)
+    }
+    if let raw = snap.fajrTomorrow, let date = ttParseISO(raw) {
+        return date.addingTimeInterval(5 * 60)
+    }
+    return ttParseISO(snap.isha)?.addingTimeInterval(5 * 60)
+}
+
+private func ttHasExpired(_ snap: TTSnapshot, at date: Date) -> Bool {
+    nuurSnapshotHasExpired(validThrough: ttValidThrough(snap), at: date)
 }
 
 private struct TTSlot {
@@ -121,6 +138,7 @@ struct TimetableEntry: TimelineEntry {
     let location: String
     let hijri: String
     let rows: [DailyTimetable.Row]
+    let requiresRefresh: Bool
 }
 
 // MARK: - Provider
@@ -142,15 +160,21 @@ struct TimetableProvider: AppIntentTimelineProvider {
             return Timeline(entries: [entry], policy: .after(next))
         }
         let now = Date()
+        if ttHasExpired(snap, at: now) {
+            let entry = Self.refreshRequired(now: now, config: configuration)
+            return Timeline(entries: [entry], policy: .after(now.addingTimeInterval(6 * 60 * 60)))
+        }
         let calendar = ttCalendar(snap)
         let horizon = calendar.date(byAdding: .day, value: 7, to: now)
             ?? now.addingTimeInterval(7 * 24 * 60 * 60)
+        let expiryBoundary = ttValidThrough(snap)?.addingTimeInterval(1)
+        let timelineEnd = expiryBoundary.map { min(horizon, $0) } ?? horizon
 
         // Preload a full week. Prayer boundaries move the active row; local
         // midnight rolls the table, Hijri date, and location-day metadata.
         let slots = ttSlots(from: snap)
-        var moments = Set<Date>([now, horizon])
-        for slot in slots where slot.date > now && slot.date <= horizon {
+        var moments = Set<Date>([now, timelineEnd])
+        for slot in slots where slot.date > now && slot.date <= timelineEnd {
             moments.insert(slot.date)
         }
 
@@ -159,7 +183,7 @@ struct TimetableProvider: AppIntentTimelineProvider {
             matching: DateComponents(hour: 0, minute: 0, second: 0),
             matchingPolicy: .nextTime
         )
-        while let boundary = midnight, boundary <= horizon {
+        while let boundary = midnight, boundary <= timelineEnd {
             moments.insert(boundary)
             midnight = calendar.date(byAdding: .day, value: 1, to: boundary)
         }
@@ -167,13 +191,19 @@ struct TimetableProvider: AppIntentTimelineProvider {
         let entries = moments.sorted().compactMap {
             Self.buildEntry(now: $0, snap: snap, config: configuration)
         }
-        return Timeline(entries: entries, policy: .after(horizon))
+        let refreshAt = entries.last?.requiresRefresh == true
+            ? timelineEnd.addingTimeInterval(6 * 60 * 60)
+            : timelineEnd
+        return Timeline(entries: entries, policy: .after(refreshAt))
     }
 
     private static func buildEntry(now: Date, snap: TTSnapshot,
                                    config: ConfigurationAppIntent) -> TimetableEntry? {
+        if ttHasExpired(snap, at: now) {
+            return refreshRequired(now: now, config: config)
+        }
         let slots = ttSlots(from: snap)
-        guard !slots.isEmpty else { return nil }
+        guard !slots.isEmpty else { return refreshRequired(now: now, config: config) }
         // Widget toggle wins; otherwise fall back to the app's stored preference.
         let is24h = config.use24Hour || (snap.timeFormat ?? "12h") == "24h"
         let calendar = ttCalendar(snap)
@@ -201,7 +231,7 @@ struct TimetableProvider: AppIntentTimelineProvider {
         return TimetableEntry(
             date: now, configuration: config,
             location: snap.location, hijri: ttHijri(from: snap, at: now),
-            rows: rows
+            rows: rows, requiresRefresh: false
         )
     }
 
@@ -218,8 +248,36 @@ struct TimetableProvider: AppIntentTimelineProvider {
         return TimetableEntry(
             date: now, configuration: config,
             location: "London, UK", hijri: "18 DHŪ AL-QAʿDAH 1446",
-            rows: rows
+            rows: rows, requiresRefresh: false
         )
+    }
+
+    private static func refreshRequired(now: Date,
+                                        config: ConfigurationAppIntent) -> TimetableEntry {
+        TimetableEntry(
+            date: now, configuration: config, location: "Open Nuur",
+            hijri: "", rows: [], requiresRefresh: true
+        )
+    }
+}
+
+private struct TimetableRefreshView: View {
+    var body: some View {
+        VStack(spacing: 9) {
+            Image(systemName: "arrow.clockwise.circle.fill")
+                .font(.system(size: 25, weight: .semibold))
+                .foregroundColor(NuurTheme.gold)
+            Text("Prayer times need refreshing")
+                .font(.system(size: 17, weight: .semibold, design: .serif))
+                .foregroundColor(NuurTheme.text)
+            Text("Open Nuur to update today's timetable.")
+                .font(.system(size: 11))
+                .foregroundColor(NuurTheme.textSecondary)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(NuurTheme.surface)
+        .widgetURL(URL(string: "nuur://"))
     }
 }
 
@@ -228,13 +286,17 @@ struct TimetableEntryView: View {
     var entry: TimetableEntry
     var body: some View {
         GeometryReader { geo in
-            DailyTimetable(
-                location: entry.location,
-                hijri: entry.hijri,
-                rows: entry.rows,
-                width: geo.size.width,
-                height: geo.size.height
-            )
+            if entry.requiresRefresh {
+                TimetableRefreshView()
+            } else {
+                DailyTimetable(
+                    location: entry.location,
+                    hijri: entry.hijri,
+                    rows: entry.rows,
+                    width: geo.size.width,
+                    height: geo.size.height
+                )
+            }
         }
         .containerBackground(NuurTheme.surface, for: .widget)
     }

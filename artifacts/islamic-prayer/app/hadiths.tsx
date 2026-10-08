@@ -21,11 +21,6 @@ import { useSavedItems } from "@/utils/useSavedItems";
 import HadithShareSheet from "@/components/HadithShareSheet";
 import { CornerFloret, NuurMark } from "@/components/share/ShareDecor";
 
-const SUNNAH_API_KEY = process.env.EXPO_PUBLIC_SUNNAH_API_KEY ?? "";
-const SUNNAH_RANDOM_URL = "https://api.sunnah.com/v1/hadiths/random";
-
-const SAHIH_COLLECTIONS = ["bukhari", "muslim"];
-
 type CollectionFilter = "all" | "Bukhari" | "Muslim" | "Both";
 
 interface LiveHadith {
@@ -61,24 +56,6 @@ function approximateHijriToday(): string {
   const safeMonth = Math.max(1, Math.min(12, month));
   const safeDay = Math.max(1, Math.min(30, day));
   return `${safeDay} ${HIJRI_MONTHS[safeMonth - 1]} ${year}`;
-}
-
-function collectionLabel(name: string): string {
-  const map: Record<string, string> = {
-    bukhari: "Bukhari",
-    muslim: "Muslim",
-    riyadussalihin: "Riyadh al-Salihin",
-    nawawi40: "Forty Hadiths",
-    abudawud: "Abu Dawud",
-    tirmidhi: "al-Tirmidhi",
-    ibnmajah: "Ibn Majah",
-    nasai: "al-Nasa'i",
-  };
-  return map[name] ?? name;
-}
-
-function stripHtml(str: string): string {
-  return str?.replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/&#x27;/g, "'").trim() ?? "";
 }
 
 function collectionBadgeLabel(c: string): string {
@@ -153,36 +130,8 @@ export default function HadithsScreen() {
     setLiveLoading(true);
     setLiveIsFeatured(false);
 
-    if (SUNNAH_API_KEY) {
-      for (let attempt = 0; attempt < 4; attempt++) {
-        try {
-          const res = await fetch(SUNNAH_RANDOM_URL, {
-            headers: { "x-api-key": SUNNAH_API_KEY },
-          });
-          if (!res.ok) break;
-          const data = await res.json();
-          const en = data.hadith?.find((h: any) => h.lang === "en");
-          if (en && SAHIH_COLLECTIONS.includes(data.collection)) {
-            setLiveHadith({
-              id: `live-${data.hadithNumber}-${data.bookNumber}`,
-              arabic: "",
-              translation: stripHtml(en.body),
-              narrator: "",
-              source: `${collectionLabel(data.collection)} · Book ${data.bookNumber}, Hadith ${data.hadithNumber}`,
-              topic: en.chapterTitle ? stripHtml(en.chapterTitle).substring(0, 40) : "Hadith",
-              collection: collectionLabel(data.collection),
-              grade: "Sahih",
-              isLive: true,
-            });
-            setLiveLoading(false);
-            return;
-          }
-        } catch {
-          break;
-        }
-      }
-    }
-
+    // Curated content works offline. A private Sunnah API credential must
+    // never be embedded in an EXPO_PUBLIC variable in the distributed app.
     showLocalFeatured();
     setLiveLoading(false);
   }, [showLocalFeatured]);

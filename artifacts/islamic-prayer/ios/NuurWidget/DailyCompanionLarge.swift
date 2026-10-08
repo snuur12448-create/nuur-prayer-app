@@ -172,7 +172,7 @@ public struct DailyCompanionLarge: View {
                     if let target = targetDate {
                         // Live ticking H:MM:SS — system-managed, no per-second
                         // timeline refresh required.
-                        Text(timerInterval: Date()...target, countsDown: true)
+                        Text(timerInterval: nuurCountdownInterval(to: target), countsDown: true)
                             .font(.system(size: 22, weight: .light, design: .serif))
                             .foregroundColor(NuurTheme.text)
                             .monospacedDigit()

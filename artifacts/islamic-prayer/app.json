@@ -15,8 +15,9 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.nuur.islamicprayer",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "entitlements": {
+        "com.apple.developer.weatherkit": true,
         "com.apple.developer.usernotifications.time-sensitive": true,
         "com.apple.security.application-groups": [
           "group.com.nuur.shared"
@@ -54,12 +55,7 @@
     },
     "plugins": [
       "./plugins/withLocalNotificationsOnly",
-      [
-        "expo-router",
-        {
-          "origin": "https://replit.com/"
-        }
-      ],
+      "expo-router",
       [
         "expo-notifications",
         {

@@ -598,6 +598,7 @@ export default function QuranDetailScreen() {
   // Audio — lifted to global QuranPlayerContext so playback outlives navigation
   const {
     playState,
+    playbackError,
     playingVerse,
     playbackRate,
     selectedReciter,
@@ -611,6 +612,8 @@ export default function QuranDetailScreen() {
     togglePlayPause: ctxTogglePlayPause,
     setSelectedReciter,
     setPlaybackRate,
+    retryPlayback,
+    clearPlaybackError,
   } = useQuranPlayer();
 
   const [showReciterModal, setShowReciterModal] = useState(false);
@@ -1379,6 +1382,42 @@ export default function QuranDetailScreen() {
         </View>
       )}
 
+      {playbackError && playingSurahNum === surahNumber && (
+        <View
+          accessibilityRole="alert"
+          style={[
+            styles.audioErrorBanner,
+            { backgroundColor: colors.red + "12", borderColor: colors.red + "55" },
+          ]}
+        >
+          <Feather name="alert-circle" size={17} color={colors.red} />
+          <View style={styles.audioErrorCopy}>
+            <Text style={[styles.audioErrorTitle, { color: colors.text }]}>Quran audio unavailable</Text>
+            <Text style={[styles.audioErrorText, { color: colors.textSecondary }]}>{playbackError}</Text>
+          </View>
+          <Pressable
+            onPress={() => void retryPlayback()}
+            accessibilityRole="button"
+            accessibilityLabel="Retry Quran audio"
+            style={({ pressed }) => [
+              styles.audioRetryButton,
+              { backgroundColor: colors.tint + "20", opacity: pressed ? 0.65 : 1 },
+            ]}
+          >
+            <Feather name="refresh-cw" size={13} color={colors.tint} />
+            <Text style={[styles.audioRetryText, { color: colors.tint }]}>Retry</Text>
+          </Pressable>
+          <Pressable
+            onPress={clearPlaybackError}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss Quran audio error"
+          >
+            <Feather name="x" size={16} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+      )}
+
       {/* Body */}
       {loadingVerses ? (
         <View style={styles.centered}>
@@ -1732,6 +1771,9 @@ export default function QuranDetailScreen() {
                 </View>
               </Pressable>
             ))}
+            <Text style={[styles.contentSourceNote, { color: colors.textSecondary }]}>
+              Arabic text: Uthmani edition · Translation: Sahih International. Downloaded Arabic is checked against Nuur's bundled offline copy before display.
+            </Text>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1757,6 +1799,37 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   errorRetryText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  audioErrorBanner: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  audioErrorCopy: { flex: 1, gap: 2 },
+  audioErrorTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  audioErrorText: { fontSize: 11, lineHeight: 15, fontFamily: "Inter_400Regular" },
+  audioRetryButton: {
+    minHeight: 32,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  audioRetryText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  contentSourceNote: {
+    marginTop: 14,
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+  },
   header: { paddingHorizontal: 20, paddingBottom: 16 },
   headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
   backBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },

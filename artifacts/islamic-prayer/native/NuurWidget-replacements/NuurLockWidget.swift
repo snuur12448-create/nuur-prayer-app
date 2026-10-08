@@ -42,6 +42,8 @@ private struct LockSnapshot: Decodable {
     let fajrTomorrow: String?
     let prayerDays: [LockPrayerDay]?
     let timeZone: String?
+    let generatedAt: String?
+    let validThrough: String?
 }
 
 private enum LockSnapshotReader {
@@ -72,6 +74,21 @@ private func lockCalendar(_ snap: LockSnapshot) -> Calendar {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = lockTimeZone(snap)
     return calendar
+}
+
+private func lockValidThrough(_ snap: LockSnapshot) -> Date? {
+    if let raw = snap.validThrough, let explicit = parseLockISO(raw) { return explicit }
+    if let raw = snap.prayerDays?.last?.isha, let date = parseLockISO(raw) {
+        return date.addingTimeInterval(5 * 60)
+    }
+    if let raw = snap.fajrTomorrow, let date = parseLockISO(raw) {
+        return date.addingTimeInterval(5 * 60)
+    }
+    return parseLockISO(snap.isha)?.addingTimeInterval(5 * 60)
+}
+
+private func lockHasExpired(_ snap: LockSnapshot, at date: Date) -> Bool {
+    nuurSnapshotHasExpired(validThrough: lockValidThrough(snap), at: date)
 }
 
 private struct LockSlot {
@@ -179,6 +196,7 @@ private struct LockEntry: TimelineEntry {
     let hijri: String
     let doneToday: Int
     let totalToday: Int
+    let requiresRefresh: Bool
 }
 
 private struct LockProvider: TimelineProvider {
@@ -187,7 +205,7 @@ private struct LockProvider: TimelineProvider {
                   slot: LockSlot(prayer: .maghrib, date: Date().addingTimeInterval(4620), label: "Maghrib"),
                   active: nil,
                   hijri: "23 Dhū al-Qa'dah",
-                  doneToday: 2, totalToday: 5)
+                  doneToday: 2, totalToday: 5, requiresRefresh: false)
     }
     func getSnapshot(in context: Context, completion: @escaping (LockEntry) -> Void) {
         completion(makeEntry(now: Date()))
@@ -198,6 +216,11 @@ private struct LockProvider: TimelineProvider {
             completion(Timeline(entries: [makeEntry(now: now)], policy: .after(now.addingTimeInterval(60 * 60))))
             return
         }
+        if lockHasExpired(snap, at: now) {
+            let entry = makeRefreshEntry(now: now)
+            completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(6 * 60 * 60))))
+            return
+        }
 
         // Do not depend on iOS granting a daily timeline reload. The shared
         // snapshot contains 35 days, so preload a full week of prayer
@@ -205,11 +228,13 @@ private struct LockProvider: TimelineProvider {
         // SwiftUI's .timer style keeps countdowns moving between sparse entries.
         let slots = lockSlots(from: snap)
         let horizon = now.addingTimeInterval(7 * 24 * 60 * 60)
-        var moments = Set<Date>([now, horizon])
-        for slot in slots where slot.date > now && slot.date <= horizon {
+        let expiryBoundary = lockValidThrough(snap)?.addingTimeInterval(1)
+        let timelineEnd = expiryBoundary.map { min(horizon, $0) } ?? horizon
+        var moments = Set<Date>([now, timelineEnd])
+        for slot in slots where slot.date > now && slot.date <= timelineEnd {
             moments.insert(slot.date)
             let activeWindowEnd = slot.date.addingTimeInterval(30 * 60 + 1)
-            if activeWindowEnd <= horizon { moments.insert(activeWindowEnd) }
+            if activeWindowEnd <= timelineEnd { moments.insert(activeWindowEnd) }
         }
 
         let calendar = lockCalendar(snap)
@@ -218,22 +243,26 @@ private struct LockProvider: TimelineProvider {
             matching: DateComponents(hour: 0, minute: 0, second: 0),
             matchingPolicy: .nextTime
         )
-        while let boundary = midnight, boundary <= horizon {
+        while let boundary = midnight, boundary <= timelineEnd {
             moments.insert(boundary)
             midnight = calendar.date(byAdding: .day, value: 1, to: boundary)
         }
 
         let entries = moments.sorted().map { makeEntry(now: $0, snap: snap, slots: slots) }
-        completion(Timeline(entries: entries, policy: .after(horizon)))
+        let refreshAt = entries.last?.requiresRefresh == true
+            ? timelineEnd.addingTimeInterval(6 * 60 * 60)
+            : timelineEnd
+        completion(Timeline(entries: entries, policy: .after(refreshAt)))
     }
     private func makeEntry(now: Date) -> LockEntry {
         guard let snap = LockSnapshotReader.read() else {
-            return LockEntry(date: now, slot: nil, active: nil, hijri: "", doneToday: 0, totalToday: 5)
+            return makeRefreshEntry(now: now)
         }
         let slots = lockSlots(from: snap)
         return makeEntry(now: now, snap: snap, slots: slots)
     }
     private func makeEntry(now: Date, snap: LockSnapshot, slots: [LockSlot]) -> LockEntry {
+        if lockHasExpired(snap, at: now) { return makeRefreshEntry(now: now) }
         var seen = Set<Prayer>()
         let today = slots.filter { s in
             guard lockCalendar(snap).isDate(s.date, inSameDayAs: now),
@@ -247,7 +276,14 @@ private struct LockProvider: TimelineProvider {
             active: activeSlot(at: now, slots: slots),
             hijri: stripHijriYear(lockHijri(from: snap, at: now)),
             doneToday: done,
-            totalToday: max(today.count, 5)
+            totalToday: max(today.count, 5),
+            requiresRefresh: false
+        )
+    }
+    private func makeRefreshEntry(now: Date) -> LockEntry {
+        LockEntry(
+            date: now, slot: nil, active: nil, hijri: "",
+            doneToday: 0, totalToday: 5, requiresRefresh: true
         )
     }
 }
@@ -257,7 +293,9 @@ private struct LockProvider: TimelineProvider {
 private struct LockInlineView: View {
     let entry: LockEntry
     var body: some View {
-        if let active = entry.active {
+        if entry.requiresRefresh {
+            Label("Open Nuur to refresh", systemImage: "arrow.clockwise")
+        } else if let active = entry.active {
             Label("\(active.label) · NOW",
                   systemImage: sfSymbol(for: active.prayer))
         } else if let slot = entry.slot {
@@ -293,7 +331,16 @@ struct NuurLockInlineWidget: Widget {
 private struct LockRectView: View {
     let entry: LockEntry
     var body: some View {
-        if let slot = entry.slot {
+        if entry.requiresRefresh {
+            VStack(alignment: .leading, spacing: 3) {
+                Label("OPEN NUUR", systemImage: "arrow.clockwise")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.nuurGold)
+                    .nuurFullColor()
+                Text("Refresh prayer times")
+                    .font(.system(.footnote, design: .rounded))
+            }
+        } else if let slot = entry.slot {
             VStack(alignment: .leading, spacing: 2) {
                 Text("UNTIL \(slot.label.uppercased())")
                     .font(.system(size: 9, weight: .semibold, design: .rounded))
@@ -354,7 +401,9 @@ struct NuurLockRectWidget: Widget {
 private struct LockCircularCountdownView: View {
     let entry: LockEntry
     var body: some View {
-        if let slot = entry.slot {
+        if entry.requiresRefresh {
+            Image(systemName: "arrow.clockwise")
+        } else if let slot = entry.slot {
             ZStack {
                 AccessoryWidgetBackground()
                 VStack(spacing: 0) {
@@ -396,7 +445,9 @@ struct NuurLockCircularCountdownWidget: Widget {
 private struct LockCircularTimeView: View {
     let entry: LockEntry
     var body: some View {
-        if let slot = entry.slot {
+        if entry.requiresRefresh {
+            Image(systemName: "arrow.clockwise")
+        } else if let slot = entry.slot {
             ZStack {
                 AccessoryWidgetBackground()
                 VStack(spacing: 0) {
@@ -441,10 +492,13 @@ struct NuurLockCircularTimeWidget: Widget {
 private struct LockCircularProgressView: View {
     let entry: LockEntry
     var body: some View {
-        let done = entry.doneToday
-        let total = entry.totalToday
-        let frac = total > 0 ? CGFloat(done) / CGFloat(total) : 0
-        ZStack {
+        if entry.requiresRefresh {
+            Image(systemName: "arrow.clockwise")
+        } else {
+            let done = entry.doneToday
+            let total = entry.totalToday
+            let frac = total > 0 ? CGFloat(done) / CGFloat(total) : 0
+            ZStack {
             AccessoryWidgetBackground()
             Circle()
                 .trim(from: 0, to: frac)
@@ -470,6 +524,7 @@ private struct LockCircularProgressView: View {
                     }
                 }
                 .nuurFullColor()
+            }
             }
         }
     }

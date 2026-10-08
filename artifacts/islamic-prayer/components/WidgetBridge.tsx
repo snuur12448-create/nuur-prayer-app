@@ -11,7 +11,10 @@ import {
 } from "@/context/PrayerTrackerContext";
 import { pushWidgetSnapshot, refreshWeather } from "@/utils/nuurBridge";
 import { calculateQiblaDirection } from "@/utils/qibla";
-import { buildWidgetPrayerSchedule } from "@/utils/widgetPrayerSchedule";
+import {
+  buildWidgetPrayerSchedule,
+  widgetScheduleValidThrough,
+} from "@/utils/widgetPrayerSchedule";
 
 /** Walk back from today counting consecutive complete days (all 5 prayed).
  *  An incomplete *today* doesn't break the streak — yesterday and earlier do. */
@@ -124,6 +127,8 @@ export function WidgetBridge() {
         isha: isoOrEmpty(prayerTimes.isha.time),
         fajrTomorrow: tomorrow?.fajr || isoOrEmpty(new Date(prayerTimes.fajr.time.getTime() + 86_400_000)),
         prayerDays,
+        generatedAt: now.toISOString(),
+        validThrough: widgetScheduleValidThrough(prayerDays),
         timeZone: typeof location.timezone === "string" ? location.timezone : undefined,
         location: prayerTimes.polarFallback ? `${location.city} · Estimated` : location.city,
         hijri: today.hijri,

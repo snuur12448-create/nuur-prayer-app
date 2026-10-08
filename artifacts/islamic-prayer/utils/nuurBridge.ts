@@ -31,6 +31,10 @@ export interface WidgetSnapshot {
   /** Rolling cache used by WidgetKit to remain accurate when iOS does not
    *  grant the containing app a background refresh. */
   prayerDays?: WidgetPrayerDay[];
+  /** Snapshot creation and hard-expiry instants. WidgetKit uses these to avoid
+   *  presenting exhausted cached prayer times as current. */
+  generatedAt?: string;
+  validThrough?: string;
   /** IANA timezone for rendering and calendar matching inside WidgetKit. */
   timeZone?: string;
   /** Display label for the widget header, e.g. "London, UK". */
@@ -62,8 +66,8 @@ export interface WidgetSnapshot {
  * Silently no-ops on non-iOS platforms or if the native module isn't linked
  * (e.g. running in Expo Go without a custom dev client).
  */
-export async function pushWidgetSnapshot(snapshot: WidgetSnapshot): Promise<void> {
-  if (Platform.OS !== "ios") return;
+export async function pushWidgetSnapshot(snapshot: WidgetSnapshot): Promise<boolean> {
+  if (Platform.OS !== "ios") return false;
   if (!NuurBridge) {
     if (__DEV__) {
       console.warn(
@@ -71,7 +75,7 @@ export async function pushWidgetSnapshot(snapshot: WidgetSnapshot): Promise<void
           "NuurBridge.swift + NuurBridge.m to the Nuur target in Xcode.",
       );
     }
-    return;
+    return false;
   }
   try {
     await NuurBridge.writeWidgetData(JSON.stringify(snapshot));
@@ -79,8 +83,10 @@ export async function pushWidgetSnapshot(snapshot: WidgetSnapshot): Promise<void
     if (__DEV__) {
       console.log("[NuurBridge] snapshot pushed:", snapshot.location, snapshot.hijri);
     }
+    return true;
   } catch (e) {
     if (__DEV__) console.warn("[NuurBridge] push failed:", e);
+    return false;
   }
 }
 

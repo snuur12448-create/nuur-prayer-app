@@ -5,6 +5,7 @@ import {
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   PanResponder,
   Platform,
@@ -22,38 +23,17 @@ import {
   legacyOffsetForLongitude,
   timeZoneAtCoordinates,
 } from "@/utils/timeZone";
+import {
+  searchNominatim,
+  type NominatimSearchResult,
+} from "@/utils/nominatim";
 
-interface NominatimResult {
-  place_id: number;
-  lat: string;
-  lon: string;
-  display_name: string;
-  address: {
-    city?: string;
-    town?: string;
-    village?: string;
-    county?: string;
-    state?: string;
-    country?: string;
-    country_code?: string;
-  };
-}
-
-function buildCityLabel(r: NominatimResult): string {
+function buildCityLabel(r: NominatimSearchResult): string {
   const a = r.address;
   const city = a.city || a.town || a.village || a.county || a.state || "";
   const country = a.country || "";
   if (city && country) return `${city}, ${country}`;
   return r.display_name.split(",").slice(0, 2).join(",").trim();
-}
-
-async function nominatimSearch(query: string): Promise<NominatimResult[]> {
-  const url =
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}` +
-    `&format=json&limit=6&addressdetails=1&featuretype=city`;
-  const res = await fetch(url, { headers: { "Accept-Language": "en" } });
-  if (!res.ok) return [];
-  return res.json();
 }
 
 interface Props {
@@ -74,42 +54,42 @@ export function LocationModal({
   isLoadingGps,
 }: Props) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<NominatimResult[]>([]);
+  const [results, setResults] = useState<NominatimSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [selectingId, setSelectingId] = useState<number | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRequestRef = useRef(0);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (!visible) {
       setQuery("");
       setResults([]);
+      setHasSearched(false);
+      searchRequestRef.current += 1;
     }
   }, [visible]);
 
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!query.trim() || query.trim().length < 2) {
-      setResults([]);
-      setSearching(false);
-      return;
-    }
+  const handleSearch = async () => {
+    const value = query.trim();
+    if (value.length < 2 || searching) return;
+    const requestId = ++searchRequestRef.current;
     setSearching(true);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const res = await nominatimSearch(query.trim());
-        setResults(res);
-      } catch {
-        setResults([]);
-      } finally {
+    setHasSearched(false);
+    Keyboard.dismiss();
+    try {
+      const response = await searchNominatim(value);
+      if (requestId === searchRequestRef.current) setResults(response);
+    } catch {
+      if (requestId === searchRequestRef.current) setResults([]);
+    } finally {
+      if (requestId === searchRequestRef.current) {
         setSearching(false);
+        setHasSearched(true);
       }
-    }, 500);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query]);
+    }
+  };
 
   const handleGps = async () => {
     setGpsLoading(true);
@@ -121,7 +101,7 @@ export function LocationModal({
     }
   };
 
-  const handleSelect = async (r: NominatimResult) => {
+  const handleSelect = async (r: NominatimSearchResult) => {
     setSelectingId(r.place_id);
     Keyboard.dismiss();
     try {
@@ -135,6 +115,7 @@ export function LocationModal({
         longitude: lon,
         city,
         timezone: tz,
+        countryCode: r.address.country_code?.toUpperCase(),
       });
       onClose();
     } finally {
@@ -271,19 +252,25 @@ export function LocationModal({
               <TextInput
                 ref={inputRef}
                 value={query}
-                onChangeText={setQuery}
+                onChangeText={(value) => {
+                  setQuery(value);
+                  setResults([]);
+                  setHasSearched(false);
+                }}
                 placeholder="City, town or country…"
                 placeholderTextColor={colors.textSecondary}
                 style={[styles.searchInput, { color: colors.text }]}
                 autoCapitalize="words"
                 autoCorrect={false}
                 returnKeyType="search"
+                onSubmitEditing={() => { void handleSearch(); }}
               />
               {query.length > 0 && (
                 <TouchableOpacity
                   onPress={() => {
                     setQuery("");
                     setResults([]);
+                    setHasSearched(false);
                   }}
                   style={styles.searchClearBtn}
                   accessibilityRole="button"
@@ -302,6 +289,17 @@ export function LocationModal({
                   color={colors.tint}
                   style={{ marginLeft: 8 }}
                 />
+              )}
+              {!searching && (
+                <TouchableOpacity
+                  onPress={() => { void handleSearch(); }}
+                  disabled={query.trim().length < 2}
+                  style={[styles.searchSubmit, { backgroundColor: colors.tint + "20" }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Search locations"
+                >
+                  <Text style={[styles.searchSubmitText, { color: colors.tint }]}>Search</Text>
+                </TouchableOpacity>
               )}
             </View>
 
@@ -376,7 +374,7 @@ export function LocationModal({
               />
             )}
 
-            {!showResults && !searching && query.trim().length >= 2 && (
+            {!showResults && !searching && hasSearched && (
               <View style={styles.emptyState}>
                 <Text
                   style={[styles.emptyText, { color: colors.textSecondary }]}
@@ -385,6 +383,15 @@ export function LocationModal({
                 </Text>
               </View>
             )}
+
+            <TouchableOpacity
+              onPress={() => { Linking.openURL("https://www.openstreetmap.org/copyright").catch(() => {}); }}
+              accessibilityRole="link"
+              accessibilityLabel="Open OpenStreetMap copyright information"
+              style={styles.attribution}
+            >
+              <Text style={[styles.attributionText, { color: colors.textSecondary }]}>Search data © OpenStreetMap contributors</Text>
+            </TouchableOpacity>
 
             <View style={{ height: Platform.OS === "ios" ? 34 : 20 }} />
           </View>
@@ -497,6 +504,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  searchSubmit: {
+    minHeight: 34,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 6,
+  },
+  searchSubmitText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
   resultList: {
     maxHeight: 280,
   },
@@ -534,5 +553,15 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 13,
     fontFamily: "Inter_400Regular",
+  },
+  attribution: {
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attributionText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    textDecorationLine: "underline",
   },
 });

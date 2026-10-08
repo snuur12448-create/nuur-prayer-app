@@ -72,7 +72,7 @@ export const CALC_METHODS: CalcMethodInfo[] = [
   { id: 'MuslimWorldLeague',    label: 'Muslim World League',   region: 'Europe & Far East',  detail: 'Fajr 18° · Isha 17°' },
   { id: 'Egyptian',             label: 'Egyptian',              region: 'Africa & Asia',      detail: 'Fajr 19.5° · Isha 17.5°' },
   { id: 'Karachi',              label: 'University of Karachi', region: 'Pakistan & South Asia', detail: 'Fajr 18° · Isha 18°' },
-  { id: 'UmmAlQura',            label: 'Umm al-Qura',          region: 'Saudi Arabia',       detail: 'Fajr 18.5° · Isha 90 min' },
+  { id: 'UmmAlQura',            label: 'Umm al-Qura',          region: 'Saudi Arabia',       detail: 'Fajr 18.5° · Isha 90 min; confirm Ramadan times locally' },
   { id: 'Dubai',                label: 'Dubai',                 region: 'UAE',                detail: 'Fajr 18.2° · Isha 18.2°' },
   { id: 'Kuwait',               label: 'Kuwait',                region: 'Kuwait',             detail: 'Fajr 18° · Isha 17.5°' },
   { id: 'Qatar',                label: 'Qatar',                 region: 'Qatar',              detail: 'Fajr 18° · Isha 90 min' },
@@ -105,7 +105,10 @@ export const POLAR_RESOLUTIONS: { id: PolarResolutionId; label: string; detail: 
   },
 ];
 
-export const DEFAULT_CALC_METHOD: CalcMethodId = 'MoonsightingCommittee';
+// Until a real location/country is known the app displays Makkah, so its
+// fallback method must match that city. Detected/manual countries still apply
+// their regional recommendation through calcMethodByCountry.
+export const DEFAULT_CALC_METHOD: CalcMethodId = 'UmmAlQura';
 export const DEFAULT_MADHAB: MadhabId = 'Shafi';
 export const DEFAULT_HIGH_LAT_RULE: HighLatRuleId = 'TwilightAngle';
 export const DEFAULT_POLAR_RESOLUTION: PolarResolutionId = 'AqrabBalad';
@@ -188,14 +191,6 @@ function buildParams(
   }
 
   params.madhab = madhabId === 'Hanafi' ? Madhab.Hanafi : Madhab.Shafi;
-
-  // adhan.js gives MoonsightingCommittee its own seasonal/one-seventh
-  // overrides, which silently bypass `highLatitudeRule`. Preserve the
-  // method's angles and minute adjustments while using the library's normal
-  // high-latitude path so the rule selected in Nuur actually takes effect.
-  if (methodId === 'MoonsightingCommittee') {
-    params.method = 'Other';
-  }
 
   switch (highLatRuleId) {
     case 'MiddleOfNight':

@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 
 import prayerTimesModule from "../utils/prayerTimes.ts";
+import calcMethodModule from "../utils/calcMethodByCountry.ts";
 import timeZoneModule from "../utils/timeZone.ts";
 import widgetScheduleModule from "../utils/widgetPrayerSchedule.ts";
 
-const { calculatePrayerTimes } = prayerTimesModule;
+const { calculatePrayerTimes, DEFAULT_CALC_METHOD } = prayerTimesModule;
+const { suggestCalcMethod } = calcMethodModule;
 const {
   dateByAddingDaysInTimeZone,
   dateKeyInTimeZone,
@@ -74,6 +76,34 @@ const londonPrayer = calculatePrayerTimes(
 );
 assert.equal(dateKeyInTimeZone(londonPrayer.dhuhr.time, "Europe/London"), "2026-07-16");
 assert.equal(dayOfWeekInTimeZone(londonPrayer.dhuhr.time, "Europe/London"), 4);
+
+// The no-location fallback is Makkah, so it must use Saudi Arabia's Umm
+// al-Qura convention rather than Nuur's UK convention. These fixed instants
+// protect the release from accidental method/timezone drift.
+assert.equal(DEFAULT_CALC_METHOD, "UmmAlQura");
+assert.equal(suggestCalcMethod("SA"), "UmmAlQura");
+const makkahFixture = calculatePrayerTimes(
+  21.4225,
+  39.8262,
+  "Asia/Riyadh",
+  new Date("2026-01-15T12:00:00Z"),
+  DEFAULT_CALC_METHOD,
+  "Shafi",
+  "TwilightAngle",
+  "24h",
+  "AqrabBalad",
+);
+assert.deepEqual(
+  ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"].map((key) => makkahFixture[key].time.toISOString()),
+  [
+    "2026-01-15T02:41:00.000Z",
+    "2026-01-15T04:01:00.000Z",
+    "2026-01-15T09:30:00.000Z",
+    "2026-01-15T12:38:00.000Z",
+    "2026-01-15T14:59:00.000Z",
+    "2026-01-15T16:29:00.000Z",
+  ],
+);
 
 // Legacy snapshots remain readable while startup migrates them to IANA IDs.
 assert.equal(formatTimeInTimeZone(new Date("2026-07-15T12:05:00Z"), 1, "24h"), "13:05");

@@ -13,24 +13,26 @@
 //   • api.qurancdn.com       → word-by-word morphology
 //
 // Storage shape:
-//   nuur_quran_verses_v2_<n>  → { t: <ms>, d: Verse[] }
-//   nuur_quran_words_v2_<n>   → { t: <ms>, d: Record<verseNum, WordInfo[]> }
+//   nuur_quran_verses_v4_<n>  → { v: 4, source, t: <ms>, d: Verse[] }
+//   nuur_quran_words_v4_<n>   → { v: 4, source, t: <ms>, d: Record<verseNum, WordInfo[]> }
 //
-// Cache is treated as fresh forever (the Qur'ān doesn't change) but we still
-// stamp the timestamp so we can invalidate later if the schema needs to evolve.
+// Every cache and network response is structurally validated before use. Arabic
+// must also match the immutable bundled integrity anchor. If the network is
+// unavailable or rejected, the reader falls back to the bundled Arabic and
+// Sahih International text rather than displaying incomplete content.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  getBundledSurahVerses,
+  getExpectedVerseCount,
+  type QuranIntegrityVerse,
+  validateSurahVerses,
+} from "./quranIntegrity";
 
 // ── Types (kept loose; the screen owns the canonical shapes) ────────────────
 
-export interface CachedVerse {
-  number: number;
-  numberInQuran: number;
-  text: string;
-  translation: string;
-  transliteration: string;
-}
+export interface CachedVerse extends QuranIntegrityVerse {}
 
 export interface CachedWord {
   position: number;
@@ -42,60 +44,99 @@ export interface CachedWord {
 
 export type CachedWordsByVerse = Record<number, CachedWord[]>;
 
-const VERSES_KEY = (n: number) => `nuur_quran_verses_v3_${n}`;
-const WORDS_KEY  = (n: number) => `nuur_quran_words_v3_${n}`;
+export const QURAN_CACHE_VERSION = 4;
+const VERSES_PREFIX = `nuur_quran_verses_v${QURAN_CACHE_VERSION}_`;
+const WORDS_PREFIX = `nuur_quran_words_v${QURAN_CACHE_VERSION}_`;
+const VERSES_KEY = (n: number) => `${VERSES_PREFIX}${n}`;
+const WORDS_KEY  = (n: number) => `${WORDS_PREFIX}${n}`;
 
-// ── Bismillah stripper (mirrors the screen's logic) ──────────────────────────
-// Surah 1 (Fatiha) keeps Bismillah as the first verse; surah 9 (Tawbah) has
-// no Bismillah. For every other surah, the Bismillah is prepended to the first
-// verse text by the API and we strip it. We split by whitespace and drop the
-// first 4 words — robust against orthographic variants (ٱ vs ا, etc.) that
-// would break a literal regex match.
-function stripBismillah(text: string, surahNum: number, verseNum: number): string {
-  if (surahNum === 1 || surahNum === 9 || verseNum !== 1) return text;
-  const words = text.trim().split(/\s+/);
-  if (words.length < 5) return text;
-  // Only strip if the first four words actually look like Bismillah. This
-  // guards against double-stripping a verse that the API already returned
-  // without a Bismillah prefix (or that we stripped once already on cache).
-  const stripDiacritics = (s: string) =>
-    s.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "");
-  // Bismillah ends in "الرحيم" — if word #4 doesn't contain that root, the
-  // verse has already had it removed; leave the text alone.
-  if (!/رحيم/.test(stripDiacritics(words[3]))) return text;
-  const rest = words.slice(4).join(" ").trim();
-  return rest.length > 0 ? rest : text;
+interface VerseCachePayload {
+  v: number;
+  source: "network-validated";
+  t: number;
+  d: CachedVerse[];
 }
 
-// Re-clean cached verses on read so users with previously-cached data
-// (stripped by the old, too-strict regex) still see the fix without
-// having to clear app storage.
-function cleanCachedVerses(n: number, list: CachedVerse[]): CachedVerse[] {
-  return list.map((v) => ({ ...v, text: stripBismillah(v.text, n, v.number) }));
+interface WordCachePayload {
+  v: number;
+  source: "quran-foundation-qdc";
+  t: number;
+  d: CachedWordsByVerse;
+}
+
+function validateWordsByVerse(n: number, value: unknown): CachedWordsByVerse {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("bad-words-shape");
+  }
+  const expectedCount = getExpectedVerseCount(n);
+  const input = value as Record<string, unknown>;
+  const result: CachedWordsByVerse = {};
+  for (let verseNumber = 1; verseNumber <= expectedCount; verseNumber++) {
+    const rawWords = input[String(verseNumber)];
+    if (!Array.isArray(rawWords) || rawWords.length === 0) {
+      throw new Error(`bad-words-verse-${n}-${verseNumber}`);
+    }
+    result[verseNumber] = rawWords.map((raw, index) => {
+      if (!raw || typeof raw !== "object") throw new Error("bad-word-shape");
+      const word = raw as Partial<CachedWord>;
+      if (!Number.isInteger(word.position) || (word.position as number) < 1) {
+        throw new Error("bad-word-position");
+      }
+      if (typeof word.location !== "string" || !word.location) throw new Error("bad-word-location");
+      if (typeof word.arabic !== "string" || !/[\u0600-\u06FF]/u.test(word.arabic)) {
+        throw new Error("bad-word-arabic");
+      }
+      if (typeof word.transliteration !== "string" || typeof word.meaning !== "string") {
+        throw new Error("bad-word-translation");
+      }
+      return {
+        position: word.position as number,
+        location: word.location,
+        arabic: word.arabic.trim(),
+        transliteration: word.transliteration.trim(),
+        meaning: word.meaning.trim(),
+      };
+    });
+    for (let index = 0; index < result[verseNumber].length; index++) {
+      if (result[verseNumber][index].position !== index + 1) {
+        throw new Error(`bad-word-order-${n}-${verseNumber}`);
+      }
+    }
+  }
+  return result;
 }
 
 // ── Read helpers ────────────────────────────────────────────────────────────
 
 export async function getCachedVerses(n: number): Promise<CachedVerse[] | null> {
+  const key = VERSES_KEY(n);
   try {
-    const raw = await AsyncStorage.getItem(VERSES_KEY(n));
+    const raw = await AsyncStorage.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { t: number; d: CachedVerse[] };
-    if (!parsed?.d || !Array.isArray(parsed.d)) return null;
-    return cleanCachedVerses(n, parsed.d);
+    const parsed = JSON.parse(raw) as Partial<VerseCachePayload>;
+    if (parsed?.v !== QURAN_CACHE_VERSION || parsed.source !== "network-validated") {
+      throw new Error("stale-verses-cache");
+    }
+    return validateSurahVerses(n, parsed.d) as CachedVerse[];
   } catch {
+    // Corrupt, partial, or pre-validation cache data must never be displayed.
+    await AsyncStorage.removeItem(key).catch(() => {});
     return null;
   }
 }
 
 export async function getCachedWords(n: number): Promise<CachedWordsByVerse | null> {
+  const key = WORDS_KEY(n);
   try {
-    const raw = await AsyncStorage.getItem(WORDS_KEY(n));
+    const raw = await AsyncStorage.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { t: number; d: CachedWordsByVerse };
-    if (!parsed?.d || typeof parsed.d !== "object") return null;
-    return parsed.d;
+    const parsed = JSON.parse(raw) as Partial<WordCachePayload>;
+    if (parsed?.v !== QURAN_CACHE_VERSION || parsed.source !== "quran-foundation-qdc") {
+      throw new Error("stale-words-cache");
+    }
+    return validateWordsByVerse(n, parsed.d);
   } catch {
+    await AsyncStorage.removeItem(key).catch(() => {});
     return null;
   }
 }
@@ -110,25 +151,55 @@ async function fetchAndCacheVerses(
     `https://api.alquran.cloud/v1/surah/${n}/editions/quran-uthmani,en.sahih,en.transliteration`,
     { signal },
   );
+  if (!res.ok) throw new Error(`verses-http-${res.status}`);
   const json = await res.json();
-  const arabic       = json?.data?.[0]?.ayahs as any[];
-  const english      = json?.data?.[1]?.ayahs as any[];
-  const transliterat = json?.data?.[2]?.ayahs as any[];
-  if (!arabic || !english) throw new Error("bad-verses-response");
-  const mapped: CachedVerse[] = arabic.map((a: any, i: number) => ({
+  const arabic       = json?.data?.[0]?.ayahs as unknown;
+  const english      = json?.data?.[1]?.ayahs as unknown;
+  const transliterat = json?.data?.[2]?.ayahs as unknown;
+  const expectedCount = getExpectedVerseCount(n);
+  if (
+    !Array.isArray(json?.data) || json.data.length !== 3 ||
+    json.data[0]?.edition?.identifier !== "quran-uthmani" ||
+    json.data[1]?.edition?.identifier !== "en.sahih" ||
+    json.data[2]?.edition?.identifier !== "en.transliteration" ||
+    !Array.isArray(arabic) || !Array.isArray(english) || !Array.isArray(transliterat) ||
+    arabic.length !== expectedCount || english.length !== expectedCount ||
+    transliterat.length !== expectedCount
+  ) {
+    throw new Error("bad-verses-response");
+  }
+  for (let index = 0; index < expectedCount; index++) {
+    const expectedVerse = index + 1;
+    const a = arabic[index] as any;
+    const e = english[index] as any;
+    const t = transliterat[index] as any;
+    if (
+      a?.numberInSurah !== expectedVerse || e?.numberInSurah !== expectedVerse ||
+      t?.numberInSurah !== expectedVerse || e?.number !== a?.number || t?.number !== a?.number
+    ) {
+      throw new Error("bad-verses-order");
+    }
+  }
+  const mapped = arabic.map((a: any, i: number) => ({
     number: a.numberInSurah,
     numberInQuran: a.number,
-    text: stripBismillah(a.text, n, a.numberInSurah),
-    translation: english[i]?.text ?? "",
-    transliteration: transliterat?.[i]?.text ?? "",
+    text: a.text,
+    translation: (english[i] as any)?.text,
+    transliteration: (transliterat[i] as any)?.text,
   }));
+  const validated = validateSurahVerses(n, mapped) as CachedVerse[];
   try {
     await AsyncStorage.setItem(
       VERSES_KEY(n),
-      JSON.stringify({ t: Date.now(), d: mapped }),
+      JSON.stringify({
+        v: QURAN_CACHE_VERSION,
+        source: "network-validated",
+        t: Date.now(),
+        d: validated,
+      } satisfies VerseCachePayload),
     );
   } catch { /* storage full or quota — ignore, screen still works */ }
-  return mapped;
+  return validated;
 }
 
 async function fetchAndCacheWords(
@@ -139,9 +210,17 @@ async function fetchAndCacheWords(
     `https://api.qurancdn.com/api/qdc/verses/by_chapter/${n}?words=true&word_fields=text_uthmani,transliteration,translation&per_page=300&page=1`,
     { signal },
   );
+  if (!res.ok) throw new Error(`words-http-${res.status}`);
   const json = await res.json();
+  const expectedCount = getExpectedVerseCount(n);
+  if (!Array.isArray(json?.verses) || json.verses.length !== expectedCount) {
+    throw new Error("bad-words-response");
+  }
   const byVerse: CachedWordsByVerse = {};
-  (json.verses ?? []).forEach((v: any) => {
+  json.verses.forEach((v: any, index: number) => {
+    if (v?.verse_number !== index + 1 || !Array.isArray(v.words)) {
+      throw new Error("bad-words-order");
+    }
     byVerse[v.verse_number] = (v.words ?? [])
       .filter((w: any) => w.char_type_name === "word")
       .map((w: any) => ({
@@ -152,13 +231,19 @@ async function fetchAndCacheWords(
         meaning: w.translation?.text ?? "",
       }));
   });
+  const validated = validateWordsByVerse(n, byVerse);
   try {
     await AsyncStorage.setItem(
       WORDS_KEY(n),
-      JSON.stringify({ t: Date.now(), d: byVerse }),
+      JSON.stringify({
+        v: QURAN_CACHE_VERSION,
+        source: "quran-foundation-qdc",
+        t: Date.now(),
+        d: validated,
+      } satisfies WordCachePayload),
     );
   } catch { /* ignore */ }
-  return byVerse;
+  return validated;
 }
 
 // ── Public: fetch with cache ────────────────────────────────────────────────
@@ -169,7 +254,15 @@ export async function loadVerses(
 ): Promise<CachedVerse[]> {
   const cached = await getCachedVerses(n);
   if (cached) return cached;
-  return fetchAndCacheVerses(n, signal);
+  try {
+    return await fetchAndCacheVerses(n, signal);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    // Reading the Quran must not depend on a mutable network response. The
+    // bundled copy is validated on every construction and remains available
+    // offline; transliteration is the only field it intentionally lacks.
+    return getBundledSurahVerses(n) as CachedVerse[];
+  }
 }
 
 export async function loadWords(
@@ -230,7 +323,7 @@ export async function getCachedSurahNumbers(): Promise<number[]> {
     const keys = await AsyncStorage.getAllKeys();
     const nums = new Set<number>();
     for (const k of keys) {
-      const m = k.match(/^nuur_quran_verses_v2_(\d+)$/);
+      const m = k.match(new RegExp(`^${VERSES_PREFIX}(\\d+)$`));
       if (m) nums.add(parseInt(m[1], 10));
     }
     return Array.from(nums).sort((a, b) => a - b);
@@ -243,7 +336,7 @@ export async function clearQuranCache(): Promise<void> {
   try {
     const keys = await AsyncStorage.getAllKeys();
     const ours = keys.filter(
-      (k) => k.startsWith("nuur_quran_verses_v2_") || k.startsWith("nuur_quran_words_v2_"),
+      (k) => /^nuur_quran_(verses|words)_v\d+_\d+$/.test(k),
     );
     if (ours.length) await AsyncStorage.multiRemove(ours);
   } catch { /* ignore */ }

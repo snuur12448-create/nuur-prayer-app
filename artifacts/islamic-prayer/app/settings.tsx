@@ -37,6 +37,8 @@ import { ADHAN_STYLES, AdhanStyle, AdhanMode, ADHAN_MODE_INFO, getAdhanStyle } f
 import { prefetchAdhanAudio, previewAdhan, stopAdhanAudio } from "@/utils/adhanPlayer";
 import {
   ensureAndroidNotificationChannels,
+  getNotificationPermissionState,
+  readNotificationScheduleStatus,
   resolvePrayerNotificationPresentation,
 } from "@/utils/notifications";
 import * as Notifications from "expo-notifications";
@@ -726,6 +728,7 @@ export default function SettingsScreen() {
     polarResolution, setPolarResolution,
     timeFormat, setTimeFormat,
     notificationsEnabled, toggleNotifications,
+    prayerPreReminderMinutes, setPrayerPreReminderMinutes,
     jummahReminderEnabled, jummahMinutesBefore, setJummahReminder,
     ayahReminderEnabled, ayahReminderHour, ayahReminderMinute, setAyahReminder,
     hadithReminderEnabled, hadithReminderHour, hadithReminderMinute, setHadithReminder,
@@ -1170,13 +1173,80 @@ export default function SettingsScreen() {
 
               <RowSeparator colors={colors} />
 
-              {/* Test Notification — diagnostic */}
+              <View style={{ padding: 16, gap: 10 }}>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>Advance Reminder</Text>
+                <Text style={[styles.rowHint, { color: colors.textSecondary }]}>
+                  Optional preparation reminder, separate from your prayer-time alert. Prayer-time alerts take priority; extra reminders cover a shorter window. Open Nuur regularly to refresh them.
+                </Text>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  {([0, 5, 10, 15] as const).map((minutes) => (
+                    <Pressable
+                      key={minutes}
+                      onPress={() => {
+                        void setPrayerPreReminderMinutes(minutes).catch(() => {
+                          Alert.alert("Couldn't update reminders", "Please try again.");
+                        });
+                      }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: prayerPreReminderMinutes === minutes }}
+                      accessibilityLabel={minutes === 0 ? "Advance reminder off" : `Remind ${minutes} minutes before prayer`}
+                      style={{
+                        flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center",
+                        borderRadius: 10, borderWidth: 1,
+                        borderColor: prayerPreReminderMinutes === minutes ? colors.gold : colors.border,
+                        backgroundColor: prayerPreReminderMinutes === minutes ? colors.gold + "18" : "transparent",
+                      }}
+                    >
+                      <Text style={{ color: prayerPreReminderMinutes === minutes ? colors.gold : colors.text }}>
+                        {minutes === 0 ? "Off" : `${minutes} min`}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+              <RowSeparator colors={colors} />
+
+              {/* Inspect the actual OS queue, including migrated reminders. */}
               <TouchableOpacity
                 style={styles.cardRow}
                 onPress={async () => {
                   try {
-                    const perm = await Notifications.getPermissionsAsync();
-                    if (perm.status !== "granted") {
+                    const status = await readNotificationScheduleStatus();
+                    if (status.error) throw new Error(status.error);
+                    const through = status.scheduledThrough
+                      ? new Date(status.scheduledThrough).toLocaleString()
+                      : "No prayer-time alerts queued";
+                    Alert.alert("Prayer alert status", [
+                      `Notifications: ${status.permission === "granted" ? "Allowed" : "Not allowed — check iPhone Settings"}`,
+                      `Prayer-time alerts: ${status.actualPrayerCount}`,
+                      `Advance reminders: ${status.preReminderCount}`,
+                      `Duplicate alerts: ${status.duplicateCount}`,
+                      `Last queued prayer: ${through}`,
+                      "iOS controls background refresh. Open Nuur regularly to replenish alerts.",
+                    ].join("\n\n"));
+                  } catch {
+                    Alert.alert("Couldn't check alerts", "Please try again. Your existing alert settings have been kept.");
+                  }
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Check prayer alerts"
+              >
+                <View style={styles.rowLeft}>
+                  <Feather name="check-circle" size={16} color={colors.gold} style={styles.rowIcon} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.rowLabel, { color: colors.text }]}>Check Prayer Alerts</Text>
+                    <Text style={[styles.rowHint, { color: colors.textSecondary }]}>Check queued prayer times and duplicate reminders</Text>
+                  </View>
+                </View>
+                <Feather name="chevron-right" size={16} color={colors.gold + "AA"} />
+              </TouchableOpacity>
+              <RowSeparator colors={colors} />
+              <TouchableOpacity
+                style={styles.cardRow}
+                onPress={async () => {
+                  try {
+                    const permission = await getNotificationPermissionState();
+                    if (permission !== "granted") {
                       Alert.alert(
                         "Permission not granted",
                         "Nuur doesn't have notification permission. Open your device Settings → Notifications → Nuur → Allow Notifications.",
@@ -1190,6 +1260,7 @@ export default function SettingsScreen() {
                       adhanStyleId,
                     );
                     await Notifications.scheduleNotificationAsync({
+                      identifier: "nuur-test-notification",
                       content: {
                         title: "Nuur · Test Notification",
                         body: "If you hear this, notifications work. Fires in 10 seconds.",
@@ -1207,7 +1278,7 @@ export default function SettingsScreen() {
                     });
                     Alert.alert(
                       "Test scheduled",
-                      "Lock your phone now. Notification will fire in 10 seconds. If you don't hear it, Sleep/Do Not Disturb Focus is blocking Nuur.",
+                      "Lock your phone now. The test is scheduled for 10 seconds from now. If it is silent, check Nuur's notification sound permission, volume, Silent Mode and Focus settings.",
                     );
                   } catch (err) {
                     Alert.alert("Test failed", String(err));
@@ -1391,7 +1462,7 @@ export default function SettingsScreen() {
                   <View style={[styles.adhanInfoRow, { backgroundColor: colors.gold + "08" }]}>
                     <MaterialCommunityIcons name="calendar-check" size={12} color={colors.gold} />
                     <Text style={[styles.adhanInfoText, { color: colors.textSecondary }]}>
-                      Day-of reminders at 7 am · Eve reminders at 8 pm for major events · Laylatul Qadr alerts at 9 pm
+                      Calculated dates may differ from local moon sightings. Confirm Ramadan, Eid and fasting dates with your local authority. Day-of reminders at 7 am · Eve reminders at 8 pm · Possible Laylatul Qadr nights at 9 pm.
                     </Text>
                   </View>
                 </>
@@ -1452,7 +1523,14 @@ export default function SettingsScreen() {
             colors={colors}
             icon="download-cloud"
             title="When Nuur connects"
-            body="Prayer times and Qibla are calculated on your device. City lookup, nearby mosques, weather, Quran and tafsir content, hadith, audio, and live Nisab prices use third-party services. Location-based services may receive your coordinates."
+            body="Prayer times and Qibla are calculated on your device. City search uses OpenStreetMap Nominatim; nearby mosques use the Overpass services at overpass-api.de and overpass.kumi.systems. These services receive your search or coordinates and IP address. Apple WeatherKit receives your coordinates for contextual widget verses. Quran, tafsir, recitation and live Nisab services receive your IP address and requested content. Hadith browsing works offline."
+          />
+          <RowSeparator colors={colors} />
+          <PledgeRow
+            colors={colors}
+            icon="clock"
+            title="Widgets and saved prayer times"
+            body="Widgets require iOS 17 or later and use your last selected location. Open Nuur after travelling to update it. Prayer schedules are saved ahead; iOS decides when background refresh can run. Open Nuur regularly to renew your widgets and prayer alerts."
           />
         </GroupCard>
 

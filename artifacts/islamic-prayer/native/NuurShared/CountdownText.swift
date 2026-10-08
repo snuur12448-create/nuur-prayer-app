@@ -8,14 +8,18 @@ public struct CountdownText: View {
     public let countdownM: String
     public let size: CGFloat
     public let color: Color
+    /// Optional — when set, render a system-managed live countdown.
+    public let targetDate: Date?
 
     public init(state: NuurState, countdownH: String, countdownM: String,
-                size: CGFloat = 38, color: Color = NuurTheme.text) {
+                size: CGFloat = 38, color: Color = NuurTheme.text,
+                targetDate: Date? = nil) {
         self.state = state
         self.countdownH = countdownH
         self.countdownM = countdownM
         self.size = size
         self.color = color
+        self.targetDate = targetDate
     }
 
     public var body: some View {
@@ -27,27 +31,33 @@ public struct CountdownText: View {
                 // for "● NOW · TIME TO PRAY" (handled in LiveActivityCard), so
                 // CountdownText renders nothing.
                 EmptyView()
-            case .t30, .t10, .t1:
-                // Inside the urgency window: live minute count (drives the
-                // 30 → 29 → 28 … 1 ticker via per-minute timeline entries).
-                pair(num: countdownM, unit: "m", unitSize: unitSize)
-            case .normal:
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text(countdownH)
+            default:
+                if let target = targetDate {
+                    Text(timerInterval: nuurCountdownInterval(to: target), countsDown: true)
                         .font(.system(size: size, weight: .regular, design: .serif))
                         .foregroundColor(color)
-                    Text("h")
-                        .font(.system(size: unitSize, weight: .regular, design: .serif))
-                        .foregroundColor(NuurTheme.gold)
-                        .padding(.leading, 1)
-                        .padding(.trailing, 4)
-                    Text(countdownM)
-                        .font(.system(size: size, weight: .regular, design: .serif))
-                        .foregroundColor(color)
-                    Text("m")
-                        .font(.system(size: unitSize, weight: .regular, design: .serif))
-                        .foregroundColor(NuurTheme.gold)
-                        .padding(.leading, 2)
+                        .monospacedDigit()
+                        .multilineTextAlignment(.leading)
+                } else if state == .normal {
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        Text(countdownH)
+                            .font(.system(size: size, weight: .regular, design: .serif))
+                            .foregroundColor(color)
+                        Text("h")
+                            .font(.system(size: unitSize, weight: .regular, design: .serif))
+                            .foregroundColor(NuurTheme.gold)
+                            .padding(.leading, 1)
+                            .padding(.trailing, 4)
+                        Text(countdownM)
+                            .font(.system(size: size, weight: .regular, design: .serif))
+                            .foregroundColor(color)
+                        Text("m")
+                            .font(.system(size: unitSize, weight: .regular, design: .serif))
+                            .foregroundColor(NuurTheme.gold)
+                            .padding(.leading, 2)
+                    }
+                } else {
+                    pair(num: countdownM, unit: "m", unitSize: unitSize)
                 }
             }
         }

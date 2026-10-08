@@ -33,6 +33,7 @@ function MiniPlayer() {
   const { themeColors: colors } = useAppContext();
   const {
     playState,
+    playbackError,
     playingVerse,
     currentSurahNum,
     currentSurahArabic,
@@ -44,6 +45,7 @@ function MiniPlayer() {
     togglePlayPause,
     skipNext,
     skipPrevious,
+    retryPlayback,
   } = useQuranPlayer();
 
   const insets = useSafeAreaInsets();
@@ -52,7 +54,10 @@ function MiniPlayer() {
 
   const TAB_H = isWeb ? 84 : isIOS ? 49 + insets.bottom : 60;
 
-  if ((playState !== "playing" && playState !== "paused") || currentSurahNum === null) {
+  if (
+    (playState !== "playing" && playState !== "paused" && !playbackError) ||
+    currentSurahNum === null
+  ) {
     return null;
   }
 
@@ -79,10 +84,40 @@ function MiniPlayer() {
           {currentSurahName ? <Text style={[styles.miniSurahEn, { color: colors.textSecondary }]}> · {currentSurahName}</Text> : null}
         </Text>
         <Text style={[styles.miniMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-          Verse {playingVerse} · {selectedReciter.name.split(" ").slice(0, 2).join(" ")}
+          {playbackError
+            ? "Playback unavailable · tap Retry"
+            : `Verse ${playingVerse} · ${selectedReciter.name.split(" ").slice(0, 2).join(" ")}`}
         </Text>
       </View>
-      <View style={styles.miniControls}>
+      {playbackError ? (
+        <View style={styles.miniControls}>
+          <TouchableOpacity
+            onPress={(event) => {
+              event.stopPropagation();
+              void retryPlayback();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Retry Quran audio"
+            style={[styles.miniRetryBtn, { backgroundColor: colors.tint + "20" }]}
+          >
+            <Feather name="refresh-cw" size={13} color={colors.tint} />
+            <Text style={[styles.miniRetryText, { color: colors.tint }]}>Retry</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={(event) => {
+              event.stopPropagation();
+              void stopAudio();
+            }}
+            style={styles.miniStopBtn}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss Quran audio error"
+          >
+            <Feather name="x" size={14} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.miniControls}>
         <TouchableOpacity
           onPress={() => setAutoAdvance(!autoAdvance)}
           hitSlop={12}
@@ -102,7 +137,8 @@ function MiniPlayer() {
         <TouchableOpacity onPress={() => stopAudio()} style={styles.miniStopBtn} hitSlop={10}>
           <Feather name="x" size={14} color={colors.textSecondary} />
         </TouchableOpacity>
-      </View>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -294,6 +330,19 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
+  },
+  miniRetryBtn: {
+    minHeight: 34,
+    paddingHorizontal: 10,
+    borderRadius: 17,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+  },
+  miniRetryText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
   },
   miniStopBtn: {
     width: 28,

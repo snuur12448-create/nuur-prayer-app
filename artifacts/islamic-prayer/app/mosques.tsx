@@ -81,8 +81,6 @@ function prettyDenomination(d?: string): string | undefined {
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-  "https://overpass.openstreetmap.ru/api/interpreter",
 ];
 
 function buildQuery(lat: number, lon: number, radiusM: number, nodesOnly = false) {

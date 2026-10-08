@@ -42,6 +42,9 @@ private struct SharedSnapshot: Decodable {
     // Rolling prayer cache. Optional so snapshots written by older app builds
     // remain decodable during an upgrade.
     let prayerDays: [SharedPrayerDay]?
+    // Snapshot lifecycle metadata. Optional for upgrades from older builds.
+    let generatedAt: String?
+    let validThrough: String?
     // IANA timezone for the selected prayer location. Optional for snapshots
     // written by older app versions, which fall back to the device timezone.
     let timeZone: String?
@@ -72,6 +75,21 @@ private func parseISO(_ s: String) -> Date? {
     if let d = iso.date(from: s) { return d }
     iso.formatOptions = [.withInternetDateTime]
     return iso.date(from: s)
+}
+
+private func snapshotValidThrough(_ snap: SharedSnapshot) -> Date? {
+    if let raw = snap.validThrough, let explicit = parseISO(raw) { return explicit }
+    if let finalIsha = snap.prayerDays?.last?.isha, let date = parseISO(finalIsha) {
+        return date.addingTimeInterval(5 * 60)
+    }
+    if let raw = snap.fajrTomorrow, let date = parseISO(raw) {
+        return date.addingTimeInterval(5 * 60)
+    }
+    return parseISO(snap.isha)?.addingTimeInterval(5 * 60)
+}
+
+private func snapshotHasExpired(_ snap: SharedSnapshot, at date: Date) -> Bool {
+    nuurSnapshotHasExpired(validThrough: snapshotValidThrough(snap), at: date)
 }
 
 private func prayerTimeZone(_ identifier: String?) -> TimeZone {
@@ -263,7 +281,8 @@ private func makeEntry(now: Date, slots: [PrayerSlot], location: String, hijri: 
         verseRef: verseRef,
         verseWindow: verseWindow,
         themeName: themeName,
-        activeIsFresh: activeIsFresh
+        activeIsFresh: activeIsFresh,
+        requiresRefresh: false
     )
 }
 
@@ -298,6 +317,8 @@ struct NuurEntry: TimelineEntry {
     // True only for the first ~15 min of the active prayer's window. Controls
     // the "● NOW · IN PROGRESS" pill on Square + Large widgets.
     let activeIsFresh: Bool
+    /// True once the rolling prayer cache has no authoritative future data.
+    let requiresRefresh: Bool
 }
 
 // MARK: - Provider
@@ -306,6 +327,9 @@ struct NuurProvider: AppIntentTimelineProvider {
 
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> NuurEntry {
         if let snap = SnapshotReader.read() {
+            if snapshotHasExpired(snap, at: Date()) {
+                return Self.refreshRequired(config: configuration)
+            }
             let entries = buildEntries(from: snap, config: configuration)
             return entries.first ?? Self.sample(.normal, .day, config: configuration)
         }
@@ -323,7 +347,11 @@ struct NuurProvider: AppIntentTimelineProvider {
         // The timeline is self-contained for seven days. Asking for the next
         // reload only after its final entry avoids depending on WidgetKit's
         // discretionary background budget for daily correctness.
-        let refreshAt = entries.last?.date
+        let refreshAt = entries.last.map {
+            $0.requiresRefresh
+                ? max($0.date, Date()).addingTimeInterval(6 * 60 * 60)
+                : $0.date
+        }
             ?? Calendar.current.date(byAdding: .hour, value: 1, to: Date())!
         return Timeline(entries: entries, policy: .after(refreshAt))
     }
@@ -337,6 +365,10 @@ struct NuurProvider: AppIntentTimelineProvider {
         let allSlots = slots(from: snap)
         guard !allSlots.isEmpty else { return [] }
 
+        if snapshotHasExpired(snap, at: now) {
+            return [Self.refreshRequired(date: now, config: config)]
+        }
+
         let streak = snap.streakDays ?? 0
         let week = snap.weekPct ?? 0
         // Per-widget toggle wins; otherwise fall back to the app-level
@@ -346,6 +378,9 @@ struct NuurProvider: AppIntentTimelineProvider {
         let timeZone = prayerTimeZone(snap.timeZone)
 
         func mk(_ t: Date) -> NuurEntry {
+            if snapshotHasExpired(snap, at: t) {
+                return Self.refreshRequired(date: t, config: config)
+            }
             let dayMetadata = metadata(from: snap, at: t)
             return makeEntry(now: t, slots: allSlots,
                              location: snap.location, hijri: dayMetadata.hijri,
@@ -356,15 +391,17 @@ struct NuurProvider: AppIntentTimelineProvider {
         }
 
         let horizon = now.addingTimeInterval(7 * 24 * 60 * 60)
-        var moments = Set<Date>([now, horizon])
+        let expiryBoundary = snapshotValidThrough(snap)?.addingTimeInterval(1)
+        let timelineEnd = expiryBoundary.map { min(horizon, $0) } ?? horizon
+        var moments = Set<Date>([now, timelineEnd])
 
         // T-30 and T-10 change the card's urgency treatment. The exact prayer
         // boundary produces T-0, and +5 minutes advances to the next prayer.
         // Countdown digits themselves remain live via SwiftUI's timer style.
-        for slot in allSlots where slot.date > now && slot.date <= horizon {
+        for slot in allSlots where slot.date > now && slot.date <= timelineEnd {
             for offset in [-30, -10, 0, 5] {
                 let moment = slot.date.addingTimeInterval(TimeInterval(offset * 60))
-                if moment > now && moment <= horizon { moments.insert(moment) }
+                if moment > now && moment <= timelineEnd { moments.insert(moment) }
             }
         }
 
@@ -373,10 +410,10 @@ struct NuurProvider: AppIntentTimelineProvider {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = timeZone
         var day = cal.startOfDay(for: now)
-        while day <= horizon {
+        while day <= timelineEnd {
             if day > now { moments.insert(day) }
             if let fourAM = cal.date(bySettingHour: 4, minute: 0, second: 0, of: day),
-               fourAM > now && fourAM <= horizon {
+               fourAM > now && fourAM <= timelineEnd {
                 moments.insert(fourAM)
             }
             guard let nextDay = cal.date(byAdding: .day, value: 1, to: day) else { break }
@@ -435,8 +472,48 @@ struct NuurProvider: AppIntentTimelineProvider {
             verseRef: "94:5",
             verseWindow: "",
             themeName: "emerald",
-            activeIsFresh: true
+            activeIsFresh: true,
+            requiresRefresh: false
         )
+    }
+
+    static func refreshRequired(date: Date = Date(),
+                                config: ConfigurationAppIntent = ConfigurationAppIntent()) -> NuurEntry {
+        NuurEntry(
+            date: date, configuration: config, state: .normal, skin: .night,
+            prayerEn: "Prayer times", prayerAr: "", nextAt: "--:--",
+            countdownH: "0", countdownM: "00", countdownLabel: "REFRESH REQUIRED",
+            location: "Open Nuur", hijri: "", activePrayer: .isha, nextPrayer: .fajr,
+            targetDate: date, allTimes: [], streakDays: 0, weekPct: 0,
+            verseAr: "", verseRef: "", verseWindow: "", themeName: "emerald",
+            activeIsFresh: false, requiresRefresh: true
+        )
+    }
+}
+
+struct NuurRefreshRequiredCard: View {
+    let compact: Bool
+
+    var body: some View {
+        VStack(spacing: compact ? 7 : 10) {
+            Image(systemName: "arrow.clockwise.circle.fill")
+                .font(.system(size: compact ? 22 : 28, weight: .semibold))
+                .foregroundColor(NuurTheme.gold)
+            Text(compact ? "Open Nuur" : "Prayer times need refreshing")
+                .font(.system(size: compact ? 15 : 18, weight: .semibold, design: .serif))
+                .foregroundColor(NuurTheme.text)
+                .multilineTextAlignment(.center)
+            if !compact {
+                Text("Open the app to refresh your location and prayer schedule.")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundColor(NuurTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(NuurTheme.surface)
+        .widgetURL(URL(string: "nuur://"))
     }
 }
 
@@ -448,7 +525,9 @@ struct NuurWidgetEntryView: View {
     var body: some View {
         GeometryReader { geo in
             Group {
-                if family == .systemLarge {
+                if entry.requiresRefresh {
+                    NuurRefreshRequiredCard(compact: false)
+                } else if family == .systemLarge {
                     DailyCompanionLarge(
                         activePrayer: entry.activePrayer,
                         nextPrayer: entry.nextPrayer,

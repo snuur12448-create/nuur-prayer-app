@@ -114,6 +114,11 @@ check(nativeInfo.includes(`<string>${appConfig.version}</string>`), "Native and 
 check(nativeInfo.includes(`<string>${appConfig.ios.buildNumber}</string>`), "Native and Expo build numbers differ.");
 
 const entitlements = read("ios", "Nuur", "Nuur.entitlements");
+check(appConfig.ios.entitlements["com.apple.developer.weatherkit"] === true &&
+  entitlements.includes("com.apple.developer.weatherkit"), "WeatherKit must be declared in both native and Expo entitlements.");
+check(!read("app", "hadiths.tsx").includes("EXPO_PUBLIC_SUNNAH_API_KEY"),
+  "Private hadith credentials must not be embedded in the app.");
+check(!pluginConfig("expo-router").origin, "Do not ship a development router origin.");
 check(!entitlements.includes("aps-environment"), "Remote-push entitlement is unused by this local-notification app.");
 check(entitlements.includes("group.com.nuur.shared"), "Main app App Group entitlement is missing.");
 const widgetEntitlements = read("ios", "NuurWidgetExtension.entitlements");
@@ -121,7 +126,8 @@ check(widgetEntitlements.includes("group.com.nuur.shared"), "Widget App Group en
 
 const appPrivacy = read("ios", "Nuur", "PrivacyInfo.xcprivacy");
 check(appPrivacy.includes("1C8F.1"), "App privacy manifest must declare App Group UserDefaults reason 1C8F.1.");
-check(!appPrivacy.includes("CA92.1"), "CA92.1 does not cover shared App Group UserDefaults.");
+// CocoaPods also merges CA92.1 for libraries' app-private preferences. That
+// reason is valid alongside (but cannot replace) our App Group reason 1C8F.1.
 check(appPrivacy.includes("NSPrivacyCollectedDataTypePreciseLocation"),
   "App privacy manifest must disclose precise location sent for location-based services.");
 const widgetPrivacy = read("ios", "NuurWidget", "PrivacyInfo.xcprivacy");
@@ -135,6 +141,10 @@ check((project.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.nuur\.islamicprayer;/g) ?
 check((project.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.nuur\.islamicprayer\.NuurWidget;/g) ?? []).length === 2,
   "Native widget bundle identifiers differ from the canonical release identity.");
 const nativeMarketingVersion = `MARKETING_VERSION = ${appConfig.version};`;
+check(project.split(`CURRENT_PROJECT_VERSION = ${appConfig.ios.buildNumber};`).length - 1 === 4,
+  "App and widget build numbers must match the Expo build number.");
+check(!read("ios", "Nuur.xcodeproj", "xcshareddata", "xcschemes", "Nuur.xcscheme").includes("NuurTests.xctest"),
+  "The shared scheme must not reference a nonexistent test target.");
 check(project.split(nativeMarketingVersion).length - 1 === 4,
   "App and widget marketing versions must match the Expo version in Debug and Release.");
 check((project.match(/PrivacyInfo\.xcprivacy in Resources/g) ?? []).length === 2,

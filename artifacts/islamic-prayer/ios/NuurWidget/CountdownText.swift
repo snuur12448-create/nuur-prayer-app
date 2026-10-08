@@ -36,7 +36,7 @@ public struct CountdownText: View {
             default:
                 if let target = targetDate {
                     // Live ticking timer (H:MM:SS or MM:SS, system-rendered).
-                    Text(timerInterval: Date()...target, countsDown: true)
+                    Text(timerInterval: nuurCountdownInterval(to: target), countsDown: true)
                         .font(.system(size: size, weight: .regular, design: .serif))
                         .foregroundColor(color)
                         .monospacedDigit()
